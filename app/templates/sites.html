@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Sites & Ownership - Hardware Asset Tracker{% endblock %}
+{% block nav_sites %}active{% endblock %}
+
+{% block content %}
+<h1>Sites & Ownership</h1>
+
+<!-- Overdue Loaners Alert -->
+{% if overdue_count > 0 %}
+<div class="alert-banner" style="border-left-color: #FF4444;">
+    <span class="icon">!</span>
+    <span>
+        <strong>{{ overdue_count }} device{{ 's' if overdue_count != 1 else '' }}</strong>
+        overdue for return. Review loaner assignments below.
+    </span>
+</div>
+{% endif %}
+
+<!-- Summary Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ total_sites }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Total Sites</div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--success);">{{ active_sites }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Active Sites</div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--info, #3b82f6);">{{ total_assignments }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Assigned Devices</div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: {{ '#FF4444' if overdue_count > 0 else 'var(--text-muted)' }};">{{ overdue_count }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Overdue Returns</div>
+    </div>
+</div>
+
+<!-- Action Bar -->
+<div class="table-header">
+    <div class="header-actions">
+        {% if user.has_sites_admin %}
+        <button class="btn btn-primary btn-sm" onclick="openAddSiteModal()">+ Add Site</button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Sites Table -->
+<div class="table-section">
+    <h2>All Sites</h2>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Customer</th>
+                    <th>Location</th>
+                    <th>Contact</th>
+                    <th>Devices</th>
+                    <th>Status</th>
+                    {% if user.has_sites_admin %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if sites %}
+                {% for item in sites %}
+                {% set s = item.site %}
+                <tr>
+                    <td>
+                        <a href="{{ base_path }}/sites/{{ s.id }}" style="font-weight: 600; color: var(--primary);">{{ s.name }}</a>
+                    </td>
+                    <td>
+                        <span class="badge" style="background: {{ {
+                            'internal_lab': 'var(--primary)',
+                            'customer_site': 'var(--success)',
+                            'partner': '#8b5cf6',
+                            'warehouse': 'var(--info, #3b82f6)',
+                            'office': '#6b7280'
+                        }.get(s.site_type, 'var(--border)') }}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                            {{ site_types.get(s.site_type, s.site_type) }}
+                        </span>
+                    </td>
+                    <td>{{ s.customer or '-' }}</td>
+                    <td>
+                        {% if s.city or s.state %}
+                            {{ s.city or '' }}{{ ', ' if s.city and s.state else '' }}{{ s.state or '' }}
+                        {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ s.contact_name or '-' }}</td>
+                    <td>
+                        {% if item.device_count > 0 %}
+                        <strong>{{ item.device_count }}</strong>
+                        {% else %}
+                        <span style="color: var(--text-muted);">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if s.is_active %}
+                        <span style="color: var(--success); font-weight: 600;">Active</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">Inactive</span>
+                        {% endif %}
+                    </td>
+                    {% if user.has_sites_admin %}
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="editSite({{ s.id }})">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSite({{ s.id }}, '{{ s.name|e }}')">Delete</button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="{% if user.has_sites_admin %}8{% else %}7{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No sites configured yet. Click "+ Add Site" to create your first site.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add/Edit Site Modal -->
+<div id="site-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:1.5rem; width:500px; max-width:90vw; max-height:90vh; overflow-y:auto;">
+        <h3 id="site-modal-title" style="margin-bottom:1rem;">Add Site</h3>
+        <input type="hidden" id="site-edit-id">
+
+        <div class="form-group">
+            <label>Site Name *</label>
+            <input type="text" id="site-name" placeholder="e.g. Company Lab, Acme Corp HQ" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Site Type *</label>
+            <select id="site-type" style="width:100%;">
+                <option value="">-- Select --</option>
+                {% for key, label in site_types.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Customer / Organization</label>
+            <input type="text" id="site-customer" placeholder="e.g. Acme Corp" style="width:100%;">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div class="form-group">
+                <label>City</label>
+                <input type="text" id="site-city" style="width:100%;">
+            </div>
+            <div class="form-group">
+                <label>State</label>
+                <input type="text" id="site-state" style="width:100%;">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Country</label>
+            <input type="text" id="site-country" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Address</label>
+            <textarea id="site-address" rows="2" style="width:100%;"></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div class="form-group">
+                <label>Contact Name</label>
+                <input type="text" id="site-contact-name" style="width:100%;">
+            </div>
+            <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" id="site-contact-email" style="width:100%;">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Contact Phone</label>
+            <input type="text" id="site-contact-phone" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea id="site-notes" rows="2" style="width:100%;"></textarea>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="closeSiteModal()">Cancel</button>
+            <button class="btn btn-success" onclick="saveSite()">Save</button>
+        </div>
+        <div id="site-modal-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+
+function openAddSiteModal() {
+    document.getElementById('site-modal-title').textContent = 'Add Site';
+    document.getElementById('site-edit-id').value = '';
+    ['site-name','site-type','site-customer','site-city','site-state',
+     'site-country','site-address','site-contact-name','site-contact-email',
+     'site-contact-phone','site-notes'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else el.value = '';
+    });
+    document.getElementById('site-modal-msg').innerHTML = '';
+    document.getElementById('site-modal').style.display = 'flex';
+}
+
+function editSite(siteId) {
+    // Fetch site data and populate the modal
+    fetch(`${BP}/api/sites/list`).then(r => r.json()).then(sites => {
+        // We need full data, so fetch the detail page as JSON isn't available
+        // For now, redirect to detail page for editing
+        window.location.href = `${BP}/sites/${siteId}`;
+    });
+}
+
+function closeSiteModal() {
+    document.getElementById('site-modal').style.display = 'none';
+}
+
+async function saveSite() {
+    const editId = document.getElementById('site-edit-id').value;
+    const msg = document.getElementById('site-modal-msg');
+    const body = {
+        name: document.getElementById('site-name').value,
+        site_type: document.getElementById('site-type').value,
+        customer: document.getElementById('site-customer').value,
+        city: document.getElementById('site-city').value,
+        state: document.getElementById('site-state').value,
+        country: document.getElementById('site-country').value,
+        address: document.getElementById('site-address').value,
+        contact_name: document.getElementById('site-contact-name').value,
+        contact_email: document.getElementById('site-contact-email').value,
+        contact_phone: document.getElementById('site-contact-phone').value,
+        notes: document.getElementById('site-notes').value,
+    };
+
+    try {
+        const url = editId ? `${BP}/api/sites/${editId}` : `${BP}/api/sites`;
+        const method = editId ? 'PUT' : 'POST';
+        const resp = await fetch(url, {
+            method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            msg.innerHTML = '<span style="color: var(--success);">Saved successfully.</span>';
+            setTimeout(() => location.reload(), 500);
+        } else {
+            msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+        }
+    } catch (err) {
+        msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
+    }
+}
+
+async function deleteSite(siteId, siteName) {
+    if (!confirm(`Delete site "${siteName}"? This cannot be undone.`)) return;
+    try {
+        const resp = await fetch(`${BP}/api/sites/${siteId}`, {method: 'DELETE'});
+        const data = await resp.json();
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert(data.error || 'Failed to delete site');
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
+
+// Close modal on backdrop click
+document.getElementById('site-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeSiteModal();
+});
+</script>
+{% endblock %}

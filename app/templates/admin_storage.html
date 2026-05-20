@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Storage Monitor - Hardware Asset Tracker{% endblock %}
+{% block nav_admin %}{% endblock %}
+
+{% block content %}
+<h1>Storage Monitor</h1>
+<p class="subtitle">Photo storage usage and disk space monitoring</p>
+
+<!-- Disk Usage Overview -->
+<div class="card">
+    <h3>Disk Usage - Photo Storage Drive</h3>
+    <div style="margin: 1.5rem 0;">
+        <!-- Progress Bar -->
+        <div style="background: var(--primary); height: 40px; border-radius: 4px; overflow: hidden; position: relative;">
+            <div style="background: {% if disk_percent > 80 %}var(--danger){% elif disk_percent > 50 %}var(--warning){% else %}var(--success){% endif %}; height: 100%; width: {{ disk_percent }}%; transition: width 0.3s;"></div>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 600; color: var(--text);">
+                {{ disk_percent }}% Used
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; color: var(--text-muted);">
+            <span>{{ disk_used_gb }}GB used</span>
+            <span>{{ disk_free_gb }}GB free of {{ disk_total_gb }}GB total</span>
+        </div>
+    </div>
+
+    {% if disk_percent > 80 %}
+    <div class="alert-banner alert-danger">
+        <span class="icon">⚠</span>
+        <span><strong>High disk usage!</strong> Consider implementing photo cleanup policies.</span>
+    </div>
+    {% elif disk_percent > 50 %}
+    <div class="alert-banner" style="background: var(--warning-bg); border-left-color: var(--warning);">
+        <span class="icon">!</span>
+        <span>Disk usage over 50%. Monitor growth rate and plan for cleanup if needed.</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Photo Statistics -->
+<div class="cards">
+    <div class="card">
+        <div class="number">{{ photo_count }}</div>
+        <div class="label">Total Photos</div>
+    </div>
+
+    <div class="card">
+        <div class="number">{{ photo_size_gb }}GB</div>
+        <div class="label">Storage Used</div>
+    </div>
+
+    <div class="card">
+        <div class="number">{{ event_photos }}</div>
+        <div class="label">Event Photos</div>
+    </div>
+
+    <div class="card">
+        <div class="number">{{ unlinked_photos }}</div>
+        <div class="label">Unlinked Photos</div>
+    </div>
+</div>
+
+<!-- Details -->
+<div class="card">
+    <h3>Photo Storage Details</h3>
+
+    <table style="margin-top: 1rem;">
+        <tr>
+            <td style="font-weight: 500;">Average photo size:</td>
+            <td>{% if photo_count > 0 %}{{ (photo_size_mb / photo_count)|round(1) }}MB{% else %}N/A{% endif %}</td>
+        </tr>
+        <tr>
+            <td style="font-weight: 500;">Database records:</td>
+            <td>{{ db_photo_count }} photos</td>
+        </tr>
+        <tr>
+            <td style="font-weight: 500;">Oldest photo:</td>
+            <td>{% if oldest_date %}{{ oldest_date.strftime('%Y-%m-%d %H:%M') }}{% else %}N/A{% endif %}</td>
+        </tr>
+        <tr>
+            <td style="font-weight: 500;">Newest photo:</td>
+            <td>{% if newest_date %}{{ newest_date.strftime('%Y-%m-%d %H:%M') }}{% else %}N/A{% endif %}</td>
+        </tr>
+        <tr>
+            <td style="font-weight: 500;">Growth rate:</td>
+            <td>{% if growth_rate > 0 %}{{ growth_rate }} photos/day ({{ (growth_rate * photo_size_mb / photo_count)|round(1) if photo_count > 0 else 0 }}MB/day){% else %}N/A{% endif %}</td>
+        </tr>
+        <tr>
+            <td style="font-weight: 500;">Estimated time until full:</td>
+            <td>
+                {% if days_until_full %}
+                    {% if days_until_full > 365 %}
+                        {{ (days_until_full / 365)|round(1) }} years
+                    {% else %}
+                        {{ days_until_full }} days
+                    {% endif %}
+                {% else %}
+                    Plenty of space
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- Cleanup Plan (Info Card) -->
+<div class="card" style="background: var(--primary); border-left: 3px solid var(--accent);">
+    <h3>Cleanup Policy (Future)</h3>
+    <p style="color: var(--text-muted); margin-top: 0.5rem;">
+        Photo cleanup features are planned for implementation when retention policies are defined.
+        Current approach: indefinite storage (sufficient for 47+ years at current growth rate).
+    </p>
+
+    <details style="margin-top: 1rem;">
+        <summary style="cursor: pointer; font-weight: 500; color: var(--accent);">Planned Cleanup Options</summary>
+        <ul style="margin-top: 0.5rem; padding-left: 1.5rem; color: var(--text-muted);">
+            <li>Age-based: Delete photos older than X days</li>
+            <li>Event-based: Delete when device is added to inventory</li>
+            <li>Manual cleanup UI: Browse and delete photos by age/size</li>
+            <li>Compressed archives: Move old photos to ZIP files</li>
+            <li>Selective retention: Keep only photos for RMA/warranty cases</li>
+        </ul>
+    </details>
+</div>
+
+<style>
+.alert-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--danger-bg);
+    border-left: 3px solid var(--danger);
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+.alert-banner .icon {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+}
+
+details summary {
+    transition: color 0.2s;
+}
+
+details summary:hover {
+    color: var(--accent-bright);
+}
+
+details[open] summary {
+    margin-bottom: 0.5rem;
+}
+</style>
+
+{% endblock %}

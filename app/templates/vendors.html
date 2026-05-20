@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Vendor Profiles - Hardware Asset Tracker{% endblock %}
+{% block nav_vendors %}active{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <h1>Vendor Profiles</h1>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        {% if user.has_financial_access or user.is_admin %}
+        <button class="btn btn-primary" onclick="openAddModal()">+ Add Vendor</button>
+        {% endif %}
+        {% if user.is_admin %}
+        <button class="btn" onclick="autoCreate()" title="Seed profiles for all vendor strings in inventory that don't have one yet">Auto-Create All</button>
+        {% endif %}
+    </div>
+</div>
+
+{% if profiles %}
+<div class="table-section">
+    <h2>Vendor Profiles <span class="badge" style="background: var(--card-bg); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.8rem; padding: 2px 8px;">{{ profiles|length }}</span></h2>
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Vendor</th>
+                    <th>Contact</th>
+                    <th>Website</th>
+                    <th>OEM</th>
+                    <th>Categories</th>
+                    <th>Notes</th>
+                    {% if user.has_financial_access or user.is_admin %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in profiles %}
+                <tr>
+                    <td>
+                        <a href="{{ base_path }}/vendors/{{ p.id }}" style="font-weight: 600; text-decoration: none; color: var(--accent, #3498db);">
+                            {{ p.display_name or p.name }}
+                        </a>
+                        {% if p.display_name and p.display_name != p.name %}
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ p.name }}</div>
+                        {% endif %}
+                        {% if p.is_oem %}
+                        <span class="badge badge-info" style="font-size: 0.7rem; margin-top: 2px; display: inline-block;">OEM</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.contact_name %}
+                        <div style="font-weight: 500; font-size: 0.85rem;">{{ p.contact_name }}</div>
+                        {% endif %}
+                        {% if p.contact_email %}
+                        <a href="mailto:{{ p.contact_email }}" style="font-size: 0.8rem; color: var(--text-muted); text-decoration: none;">{{ p.contact_email }}</a>
+                        {% endif %}
+                        {% if p.contact_phone %}
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">{{ p.contact_phone }}</div>
+                        {% endif %}
+                        {% if not p.contact_name and not p.contact_email and not p.contact_phone %}
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.website %}
+                        <a href="{{ p.website }}" target="_blank" rel="noopener" style="font-size: 0.82rem; color: var(--accent, #3498db); text-decoration: none; word-break: break-all;">
+                            {{ p.website | replace('https://', '') | replace('http://', '') | truncate(28) }}
+                        </a>
+                        {% else %}
+                        <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        {% if p.is_oem %}
+                        <span style="color: var(--success, #27ae60); font-size: 1rem;" title="OEM Partner">✓</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size: 0.82rem; color: var(--text-muted); max-width: 160px;">{{ p.categories_supplied or '—' }}</td>
+                    <td style="font-size: 0.82rem; color: var(--text-muted); max-width: 180px;">
+                        {% if p.notes %}
+                        <span title="{{ p.notes }}">{{ p.notes | truncate(50) }}</span>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    {% if user.has_financial_access or user.is_admin %}
+                    <td>
+                        <div style="display: flex; gap: 0.25rem; flex-wrap: nowrap;">
+                            {% if user.has_financial_access or user.is_admin %}
+                            <button class="btn btn-sm" onclick='openEditModal({{ p.id }}, {{ {"name": p.name, "display_name": p.display_name or "", "contact_name": p.contact_name or "", "contact_email": p.contact_email or "", "contact_phone": p.contact_phone or "", "website": p.website or "", "categories_supplied": p.categories_supplied or "", "is_oem": p.is_oem, "notes": p.notes or ""} | tojson }})'>Edit</button>
+                            {% endif %}
+                            {% if user.is_admin %}
+                            <button class="btn btn-sm" onclick="deleteVendor({{ p.id }}, {{ p.name | tojson }})" style="color: var(--danger, #e74c3c);">Delete</button>
+                            {% endif %}
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="table-section" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.4; margin-bottom: 1rem; display: block; margin-left: auto; margin-right: auto;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <p style="margin-bottom: 1rem;">No vendor profiles yet.</p>
+    {% if user.has_financial_access or user.is_admin %}
+    <button class="btn btn-primary" onclick="openAddModal()">Create First Profile</button>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if unlinked_vendors %}
+<div class="table-section" style="margin-top: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <h2 style="margin-bottom: 0.25rem;">Vendors Without Profiles
+                <span class="badge badge-warning" style="font-size: 0.75rem; margin-left: 0.25rem;">{{ unlinked_vendors | length }}</span>
+            </h2>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">These vendor strings appear in your inventory but have no profile yet. Click "+ Profile" to create one.</p>
+        </div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        {% for v in unlinked_vendors %}
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.85rem;">
+            <span>{{ v }}</span>
+            {% if user.has_financial_access or user.is_admin %}
+            <button onclick="openAddModal({{ v | tojson }})" style="background: none; border: none; color: var(--accent, #3498db); cursor: pointer; font-size: 0.8rem; padding: 0; line-height: 1; white-space: nowrap;">+ Profile</button>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Add Vendor Modal -->
+<div id="add-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 520px; width: 95%;">
+        <div class="modal-header">
+            <h3>Add Vendor Profile</h3>
+            <button class="modal-close" onclick="closeAddModal()">×</button>
+        </div>
+        <form onsubmit="submitAdd(event)">
+            <div class="form-group">
+                <label>Vendor Name <span style="color: var(--danger, #e74c3c);">*</span></label>
+                <input type="text" id="add-name" required placeholder="e.g. Axis Communications">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Must match the vendor string in inventory (case-insensitive match is applied automatically)</div>
+            </div>
+            <div class="form-group">
+                <label>Display Name <span style="color: var(--text-muted); font-weight: 400; font-size: 0.82rem;">(optional friendly name shown in the UI)</span></label>
+                <input type="text" id="add-display-name" placeholder="e.g. Axis Communications Inc.">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div class="form-group">
+                    <label>Contact Name</label>
+                    <input type="text" id="add-contact-name" placeholder="Sales rep or account manager">
+                </div>
+                <div class="form-group">
+                    <label>Contact Phone</label>
+                    <input type="tel" id="add-contact-phone" placeholder="+1 555-0100">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" id="add-contact-email" placeholder="contact@vendor.com">
+            </div>
+            <div class="form-group">
+                <label>Website</label>
+                <input type="url" id="add-website" placeholder="https://vendor.com">
+            </div>
+            <div class="form-group">
+                <label>Categories Supplied <span style="color: var(--text-muted); font-weight: 400; font-size: 0.82rem;">(comma-separated)</span></label>
+                <input type="text" id="add-categories" placeholder="Edge Boxes, Cameras, Cables">
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.75rem;">
+                <input type="checkbox" id="add-is-oem" style="width: auto; margin: 0; flex-shrink: 0;">
+                <label for="add-is-oem" style="margin: 0; cursor: pointer;">OEM Partner — manufactures hardware specifically for Company</label>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="add-notes" rows="3" placeholder="Internal notes, contract terms, support process, lead times..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button type="button" class="btn" onclick="closeAddModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Profile</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Vendor Modal -->
+<div id="edit-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 520px; width: 95%;">
+        <div class="modal-header">
+            <h3>Edit Vendor Profile</h3>
+            <button class="modal-close" onclick="closeEditModal()">×</button>
+        </div>
+        <form onsubmit="submitEdit(event)">
+            <input type="hidden" id="edit-id">
+            <div class="form-group">
+                <label>Vendor Name <span style="color: var(--danger, #e74c3c);">*</span></label>
+                <input type="text" id="edit-name" required>
+            </div>
+            <div class="form-group">
+                <label>Display Name</label>
+                <input type="text" id="edit-display-name">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div class="form-group">
+                    <label>Contact Name</label>
+                    <input type="text" id="edit-contact-name">
+                </div>
+                <div class="form-group">
+                    <label>Contact Phone</label>
+                    <input type="tel" id="edit-contact-phone">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" id="edit-contact-email">
+            </div>
+            <div class="form-group">
+                <label>Website</label>
+                <input type="url" id="edit-website">
+            </div>
+            <div class="form-group">
+                <label>Categories Supplied</label>
+                <input type="text" id="edit-categories">
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.75rem;">
+                <input type="checkbox" id="edit-is-oem" style="width: auto; margin: 0; flex-shrink: 0;">
+                <label for="edit-is-oem" style="margin: 0; cursor: pointer;">OEM Partner</label>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="edit-notes" rows="3"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button type="button" class="btn" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+
+function openAddModal(prefillName = '') {
+    document.getElementById('add-name').value = prefillName;
+    document.getElementById('add-display-name').value = '';
+    document.getElementById('add-contact-name').value = '';
+    document.getElementById('add-contact-phone').value = '';
+    document.getElementById('add-contact-email').value = '';
+    document.getElementById('add-website').value = '';
+    document.getElementById('add-categories').value = '';
+    document.getElementById('add-is-oem').checked = false;
+    document.getElementById('add-notes').value = '';
+    document.getElementById('add-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('add-name').focus(), 80);
+}
+
+function closeAddModal() { document.getElementById('add-modal').style.display = 'none'; }
+
+function openEditModal(id, p) {
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-name').value = p.name || '';
+    document.getElementById('edit-display-name').value = p.display_name || '';
+    document.getElementById('edit-contact-name').value = p.contact_name || '';
+    document.getElementById('edit-contact-phone').value = p.contact_phone || '';
+    document.getElementById('edit-contact-email').value = p.contact_email || '';
+    document.getElementById('edit-website').value = p.website || '';
+    document.getElementById('edit-categories').value = p.categories_supplied || '';
+    document.getElementById('edit-is-oem').checked = !!p.is_oem;
+    document.getElementById('edit-notes').value = p.notes || '';
+    document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
+
+async function submitAdd(e) {
+    e.preventDefault();
+    const btn = e.submitter;
+    if (btn) btn.disabled = true;
+    try {
+        const resp = await fetch(`${BP}/api/vendors/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: document.getElementById('add-name').value.trim(),
+                display_name: document.getElementById('add-display-name').value.trim(),
+                contact_name: document.getElementById('add-contact-name').value.trim(),
+                contact_phone: document.getElementById('add-contact-phone').value.trim(),
+                contact_email: document.getElementById('add-contact-email').value.trim(),
+                website: document.getElementById('add-website').value.trim(),
+                categories_supplied: document.getElementById('add-categories').value.trim(),
+                is_oem: document.getElementById('add-is-oem').checked,
+                notes: document.getElementById('add-notes').value.trim(),
+            }),
+        });
+        const data = await resp.json();
+        if (resp.ok) { location.reload(); }
+        else { alert(data.error || 'Failed to create vendor profile'); }
+    } catch (err) { alert('Error: ' + err.message); }
+    finally { if (btn) btn.disabled = false; }
+}
+
+async function submitEdit(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-id').value;
+    const btn = e.submitter;
+    if (btn) btn.disabled = true;
+    try {
+        const resp = await fetch(`${BP}/api/vendors/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: document.getElementById('edit-name').value.trim(),
+                display_name: document.getElementById('edit-display-name').value.trim(),
+                contact_name: document.getElementById('edit-contact-name').value.trim(),
+                contact_phone: document.getElementById('edit-contact-phone').value.trim(),
+                contact_email: document.getElementById('edit-contact-email').value.trim(),
+                website: document.getElementById('edit-website').value.trim(),
+                categories_supplied: document.getElementById('edit-categories').value.trim(),
+                is_oem: document.getElementById('edit-is-oem').checked,
+                notes: document.getElementById('edit-notes').value.trim(),
+            }),
+        });
+        const data = await resp.json();
+        if (resp.ok) { location.reload(); }
+        else { alert(data.error || 'Failed to update vendor profile'); }
+    } catch (err) { alert('Error: ' + err.message); }
+    finally { if (btn) btn.disabled = false; }
+}
+
+async function deleteVendor(id, name) {
+    if (!confirm(`Delete vendor profile "${name}"?\n\nThis removes the profile only — vendor strings on inventory items are not affected.`)) return;
+    try {
+        const resp = await fetch(`${BP}/api/vendors/${id}`, {method: 'DELETE'});
+        const data = await resp.json();
+        if (resp.ok) { location.reload(); }
+        else { alert(data.error || 'Failed to delete vendor profile'); }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+async function autoCreate() {
+    if (!confirm('Seed vendor profiles for all vendor strings in inventory that don\'t have a profile yet?\n\nProfiles will be created with just the name — you can fill in contact details afterwards.')) return;
+    try {
+        const resp = await fetch(`${BP}/api/vendors/auto-create`, {method: 'POST'});
+        const data = await resp.json();
+        if (resp.ok) {
+            const count = data.count || 0;
+            alert(count === 0 ? 'All vendors already have profiles.' : `Created ${count} new profile${count !== 1 ? 's' : ''}.`);
+            location.reload();
+        } else { alert(data.error || 'Failed to auto-create profiles'); }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+// Close modals on overlay click
+document.getElementById('add-modal').addEventListener('click', (e) => { if (e.target.id === 'add-modal') closeAddModal(); });
+document.getElementById('edit-modal').addEventListener('click', (e) => { if (e.target.id === 'edit-modal') closeEditModal(); });
+</script>
+{% endblock %}

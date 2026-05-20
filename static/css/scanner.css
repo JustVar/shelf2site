@@ -1,0 +1,257 @@
+/* ── Barcode Scanner Overlay ─────────────────────────────────────────
+   Fullscreen camera viewfinder used by BarcodeScanner module.
+   Always dark — camera feed is the background.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* ── Overlay shell ──────────────────────────────────────────────── */
+.scanner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Live video feed ────────────────────────────────────────────── */
+.scanner-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Viewfinder frame ───────────────────────────────────────────── */
+.scanner-frame {
+  position: relative;
+  z-index: 1;
+  width: 280px;
+  height: 180px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+
+/* Corner brackets */
+.scanner-frame::before,
+.scanner-frame::after {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: #3dd68c;
+  border-style: solid;
+}
+.scanner-frame::before {
+  top: -2px;
+  left: -2px;
+  border-width: 3px 0 0 3px;
+  border-radius: 8px 0 0 0;
+}
+.scanner-frame::after {
+  top: -2px;
+  right: -2px;
+  border-width: 3px 3px 0 0;
+  border-radius: 0 8px 0 0;
+}
+
+/* Bottom corners via inner element */
+.scanner-frame-bottom {
+  position: absolute;
+  bottom: -2px;
+  left: -2px;
+  right: -2px;
+  height: 28px;
+  pointer-events: none;
+}
+.scanner-frame-bottom::before,
+.scanner-frame-bottom::after {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: #3dd68c;
+  border-style: solid;
+}
+.scanner-frame-bottom::before {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 3px 3px;
+  border-radius: 0 0 0 8px;
+}
+.scanner-frame-bottom::after {
+  bottom: 0;
+  right: 0;
+  border-width: 0 3px 3px 0;
+  border-radius: 0 0 8px 0;
+}
+
+/* Scan line animation */
+.scanner-line {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #3dd68c, transparent);
+  border-radius: 1px;
+  animation: scanner-sweep 2.2s ease-in-out infinite;
+}
+@keyframes scanner-sweep {
+  0%, 100% { top: 12px; opacity: 0.6; }
+  50%      { top: calc(100% - 14px); opacity: 1; }
+}
+
+/* ── Instructions ───────────────────────────────────────────────── */
+.scanner-instructions {
+  position: relative;
+  z-index: 1;
+  margin-top: 20px;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--sx-font-sans, -apple-system, sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Close button ───────────────────────────────────────────────── */
+.scanner-close {
+  position: absolute;
+  top: env(safe-area-inset-top, 12px);
+  right: 12px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.scanner-close:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* ── Scan counter (quick-action mode) ───────────────────────────── */
+.scanner-counter {
+  position: absolute;
+  top: env(safe-area-inset-top, 12px);
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-family: var(--sx-font-mono, monospace);
+  font-size: 13px;
+  font-weight: 600;
+}
+.scanner-counter-num {
+  color: #3dd68c;
+}
+
+/* ── Toast notifications ────────────────────────────────────────── */
+.scanner-toast {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: 14px 16px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--sx-font-sans, -apple-system, sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  transform: translateY(100%);
+  transition: transform 0.25s ease-out;
+}
+.scanner-toast.visible {
+  transform: translateY(0);
+}
+
+.scanner-toast--success { background: rgba(34, 197, 94, 0.92); }
+.scanner-toast--error   { background: rgba(239, 68, 68, 0.92); }
+.scanner-toast--warning { background: rgba(245, 158, 11, 0.92); }
+.scanner-toast--info    { background: rgba(21, 124, 164, 0.92); }
+
+.scanner-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+.scanner-toast-serial {
+  font-family: var(--sx-font-mono, monospace);
+  font-weight: 600;
+}
+.scanner-toast-action {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.scanner-toast-action:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Fallback reader container (html5-qrcode) ───────────────────── */
+.scanner-fallback-reader {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.scanner-fallback-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+/* Hide html5-qrcode's built-in UI chrome */
+.scanner-fallback-reader img,
+.scanner-fallback-reader br,
+.scanner-fallback-reader span {
+  display: none !important;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (min-width: 600px) {
+  .scanner-frame {
+    width: 340px;
+    height: 220px;
+  }
+}
+@media (min-width: 1024px) {
+  /* Desktop: constrain overlay to a centered modal */
+  .scanner-overlay {
+    background: rgba(0, 0, 0, 0.85);
+  }
+  .scanner-video {
+    width: 640px;
+    height: 480px;
+    inset: auto;
+    position: relative;
+    border-radius: 12px;
+  }
+  .scanner-frame {
+    position: absolute;
+  }
+}

@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Orders - Hardware Asset Tracker{% endblock %}
+{% block nav_fulfillment %}active{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <h1 style="margin: 0;">Customer Orders</h1>
+    {% if user.has_provisioning_manage %}
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('new-order-modal').classList.add('open')" style="margin-left: auto;">
+        + New Order
+    </button>
+    {% endif %}
+</div>
+<p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+    Track customer orders from Salesforce through delivery and installation.
+    Each order links to provisioning records and OEM purchase orders.
+</p>
+
+<!-- Status summary cards -->
+<div class="summary-cards" style="margin-bottom: 1.5rem;">
+    {% for key, label in ORDER_STATUSES.items() %}
+    <div class="summary-card" style="cursor: pointer;" onclick="filterByStatus('{{ key }}')">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">{{ label }}</div>
+        <div style="font-size: 1.3rem; font-weight: 700; color: {{ STATUS_COLORS.get(key, 'var(--text)') }};">
+            {{ status_counts.get(key, 0) }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Filter bar -->
+<div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+    <input type="text" id="search-input" class="form-control" placeholder="Search customer, order #, SF order…"
+        style="max-width: 300px;" oninput="filterOrders()">
+    <select id="status-filter" class="form-control" style="width: auto;" onchange="filterOrders()">
+        <option value="">All statuses</option>
+        {% for key, label in ORDER_STATUSES.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button class="btn btn-sm" onclick="clearFilters()" style="font-size: 0.8rem;">Clear</button>
+    <span id="filter-count" style="font-size: 0.82rem; color: var(--text-muted); margin-left: 0.5rem;"></span>
+</div>
+
+<!-- Orders table -->
+<div class="table-section">
+    {% if orders %}
+    <table class="data-table" id="orders-table">
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>SF Order ID</th>
+                <th>Sales Engineer</th>
+                <th>Status</th>
+                <th>Due Date</th>
+                <th>SKUs</th>
+                <th>Provisioning</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr class="order-row" data-status="{{ order.status }}"
+                data-search="{{ (order.order_number or '') | lower }} {{ (order.customer_name or '') | lower }} {{ (order.customer_account or '') | lower }} {{ (order.salesforce_order_id or '') | lower }}"
+                onclick="window.location='{{ base_path }}/orders/{{ order.id }}'" style="cursor: pointer;">
+                <td>
+                    <span style="font-weight: 600; font-family: monospace;">{{ order.order_number }}</span>
+                </td>
+                <td>
+                    <div style="font-weight: 500;">{{ order.customer_name }}</div>
+                    {% if order.customer_account and order.customer_account != order.customer_name %}
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">{{ order.customer_account }}</div>
+                    {% endif %}
+                </td>
+                <td style="font-size: 0.85rem; color: var(--text-muted);">
+                    {{ order.salesforce_order_id or '—' }}
+                </td>
+                <td style="font-size: 0.85rem;">{{ order.sales_engineer or '—' }}</td>
+                <td>
+                    {% set sc = STATUS_COLORS.get(order.status, 'var(--text-muted)') %}
+                    <span style="font-size: 0.8rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 99px;
+                                 background: {{ sc }}22; color: {{ sc }}; border: 1px solid {{ sc }}55;">
+                        {{ ORDER_STATUSES.get(order.status, order.status) | title }}
+                    </span>
+                </td>
+                <td style="font-size: 0.85rem; white-space: nowrap;">
+                    {% if order.due_date %}
+                        {% set today = [] %}
+                        {{ order.due_date }}
+                    {% else %}—{% endif %}
+                </td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">
+                    {% if order.sku_requirements %}
+                        {{ order.sku_requirements | length }} SKU{{ 's' if order.sku_requirements | length != 1 }}
+                    {% else %}—{% endif %}
+                </td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">
+                    {{ order.provisioning_records | length }} record{{ 's' if order.provisioning_records | length != 1 }}
+                </td>
+                <td style="font-size: 0.78rem; color: var(--text-muted);">
+                    {{ order.created_at.strftime('%b %d') if order.created_at else '—' }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding: 3rem 1rem; text-align: center; color: var(--text-muted);">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📋</div>
+        <div style="font-weight: 600; margin-bottom: 0.3rem;">No customer orders yet</div>
+        <div style="font-size: 0.85rem;">Create the first order using the button above.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- New Order Modal -->
+{% if user.has_provisioning_manage %}
+<div id="new-order-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 640px;">
+        <div class="modal-header">
+            <h2>New Customer Order</h2>
+            <button class="modal-close" onclick="document.getElementById('new-order-modal').classList.remove('open')">✕</button>
+        </div>
+        <form onsubmit="submitNewOrder(event)">
+            <div class="form-row">
+                <div class="form-group" style="flex: 2;">
+                    <label>Customer Name <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="no-customer" class="form-control" placeholder="e.g. Acme Corp" required>
+                </div>
+                <div class="form-group">
+                    <label>Customer Account / Org</label>
+                    <input type="text" id="no-account" class="form-control" placeholder="Parent org name">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Salesforce Order ID</label>
+                    <input type="text" id="no-sf-order" class="form-control" placeholder="e.g. 00Q5e000004xyzE">
+                </div>
+                <div class="form-group">
+                    <label>Salesforce Opportunity ID</label>
+                    <input type="text" id="no-sf-opp" class="form-control" placeholder="e.g. 0065e000009xyzA">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Sales Engineer</label>
+                    <input type="text" id="no-se" class="form-control" placeholder="Name">
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" id="no-due" class="form-control">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Deployment Type</label>
+                    <select id="no-deploy-type" class="form-control" onchange="toggleDeployFields()">
+                        <option value="direct">Direct to Customer</option>
+                        <option value="via_integrator">Via System Integrator</option>
+                        <option value="via_distributor">Via Distributor</option>
+                    </select>
+                </div>
+            </div>
+            <div id="no-integrator-row" class="form-row" style="display:none;">
+                <div class="form-group">
+                    <label>Integrator Name</label>
+                    <input type="text" id="no-integrator" class="form-control">
+                </div>
+            </div>
+            <div id="no-distributor-row" class="form-row" style="display:none;">
+                <div class="form-group">
+                    <label>Distributor Name</label>
+                    <input type="text" id="no-distributor" class="form-control">
+                </div>
+            </div>
+
+            <!-- SKU Requirements -->
+            <div style="margin-bottom: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <label style="margin: 0; font-weight: 600;">SKU Requirements</label>
+                    <button type="button" class="btn btn-sm" onclick="addSkuRow()" style="font-size: 0.78rem; padding: 0.15rem 0.5rem;">+ Add SKU</button>
+                </div>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                    Enter EDGE SKU names and quantities (e.g. <code>EDGE25-56TB-NR</code>, <code>EDGE50-144TB-NR</code>). Availability is checked live on the order detail page.
+                </p>
+                <div id="sku-rows">
+                    <!-- dynamic rows added by addSkuRow() -->
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="no-notes" class="form-control" rows="3" placeholder="Any additional context…" style="padding:0.6rem 0.9rem;"></textarea>
+            </div>
+
+            <div id="no-error" class="alert alert-danger" style="display:none;"></div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+                <button type="button" class="btn" onclick="document.getElementById('new-order-modal').classList.remove('open')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Order</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Datalist of all current 2026 EDGE SKUs for SKU autocomplete -->
+<datalist id="edge-skus">
+    <option value="EDGE10-28TB-NR">10 ch · 28TB · No RAID · 1U</option>
+    <option value="EDGE10-36TB-NR">10 ch · 36TB · No RAID · 1U</option>
+    <option value="EDGE10-40TB-NR">10 ch · 40TB · No RAID · 1U</option>
+    <option value="EDGE25-56TB-NR">25 ch · 56TB · No RAID · 1U</option>
+    <option value="EDGE25-72TB-NR">25 ch · 72TB · No RAID · 1U</option>
+    <option value="EDGE25-80TB-NR">25 ch · 80TB · No RAID · 1U</option>
+    <option value="EDGE50-112TB-NR">50 ch · 112TB · No RAID · 2U</option>
+    <option value="EDGE50-144TB-NR">50 ch · 144TB · No RAID · 2U</option>
+    <option value="EDGE50-160TB-NR">50 ch · 160TB · No RAID · 2U</option>
+    <option value="EDGE100-168TB-NR">100 ch · 168TB · No RAID · 2U</option>
+    <option value="EDGE100-216TB-NR">100 ch · 216TB · No RAID · 2U</option>
+    <option value="EDGE100-240TB-NR">100 ch · 240TB · No RAID · 2U</option>
+    <option value="EDGE50-84TB-Z2">50 ch · 84TB · RAID-Z2 · 2U</option>
+    <option value="EDGE50-108TB-Z2">50 ch · 108TB · RAID-Z2 · 2U</option>
+    <option value="EDGE50-120TB-Z2">50 ch · 120TB · RAID-Z2 · 2U</option>
+    <option value="EDGE100-140TB-Z2">100 ch · 140TB · RAID-Z2 · 2U</option>
+    <option value="EDGE100-180TB-Z2">100 ch · 180TB · RAID-Z2 · 2U</option>
+    <option value="EDGE100-200TB-Z2">100 ch · 200TB · RAID-Z2 · 2U</option>
+    <option value="EDGE200-308TB-Z2">200 ch · 308TB · RAID-Z2 · 4U</option>
+    <option value="EDGE200-396TB-Z2">200 ch · 396TB · RAID-Z2 · 4U</option>
+    <option value="EDGE200-440TB-Z2">200 ch · 440TB · RAID-Z2 · 4U</option>
+    <option value="EDGE300-476TB-Z2">300 ch · 476TB · RAID-Z2 · 4U</option>
+    <option value="EDGE300-612TB-Z2">300 ch · 612TB · RAID-Z2 · 4U</option>
+    <option value="EDGE300-680TB-Z2">300 ch · 680TB · RAID-Z2 · 4U</option>
+</datalist>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+
+// ---------------------------------------------------------------------------
+// Filter logic
+// ---------------------------------------------------------------------------
+function filterOrders() {
+    const search = document.getElementById('search-input').value.toLowerCase();
+    const status = document.getElementById('status-filter').value;
+    const rows = document.querySelectorAll('.order-row');
+    let visible = 0;
+    rows.forEach(row => {
+        const matchSearch = !search || row.dataset.search.includes(search);
+        const matchStatus = !status || row.dataset.status === status;
+        row.style.display = (matchSearch && matchStatus) ? '' : 'none';
+        if (matchSearch && matchStatus) visible++;
+    });
+    const countEl = document.getElementById('filter-count');
+    if (search || status) {
+        countEl.textContent = `${visible} of ${rows.length} orders`;
+    } else {
+        countEl.textContent = '';
+    }
+}
+
+function filterByStatus(status) {
+    document.getElementById('status-filter').value = status;
+    filterOrders();
+}
+
+function clearFilters() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('status-filter').value = '';
+    filterOrders();
+}
+
+// ---------------------------------------------------------------------------
+// SKU row management
+// ---------------------------------------------------------------------------
+let skuRowCount = 0;
+function addSkuRow(model='', qty=1, source='tbd') {
+    skuRowCount++;
+    const id = skuRowCount;
+    const div = document.createElement('div');
+    div.id = `sku-row-${id}`;
+    div.style.cssText = 'display:flex; gap:0.5rem; margin-bottom:0.4rem; align-items:center;';
+    div.innerHTML = `
+        <input type="text" class="form-control sku-model" list="edge-skus"
+               placeholder="e.g. EDGE25-56TB-NR"
+               value="${escHtml(model)}" style="flex:2;">
+        <input type="number" class="form-control sku-qty" placeholder="Qty" min="1" value="${qty}" style="width:70px;">
+        <select class="form-control sku-source" style="width:140px;">
+            <option value="stock" ${source==='stock'?'selected':''}>From stock</option>
+            <option value="oem" ${source==='oem'?'selected':''}>OEM order</option>
+            <option value="tbd" ${source==='tbd'?'selected':''}>TBD</option>
+        </select>
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('sku-row-${id}').remove()"
+                style="padding:0.2rem 0.45rem; color:var(--danger,#e74c3c); border-color:var(--danger,#e74c3c);">✕</button>
+    `;
+    document.getElementById('sku-rows').appendChild(div);
+}
+
+function collectSkuRequirements() {
+    const rows = document.querySelectorAll('#sku-rows > div');
+    const result = [];
+    rows.forEach(row => {
+        const model = row.querySelector('.sku-model').value.trim();
+        const qty = parseInt(row.querySelector('.sku-qty').value) || 1;
+        const source = row.querySelector('.sku-source').value;
+        if (model) result.push({model, qty, source});
+    });
+    return result;
+}
+
+function toggleDeployFields() {
+    const type = document.getElementById('no-deploy-type').value;
+    document.getElementById('no-integrator-row').style.display = type === 'via_integrator' ? '' : 'none';
+    document.getElementById('no-distributor-row').style.display = type === 'via_distributor' ? '' : 'none';
+}
+
+function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function submitNewOrder(e) {
+    e.preventDefault();
+    const errorDiv = document.getElementById('no-error');
+    errorDiv.style.display = 'none';
+
+    const payload = {
+        customer_name: document.getElementById('no-customer').value.trim(),
+        customer_account: document.getElementById('no-account').value.trim() || null,
+        salesforce_order_id: document.getElementById('no-sf-order').value.trim() || null,
+        salesforce_opp_id: document.getElementById('no-sf-opp').value.trim() || null,
+        sales_engineer: document.getElementById('no-se').value.trim() || null,
+        due_date: document.getElementById('no-due').value || null,
+        deployment_type: document.getElementById('no-deploy-type').value,
+        integrator_name: document.getElementById('no-integrator').value.trim() || null,
+        distributor_name: document.getElementById('no-distributor').value.trim() || null,
+        sku_requirements: collectSkuRequirements(),
+        notes: document.getElementById('no-notes').value.trim() || null,
+    };
+
+    try {
+        const resp = await fetch(`${BP}/api/orders/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            window.location.href = `${BP}/orders/${data.order_id}`;
+        } else {
+            errorDiv.textContent = data.error || 'Failed to create order';
+            errorDiv.style.display = 'block';
+        }
+    } catch (err) {
+        errorDiv.textContent = `Error: ${err.message}`;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// Add one empty SKU row on open
+document.getElementById('new-order-modal') && document.getElementById('new-order-modal').addEventListener('click', function(e) {
+    if (e.target === this && document.getElementById('sku-rows').children.length === 0) addSkuRow();
+});
+document.querySelector('[onclick*="new-order-modal"]') && (function(){
+    const btn = document.querySelector('[onclick*="new-order-modal"]');
+    if (btn) btn.addEventListener('click', function() {
+        if (document.getElementById('sku-rows').children.length === 0) addSkuRow();
+    });
+})();
+</script>
+{% endblock %}

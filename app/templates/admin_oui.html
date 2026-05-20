@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}OUI Reference - Hardware Asset Tracker{% endblock %}
+{% block nav_admin_oui %}active{% endblock %}
+
+{% block content %}
+<h1>OUI Reference</h1>
+<p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+    Auto-populated reference of all hardware manufacturers detected in your inventory.
+    OUI entries are added automatically when devices are imported or approved from the scanner.
+</p>
+
+<!-- Summary Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--success);">{{ unique_manufacturers }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Manufacturers</div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ total_ouis }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">OUI Prefixes</div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--info, #3b82f6);">{{ total_devices }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Matched Devices</div>
+    </div>
+</div>
+
+<!-- Admin: Add New OUI -->
+{% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+<div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; margin-bottom: 2rem;">
+    <h3 style="margin-bottom: 0.8rem;">Add OUI Prefix Manually</h3>
+    <form id="add-oui-form" class="form-inline" onsubmit="addOUI(event)">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>OUI Prefix (e.g. E4:30:22)</label>
+            <input type="text" id="oui-prefix" name="oui_prefix"
+                   placeholder="XX:XX:XX" maxlength="8" required
+                   style="width: 120px; text-transform: uppercase;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>Manufacturer</label>
+            <input type="text" id="oui-manufacturer" name="manufacturer"
+                   placeholder="e.g. Hanwha Techwin" style="width: 200px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>Maps to Category</label>
+            <select id="oui-table" name="maps_to_table" style="width: 180px;">
+                <option value="">-- Select --</option>
+                {% for key, label in table_names.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success" style="margin-top: 1.2rem;">Add</button>
+    </form>
+    <div id="add-oui-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+</div>
+{% endif %}
+
+<!-- Grouped OUI Reference -->
+<div class="table-section">
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 2rem;"></th>
+                    <th>Manufacturer</th>
+                    <th>OUI Prefixes</th>
+                    <th>Categories</th>
+                    <th>Devices</th>
+                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if vendor_groups %}
+                {% for group in vendor_groups %}
+                <!-- Manufacturer header row -->
+                <tr class="vendor-group-header" onclick="toggleGroup('grp-{{ loop.index }}')" style="cursor: pointer; background: var(--card-bg);">
+                    <td style="text-align: center;">
+                        <span class="expand-arrow" id="arrow-grp-{{ loop.index }}" style="display: inline-block; transition: transform 0.2s; font-size: 0.7rem; color: var(--text-muted);">&#9654;</span>
+                    </td>
+                    <td style="font-weight: 600;">{{ group.manufacturer }}</td>
+                    <td>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">{{ group.oui_entries|length }} prefix{{ 'es' if group.oui_entries|length != 1 else '' }}</span>
+                    </td>
+                    <td>
+                        {% for cat in group.categories %}
+                        <span class="badge" style="background: var(--primary); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px;">
+                            {{ cat.replace('_', ' ').title() }}
+                        </span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if group.total_devices > 0 %}
+                        <strong>{{ group.total_devices }}</strong>
+                        {% else %}
+                        <span style="color: var(--text-muted);">0</span>
+                        {% endif %}
+                    </td>
+                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    <td></td>
+                    {% endif %}
+                </tr>
+                <!-- Individual OUI prefix rows (hidden by default) -->
+                {% set group_idx = loop.index %}
+                {% for stat in group.oui_entries %}
+                <tr class="oui-detail-row grp-{{ group_idx }}" id="oui-row-{{ stat.entry.id }}" style="display: none;">
+                    <td></td>
+                    <td style="padding-left: 2rem;">
+                        <span style="font-family: monospace; font-weight: 600; font-size: 0.9rem; background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">{{ stat.entry.oui_prefix }}</span>
+                    </td>
+                    <td></td>
+                    <td id="cat-{{ stat.entry.id }}">
+                        <span class="badge" style="background: var(--border); color: var(--text); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                            {{ (stat.entry.maps_to_table or 'network_equipment').replace('_', ' ').title() }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if stat.device_count > 0 %}
+                        {{ stat.device_count }}
+                        {% else %}
+                        <span style="color: var(--text-muted);">0</span>
+                        {% endif %}
+                    </td>
+                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    <td>
+                        <button class="btn btn-primary btn-sm"
+                                onclick="event.stopPropagation(); editOUI({{ stat.entry.id }}, '{{ stat.entry.manufacturer|e }}', '{{ stat.entry.maps_to_table or '' }}')">
+                            Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm"
+                                onclick="event.stopPropagation(); deleteOUI({{ stat.entry.id }}, '{{ stat.entry.oui_prefix }}')">
+                            Delete
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="{% if user.role in ('justin_admin', 'system_admin', 'admin') %}6{% else %}5{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No OUI prefixes cataloged yet. They will be added automatically as devices are imported or approved.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:1.5rem; width:400px; max-width:90vw;">
+        <h3 style="margin-bottom:1rem;">Edit OUI Entry</h3>
+        <input type="hidden" id="edit-id">
+        <div class="form-group">
+            <label>Manufacturer</label>
+            <input type="text" id="edit-manufacturer" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Maps to Category</label>
+            <select id="edit-table" style="width:100%;">
+                {% for key, label in table_names.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="closeEditModal()">Cancel</button>
+            <button class="btn btn-success" onclick="saveEdit()">Save</button>
+        </div>
+        <div id="edit-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>// BP available globally from base.html</script>
+<script src="{{ base_path }}/static/js/admin-oui.js"></script>
+{% endblock %}

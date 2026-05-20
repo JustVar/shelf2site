@@ -1,0 +1,352 @@
+"""
+Item Detail page — view, edit, and manage a single inventory item.
+"""
+
+from pathlib import Path
+from datetime import date
+import uuid
+import os
+import logging
+
+from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Request, Form, UploadFile, File, Query
+from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+
+from ..auth import get_current_user, User
+from ..config import settings
+from ..database import get_db
+from ..models import (
+    Item, ItemLocation, ItemReceipt, ReceiptItem,
+    ItemComponentHistory, ItemMaintenanceLog,
+)
+from ..locks import get_lock
+from .dashboard import CATEGORY_COLORS, ALL_CATEGORIES, category_display
+from .intake import (
+    STATUSES, ALLOWED_RECEIPT_EXTENSIONS, RECEIPT_STORAGE_PATH,
+    _get_locations, _get_categories, _normalize_mac,
+    _clean_str, _safe_float, _safe_int, _safe_date,
+)
+
+_log = logging.getLogger(__name__)
+
+router = APIRouter(tags=["item_detail"])
+templates = Jinja2Templates(
+    directory=str(Path(__file__).resolve().parent.parent / "templates")
+)
+BP = settings.ROOT_PATH.rstrip("/")
+templates.env.globals["base_path"] = BP
+
+
+def _get_item_receipts(db, item_id):
+    rows = (
+        db.query(ItemReceipt, ReceiptItem)
+        .join(ReceiptItem, ReceiptItem.receipt_id == ItemReceipt.id)
+        .filter(ReceiptItem.item_id == item_id)
+        .order_by(ItemReceipt.transaction_date.desc())
+        .all()
+    )
+    results = []
+    for receipt, link in rows:
+        results.append({
+            "id": receipt.id,
+            "record_type": receipt.record_type or "\u2014",
+            "transaction_date": receipt.transaction_date,
+            "purchase_order": receipt.purchase_order or "\u2014",
+            "file_path": receipt.file_path,
+            "original_filename": receipt.original_filename,
+            "vendor_id": receipt.vendor_id,
+            "notes": receipt.notes,
+            "created_by": receipt.created_by,
+            "created_at": receipt.created_at,
+            "quantity": link.quantity,
+        })
+    return results
+
+
+def _get_component_history(db, item_id):
+    rows = (
+        db.query(ItemComponentHistory)
+        .filter(
+            (ItemComponentHistory.item_id == item_id) |
+            (ItemComponentHistory.parent_item_id == item_id)
+        )
+        .order_by(ItemComponentHistory.action_date.desc())
+        .all()
+    )
+    return rows
+
+
+def _get_maintenance_log(db, item_id):
+    rows = (
+        db.query(ItemMaintenanceLog)
+        .filter(ItemMaintenanceLog.item_id == item_id)
+        .order_by(ItemMaintenanceLog.maintenance_date.desc())
+        .all()
+    )
+    return rows
+
+
+@router.get("/items/{item_id}", response_class=HTMLResponse)
+def item_detail_page(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    edit: str = Query(default=""),
+):
+    if not user:
+        return RedirectResponse(f"{BP}/login")
+
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return RedirectResponse(f"{BP}/inventory/?toast=Item+not+found")
+
+    # Lock check: pass existing_lock to template; gate entry into edit mode.
+    existing_lock = get_lock(f"items:{item_id}")
+    if edit == "1" and existing_lock and existing_lock.get("user_id") != user.id:
+        holder = existing_lock.get("display_name") or "another user"
+        return RedirectResponse(
+            f"{BP}/items/{item_id}?toast=This+item+is+being+edited+by+" + holder.replace(" ", "+"),
+            status_code=303,
+        )
+
+    locations = _get_locations(db)
+    loc_map = {r["id"]: r["name"] for r in locations}
+    categories = _get_categories()
+    receipts = _get_item_receipts(db, item_id)
+    components = _get_component_history(db, item_id)
+    maintenance = _get_maintenance_log(db, item_id)
+
+    return templates.TemplateResponse("item_detail.html", {
+        "request": request,
+        "user": user,
+        "item": item,
+        "location_name": loc_map.get(item.location_id, "\u2014"),
+        "locations": locations,
+        "categories": categories,
+        "statuses": STATUSES,
+        "color": CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+        "category_display": category_display(item.item_category) if item.item_category else "\u2014",
+        "receipts": receipts,
+        "components": components,
+        "maintenance": maintenance,
+        "edit_mode": edit == "1",
+        "existing_lock": existing_lock,
+    })
+
+
+@router.get("/items/{item_id}/edit", response_class=HTMLResponse)
+def item_edit_redirect(request: Request, item_id: int):
+    return RedirectResponse(f"{BP}/items/{item_id}?edit=1", status_code=303)
+
+
+@router.post("/items/{item_id}", response_class=HTMLResponse)
+async def item_update(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    item_name: str = Form(default=""),
+    item_manufacturer: str = Form(default=""),
+    item_model: str = Form(default=""),
+    item_sn: str = Form(default=""),
+    item_category: str = Form(default=""),
+    item_status: str = Form(default=""),
+    location_id: str = Form(default=""),
+    department_or_owner: str = Form(default=""),
+    item_mac_address_1: str = Form(default=""),
+    item_mac_address_2: str = Form(default=""),
+    item_storage_size_gb: str = Form(default=""),
+    appliance_uuid: str = Form(default=""),
+    brand_sku: str = Form(default=""),
+    brand_pn: str = Form(default=""),
+    item_associated_brand_pn: str = Form(default=""),
+    vendor_id: str = Form(default=""),
+    item_vendor: str = Form(default=""),
+    date_purchased: str = Form(default=""),
+    intended_purpose: str = Form(default=""),
+    dispatched_date: str = Form(default=""),
+    tracking_number: str = Form(default=""),
+    notes: str = Form(default=""),
+):
+    if not user or not user.is_editor_or_above:
+        return RedirectResponse(f"{BP}/login")
+
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return RedirectResponse(f"{BP}/inventory/?toast=Item+not+found")
+
+    # Lock enforcement: reject the save if another user currently holds the lock.
+    lock = get_lock(f"items:{item_id}")
+    if lock and lock.get("user_id") != user.id:
+        holder = lock.get("display_name") or "another user"
+        _log.warning(
+            "Item %d save blocked: locked by %s (user_id=%s), attempted by %s (user_id=%s)",
+            item_id, holder, lock.get("user_id"), user.display_name, user.id,
+        )
+        return RedirectResponse(
+            f"{BP}/items/{item_id}?toast=This+item+is+being+edited+by+" + holder.replace(' ', '+'),
+            status_code=303,
+        )
+
+    errors = []
+    mac1_clean = None
+    mac2_clean = None
+    try:
+        mac1_clean = _normalize_mac(item_mac_address_1)
+    except ValueError as e:
+        errors.append(str(e))
+    try:
+        mac2_clean = _normalize_mac(item_mac_address_2)
+    except ValueError as e:
+        errors.append(str(e))
+
+    if errors:
+        locations = _get_locations(db)
+        categories = _get_categories()
+        loc_map = {r["id"]: r["name"] for r in locations}
+        receipts = _get_item_receipts(db, item_id)
+        components = _get_component_history(db, item_id)
+        maintenance = _get_maintenance_log(db, item_id)
+        return templates.TemplateResponse("item_detail.html", {
+            "request": request,
+            "user": user,
+            "item": item,
+            "location_name": loc_map.get(item.location_id, "\u2014"),
+            "locations": locations,
+            "categories": categories,
+            "statuses": STATUSES,
+            "color": CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+            "category_display": category_display(item.item_category) if item.item_category else "\u2014",
+            "receipts": receipts,
+            "components": components,
+            "maintenance": maintenance,
+            "edit_mode": True,
+            "existing_lock": None,
+            "error": " | ".join(errors),
+        })
+
+    item.item_name = _clean_str(item_name)
+    item.item_manufacturer = _clean_str(item_manufacturer)
+    item.item_model = _clean_str(item_model)
+    item.item_sn = _clean_str(item_sn)
+    item.item_category = _clean_str(item_category) or None
+    item.item_status = _clean_str(item_status) or None
+    item.location_id = _safe_int(location_id)
+    item.department_or_owner = _clean_str(department_or_owner)
+    item.item_mac_address_1 = mac1_clean
+    item.item_mac_address_2 = mac2_clean
+    item.item_storage_size_gb = _safe_float(item_storage_size_gb)
+    item.appliance_uuid = _clean_str(appliance_uuid)
+    item.brand_sku = _clean_str(brand_sku)
+    item.brand_pn = _clean_str(brand_pn)
+    item.item_associated_brand_pn = _clean_str(item_associated_brand_pn)
+    item.vendor_id = _safe_int(vendor_id)
+    item.item_vendor = _clean_str(item_vendor)
+    item.date_purchased = _safe_date(date_purchased)
+    item.intended_purpose = _clean_str(intended_purpose)
+    item.dispatched_date = _safe_date(dispatched_date)
+    item.tracking_number = _clean_str(tracking_number)
+    item.notes = _clean_str(notes)
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        _log.error(f"Item update failed: {e}", exc_info=True)
+        return RedirectResponse(
+            f"{BP}/items/{item_id}?toast=Update+failed", status_code=303
+        )
+
+    return RedirectResponse(
+        f"{BP}/items/{item_id}?toast=Item+updated+successfully", status_code=303
+    )
+
+
+@router.post("/items/{item_id}/receipt", response_class=HTMLResponse)
+async def add_receipt(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    receipt_file: UploadFile = File(default=None),
+    record_type: str = Form(default=""),
+    purchase_order: str = Form(default=""),
+    receipt_notes: str = Form(default=""),
+):
+    if not user or not user.is_editor_or_above:
+        return RedirectResponse(f"{BP}/login")
+
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return RedirectResponse(f"{BP}/inventory/?toast=Item+not+found")
+
+    saved_path = None
+    original_name = None
+    if receipt_file and receipt_file.filename:
+        ext = Path(receipt_file.filename).suffix.lower()
+        if ext in ALLOWED_RECEIPT_EXTENSIONS:
+            unique_name = f"receipt_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
+            saved_path = os.path.join(RECEIPT_STORAGE_PATH, unique_name)
+            os.makedirs(RECEIPT_STORAGE_PATH, exist_ok=True)
+            content = await receipt_file.read()
+            with open(saved_path, "wb") as f:
+                f.write(content)
+            original_name = receipt_file.filename
+
+    receipt = ItemReceipt(
+        vendor_id=item.vendor_id,
+        purchase_order=_clean_str(purchase_order),
+        record_type=_clean_str(record_type) or "receipt",
+        transaction_date=item.date_purchased or date.today(),
+        file_path=saved_path,
+        original_filename=original_name,
+        notes=_clean_str(receipt_notes),
+        created_by=user.display_name or user.username,
+    )
+    db.add(receipt)
+    db.flush()
+
+    link = ReceiptItem(
+        receipt_id=receipt.id,
+        item_id=item_id,
+        quantity=1,
+    )
+    db.add(link)
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        _log.error(f"Receipt add failed: {e}", exc_info=True)
+        return RedirectResponse(
+            f"{BP}/items/{item_id}?toast=Receipt+upload+failed", status_code=303
+        )
+
+    return RedirectResponse(
+        f"{BP}/items/{item_id}?toast=Receipt+added+successfully", status_code=303
+    )
+
+
+@router.get("/api/receipts/{receipt_id}/download")
+def download_receipt(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not user:
+        return RedirectResponse(f"{BP}/login")
+
+    receipt = db.query(ItemReceipt).filter(ItemReceipt.id == receipt_id).first()
+    if not receipt or not receipt.file_path:
+        return HTMLResponse("File not found", status_code=404)
+
+    if not os.path.exists(receipt.file_path):
+        return HTMLResponse("File not found on disk", status_code=404)
+
+    return FileResponse(
+        path=receipt.file_path,
+        filename=receipt.original_filename or os.path.basename(receipt.file_path),
+        media_type="application/octet-stream",
+    )

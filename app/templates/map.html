@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}Edge Box Map - Hardware Asset Tracker{% endblock %}
+{% block nav_map %}active{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<style>
+    #map-container {
+        display: flex;
+        gap: 1rem;
+        height: calc(100vh - 80px);
+    }
+
+    #map {
+        flex: 1;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        z-index: 1;
+        background: var(--bg);  /* Match theme instead of white */
+    }
+
+    #sidebar {
+        width: 350px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .search-box {
+        margin-bottom: 1.5rem;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 0.6rem;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .search-box input:focus {
+        outline: none;
+        border-color: var(--info);
+    }
+
+    .filter-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-group h3 {
+        margin-bottom: 0.6rem;
+        font-size: 0.95rem;
+    }
+
+    .filter-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.3rem;
+        font-size: 0.85rem;
+    }
+
+    .filter-checkbox input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .filter-checkbox label {
+        cursor: pointer;
+        flex: 1;
+    }
+
+    .clear-filters {
+        padding: 0.4rem 0.8rem;
+        background: var(--primary);
+        border: none;
+        border-radius: 4px;
+        color: var(--text);
+        font-size: 0.8rem;
+        cursor: pointer;
+        margin-top: 0.5rem;
+    }
+
+    .clear-filters:hover {
+        opacity: 0.8;
+    }
+
+    #sidebar h3 {
+        margin-bottom: 0.8rem;
+        font-size: 1rem;
+    }
+
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .stat-label { color: var(--text-muted); font-size: 0.85rem; }
+    .stat-value { font-weight: 600; }
+
+    .legend {
+        margin: 1rem 0;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.3rem;
+        font-size: 0.85rem;
+    }
+
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .unmapped-list {
+        margin-top: 1rem;
+    }
+
+    .unmapped-item {
+        background: var(--primary);
+        padding: 0.5rem 0.8rem;
+        border-radius: 4px;
+        margin-bottom: 0.4rem;
+        font-size: 0.85rem;
+    }
+
+    .unmapped-item .org {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    /* MapLibre GL canvas styling */
+    .maplibregl-canvas {
+        background: var(--bg);
+    }
+
+    /* MapLibre popup styling */
+    .maplibregl-popup-content {
+        background: var(--card-bg) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .maplibregl-popup-close-button {
+        color: var(--text);
+        font-size: 20px;
+        padding: 0 8px;
+    }
+
+    .maplibregl-popup-close-button:hover {
+        background: var(--primary);
+    }
+
+    .maplibregl-popup-tip {
+        border-top-color: var(--card-bg) !important;
+    }
+
+    .popup-content {
+        font-size: 0.85rem;
+        line-height: 1.6;
+    }
+
+    .popup-content strong {
+        color: var(--info);
+    }
+
+    .popup-content .status-badge {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-Production { background: var(--success); }
+    .status-Pilot { background: var(--warning); color: #000; }
+    .status-Offline { background: var(--danger); }
+    .status-Demo { background: #9b59b6; }
+    .status-Lab { background: var(--info); }
+
+    @media (max-width: 900px) {
+        #map-container { flex-direction: column; height: auto; }
+        #map { height: 400px; }
+        #sidebar { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Edge Box Deployment Map</h1>
+
+<div id="map-container">
+    <div id="map"></div>
+
+    <div id="sidebar">
+        <!-- Search Box -->
+        <div class="search-box">
+            <h3 style="margin-bottom: 0.5rem;">Search Units</h3>
+            <input type="text" id="search-input" placeholder="Search by serial, org, customer, or site..." />
+        </div>
+
+        <!-- Status Filters -->
+        <div class="filter-group">
+            <h3>Filter by Status</h3>
+            <div class="filter-checkbox">
+                <input type="checkbox" id="filter-production" value="Production" checked>
+                <label for="filter-production">Production</label>
+            </div>
+            <div class="filter-checkbox">
+                <input type="checkbox" id="filter-pilot" value="Pilot" checked>
+                <label for="filter-pilot">Pilot</label>
+            </div>
+            <div class="filter-checkbox">
+                <input type="checkbox" id="filter-lab" value="Lab" checked>
+                <label for="filter-lab">Lab</label>
+            </div>
+            <div class="filter-checkbox">
+                <input type="checkbox" id="filter-demo" value="Demo" checked>
+                <label for="filter-demo">Demo</label>
+            </div>
+            <div class="filter-checkbox">
+                <input type="checkbox" id="filter-offline" value="Offline" checked>
+                <label for="filter-offline">Offline</label>
+            </div>
+            <button class="clear-filters" onclick="clearFilters()">Clear All Filters</button>
+        </div>
+
+        <h3>Deployment Stats</h3>
+        <div class="stat-row">
+            <span class="stat-label">Showing</span>
+            <span class="stat-value" id="visible-count">{{ mapped_count }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Total Mapped</span>
+            <span class="stat-value">{{ mapped_count }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Missing Coordinates</span>
+            <span class="stat-value" style="color: var(--warning);">{{ unmapped_count }}</span>
+        </div>
+
+        <div class="legend">
+            <h3>Status Legend</h3>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #27ae60;"></div>
+                <span>Production</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #f39c12;"></div>
+                <span>Customer Lab / Pilot</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #3498db;"></div>
+                <span>Company Lab / Inventory</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #9b59b6;"></div>
+                <span>Demo Kit</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #95a5a6;"></div>
+                <span>Unknown / Other</span>
+            </div>
+        </div>
+
+        {% if unmapped_boxes %}
+        <div class="unmapped-list">
+            <h3>Needs Location Data ({{ unmapped_count }})</h3>
+            {% for box in unmapped_boxes %}
+            <div class="unmapped-item">
+                <div>{{ box.serial or 'No Serial' }} - {{ box.part_number or 'N/A' }}</div>
+                <div class="org">{{ box.org or 'Unknown Org' }}{% if box.customer %} / {{ box.customer }}{% endif %}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+
+    // Initialize MapLibre GL map with faster zoom/pan
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: currentTheme === 'light'
+            ? 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+            : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        center: [-96.80, 32.78],  // Dallas, TX
+        zoom: 4,
+        attributionControl: true,
+        // Faster, snappier interactions
+        fadeDuration: 0,           // Instant tile appearance (no fade)
+        doubleClickZoom: true,
+        boxZoom: true,
+        dragRotate: false,         // Disable rotation for simpler UX
+        pitchWithRotate: false,
+        touchZoomRotate: true,
+        cooperativeGestures: false,
+    });
+
+    // Add navigation controls
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    // Make scroll zoom faster (default is 1, higher = faster)
+    map.scrollZoom.setWheelZoomRate(1 / 200);  // Faster trackpad/scroll zoom
+    map.scrollZoom.setZoomRate(1 / 200);
+
+    // Color mapping
+    const colors = {
+        green: '#27ae60',
+        orange: '#f39c12',
+        blue: '#3498db',
+        purple: '#9b59b6',
+        gray: '#95a5a6',
+    };
+
+    // Store all markers and their data
+    let allMarkers = [];
+
+    // Load and display markers
+    fetch('{{ base_path }}/map/data')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.markers || data.markers.length === 0) return;
+
+            const bounds = new maplibregl.LngLatBounds();
+
+            data.markers.forEach(m => {
+                const color = colors[m.color] || colors.gray;
+                const p = m.popup;
+
+                // Create marker element
+                const el = document.createElement('div');
+                el.style.width = '16px';
+                el.style.height = '16px';
+                el.style.background = color;
+                el.style.border = '2px solid #fff';
+                el.style.borderRadius = '50%';
+                el.style.boxShadow = '0 0 6px rgba(0,0,0,0.5)';
+                el.style.cursor = 'pointer';
+
+                // Popup content
+                const statusClass = p.status.replace(/\s+/g, '');
+                const popupHtml = `
+                    <div style="font-size: 0.85rem; line-height: 1.6;">
+                        <strong style="color: var(--info);">${p.org}</strong>
+                        ${p.customer ? `<br>Customer: ${p.customer}` : ''}
+                        ${p.site ? `<br>Site: ${p.site}` : ''}
+                        <br>Serial: <code>${p.serial}</code>
+                        ${p.part_number ? `<br>Part: ${p.part_number}` : ''}
+                        <br>Status: <span class="status-badge status-${statusClass}">${p.status}</span>
+                        ${p.deployment ? `<br>Type: ${p.deployment}` : ''}
+                        ${p.last_updated ? `<br>Updated: ${p.last_updated.split('T')[0]}` : ''}
+                    </div>
+                `;
+
+                // Create marker with popup
+                const marker = new maplibregl.Marker({ element: el })
+                    .setLngLat([m.lng, m.lat])
+                    .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(popupHtml))
+                    .addTo(map);
+
+                // Store marker with its data for filtering
+                allMarkers.push({
+                    marker: marker,
+                    element: el,
+                    data: m,
+                    popup: p,
+                    visible: true
+                });
+
+                // Extend bounds
+                bounds.extend([m.lng, m.lat]);
+            });
+
+            // Fit map to markers
+            map.fitBounds(bounds, { padding: 50 });
+
+            // Set up search and filter listeners
+            setupSearchAndFilter();
+        })
+        .catch(err => console.error('Failed to load map data:', err));
+
+    // Search and filter functionality
+    function setupSearchAndFilter() {
+        const searchInput = document.getElementById('search-input');
+        const filterCheckboxes = document.querySelectorAll('.filter-checkbox input[type="checkbox"]');
+
+        // Search input listener (debounced)
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => applyFilters(), 300);
+        });
+
+        // Filter checkbox listeners
+        filterCheckboxes.forEach(cb => {
+            cb.addEventListener('change', applyFilters);
+        });
+    }
+
+    function applyFilters() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const activeStatuses = Array.from(document.querySelectorAll('.filter-checkbox input[type="checkbox"]:checked'))
+            .map(cb => cb.value);
+
+        let visibleCount = 0;
+        const visibleBounds = new maplibregl.LngLatBounds();
+        let hasVisibleMarkers = false;
+
+        allMarkers.forEach(item => {
+            const p = item.popup;
+
+            // Check if marker matches search term
+            const matchesSearch = !searchTerm ||
+                (p.serial && p.serial.toLowerCase().includes(searchTerm)) ||
+                (p.org && p.org.toLowerCase().includes(searchTerm)) ||
+                (p.customer && p.customer.toLowerCase().includes(searchTerm)) ||
+                (p.site && p.site.toLowerCase().includes(searchTerm));
+
+            // Check if marker matches status filter
+            const matchesStatus = activeStatuses.includes(p.status);
+
+            // Show/hide marker
+            const shouldShow = matchesSearch && matchesStatus;
+            item.element.style.display = shouldShow ? 'block' : 'none';
+            item.visible = shouldShow;
+
+            if (shouldShow) {
+                visibleCount++;
+                visibleBounds.extend([item.data.lng, item.data.lat]);
+                hasVisibleMarkers = true;
+            }
+        });
+
+        // Update visible count
+        document.getElementById('visible-count').textContent = visibleCount;
+
+        // Auto-zoom to visible markers if search is active
+        if (hasVisibleMarkers && searchTerm) {
+            map.fitBounds(visibleBounds, { padding: 50, maxZoom: 15 });
+        }
+    }
+
+    function clearFilters() {
+        // Clear search box
+        document.getElementById('search-input').value = '';
+
+        // Check all status filters
+        document.querySelectorAll('.filter-checkbox input[type="checkbox"]').forEach(cb => {
+            cb.checked = true;
+        });
+
+        // Reset map view to show all markers
+        applyFilters();
+
+        // Fit to all markers
+        const bounds = new maplibregl.LngLatBounds();
+        allMarkers.forEach(item => {
+            bounds.extend([item.data.lng, item.data.lat]);
+        });
+        map.fitBounds(bounds, { padding: 50 });
+    }
+
+    // Theme switching
+    window.addEventListener('themechange', (e) => {
+        const newStyle = e.detail.theme === 'light'
+            ? 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+            : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+        map.setStyle(newStyle);
+    });
+</script>
+{% endblock %}

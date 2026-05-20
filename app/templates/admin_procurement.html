@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Procurement & Vendor Analytics - Hardware Asset Tracker{% endblock %}
+{% block nav_admin_procurement %}active{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+    <h1 style="margin: 0;">Procurement & Vendor Analytics</h1>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ base_path }}/admin/procurement/export?format=xlsx" class="btn btn-sm" style="text-decoration: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export Excel
+        </a>
+        <a href="{{ base_path }}/admin/procurement/export?format=csv" class="btn btn-sm" style="text-decoration: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+        </a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="cards" style="margin-bottom: 2rem;">
+    <div class="card total">
+        <div class="number">${{ "{:,.2f}".format(total_cost) }}</div>
+        <div class="label">Total Procurement Cost</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">
+            {{ device_count }} devices tracked
+        </div>
+    </div>
+
+    <div class="card" style="border-left: 3px solid #00BFFF;">
+        <div class="number" style="color: #00BFFF;">{{ vendor_count }}</div>
+        <div class="label">Active Vendors</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">
+            {{ avg_vendor_cost_display }} avg/vendor
+        </div>
+    </div>
+
+    <div class="card" style="border-left: 3px solid #FFD700;">
+        <div class="number" style="color: #FFD700;">${{ "{:,.2f}".format(ytd_cost) }}</div>
+        <div class="label">YTD Spending (2026)</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">
+            {{ ytd_device_count }} devices purchased
+        </div>
+    </div>
+
+    <div class="card" style="border-left: 3px solid #00CC66;">
+        <div class="number" style="color: #00CC66;">${{ "{:,.2f}".format(avg_unit_cost) }}</div>
+        <div class="label">Avg Unit Cost</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">
+            across all categories
+        </div>
+    </div>
+</div>
+
+<!-- Cost by Vendor -->
+<div class="table-section">
+    <h2>Cost by Vendor</h2>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Vendor</th>
+                    <th>Total Cost</th>
+                    <th>Device Count</th>
+                    <th>Avg Cost/Device</th>
+                    <th>% of Total</th>
+                    <th>Recent Purchase</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in vendor_costs %}
+                <tr>
+                    <td style="font-weight: 600;"><a href="{{ base_path }}/admin/vendors/{{ v.vendor | urlencode }}" style="color: var(--accent, #3498db); text-decoration: none;">{{ v.vendor }}</a></td>
+                    <td>${{ "{:,.2f}".format(v.total_cost) }}</td>
+                    <td>{{ v.device_count }}</td>
+                    <td>${{ "{:,.2f}".format(v.avg_cost) }}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 60px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;">
+                                <div style="width: {{ v.percentage }}%; height: 100%; background: #00BFFF;"></div>
+                            </div>
+                            <span>{{ "{:.1f}".format(v.percentage) }}%</span>
+                        </div>
+                    </td>
+                    <td>{{ v.most_recent }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Cost by Category -->
+<div class="table-section">
+    <h2>Cost by Category</h2>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Total Cost</th>
+                    <th>Device Count</th>
+                    <th>Avg Cost/Device</th>
+                    <th>% of Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in category_costs %}
+                <tr>
+                    <td style="font-weight: 600;">{{ c.category }}</td>
+                    <td>${{ "{:,.2f}".format(c.total_cost) }}</td>
+                    <td>{{ c.device_count }}</td>
+                    <td>${{ "{:,.2f}".format(c.avg_cost) }}</td>
+                    <td>{{ "{:.1f}".format(c.percentage) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Vendor Performance Metrics -->
+<div class="table-section">
+    <h2>Vendor Performance</h2>
+    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        Quality scores based on warranty claims, trial outcomes, and device status.
+    </p>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Vendor</th>
+                    <th>Total Devices</th>
+                    <th>Warranty Claims</th>
+                    <th>Claim Rate</th>
+                    <th>Trial Outcomes</th>
+                    <th>Quality Score</th>
+                    <th>Performance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vp in vendor_performance %}
+                <tr>
+                    <td style="font-weight: 600;"><a href="{{ base_path }}/admin/vendors/{{ vp.vendor | urlencode }}" style="color: var(--accent, #3498db); text-decoration: none;">{{ vp.vendor }}</a></td>
+                    <td>{{ vp.total_devices }}</td>
+                    <td>{{ vp.warranty_claims }}</td>
+                    <td>
+                        {% if vp.claim_rate > 0 %}
+                        <span class="badge badge-{{ 'danger' if vp.claim_rate > 20 else 'warning' if vp.claim_rate > 10 else 'success' }}">
+                            {{ "{:.1f}".format(vp.claim_rate) }}%
+                        </span>
+                        {% else %}
+                        <span class="badge badge-success">0%</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if vp.trial_purchased > 0 or vp.trial_returned > 0 %}
+                        {{ vp.trial_purchased }} purchased / {{ vp.trial_returned }} returned
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 80px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+                                <div style="width: {{ vp.quality_score }}%; height: 100%; background: {{ '#00CC66' if vp.quality_score >= 80 else '#FFD700' if vp.quality_score >= 60 else '#FF4444' }};"></div>
+                            </div>
+                            <span style="font-weight: 600;">{{ vp.quality_score }}/100</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if vp.quality_score >= 80 %}
+                        <span class="badge badge-success">Excellent</span>
+                        {% elif vp.quality_score >= 60 %}
+                        <span class="badge badge-warning">Good</span>
+                        {% else %}
+                        <span class="badge badge-danger">Needs Review</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent Purchases -->
+<div class="table-section">
+    <h2>Recent Purchases (Last 30 Days)</h2>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Device</th>
+                    <th>Category</th>
+                    <th>Vendor</th>
+                    <th>Cost</th>
+                    <th>Method</th>
+                    <th>PO #</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in recent_purchases %}
+                <tr>
+                    <td>{{ p.purchase_date }}</td>
+                    <td>{{ p.device_name }}</td>
+                    <td>{{ p.category }}</td>
+                    <td>{{ p.vendor }}</td>
+                    <td>${{ "{:,.2f}".format(p.cost) }}</td>
+                    <td>
+                        <span class="badge badge-secondary">{{ p.method_display }}</span>
+                    </td>
+                    <td>{{ p.purchase_order or '-' }}</td>
+                </tr>
+                {% endfor %}
+                {% if not recent_purchases %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No purchases in the last 30 days.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

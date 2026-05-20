@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Hardware Asset Tracker</title>
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ base_path }}/static/icons/icon-96.png">
+    <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v=2">
+    <script>
+        // Apply saved theme immediately to prevent flash
+        (function() {
+            var t = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        [data-theme="dark"] {
+            --primary: #1a1a2e;
+            --primary-light: #16213e;
+            --accent-bright: #e94560;
+            --info: #3498db;
+            --danger: #e74c3c;
+            --text: #ecf0f1;
+            --text-muted: #95a5a6;
+            --card-bg: #1e2a3a;
+            --border: #2c3e50;
+            --input-bg: #16213e;
+        }
+
+        [data-theme="light"] {
+            --primary: #f5f6fa;
+            --primary-light: #eef0f4;
+            --accent-bright: #e94560;
+            --info: #3498db;
+            --danger: #e74c3c;
+            --text: #1a202c;
+            --text-muted: #64748b;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --input-bg: #f8fafc;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--primary);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            color: var(--text);
+            border-color: var(--info);
+        }
+
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .login-card h1 {
+            color: var(--accent-bright);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        .login-card .subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            border-color: var(--info);
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 0.7rem;
+            background: var(--info);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-login:hover {
+            background: #2980b9;
+        }
+
+        .error-msg {
+            background: rgba(231, 76, 60, 0.15);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.2rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleLoginTheme()" id="login-theme-btn" title="Toggle theme">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+
+    <div class="login-card">
+        <div style="text-align: center; margin-bottom: 1rem;">
+            <svg style="height: 56px; width: auto;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1218.87 429.36"><path d="M93.28,219.58v-23.49h104.12c12.99,0,20.25-7.03,20.25-17.57,0-11.47-7.26-17.39-20.25-17.39h-63.81c-26.17,0-42.41-16.09-42.41-38.29s15.09-37.73,42.79-37.73h99.72v23.49h-99.72c-11.08,0-17.58,6.29-17.58,16.46s6.69,16.28,17.38,16.28h63.62c28.08,0,43.17,12.76,43.17,38.84,0,22.56-14.14,39.4-43.17,39.4h-104.12Z" fill="#157ca4" stroke-width="0"/><path d="M324.82,219.58c-38.78,0-67.44-29.59-67.44-68.62s28.66-65.84,67.44-65.84h33.81c40.12,0,68.01,26.82,68.01,65.84s-28.46,68.62-68.01,68.62h-33.81ZM358.63,196.09c25.6,0,43.75-18.68,43.75-44.02s-18.15-43.46-43.75-43.46h-33.81c-24.83,0-43.17,17.94-43.17,43.46s18.15,44.02,43.17,44.02h33.81Z" fill="#157ca4" stroke-width="0"/><polygon points="487.58 219.58 487.58 108.6 434.85 108.6 434.85 85.11 564.57 85.11 564.57 108.6 511.84 108.6 511.84 219.58 487.58 219.58" fill="#157ca4" stroke-width="0"/><path d="M580.61,219.58V85.11h123.98v23.49h-99.91v87.48h100.1v23.49h-124.17ZM622.45,161.13v-19.79h76.99v19.79h-76.99Z" fill="#157ca4" stroke-width="0"/><path d="M854.56,219.58l-35.15-37.36h-51.96v-20.71h57.88c17.38,0,26.55-9.62,26.55-27s-9.93-25.89-26.55-25.89h-75.65v110.97h-24.07V85.11h99.72c31.71,0,50.43,19.05,50.43,49.01,0,22.19-10.7,37.92-28.66,44.57l41.84,40.87h-34.39Z" fill="#157ca4" stroke-width="0"/><rect x="902.89" y="85.11" width="24.26" height="134.46" fill="#157ca4" stroke-width="0"/><polygon points="1093.68 219.58 1035.42 164.65 977.72 219.58 946.2 219.58 1020.71 149.66 951.55 85.11 984.98 85.11 1037.9 134.87 1090.05 85.11 1121.57 85.11 1052.42 149.66 1127.69 219.58 1093.68 219.58" fill="#157ca4" stroke-width="0"/><path d="M92.46,343.12v-7.53h62.32c10.91,0,16.48-6.52,16.48-15.51,0-10.11-5.8-15.06-16.48-15.06h-40.04c-14.62,0-23.56-9.21-23.56-21.91s8.36-21.69,23.68-21.69h59.89v7.53h-59.89c-9.98,0-15.55,6.18-15.55,14.61s5.92,14.38,15.44,14.38h40.04c15.67,0,23.91,7.42,23.91,22.36,0,13.03-7.78,22.81-23.91,22.81h-62.32Z" fill="#bcbdbf" stroke-width="0"/><polygon points="292.42 343.12 292.42 309.19 246 261.43 256.68 261.43 296.6 302.44 336.76 261.43 346.74 261.43 300.31 309.19 300.31 343.12 292.42 343.12" fill="#bcbdbf" stroke-width="0"/><path d="M409.76,343.12v-7.53h62.32c10.91,0,16.48-6.52,16.48-15.51,0-10.11-5.8-15.06-16.48-15.06h-40.04c-14.62,0-23.56-9.21-23.56-21.91s8.36-21.69,23.68-21.69h59.89v7.53h-59.89c-9.98,0-15.55,6.18-15.55,14.61s5.92,14.38,15.44,14.38h40.04c15.67,0,23.91,7.42,23.91,22.36,0,13.03-7.78,22.81-23.91,22.81h-62.32Z" fill="#bcbdbf" stroke-width="0"/><polygon points="598.24 343.12 598.24 268.96 564.11 268.96 564.11 261.43 640.13 261.43 640.13 268.96 606.01 268.96 606.01 343.12 598.24 343.12" fill="#bcbdbf" stroke-width="0"/><path d="M710.23,343.12v-81.69h72.77v7.53h-64.88v66.63h64.99v7.53h-72.88ZM729.26,305.03v-7.08h50.6v7.08h-50.6Z" fill="#bcbdbf" stroke-width="0"/><path d="M963.47,343.12l-21.01-69.55-26.93,67.75c-.81,1.91-2.09,2.92-4.06,2.92-2.09,0-3.6-1.01-4.29-2.92l-26.81-67.75-21.01,69.55h-7.78l23.91-79.33c.7-2.25,1.97-3.37,4.18-3.37,1.74,0,3.37.9,4.18,2.81l27.85,69.89,27.74-69.89c.7-1.91,2.21-2.81,3.95-2.81,2.21,0,3.37,1.12,4.06,3.37l23.91,79.33h-7.89Z" fill="#bcbdbf" stroke-width="0"/><path d="M1041.46,343.12v-7.53h62.32c10.91,0,16.48-6.52,16.48-15.51,0-10.11-5.8-15.06-16.48-15.06h-40.04c-14.62,0-23.56-9.21-23.56-21.91s8.36-21.69,23.68-21.69h59.89v7.53h-59.89c-9.98,0-15.55,6.18-15.55,14.61s5.92,14.38,15.44,14.38h40.04c15.67,0,23.91,7.42,23.91,22.36,0,13.03-7.78,22.81-23.91,22.81h-62.32Z" fill="#bcbdbf" stroke-width="0"/></svg>
+        </div>
+        <h1>Hardware Asset Tracker</h1>
+        <p class="subtitle">Sign in to continue</p>
+
+        {% if error %}
+        <div class="error-msg">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="{{ base_path }}/login">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn-login">Sign In</button>
+        </form>
+    </div>
+
+    <script>
+        function toggleLoginTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateLoginThemeIcon(next);
+        }
+
+        function updateLoginThemeIcon(theme) {
+            const btn = document.getElementById('login-theme-btn');
+            if (theme === 'dark') {
+                btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+            } else {
+                btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+            }
+        }
+
+        // Set correct icon on load
+        updateLoginThemeIcon(document.documentElement.getAttribute('data-theme'));
+    </script>
+</body>
+</html>

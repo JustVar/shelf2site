@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Intake - Asset Tracker{% endblock %}
+
+{% block content %}
+{% from 'partials/icons.html' import icon %}
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0">Intake — New Item</h1>
+  <a href="{{ base_path }}/inventory/" class="inv-btn">← Back to Inventory</a>
+</div>
+
+{% if error %}
+<div class="itk-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="{{ base_path }}/intake" enctype="multipart/form-data" class="itk-form">
+
+  <!-- ── Section 1: Basic Info ── -->
+  <div class="itk-section">
+    <div class="itk-section-title">Basic Information</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="item_name">Item Name</label>
+        <input type="text" name="item_name" id="item_name" class="itk-input" placeholder="e.g. Edge Box EB-042">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_manufacturer">Manufacturer</label>
+        <input type="text" name="item_manufacturer" id="item_manufacturer" class="itk-input" placeholder="e.g. Hanwha, Axis, Dell">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_model">Model</label>
+        <input type="text" name="item_model" id="item_model" class="itk-input" placeholder="e.g. XNV-8080R">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_sn">Serial Number</label>
+        <input type="text" name="item_sn" id="item_sn" class="itk-input" placeholder="e.g. SN-20240301-001">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_category">Category</label>
+        <select name="item_category" id="item_category" class="itk-input">
+          <option value="">Select category...</option>
+          {% for cat in categories %}
+          <option value="{{ cat.value }}">{{ cat.display }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_status">Status</label>
+        <select name="item_status" id="item_status" class="itk-input">
+          <option value="">Select status...</option>
+          {% for s in statuses %}
+          <option value="{{ s }}">{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: Location & Ownership ── -->
+  <div class="itk-section">
+    <div class="itk-section-title">Location & Ownership</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="location_id">Location</label>
+        <select name="location_id" id="location_id" class="itk-input">
+          <option value="">Select location...</option>
+          {% for loc in locations %}
+          <option value="{{ loc.id }}">{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="department_or_owner">Department / Owner</label>
+        <input type="text" name="department_or_owner" id="department_or_owner" class="itk-input" placeholder="e.g. QA, Hardware, Casey Example">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Identifiers ── -->
+  <div class="itk-section">
+    <div class="itk-section-title">Identifiers & Part Numbers</div>
+    <div class="itk-grid">
+      <div class="itk-field itk-cond" data-cats="edge_box,cloud_box,camera_c2c,camera">
+        <label class="itk-label" for="item_mac_address_1">MAC Address 1</label>
+        <input type="text" name="item_mac_address_1" id="item_mac_address_1" class="itk-input" placeholder="e.g. AA:BB:CC:DD:EE:FF">
+      </div>
+      <div class="itk-field itk-cond" data-cats="edge_box,cloud_box,camera_c2c,camera">
+        <label class="itk-label" for="item_mac_address_2">MAC Address 2</label>
+        <input type="text" name="item_mac_address_2" id="item_mac_address_2" class="itk-input" placeholder="e.g. AA:BB:CC:DD:EE:FF">
+      </div>
+      <div class="itk-field itk-cond" data-cats="edge_box,cloud_box,computer">
+        <label class="itk-label" for="item_storage_size_gb">Storage Size (GB)</label>
+        <input type="text" name="item_storage_size_gb" id="item_storage_size_gb" class="itk-input" placeholder="e.g. 512">
+      </div>
+      <div class="itk-field itk-cond" data-cats="edge_box,cloud_box,camera_c2c">
+        <label class="itk-label" for="appliance_uuid">Appliance UUID</label>
+        <input type="text" name="appliance_uuid" id="appliance_uuid" class="itk-input" placeholder="Appliance system identifier">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="brand_sku">Company SKU</label>
+        <input type="text" name="brand_sku" id="brand_sku" class="itk-input" placeholder="e.g. SKU-CAM-001">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="brand_pn">Company Part Number</label>
+        <input type="text" name="brand_pn" id="brand_pn" class="itk-input" placeholder="e.g. PN-12345">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_associated_brand_pn">Associated Part Number</label>
+        <input type="text" name="item_associated_brand_pn" id="item_associated_brand_pn" class="itk-input" placeholder="Related Company PN">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: Vendor ── -->
+  <div class="itk-section">
+    <div class="itk-section-title">Vendor</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="item_vendor">Vendor Name</label>
+        <input type="text" name="item_vendor" id="item_vendor" class="itk-input" placeholder="e.g. Amazon, CDW, B&H">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="vendor_id">Vendor ID</label>
+        <input type="text" name="vendor_id" id="vendor_id" class="itk-input" placeholder="Vendor reference number">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="date_purchased">Date Purchased</label>
+        <input type="date" name="date_purchased" id="date_purchased" class="itk-input">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 5: Deployment ── -->
+  <div class="itk-section">
+    <div class="itk-section-title">Deployment Details</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="intended_purpose">Intended Purpose</label>
+        <input type="text" name="intended_purpose" id="intended_purpose" class="itk-input" placeholder="e.g. Customer deployment, QA testing">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="dispatched_date">Dispatched Date</label>
+        <input type="date" name="dispatched_date" id="dispatched_date" class="itk-input">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="tracking_number">Tracking Number</label>
+        <input type="text" name="tracking_number" id="tracking_number" class="itk-input" placeholder="Shipping tracking number">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 6: Notes ── -->
+  <div class="itk-section">
+    <div class="itk-section-title">Notes</div>
+    <div class="itk-field" style="max-width:100%">
+      <textarea name="notes" id="notes" class="itk-input itk-textarea" rows="3" placeholder="Any additional notes about this item..."></textarea>
+    </div>
+  </div>
+
+  <!-- ── Section 7: Receipt (collapsible) ── -->
+  <div class="itk-section itk-receipt-section">
+    <button type="button" class="itk-receipt-toggle" onclick="toggleReceipt()">
+      <span class="itk-receipt-toggle-icon" id="receipt-toggle-icon">▶</span>
+      <span>Attach Receipt (optional)</span>
+    </button>
+
+    <div class="itk-receipt-body" id="receipt-body" style="display:none">
+      <div class="itk-grid" style="margin-top:0.75rem">
+        <div class="itk-field">
+          <label class="itk-label" for="receipt_file">Receipt File</label>
+          <input type="file" name="receipt_file" id="receipt_file" class="itk-input itk-file-input"
+                 accept=".jpg,.jpeg,.png,.heic,.pdf,.eml,.msg,.html">
+          <div class="itk-hint">Accepted: JPG, PNG, HEIC, PDF, EML, MSG, HTML</div>
+        </div>
+        <div class="itk-field">
+          <label class="itk-label" for="record_type">Record Type</label>
+          <select name="record_type" id="record_type" class="itk-input">
+            <option value="">Select type...</option>
+            <option value="receipt">Receipt</option>
+            <option value="invoice">Invoice</option>
+            <option value="quote">Quote</option>
+            <option value="packing_slip">Packing Slip</option>
+          </select>
+        </div>
+
+        <div class="itk-field">
+          <label class="itk-label" for="purchase_order">Purchase Order #</label>
+          <input type="text" name="purchase_order" id="purchase_order" class="itk-input" placeholder="PO number">
+        </div>
+
+      </div>
+      <div class="itk-field" style="margin-top:0.5rem;max-width:100%">
+        <label class="itk-label" for="receipt_notes">Receipt Notes</label>
+        <textarea name="receipt_notes" id="receipt_notes" class="itk-input itk-textarea" rows="2" placeholder="Notes about this receipt..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Submit ── -->
+  <div class="itk-actions">
+    <a href="{{ base_path }}/inventory/" class="inv-btn">Cancel</a>
+    <button type="submit" class="itk-submit">Create Item</button>
+  </div>
+
+</form>
+<script>
+function updateConditionalFields() {
+  var cat = document.getElementById("item_category").value;
+  var fields = document.querySelectorAll(".itk-cond");
+  for (var i = 0; i < fields.length; i++) {
+    var allowed = fields[i].getAttribute("data-cats").split(",");
+    if (!cat || allowed.indexOf(cat) !== -1) {
+      fields[i].style.display = "";
+    } else {
+      fields[i].style.display = "none";
+      var input = fields[i].querySelector("input, select, textarea");
+      if (input) input.value = "";
+    }
+  }
+}
+document.getElementById("item_category").addEventListener("change", updateConditionalFields);
+updateConditionalFields();
+
+function toggleReceipt() {
+  var body = document.getElementById("receipt-body");
+  var icon = document.getElementById("receipt-toggle-icon");
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    icon.textContent = "▼";
+  } else {
+    body.style.display = "none";
+    icon.textContent = "▶";
+  }
+}
+</script>
+{% endblock %}

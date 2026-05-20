@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Service Maintenance - Hardware Asset Tracker{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <a href="{{ base_path }}/admin/users" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Admin</a>
+</div>
+<h1>Service Maintenance</h1>
+<p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+    Broadcast a banner to all active users before restarting the NUC or deploying an update.
+    The banner appears on every page until you clear it or the server restarts.
+</p>
+
+<!-- Current Status Card -->
+<div class="summary-cards" style="margin-bottom: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+    <div class="summary-card" id="status-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Current Status</div>
+        <div id="status-value" style="font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{ 'var(--warning, #f39c12)' if announcement.active else 'var(--success, #27ae60)' }};">
+            {{ 'Active Announcement' if announcement.active else 'No Announcement' }}
+        </div>
+        <div id="status-sub" style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            {% if announcement.active and announcement.announced_at %}
+                Since {{ announcement.announced_at[11:16] }} UTC
+            {% else %}
+                No banner showing
+            {% endif %}
+        </div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">SSE Clients</div>
+        <div style="font-size: 1rem; font-weight: 700; color: var(--text);" id="session-count">—</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Live browser connections</div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Restart In</div>
+        <div style="font-size: 1rem; font-weight: 700; color: var(--text);" id="countdown-card">
+            {% if announcement.active and announcement.minutes_remaining is not none %}
+                {{ announcement.minutes_remaining }} min
+            {% else %}
+                —
+            {% endif %}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">If countdown is set</div>
+    </div>
+</div>
+
+<!-- Who's Online -->
+<div class="table-section" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+        <h2 style="margin: 0;">Who's Online</h2>
+        <span id="safe-badge" style="display: none; font-size: 0.78rem; font-weight: 600; padding: 0.18rem 0.6rem; border-radius: 99px; background: rgba(39,174,96,0.12); color: var(--success, #27ae60); border: 1px solid rgba(39,174,96,0.3);">
+            ✓ Safe to restart
+        </span>
+        <button class="btn btn-sm" id="refresh-users-btn" onclick="loadActiveUsers()" style="margin-left: auto; font-size: 0.8rem; padding: 0.25rem 0.65rem;">Refresh</button>
+    </div>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Users who made an authenticated request in the last 10 minutes. If only admin accounts are active (or nobody), it's safe to restart without sending an announcement.
+    </p>
+    <div id="active-users-content">
+        <div style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">Loading…</div>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;" id="users-last-updated"></div>
+</div>
+
+<!-- Active announcement preview -->
+{% if announcement.active %}
+<div class="table-section" style="margin-bottom: 1.5rem; border-color: var(--warning, #f39c12);">
+    <h2>Active Announcement</h2>
+    <div style="margin-top: 0.75rem; padding: 1rem; background: rgba(243, 156, 18, 0.1); border: 1px solid rgba(243, 156, 18, 0.4); border-radius: 8px; display: flex; gap: 0.75rem; align-items: flex-start;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="var(--warning, #f39c12)" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+        </svg>
+        <div>
+            <div style="font-weight: 600; margin-bottom: 0.25rem;">{{ announcement.message }}</div>
+            {% if announcement.minutes_remaining is not none %}
+            <div style="font-size: 0.85rem; color: var(--text-muted);">Restart in approximately {{ announcement.minutes_remaining }} minute{{ '' if announcement.minutes_remaining == 1 else 's' }}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+        <button class="btn btn-sm" onclick="clearAnnouncement()" style="border-color: var(--danger, #e74c3c); color: var(--danger, #e74c3c);">
+            Clear Announcement
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="forceReload()">
+            Force All Browsers to Reload
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- Announce form -->
+<div class="table-section" style="margin-bottom: 1.5rem;">
+    <h2>Broadcast Announcement</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        This banner will appear at the top of every page for all logged-in users immediately.
+    </p>
+    <div style="display: flex; flex-direction: column; gap: 0.75rem; max-width: 560px;">
+        <div>
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">Message</label>
+            <input type="text" id="msg-input" class="form-control"
+                placeholder="e.g. Server restarting in 10 minutes for a software update."
+                style="width: 100%;"
+                value="{{ announcement.message if announcement.active else '' }}" />
+        </div>
+        <div>
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">Restart countdown (optional)</label>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <select id="minutes-select" class="form-control" style="width: auto;">
+                    <option value="">No countdown</option>
+                    <option value="5">5 minutes</option>
+                    <option value="10">10 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="custom">Custom…</option>
+                </select>
+                <input type="number" id="custom-minutes" class="form-control" placeholder="min"
+                    style="width: 80px; display: none;" min="1" max="480" />
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-primary" onclick="announce()">Announce Now</button>
+            {% if not announcement.active %}
+            <button class="btn" onclick="clearAnnouncement()" style="opacity: 0.5;" disabled>Clear</button>
+            {% endif %}
+        </div>
+    </div>
+    <div id="announce-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+</div>
+
+<!-- Force reload section -->
+<div class="table-section" style="margin-bottom: 1.5rem;">
+    <h2>Force Page Reload</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        After deploying a code update, send a reload signal to all active browser sessions.
+        Users will see their current page reload automatically — no need to tell everyone to refresh.
+    </p>
+    <button class="btn" onclick="forceReload()">Force All Browsers to Reload Now</button>
+    <div id="reload-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+</div>
+
+<!-- How it works -->
+<div class="table-section">
+    <h2>How It Works</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 0.75rem;">
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.4rem;">1. Announce</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">You type a message and click Announce. An orange banner immediately appears at the top of every page for all logged-in users.</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.4rem;">2. Countdown</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">If you set a countdown, the banner shows "Restarting in X minutes" and updates every minute until it reaches zero.</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.4rem;">3. Restart</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">When the server restarts, the banner automatically disappears (state is in-memory). Users see the app come back normally.</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.4rem;">Force Reload</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">After deploying an update, use Force Reload to push all active browsers to refresh immediately so everyone gets the latest version.</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>// BP available globally from base.html</script>
+<script src="{{ base_path }}/static/js/admin-maintenance.js"></script>
+{% endblock %}

@@ -1,0 +1,200 @@
+<!-- HTMX partial: expanded dashboard summary — cards, category breakdown, status bar, activity feed -->
+
+<!-- Summary Cards (bigger, with subtitles) -->
+<div class="summary-cards">
+    <!-- Total Devices -->
+    <div class="summary-card" style="cursor:pointer;" title="Show all devices"
+         onclick="var t=document.querySelector('.tile[data-table=\'__all__\']'); if(t){toggleTile(t); t.scrollIntoView({behavior:'smooth',block:'center'});}">
+        <div class="summary-icon" style="background: rgba(52, 152, 219, 0.15); color: var(--info);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ total_devices }}</div>
+            <div class="summary-label">Total Devices</div>
+            <div class="summary-subtitle">across {{ category_counts|length }} categories</div>
+        </div>
+    </div>
+
+    <!-- Active / Online -->
+    <div class="summary-card">
+        <div class="summary-icon" style="background: rgba(39, 174, 96, 0.15); color: var(--success);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ active_count }}</div>
+            <div class="summary-label">Active / Online</div>
+            <div class="summary-subtitle">{{ active_pct }}% of total</div>
+        </div>
+    </div>
+
+    <!-- Needs Attention -->
+    {% if attention_count and attention_count > 0 %}
+    <div class="summary-card attention">
+        <div class="summary-icon" style="background: rgba(243, 156, 18, 0.15); color: var(--warning);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ attention_count }}</div>
+            <div class="summary-label">Needs Attention</div>
+            <div class="summary-detail">
+                {% if warranties_expiring > 0 %}
+                <a href="{{ base_path }}/warranty/">{{ warranties_expiring }} warrant{{ 'ies' if warranties_expiring != 1 else 'y' }} expiring</a><br>
+                {% endif %}
+                {% if trials_overdue > 0 %}
+                <a href="{{ base_path }}/trials/">{{ trials_overdue }} trial{{ 's' if trials_overdue != 1 else '' }} overdue</a><br>
+                {% endif %}
+                {% if overdue_loaners > 0 %}
+                <a href="{{ base_path }}/sites/">{{ overdue_loaners }} loaner{{ 's' if overdue_loaners != 1 else '' }} overdue</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Incomplete Records -->
+    <div class="summary-card" style="cursor:pointer;" title="Filter devices with incomplete data"
+         onclick="document.getElementById('filter-completeness').value=0; document.getElementById('filter-toggle').click(); document.getElementById('filter-completeness').value=0; applyFilters();">
+        <div class="summary-icon" style="background: rgba(231, 76, 60, 0.15); color: var(--danger);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ total_incomplete }}</div>
+            <div class="summary-label">Incomplete Records</div>
+            <div class="summary-subtitle">missing required fields · click to filter</div>
+        </div>
+    </div>
+
+    <!-- Edge Boxes Deployed -->
+    <div class="summary-card">
+        <div class="summary-icon" style="background: rgba(108, 92, 231, 0.15); color: #6c5ce7;">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ edge_boxes_deployed }}</div>
+            <div class="summary-label">Edge Boxes Deployed</div>
+            <div class="summary-subtitle">customer, pilot & demo units</div>
+        </div>
+    </div>
+
+    <!-- Edge Boxes in Lab -->
+    <div class="summary-card">
+        <div class="summary-icon" style="background: rgba(52, 152, 219, 0.15); color: var(--info);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="3" width="20" height="7" rx="1"/><rect x="2" y="14" width="20" height="7" rx="1"/>
+                <circle cx="6" cy="6.5" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="17.5" r="1" fill="currentColor" stroke="none"/>
+                <line x1="10" y1="6.5" x2="18" y2="6.5"/><line x1="10" y1="17.5" x2="18" y2="17.5"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ edge_boxes_in_lab }}</div>
+            <div class="summary-label">Edge Boxes in Lab</div>
+            <div class="summary-subtitle">internal units</div>
+        </div>
+    </div>
+
+    <!-- Trade Show -->
+    <div class="summary-card">
+        <div class="summary-icon" style="background: rgba(170, 68, 255, 0.15); color: #AA44FF;">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                <line x1="12" y1="12" x2="12" y2="16"/>
+                <line x1="10" y1="14" x2="14" y2="14"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ trade_show_count }}</div>
+            <div class="summary-label">Trade Show</div>
+            <div class="summary-subtitle">event & demo units</div>
+        </div>
+    </div>
+
+    <!-- Stock -->
+    <div class="summary-card">
+        <div class="summary-icon" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71;">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none"
+                 stroke="currentColor" stroke-width="2">
+                <path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ stock_count }}</div>
+            <div class="summary-label">Stock</div>
+            <div class="summary-subtitle">ready for orders</div>
+        </div>
+    </div>
+</div>
+
+<!-- Provisioning Pipeline (sites managers only) -->
+{% if pipeline_metrics %}
+<div style="margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="font-weight: 600; font-size: 0.85rem;">Provisioning Pipeline</span>
+        <a href="{{ base_path }}/provisioning/" style="font-size: 0.78rem; color: var(--info); text-decoration: none;">View Board</a>
+    </div>
+    <!-- Metric cards row -->
+    <div class="pipeline-metrics-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.75rem;">
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; text-align: center;">
+            <div style="font-size: 1.3rem; font-weight: 700; color: var(--info);">{{ pipeline_metrics.active_count }}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Active</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; text-align: center;">
+            <div style="font-size: 1.3rem; font-weight: 700; color: var(--success);">{{ pipeline_metrics.completed_count }}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Completed</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; text-align: center;">
+            <div style="font-size: 1.3rem; font-weight: 700; color: var(--warning);">{{ pipeline_metrics.avg_completion_days or '—' }}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Avg Days</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; text-align: center;">
+            <div style="font-size: 1.3rem; font-weight: 700; color: #6c5ce7;">{{ pipeline_metrics.weekly_velocity }}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Per Week</div>
+        </div>
+    </div>
+    <!-- Stage distribution bar -->
+    {% if pipeline_metrics.stage_distribution %}
+    {% set total_active = pipeline_metrics.active_count %}
+    {% if total_active > 0 %}
+    <div style="display: flex; height: 20px; border-radius: 6px; overflow: hidden; background: var(--border);">
+        {% set stage_colors = ['#3498db', '#2ecc71', '#e67e22', '#9b59b6', '#1abc9c', '#e74c3c', '#f39c12'] %}
+        {% for stage in pipeline_metrics.stage_distribution %}
+        {% if stage.count > 0 %}
+        {% set pct = (stage.count / total_active * 100)|round(1) %}
+        <div style="width: {{ pct }}%; background: {{ stage_colors[loop.index0 % 7] }}; display: flex; align-items: center; justify-content: center;"
+             title="{{ stage.label }}: {{ stage.count }}">
+            {% if pct >= 10 %}
+            <span style="font-size: 0.65rem; font-weight: 600; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{{ stage.count }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
+        {% for stage in pipeline_metrics.stage_distribution %}
+        {% if stage.count > 0 %}
+        <span>
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {{ stage_colors[loop.index0 % 7] }}; margin-right: 3px;"></span>
+            {{ stage.label }}: {{ stage.count }}
+        </span>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 0.5rem; color: var(--text-muted); font-size: 0.8rem;">No active provisioning records.</div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endif %}
+
+

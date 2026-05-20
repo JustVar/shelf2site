@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Departments - Hardware Asset Tracker{% endblock %}
+
+{% block content %}
+<div class="depts-page">
+  <div class="depts-page__header">
+    <div class="depts-page__title">
+      <h1>Departments</h1>
+      <p class="depts-page__subtitle"><span id="depts-count">0</span> departments</p>
+    </div>
+    <div class="depts-page__controls">
+      <input type="text" id="depts-search" class="depts-search" placeholder="Search…" autocomplete="off">
+      <button type="button" id="depts-add-btn" class="depts-add-btn">+ Add department</button>
+    </div>
+  </div>
+
+  <div id="depts-grid" class="depts-grid"></div>
+
+  <div id="depts-empty" class="depts-empty" style="display:none;">
+    <p>No departments match your search.</p>
+  </div>
+</div>
+
+<!-- Drawer (skeleton; U3c populates body and wires save/delete) -->
+<div id="dept-drawer-overlay" class="sx-drawer-overlay"></div>
+<aside id="dept-drawer" class="sx-drawer" aria-hidden="true">
+  <div class="sx-drawer-header">
+    <div>
+      <h3 id="dept-drawer-title" class="sx-drawer-title">Edit department</h3>
+      <p id="dept-drawer-subtitle" class="sx-drawer-subtitle">—</p>
+    </div>
+    <button type="button" id="dept-drawer-close" class="sx-drawer-close" aria-label="Close">×</button>
+  </div>
+  <div class="sx-drawer-body" id="dept-drawer-body">
+    <div id="dept-drawer-error" class="sx-drawer-error"></div>
+
+    <div class="sx-drawer-section">
+      <div class="sx-drawer-section-label">Identity</div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="dd-name">Name</label>
+        <input type="text" id="dd-name" autocomplete="off" maxlength="64">
+      </div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="dd-description">Description</label>
+        <textarea id="dd-description" rows="2" autocomplete="off" maxlength="500"></textarea>
+      </div>
+    </div>
+
+    <div class="sx-drawer-section">
+      <div class="sx-drawer-section-label">Permissions</div>
+      <div id="dd-permissions-groups">
+        <!-- JS populates: 4 group blocks, each with rows -->
+      </div>
+    </div>
+
+    <div class="sx-drawer-section" id="dd-members-section">
+      <div class="sx-drawer-section-label">Members</div>
+      <div id="dd-members-list">
+        <!-- JS populates -->
+      </div>
+    </div>
+  </div>
+  <div class="sx-drawer-footer" id="dept-drawer-footer">
+    <button type="button" id="dept-drawer-delete" class="users-btn users-btn--danger" style="display:none;">Delete department</button>
+    <div style="display: flex; gap: 8px; margin-left: auto;">
+      <button type="button" id="dept-drawer-cancel" class="users-btn">Cancel</button>
+      <button type="button" id="dept-drawer-save" class="users-btn users-btn--primary">Save</button>
+    </div>
+  </div>
+</aside>
+
+<script>
+const DEPARTMENTS_PAYLOAD = {{ departments_payload | tojson }};
+</script>
+<script src="{{ base_path }}/static/js/admin-departments-v2.js?v=20260515c"></script>
+{% endblock %}

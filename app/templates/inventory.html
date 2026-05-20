@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+{% block title %}Inventory - Asset Tracker{% endblock %}
+
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+{% endblock %}
+
+{% block content %}
+{% from 'partials/icons.html' import icon %}
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0">Inventory</h1>
+  <div style="font-size:12px;color:var(--sx-gray)">{{ total_count }} item{{ 's' if total_count != 1 }}</div>
+</div>
+
+<!-- Category Tiles -->
+<div class="inv-tiles">
+  {% for tile in tiles %}
+  <a href="{{ base_path }}/inventory?category={{ tile.name }}{% if status %}&status={{ status }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+     class="inv-tile {% if category == tile.name %}inv-tile--active{% endif %}">
+    <div class="inv-tile__accent" style="background:{{ tile.color }}"></div>
+    <div class="inv-tile__count">{{ tile.count }}</div>
+    <div class="inv-tile__label">{{ tile.display }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Filters -->
+<div class="inv-filters">
+  <div class="inv-search">
+    {{ icon('search', size=13) }}
+    <input type="text" id="inv-search-input" placeholder="Search name, serial, SKU..." value="{{ q }}" autocomplete="off">
+  </div>
+  <select class="inv-select" id="inv-status-select">
+    <option value="">All statuses</option>
+    {% for s in statuses %}
+    <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <select class="inv-select" id="inv-location-select">
+    <option value="">All locations</option>
+    {% for loc in locations %}
+    <option value="{{ loc.id }}" {% if location == loc.id|string %}selected{% endif %}>{{ loc.name }}</option>
+    {% endfor %}
+  </select>
+  {% if q or status or location %}
+  <a href="{{ base_path }}/inventory?category={{ category }}" class="inv-btn">Clear filters</a>
+  {% endif %}
+</div>
+
+<!-- Bulk Action Bar (kebab-menu pattern, mirrors Triage) -->
+<div id="inv-bulk-bar" class="inv-bulk-bar" style="display:none">
+  <div class="inv-bulk-left">
+    <span class="inv-bulk-count-wrap"><span id="inv-bulk-count">0</span> selected</span>
+    <button type="button" class="inv-bulk-clear" onclick="invClearSelection()">Clear</button>
+  </div>
+  <div class="inv-bulk-right" id="inv-bulk-right">
+    <div id="inv-bulk-menu-wrap" class="inv-bulk-menu-wrap">
+      <button type="button" id="inv-bulk-menu-trigger" class="inv-bulk-menu-trigger" onclick="invBulkToggleMenu(event)">
+        Actions
+        <span class="inv-bulk-menu-caret">▾</span>
+      </button>
+      <div id="inv-bulk-menu" class="inv-bulk-menu" role="menu">
+        <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('location')">Set location</button>
+        <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('status')">Set status</button>
+        <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('department')">Set department / owner</button>
+        <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('export')">Export to CSV</button>
+      </div>
+    </div>
+    <div id="inv-bulk-apply-row" class="inv-bulk-apply-row" style="display:none">
+      <span id="inv-bulk-action-label" class="inv-bulk-action-label"></span>
+      <div id="inv-bulk-value-wrap">
+        <select id="inv-bulk-value-select" class="inv-select" style="display:none"></select>
+        <input type="text" id="inv-bulk-value-text" class="inv-input" placeholder="Department / owner" style="display:none">
+      </div>
+      <button type="button" id="inv-bulk-apply" class="inv-bulk-apply" onclick="invApplyBulk()" disabled>Apply</button>
+      <button type="button" class="inv-bulk-cancel-action" onclick="invBulkCancelAction()" aria-label="Cancel action">×</button>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="inv-table-wrap">
+  <table class="inv-table" style="min-width:1000px">
+    <thead>
+      <tr>
+        <th class="sx-stick-left sx-stick-left--checkbox"><input type="checkbox" class="inv-cb" id="select-all" onclick="invToggleSelectAll(this)"></th>
+        <th class="sx-stick-left sx-stick-left--primary">Item / Serial</th>
+        <th>Category</th>
+        <th>Status</th>
+        <th>Location</th>
+        <th>SKU</th>
+        <th>Last Updated</th>
+        <th class="sx-stick-right sx-stick-right--actions"></th>
+      </tr>
+    </thead>
+    <tbody id="inv-tbody">
+      {% if rows %}
+        {% for row in rows %}
+        <tr data-id="{{ row.id }}" onclick="handleRowClick(event, {{ row.id }})">
+          <td class="sx-stick-left sx-stick-left--checkbox" onclick="event.stopPropagation()">
+            <input type="checkbox" class="inv-cb row-cb" value="{{ row.id }}" onclick="invOnRowCheckboxChange(event)">
+          </td>
+          <td class="sx-stick-left sx-stick-left--primary">
+            <div style="font-weight:500;color:var(--sx-white)">{{ row.name }}</div>
+            <div style="font-size:11px;color:var(--sx-gray)">{{ row.sn }}</div>
+          </td>
+          <td>
+            <span class="inv-cat-pill" style="background:{{ row.color }}22;color:{{ row.color }}">
+              {{ row.category_display }}
+            </span>
+          </td>
+          <td>
+            {% set s = row.status | lower | replace(' ', '') | replace('-', '') %}
+            <span class="inv-status inv-status--{{ s }}">{{ row.status }}</span>
+          </td>
+          <td style="font-size:12px;color:var(--sx-gray)">{{ row.location }}</td>
+          <td style="font-size:12px;color:var(--sx-gray)">{{ row.sku }}</td>
+          <td style="font-size:11px;color:var(--sx-gray)">
+            {{ row.last_updated.strftime('%b %d, %Y') if row.last_updated else '—' }}
+          </td>
+          <td class="sx-stick-right sx-stick-right--actions" style="text-align:right">
+            <button class="inv-btn" style="padding:3px 8px;font-size:11px"
+              onclick="event.stopPropagation();openQuickView({{ row.id }})">View</button>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+      <tr>
+        <td colspan="8">
+          <div class="inv-empty">
+            {% if q or status or location %}
+            No items match your filters. <a href="{{ base_path }}/inventory?category={{ category }}">Clear filters</a>
+            {% else %}
+            No items yet. <a href="{{ base_path }}/intake">Add your first item</a>.
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<div class="inv-pagination">
+  <div class="inv-page-info">
+    Showing {{ (current_page - 1) * 50 + 1 }}–{{ [current_page * 50, total_count] | min }} of {{ total_count }}
+  </div>
+  <div class="inv-page-btns">
+    <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}&page={{ current_page - 1 }}"
+       class="inv-page-btn {% if current_page == 1 %}inv-page-btn--disabled{% endif %}">← Prev</a>
+    {% for p in range(1, total_pages + 1) %}
+      {% if p <= 2 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
+      <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}&page={{ p }}"
+         class="inv-page-btn {% if p == current_page %}inv-page-btn--active{% endif %}">{{ p }}</a>
+      {% elif p == 3 or p == total_pages - 2 %}
+      <span class="inv-page-btn inv-page-btn--disabled">…</span>
+      {% endif %}
+    {% endfor %}
+    <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}&page={{ current_page + 1 }}"
+       class="inv-page-btn {% if current_page == total_pages %}inv-page-btn--disabled{% endif %}">Next →</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick View Overlay -->
+<div class="qv-overlay" id="qv-overlay" onclick="closeQuickView()"></div>
+<div class="qv-panel" id="qv-panel">
+  <div class="qv-header">
+    <span class="qv-title" id="qv-title">Item Details</span>
+    <button class="qv-close" onclick="closeQuickView()">✕</button>
+  </div>
+  <div id="qv-content">
+    <div class="qv-loading">Loading...</div>
+  </div>
+</div>
+
+<script>
+// Bulk-action lookups, serialized server-side to avoid a round-trip.
+var INV_LOCATIONS = {{ locations | tojson }};
+var INV_STATUSES = {{ statuses | tojson }};
+</script>
+
+<script>
+// BP available globally from base.html
+var _qvItemId = null;
+
+// Row click — open quick view (not on checkbox)
+function handleRowClick(e, id) {
+  if (e.target.type === 'checkbox') return;
+  openQuickView(id);
+}
+
+// Quick View
+function openQuickView(id) {
+  _qvItemId = id;
+  var panel = document.getElementById('qv-panel');
+  var overlay = document.getElementById('qv-overlay');
+  overlay.classList.add('qv-overlay--visible');
+  panel.style.transform = 'translateX(0)';
+  document.getElementById('qv-content').innerHTML = '<div class="qv-loading">Loading...</div>';
+  fetch(BP + '/inventory/quick-view/' + id)
+    .then(function(r) { return r.text(); })
+    .then(function(html) { document.getElementById('qv-content').innerHTML = html; });
+}
+
+function closeQuickView() {
+  document.getElementById('qv-overlay').classList.remove('qv-overlay--visible');
+  document.getElementById('qv-panel').style.transform = 'translateX(100%)';
+}
+
+function openQvEdit() {
+  document.getElementById('qv-content').innerHTML = '<div class="qv-loading">Loading...</div>';
+  fetch(BP + '/inventory/quick-view/' + _qvItemId + '?edit=1')
+    .then(function(r) { return r.text(); })
+    .then(function(html) { document.getElementById('qv-content').innerHTML = html; });
+}
+
+function saveQvEdit(form) {
+  var formData = new FormData(form);
+  fetch(BP + '/inventory/quick-view/' + _qvItemId, {
+    method: 'POST',
+    body: formData
+  }).then(function(r) { return r.text(); })
+    .then(function(html) {
+      document.getElementById('qv-content').innerHTML = html;
+      SxToast.success('Item updated');
+    });
+  return false;
+}
+
+// Keyboard close
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeQuickView(); });
+
+// ── Bulk selection + actions (kebab-menu pattern, mirrors Triage) ─────
+var INV_BULK_ACTION_LABELS = {
+  location: 'Set location',
+  status: 'Set status',
+  department: 'Set department / owner',
+  export: 'Export to CSV',
+};
+var invBulkCurrentAction = null;
+
+function invGetSelectedIds() {
+  var boxes = document.querySelectorAll('.row-cb:checked');
+  var ids = [];
+  for (var i = 0; i < boxes.length; i++) ids.push(parseInt(boxes[i].value, 10));
+  return ids;
+}
+
+function invBulkToggleMenu(ev) {
+  ev.stopPropagation();
+  var menu = document.getElementById('inv-bulk-menu');
+  menu.classList.toggle('inv-bulk-menu--open');
+}
+
+function invBulkCloseMenu() {
+  var menu = document.getElementById('inv-bulk-menu');
+  menu.classList.remove('inv-bulk-menu--open');
+}
+
+// Close the menu on outside click
+document.addEventListener('click', function(ev) {
+  var menu = document.getElementById('inv-bulk-menu');
+  if (!menu || !menu.classList.contains('inv-bulk-menu--open')) return;
+  if (menu.contains(ev.target) || ev.target.id === 'inv-bulk-menu-trigger') return;
+  invBulkCloseMenu();
+});
+
+function invOnRowCheckboxChange(ev) {
+  ev.stopPropagation();
+  invUpdateBulkBar();
+  var allBoxes = document.querySelectorAll('.row-cb');
+  var checkedBoxes = document.querySelectorAll('.row-cb:checked');
+  var selectAll = document.getElementById('select-all');
+  if (!selectAll) return;
+  if (checkedBoxes.length === 0) {
+    selectAll.checked = false; selectAll.indeterminate = false;
+  } else if (checkedBoxes.length === allBoxes.length) {
+    selectAll.checked = true; selectAll.indeterminate = false;
+  } else {
+    selectAll.checked = false; selectAll.indeterminate = true;
+  }
+}
+
+function invToggleSelectAll(el) {
+  var allBoxes = document.querySelectorAll('.row-cb');
+  for (var i = 0; i < allBoxes.length; i++) allBoxes[i].checked = el.checked;
+  el.indeterminate = false;
+  invUpdateBulkBar();
+}
+
+function invClearSelection() {
+  var allBoxes = document.querySelectorAll('.row-cb');
+  for (var i = 0; i < allBoxes.length; i++) allBoxes[i].checked = false;
+  var selectAll = document.getElementById('select-all');
+  if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+  invBulkCancelAction();
+  invUpdateBulkBar();
+}
+
+function invBulkPickAction(action) {
+  invBulkCurrentAction = action;
+  invBulkCloseMenu();
+  document.getElementById('inv-bulk-menu-wrap').style.display = 'none';
+  document.getElementById('inv-bulk-apply-row').style.display = 'flex';
+  document.getElementById('inv-bulk-action-label').textContent = INV_BULK_ACTION_LABELS[action];
+
+  var wrap = document.getElementById('inv-bulk-value-wrap');
+  var sel = document.getElementById('inv-bulk-value-select');
+  var txt = document.getElementById('inv-bulk-value-text');
+  wrap.style.display = '';
+  sel.style.display = 'none';
+  txt.style.display = 'none';
+  sel.innerHTML = '';
+
+  if (action === 'location') {
+    sel.style.display = '';
+    var o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = '— Select location —';
+    sel.appendChild(o0);
+    for (var i = 0; i < INV_LOCATIONS.length; i++) {
+      var o = document.createElement('option');
+      o.value = INV_LOCATIONS[i].id;
+      o.textContent = INV_LOCATIONS[i].name;
+      sel.appendChild(o);
+    }
+  } else if (action === 'status') {
+    sel.style.display = '';
+    var s0 = document.createElement('option');
+    s0.value = ''; s0.textContent = '— Select status —';
+    sel.appendChild(s0);
+    for (var j = 0; j < INV_STATUSES.length; j++) {
+      var os = document.createElement('option');
+      os.value = INV_STATUSES[j];
+      os.textContent = INV_STATUSES[j];
+      sel.appendChild(os);
+    }
+  } else if (action === 'department') {
+    txt.style.display = '';
+    txt.value = '';
+  } else if (action === 'export') {
+    wrap.style.display = 'none';
+  }
+
+  sel.onchange = invUpdateBulkBar;
+  txt.oninput = invUpdateBulkBar;
+  invUpdateBulkBar();
+  if (action !== 'export') {
+    setTimeout(function() {
+      if (txt.style.display !== 'none') txt.focus();
+      else if (sel.style.display !== 'none') sel.focus();
+    }, 50);
+  }
+}
+
+function invBulkCancelAction() {
+  invBulkCurrentAction = null;
+  var applyRow = document.getElementById('inv-bulk-apply-row');
+  var menuWrap = document.getElementById('inv-bulk-menu-wrap');
+  if (applyRow) applyRow.style.display = 'none';
+  if (menuWrap) menuWrap.style.display = '';
+  var sel = document.getElementById('inv-bulk-value-select');
+  var txt = document.getElementById('inv-bulk-value-text');
+  if (sel) sel.value = '';
+  if (txt) txt.value = '';
+  invUpdateBulkBar();
+}
+
+function invUpdateBulkBar() {
+  var ids = invGetSelectedIds();
+  var bar = document.getElementById('inv-bulk-bar');
+  var countEl = document.getElementById('inv-bulk-count');
+  var applyBtn = document.getElementById('inv-bulk-apply');
+  countEl.textContent = ids.length;
+  bar.style.display = ids.length > 0 ? 'flex' : 'none';
+  var valueReady = invBulkValueReady(invBulkCurrentAction);
+  applyBtn.disabled = ids.length === 0 || !invBulkCurrentAction || !valueReady;
+
+  if (ids.length === 0 && invBulkCurrentAction) {
+    invBulkCancelAction();
+  }
+}
+
+function invBulkValueReady(action) {
+  if (!action) return false;
+  if (action === 'export') return true;
+  if (action === 'department') {
+    var txt = document.getElementById('inv-bulk-value-text');
+    return !!(txt && txt.value.trim());
+  }
+  var sel = document.getElementById('inv-bulk-value-select');
+  return !!(sel && sel.value);
+}
+
+function invApplyBulk() {
+  var action = invBulkCurrentAction;
+  var ids = invGetSelectedIds();
+  if (!action || ids.length === 0) return;
+
+  if (action === 'export') {
+    invExportCsv(ids);
+    return;
+  }
+
+  var sel = document.getElementById('inv-bulk-value-select');
+  var txt = document.getElementById('inv-bulk-value-text');
+  var value = (action === 'department') ? txt.value.trim() : sel.value;
+  if (!value) {
+    if (window.SxToast) window.SxToast.error('Please choose a value');
+    return;
+  }
+  if (!confirm('Apply this change to ' + ids.length + ' item(s)?')) return;
+
+  var applyBtn = document.getElementById('inv-bulk-apply');
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Applying…';
+
+  var formData = new FormData();
+  formData.append('action', action);
+  formData.append('value', value);
+  for (var i = 0; i < ids.length; i++) formData.append('item_ids', ids[i]);
+
+  fetch(BP + '/inventory/bulk', { method: 'POST', body: formData })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Apply';
+      if (!result.success) {
+        if (window.SxToast) window.SxToast.error(result.error || 'Bulk update failed');
+        return;
+      }
+      var msg = 'Updated ' + result.updated_count + ' item(s)';
+      if (result.skipped_count > 0) {
+        msg += ' · ' + result.skipped_count + ' skipped (locked by other users)';
+      }
+      if (window.SxToast) window.SxToast.success(msg);
+      window.location.reload();
+    })
+    .catch(function() {
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Apply';
+      if (window.SxToast) window.SxToast.error('Network error');
+    });
+}
+
+function invExportCsv(ids) {
+  var url = BP + '/inventory/export?ids=' + ids.join(',');
+  window.location.href = url;
+}
+
+// Live search — debounced
+var searchTimer;
+document.getElementById('inv-search-input').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function() { applyFilters(); }, 400);
+});
+
+document.getElementById('inv-status-select').addEventListener('change', applyFilters);
+document.getElementById('inv-location-select').addEventListener('change', applyFilters);
+
+function applyFilters() {
+  var q = document.getElementById('inv-search-input').value;
+  var status = document.getElementById('inv-status-select').value;
+  var location = document.getElementById('inv-location-select').value;
+  var url = new URL(window.location.href);
+  url.searchParams.set('category', '{{ category }}');
+  url.searchParams.set('q', q);
+  url.searchParams.set('status', status);
+  url.searchParams.set('location', location);
+  url.searchParams.set('page', '1');
+  window.location.href = url.toString();
+}
+</script>
+{% endblock %}

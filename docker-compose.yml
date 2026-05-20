@@ -1,0 +1,46 @@
+
+services:
+  db:
+    image: postgres:16
+    container_name: asset_tracker_db
+    restart: always
+    environment:
+      POSTGRES_DB: asset_tracker
+      POSTGRES_USER: asset_tracker_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - /data/asset-tracker/postgres:/var/lib/postgresql/data
+      - /opt/asset_tracker/db_init:/docker-entrypoint-initdb.d
+    networks:
+      - asset_tracker_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asset_tracker_user -d asset_tracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: asset_tracker_app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - /data/asset-tracker/photos:/app/data/photos
+      - /data/asset-tracker/receipts:/app/data/receipts
+      - /opt/asset_tracker/static:/app/static
+      - /opt/asset_tracker/app:/app/app
+      - /opt/asset_tracker/migrations:/app/migrations
+    ports:
+      - "127.0.0.1:8081:8081"
+    networks:
+      - asset_tracker_net
+
+networks:
+  asset_tracker_net:
+    driver: bridge

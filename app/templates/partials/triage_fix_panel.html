@@ -1,0 +1,54 @@
+<div class="trg-qv-header">
+  <div class="trg-qv-item-name">{{ item.item_name or '—' }}</div>
+  <div class="trg-qv-item-id">#{{ item.id }}</div>
+</div>
+
+<div class="trg-qv-field-label">{{ field_label }}</div>
+
+<form id="trg-qv-form" onsubmit="return trgQvSave(event)">
+  {% if field_type == "text" %}
+    <input type="text" name="value" class="itk-input" value="{{ current_value }}" autofocus>
+  {% elif field_type == "vendor" %}
+    <input type="number" name="value" class="itk-input" value="{{ current_value }}"
+           placeholder="Vendor ID" autofocus>
+    <div class="trg-qv-hint">Enter the vendor ID (number). Vendor lookup is coming in a later update.</div>
+  {% elif field_type == "mac" %}
+    <input type="text" name="value" class="itk-input" value="{{ current_value }}"
+           placeholder="AA:BB:CC:DD:EE:FF" autofocus>
+  {% elif field_type == "date" %}
+    <input type="date" name="value" class="itk-input" value="{{ current_value }}" autofocus>
+  {% elif field_type == "number" %}
+    <input type="number" step="any" name="value" class="itk-input" value="{{ current_value }}" autofocus>
+  {% elif field_type == "location" %}
+    <select name="value" class="itk-input" autofocus>
+      <option value="">— Select location —</option>
+      {% for loc in locations %}
+      <option value="{{ loc.id }}" {% if current_value == loc.id|string %}selected{% endif %}>{{ loc.name }}</option>
+      {% endfor %}
+    </select>
+  {% elif field_type == "status" %}
+    <select name="value" class="itk-input" autofocus>
+      <option value="">— Select status —</option>
+      {% for s in statuses %}
+      <option value="{{ s }}" {% if current_value == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  {% elif field_type == "category" %}
+    <select name="value" class="itk-input" autofocus>
+      <option value="">— Select category —</option>
+      {% for cat in categories %}
+      <option value="{{ cat.value }}" {% if current_value == cat.value %}selected{% endif %}>{{ cat.display }}</option>
+      {% endfor %}
+    </select>
+  {% else %}
+    <input type="text" name="value" class="itk-input" value="{{ current_value }}" autofocus>
+  {% endif %}
+
+  <div class="trg-qv-actions">
+    <button type="submit" class="trg-qv-btn trg-qv-btn--primary" data-action="save">Save</button>
+    <button type="submit" class="trg-qv-btn trg-qv-btn--primary" data-action="save_next">Save &amp; next</button>
+    <button type="button" class="trg-qv-btn" onclick="trgQvClose()">Cancel</button>
+  </div>
+
+  <div id="trg-qv-error" class="trg-qv-error" style="display:none"></div>
+</form>

@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% block title %}{{ site.name }} - Sites & Ownership{% endblock %}
+{% block nav_sites %}active{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+    <a href="{{ base_path }}/sites/" style="color: var(--text-muted); text-decoration: none;">&larr; All Sites</a>
+    <h1 style="margin: 0;">{{ site.name }}</h1>
+    <span class="badge" style="background: {{ {
+        'internal_lab': 'var(--primary)',
+        'customer_site': 'var(--success)',
+        'partner': '#8b5cf6',
+        'warehouse': 'var(--info, #3b82f6)',
+        'office': '#6b7280'
+    }.get(site.site_type, 'var(--border)') }}; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 0.8rem;">
+        {{ site_types.get(site.site_type, site.site_type) }}
+    </span>
+    {% if not site.is_active %}
+    <span style="color: var(--danger); font-weight: 600;">(Inactive)</span>
+    {% endif %}
+</div>
+
+<!-- Site Info Card -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem;">
+        <h3 style="margin-bottom: 0.8rem;">Site Details</h3>
+        <div style="display: grid; gap: 0.3rem; font-size: 0.9rem;">
+            {% if site.customer %}
+            <div><strong>Customer:</strong> {{ site.customer }}</div>
+            {% endif %}
+            {% if site.address %}
+            <div><strong>Address:</strong> {{ site.address }}</div>
+            {% endif %}
+            {% if site.city or site.state or site.country %}
+            <div><strong>Location:</strong> {{ site.city or '' }}{{ ', ' if site.city and site.state else '' }}{{ site.state or '' }}{{ ', ' if (site.city or site.state) and site.country else '' }}{{ site.country or '' }}</div>
+            {% endif %}
+            {% if site.notes %}
+            <div><strong>Notes:</strong> {{ site.notes }}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem;">
+        <h3 style="margin-bottom: 0.8rem;">Contact</h3>
+        <div style="display: grid; gap: 0.3rem; font-size: 0.9rem;">
+            {% if site.contact_name %}
+            <div><strong>Name:</strong> {{ site.contact_name }}</div>
+            {% endif %}
+            {% if site.contact_email %}
+            <div><strong>Email:</strong> <a href="mailto:{{ site.contact_email }}">{{ site.contact_email }}</a></div>
+            {% endif %}
+            {% if site.contact_phone %}
+            <div><strong>Phone:</strong> {{ site.contact_phone }}</div>
+            {% endif %}
+            {% if not site.contact_name and not site.contact_email and not site.contact_phone %}
+            <div style="color: var(--text-muted);">No contact information.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Summary -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--primary);">{{ active_count }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Active Devices</div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--text-muted);">{{ returned_count }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Returned</div>
+    </div>
+</div>
+
+<!-- Action Bar -->
+<div class="table-header">
+    <div class="header-actions">
+        {% if user.has_sites_admin %}
+        <button class="btn btn-primary btn-sm" onclick="openAssignModal()">+ Assign Device</button>
+        <button class="btn btn-sm" onclick="openEditSiteModal()">Edit Site</button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Assignments Table -->
+<div class="table-section">
+    <h2>Device Assignments</h2>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>Category</th>
+                    <th>Serial</th>
+                    <th>Ownership</th>
+                    <th>Assigned</th>
+                    <th>Return By</th>
+                    <th>Status</th>
+                    {% if user.has_sites_admin %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if assignments %}
+                {% for item in assignments %}
+                {% set a = item.assignment %}
+                <tr style="{{ 'opacity: 0.6;' if not a.is_active else '' }}">
+                    <td style="font-weight: 600;">{{ item.device_label }}</td>
+                    <td>{{ item.device_table_display }}</td>
+                    <td style="font-family: monospace; font-size: 0.85rem;">{{ item.device_serial }}</td>
+                    <td>
+                        <span class="badge" style="background: {{ {
+                            'owned': 'var(--success)',
+                            'partner_loaner': '#8b5cf6',
+                            'customer_loaner': 'var(--info, #3b82f6)',
+                            'evaluation': '#f59e0b'
+                        }.get(a.ownership, 'var(--border)') }}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                            {{ ownership_types.get(a.ownership, a.ownership) }}
+                        </span>
+                    </td>
+                    <td>{{ a.assigned_date.strftime('%m/%d/%Y') if a.assigned_date else '-' }}</td>
+                    <td>
+                        {% if a.expected_return %}
+                            <span style="{{ 'color: #FF4444; font-weight: 600;' if item.is_overdue else '' }}">
+                                {{ a.expected_return.strftime('%m/%d/%Y') }}
+                                {% if item.is_overdue %} (OVERDUE){% endif %}
+                            </span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if a.is_active %}
+                            {% if item.is_overdue %}
+                            <span style="color: #FF4444; font-weight: 600;">Overdue</span>
+                            {% else %}
+                            <span style="color: var(--success);">Active</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: var(--text-muted);">Returned {{ a.returned_date.strftime('%m/%d/%Y') if a.returned_date else '' }}</span>
+                        {% endif %}
+                    </td>
+                    {% if user.has_sites_admin %}
+                    <td>
+                        {% if a.is_active %}
+                        <button class="btn btn-sm" onclick="returnDevice({{ a.id }})">Return</button>
+                        {% endif %}
+                        <button class="btn btn-danger btn-sm" onclick="deleteAssignment({{ a.id }})">Delete</button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="{% if user.has_sites_admin %}8{% else %}7{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No devices assigned to this site yet.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Assign Device Modal -->
+<div id="assign-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:1.5rem; width:480px; max-width:90vw;">
+        <h3 style="margin-bottom:1rem;">Assign Device to {{ site.name }}</h3>
+        <div class="form-group">
+            <label>Device Category *</label>
+            <select id="assign-table" style="width:100%;" onchange="loadDeviceOptions()">
+                <option value="">-- Select Category --</option>
+                {% for key, label in table_names.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Device *</label>
+            <select id="assign-device" style="width:100%;">
+                <option value="">-- Select a category first --</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Ownership Type *</label>
+            <select id="assign-ownership" style="width:100%;">
+                {% for key, label in ownership_types.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div class="form-group">
+                <label>Assigned Date</label>
+                <input type="date" id="assign-date" style="width:100%;">
+            </div>
+            <div class="form-group">
+                <label>Expected Return</label>
+                <input type="date" id="assign-return" style="width:100%;">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea id="assign-notes" rows="2" style="width:100%;"></textarea>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="closeAssignModal()">Cancel</button>
+            <button class="btn btn-success" onclick="saveAssignment()">Assign</button>
+        </div>
+        <div id="assign-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
+    </div>
+</div>
+
+<!-- Edit Site Modal -->
+<div id="edit-site-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:1.5rem; width:500px; max-width:90vw; max-height:90vh; overflow-y:auto;">
+        <h3 style="margin-bottom:1rem;">Edit Site</h3>
+        <div id="site-lock-indicator" class="lock-indicator" style="display: none;"></div>
+        <div class="form-group">
+            <label>Site Name *</label>
+            <input type="text" id="edit-site-name" value="{{ site.name }}" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Site Type *</label>
+            <select id="edit-site-type" style="width:100%;">
+                {% for key, label in site_types.items() %}
+                <option value="{{ key }}" {{ 'selected' if site.site_type == key else '' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Customer / Organization</label>
+            <input type="text" id="edit-site-customer" value="{{ site.customer or '' }}" style="width:100%;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div class="form-group">
+                <label>City</label>
+                <input type="text" id="edit-site-city" value="{{ site.city or '' }}" style="width:100%;">
+            </div>
+            <div class="form-group">
+                <label>State</label>
+                <input type="text" id="edit-site-state" value="{{ site.state or '' }}" style="width:100%;">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Country</label>
+            <input type="text" id="edit-site-country" value="{{ site.country or '' }}" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Address</label>
+            <textarea id="edit-site-address" rows="2" style="width:100%;">{{ site.address or '' }}</textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div class="form-group">
+                <label>Contact Name</label>
+                <input type="text" id="edit-site-contact-name" value="{{ site.contact_name or '' }}" style="width:100%;">
+            </div>
+            <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" id="edit-site-contact-email" value="{{ site.contact_email or '' }}" style="width:100%;">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Contact Phone</label>
+            <input type="text" id="edit-site-contact-phone" value="{{ site.contact_phone or '' }}" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea id="edit-site-notes" rows="2" style="width:100%;">{{ site.notes or '' }}</textarea>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="edit-site-active" {{ 'checked' if site.is_active else '' }}>
+                Active
+            </label>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="closeEditSiteModal()">Cancel</button>
+            <button class="btn btn-success" onclick="saveEditSite()">Save</button>
+        </div>
+        <div id="edit-site-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+const SITE_ID = {{ site.id }};
+
+// -- Assign Device Modal --
+function openAssignModal() {
+    document.getElementById('assign-table').selectedIndex = 0;
+    document.getElementById('assign-device').innerHTML = '<option value="">-- Select a category first --</option>';
+    document.getElementById('assign-ownership').selectedIndex = 0;
+    document.getElementById('assign-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('assign-return').value = '';
+    document.getElementById('assign-notes').value = '';
+    document.getElementById('assign-msg').innerHTML = '';
+    document.getElementById('assign-modal').style.display = 'flex';
+}
+function closeAssignModal() { document.getElementById('assign-modal').style.display = 'none'; }
+
+async function loadDeviceOptions() {
+    const table = document.getElementById('assign-table').value;
+    const sel = document.getElementById('assign-device');
+    sel.innerHTML = '<option value="">Loading...</option>';
+    if (!table) {
+        sel.innerHTML = '<option value="">-- Select a category first --</option>';
+        return;
+    }
+    try {
+        const resp = await fetch(`${BP}/api/${table}`);
+        const data = await resp.json();
+        const devices = data.items || data || [];
+        sel.innerHTML = '<option value="">-- Select Device --</option>';
+        devices.forEach(d => {
+            const label = d.display_name || d.device || d.device_name || d.model || d.serial || `#${d.id}`;
+            const serial = d.serial || d.gpu_serial || d.part_number || '';
+            sel.innerHTML += `<option value="${d.id}">${label}${serial ? ' ('+serial+')' : ''}</option>`;
+        });
+    } catch (err) {
+        sel.innerHTML = '<option value="">Error loading devices</option>';
+    }
+}
+
+async function saveAssignment() {
+    const msg = document.getElementById('assign-msg');
+    const body = {
+        device_table: document.getElementById('assign-table').value,
+        device_id: parseInt(document.getElementById('assign-device').value),
+        site_id: SITE_ID,
+        ownership: document.getElementById('assign-ownership').value,
+        assigned_date: document.getElementById('assign-date').value || null,
+        expected_return: document.getElementById('assign-return').value || null,
+        notes: document.getElementById('assign-notes').value,
+    };
+    if (!body.device_table || !body.device_id) {
+        msg.innerHTML = '<span style="color: var(--danger);">Please select a device category and device.</span>';
+        return;
+    }
+    try {
+        const resp = await fetch(`${BP}/api/assignments`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            msg.innerHTML = '<span style="color: var(--success);">Assigned successfully.</span>';
+            setTimeout(() => location.reload(), 500);
+        } else {
+            msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+        }
+    } catch (err) {
+        msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
+    }
+}
+
+async function returnDevice(assignmentId) {
+    if (!confirm('Mark this device as returned?')) return;
+    try {
+        const resp = await fetch(`${BP}/api/assignments/${assignmentId}/return`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: '{}',
+        });
+        if (resp.ok) location.reload();
+        else {
+            const data = await resp.json();
+            alert(data.error || 'Failed to return device');
+        }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+async function deleteAssignment(assignmentId) {
+    if (!confirm('Delete this assignment record? This cannot be undone.')) return;
+    try {
+        const resp = await fetch(`${BP}/api/assignments/${assignmentId}`, {method: 'DELETE'});
+        if (resp.ok) location.reload();
+        else {
+            const data = await resp.json();
+            alert(data.error || 'Failed to delete');
+        }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+// -- Edit Site Modal --
+async function openEditSiteModal() {
+    document.getElementById('edit-site-msg').innerHTML = '';
+
+    const lockKey = 'site:' + SITE_ID;
+    window._currentLockKey = lockKey;
+    const lockResult = await window._lockManager.acquire(lockKey);
+    if (lockResult.conflict) {
+        window._lockManager.showConflict('site-lock-indicator', lockResult);
+    } else {
+        window._lockManager.clearConflict('site-lock-indicator');
+    }
+
+    document.getElementById('edit-site-modal').style.display = 'flex';
+}
+function closeEditSiteModal() {
+    document.getElementById('edit-site-modal').style.display = 'none';
+    if (window._currentLockKey) {
+        window._lockManager.release(window._currentLockKey);
+        window._currentLockKey = null;
+    }
+}
+
+async function saveEditSite() {
+    const msg = document.getElementById('edit-site-msg');
+    const body = {
+        name: document.getElementById('edit-site-name').value,
+        site_type: document.getElementById('edit-site-type').value,
+        customer: document.getElementById('edit-site-customer').value,
+        city: document.getElementById('edit-site-city').value,
+        state: document.getElementById('edit-site-state').value,
+        country: document.getElementById('edit-site-country').value,
+        address: document.getElementById('edit-site-address').value,
+        contact_name: document.getElementById('edit-site-contact-name').value,
+        contact_email: document.getElementById('edit-site-contact-email').value,
+        contact_phone: document.getElementById('edit-site-contact-phone').value,
+        notes: document.getElementById('edit-site-notes').value,
+        is_active: document.getElementById('edit-site-active').checked,
+    };
+    try {
+        const resp = await fetch(`${BP}/api/sites/${SITE_ID}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            if (window._currentLockKey) { await window._lockManager.release(window._currentLockKey); window._currentLockKey = null; }
+            msg.innerHTML = '<span style="color: var(--success);">Saved.</span>';
+            setTimeout(() => location.reload(), 500);
+        } else {
+            msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+        }
+    } catch (err) {
+        msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
+    }
+}
+
+// Escalate lock on edit site input
+document.getElementById('edit-site-modal').addEventListener('input', () => {
+    if (window._currentLockKey) window._lockManager.escalate(window._currentLockKey);
+});
+
+// Close modals on backdrop click
+['assign-modal', 'edit-site-modal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+        if (e.target === this) { this.style.display = 'none'; if (window._currentLockKey) { window._lockManager.release(window._currentLockKey); window._currentLockKey = null; } }
+    });
+});
+</script>
+{% endblock %}

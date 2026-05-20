@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Error Log - Hardware Asset Tracker{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <a href="{{ base_path }}/admin/users" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Admin</a>
+</div>
+<h1>Error Log</h1>
+<p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+    Frontend and backend errors captured automatically. Grouped by fingerprint to identify recurring issues.
+</p>
+
+<!-- Summary Cards -->
+<div class="summary-cards" style="margin-bottom: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Total Errors</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">{{ total }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">All time</div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Last 24h</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: {{ 'var(--danger, #e74c3c)' if today_count > 0 else 'var(--success, #27ae60)' }};">{{ today_count }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Recent errors</div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Frontend</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">{{ frontend_count }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Last 24h</div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Backend</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">{{ backend_count }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Last 24h</div>
+    </div>
+</div>
+
+<!-- Top Repeated Errors -->
+{% if grouped %}
+<h2 style="font-size: 1rem; margin-bottom: 0.75rem;">Top Recurring Errors</h2>
+<div style="margin-bottom: 2rem; overflow-x: auto;">
+    <table class="sx-table" style="width: 100%;">
+        <thead>
+            <tr>
+                <th style="font-size: 11px;">Count</th>
+                <th style="font-size: 11px;">Source</th>
+                <th style="font-size: 11px;">Message</th>
+                <th style="font-size: 11px;">Last Seen</th>
+                <th style="font-size: 11px;">Fingerprint</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in grouped %}
+            <tr class="sx-table__row">
+                <td style="font-weight: 700; color: var(--danger, #e74c3c);">{{ g.count }}</td>
+                <td>
+                    <span class="sx-pill {% if g.source == 'frontend' %}sx-pill--blue{% else %}sx-pill--purple{% endif %}"
+                          style="font-size: 0.7rem;">{{ g.source }}</span>
+                </td>
+                <td style="font-size: 0.8rem; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                    title="{{ g.message }}">{{ g.message }}</td>
+                <td style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">
+                    {{ g.last_seen.strftime('%m/%d %H:%M') if g.last_seen else '-' }}
+                </td>
+                <td style="font-size: 0.7rem; font-family: monospace; color: var(--text-muted);">{{ g.fingerprint }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Filter bar -->
+<div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+    <h2 style="font-size: 1rem; margin: 0;">Recent Errors</h2>
+    <select id="filter-source" onchange="filterErrors()" style="padding: 4px 8px; font-size: 0.8rem; background: var(--primary); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+        <option value="">All Sources</option>
+        <option value="frontend">Frontend</option>
+        <option value="backend">Backend</option>
+    </select>
+    <span id="error-count" style="font-size: 0.8rem; color: var(--text-muted);"></span>
+    <div style="flex: 1;"></div>
+    <button onclick="pruneErrors()" style="padding: 4px 12px; font-size: 0.8rem; background: var(--danger, #e74c3c); color: #fff; border: none; border-radius: 4px; cursor: pointer;"
+            title="Delete errors older than 30 days">Prune (30d+)</button>
+</div>
+
+<!-- Error table -->
+<div style="overflow-x: auto;">
+    <table class="sx-table" id="error-table" style="width: 100%;">
+        <thead>
+            <tr>
+                <th style="font-size: 11px;">Time</th>
+                <th style="font-size: 11px;">Source</th>
+                <th style="font-size: 11px;">Level</th>
+                <th style="font-size: 11px;">Message</th>
+                <th style="font-size: 11px;">URL</th>
+                <th style="font-size: 11px;">User</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in errors %}
+            <tr class="sx-table__row sx-table__row--clickable" data-source="{{ e.source }}"
+                onclick="showErrorDetail({{ e.id }})">
+                <td style="font-size: 0.75rem; white-space: nowrap; color: var(--text-muted);">
+                    {{ e.created_at.strftime('%m/%d %H:%M:%S') if e.created_at else '-' }}
+                </td>
+                <td>
+                    <span class="sx-pill {% if e.source == 'frontend' %}sx-pill--blue{% elif e.source == 'backend' %}sx-pill--purple{% endif %}"
+                          style="font-size: 0.65rem;">{{ e.source }}</span>
+                </td>
+                <td>
+                    <span style="font-size: 0.7rem; color: {% if e.level == 'error' %}var(--danger, #e74c3c){% elif e.level == 'warning' %}var(--warning, #f39c12){% else %}var(--text-muted){% endif %};">
+                        {{ e.level }}
+                    </span>
+                </td>
+                <td style="font-size: 0.8rem; max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                    title="{{ e.message }}">{{ e.message }}</td>
+                <td style="font-size: 0.7rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted);"
+                    title="{{ e.url or '' }}">{{ e.url or '-' }}</td>
+                <td style="font-size: 0.8rem;">{{ e.username or '-' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not errors %}
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No errors recorded.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Error detail modal -->
+<div id="error-detail-modal" class="modal-overlay" style="display:none;">
+    <div class="gem-modal" style="max-width: 700px;">
+        <div class="gem-modal__header">
+            <h2 class="gem-modal__title">Error Detail</h2>
+            <button class="gem-modal__close" onclick="closeErrorModal()">&times;</button>
+        </div>
+        <div class="gem-modal__body" id="error-detail-body" style="max-height: 70vh; overflow-y: auto;">
+            Loading...
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var BP = '{{ base_path }}';
+
+function filterErrors() {
+    var source = document.getElementById('filter-source').value;
+    var rows = document.querySelectorAll('#error-table tbody tr[data-source]');
+    var shown = 0;
+    rows.forEach(function(row) {
+        if (!source || row.dataset.source === source) {
+            row.style.display = '';
+            shown++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    document.getElementById('error-count').textContent = 'Showing ' + shown + ' of ' + rows.length;
+}
+
+async function showErrorDetail(id) {
+    var modal = document.getElementById('error-detail-modal');
+    var body = document.getElementById('error-detail-body');
+    body.innerHTML = 'Loading...';
+    modal.style.display = 'flex';
+
+    try {
+        var resp = await fetch(BP + '/api/errors/' + id);
+        if (!resp.ok) { body.innerHTML = '<p style="color:var(--danger)">Error not found.</p>'; return; }
+        var e = await resp.json();
+
+        var html = '<div style="display:grid; gap:0.75rem;">';
+        html += '<div><strong>Time:</strong> ' + (e.created_at || '-') + '</div>';
+        html += '<div><strong>Source:</strong> ' + e.source + ' &nbsp; <strong>Level:</strong> ' + e.level + '</div>';
+        html += '<div><strong>User:</strong> ' + (e.username || '-') + '</div>';
+        html += '<div><strong>URL:</strong> <span style="font-size:0.8rem; word-break:break-all;">' + (e.url || '-') + '</span></div>';
+        html += '<div><strong>Message:</strong></div>';
+        html += '<pre style="background:var(--primary); padding:0.75rem; border-radius:4px; font-size:0.8rem; overflow-x:auto; white-space:pre-wrap; word-break:break-word;">' + escapeHtml(e.message || '') + '</pre>';
+        if (e.stack) {
+            html += '<div><strong>Stack Trace:</strong></div>';
+            html += '<pre style="background:var(--primary); padding:0.75rem; border-radius:4px; font-size:0.75rem; overflow-x:auto; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto;">' + escapeHtml(e.stack) + '</pre>';
+        }
+        if (e.browser) {
+            html += '<div><strong>Browser:</strong> <span style="font-size:0.75rem; color:var(--text-muted);">' + escapeHtml(e.browser) + '</span></div>';
+        }
+        html += '<div style="font-size:0.7rem; color:var(--text-muted);">Fingerprint: ' + (e.fingerprint || '-') + '</div>';
+        html += '</div>';
+        body.innerHTML = html;
+    } catch (err) {
+        body.innerHTML = '<p style="color:var(--danger)">Failed to load error details.</p>';
+    }
+}
+
+function closeErrorModal() {
+    document.getElementById('error-detail-modal').style.display = 'none';
+}
+
+document.getElementById('error-detail-modal').addEventListener('click', function(ev) {
+    if (ev.target === this) closeErrorModal();
+});
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function pruneErrors() {
+    if (!confirm('Delete all errors older than 30 days?')) return;
+    try {
+        var resp = await fetch(BP + '/api/errors/prune?days=30', { method: 'DELETE' });
+        var data = await resp.json();
+        if (window.SxToast) window.SxToast.success('Pruned ' + data.deleted + ' old errors');
+        setTimeout(function() { window.location.reload(); }, 1000);
+    } catch (e) {
+        if (window.SxToast) window.SxToast.error('Failed to prune errors');
+    }
+}
+
+// Init filter count
+document.addEventListener('DOMContentLoaded', filterErrors);
+</script>
+{% endblock %}

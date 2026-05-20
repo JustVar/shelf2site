@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}Disposal & EOL - Hardware Asset Tracker{% endblock %}
+{% block nav_disposal %}active{% endblock %}
+
+{% block content %}
+<h1>Disposal & End-of-Life</h1>
+
+<!-- Pending Sanitization Alert -->
+{% if pending_sanitization > 0 %}
+<div class="alert-banner" style="border-left-color: #FFD700;">
+    <span class="icon">!</span>
+    <span>
+        <strong>{{ pending_sanitization }} device{{ 's' if pending_sanitization != 1 else '' }}</strong>
+        awaiting data sanitization verification.
+    </span>
+</div>
+{% endif %}
+
+<!-- Action Bar -->
+<div class="table-header">
+    <div class="header-actions">
+        {% if user.is_editor_or_above %}
+        <button class="btn btn-primary btn-sm" onclick="openAddDispositionModal()">+ Record Disposal</button>
+        {% endif %}
+        <a href="{{ base_path }}/api/disposition/export?format=xlsx" class="btn btn-sm">Export Excel</a>
+        <a href="{{ base_path }}/api/disposition/export?format=csv" class="btn btn-sm">Export CSV</a>
+    </div>
+</div>
+
+<!-- Dispositions Table -->
+<div class="table-section">
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Reason</th>
+                    <th>Sanitization</th>
+                    <th>Certificate</th>
+                    <th>Transferred To</th>
+                    {% if user.is_editor_or_above %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in dispositions %}
+                <tr>
+                    <td>{{ item.device_label }}</td>
+                    <td>
+                        <span class="badge badge-info">{{ item.disposition.disposition_type or '-' }}</span>
+                    </td>
+                    <td>{{ item.disposition.disposition_date or '-' }}</td>
+                    <td title="{{ item.disposition.reason or '' }}">{{ (item.disposition.reason or '-')[:40] }}</td>
+                    <td>
+                        {% if item.disposition.sanitization_date %}
+                        <span class="badge badge-success">{{ item.disposition.sanitization_method or 'Done' }}</span>
+                        <br><small>{{ item.disposition.sanitization_date }}</small>
+                        {% else %}
+                        <span class="badge badge-warning">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.disposition.certificate_file_path %}
+                        <a href="{{ base_path }}/api/disposition/{{ item.disposition.id }}/certificate"
+                           class="btn btn-sm" target="_blank">View</a>
+                        {% elif user.is_editor_or_above %}
+                        <button class="btn btn-sm" onclick="openCertUpload({{ item.disposition.id }})">Upload</button>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ item.disposition.transferred_to or '-' }}</td>
+                    {% if user.is_editor_or_above %}
+                    <td>
+                        <button class="btn btn-sm" onclick="openEditDispositionModal({{ item.disposition.id }})">Edit</button>
+                        {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                        <button class="btn btn-sm" style="color: #FF4444;" onclick="deleteDisposition({{ item.disposition.id }})">Delete</button>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No disposal records yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Disposition Modal -->
+<div class="modal-overlay" id="add-disposition-modal">
+    <div class="modal" style="max-width: 700px;">
+        <h3>Record Disposal</h3>
+        <form id="add-disposition-form" onsubmit="submitDisposition(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dp-device-table">Device Category *</label>
+                    <select id="dp-device-table" required>
+                        <option value="">-- Select --</option>
+                        {% for key, name in table_choices.items() %}
+                        <option value="{{ key }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dp-device-id">Device ID *</label>
+                    <input type="number" id="dp-device-id" required min="1">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dp-type">Disposition Type *</label>
+                    <select id="dp-type" required>
+                        <option value="">-- Select --</option>
+                        <option value="recycled">Recycled</option>
+                        <option value="donated">Donated</option>
+                        <option value="sold">Sold</option>
+                        <option value="destroyed">Destroyed</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dp-date">Disposition Date *</label>
+                    <input type="date" id="dp-date" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="dp-reason">Reason</label>
+                <textarea id="dp-reason" rows="2" placeholder="Why is this device being disposed?"></textarea>
+            </div>
+
+            <h4 style="margin-top: 1rem;">Data Sanitization</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dp-sanitize-method">Method</label>
+                    <select id="dp-sanitize-method">
+                        <option value="">-- Not Yet --</option>
+                        <option value="dod_wipe">DoD Wipe</option>
+                        <option value="nist_clear">NIST Clear</option>
+                        <option value="physical_destruction">Physical Destruction</option>
+                        <option value="degauss">Degauss</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dp-sanitize-date">Sanitization Date</label>
+                    <input type="date" id="dp-sanitize-date">
+                </div>
+                <div class="form-group">
+                    <label for="dp-sanitize-by">Verified By</label>
+                    <input type="text" id="dp-sanitize-by" placeholder="Name">
+                </div>
+            </div>
+
+            <h4 style="margin-top: 1rem;">Transfer Details</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dp-transferred-to">Transferred To</label>
+                    <input type="text" id="dp-transferred-to" placeholder="Person or organization">
+                </div>
+                <div class="form-group">
+                    <label for="dp-transfer-value">Transfer Value ($)</label>
+                    <input type="number" id="dp-transfer-value" step="0.01" min="0">
+                </div>
+            </div>
+
+            <div id="dp-error" class="alert alert-danger" style="display: none;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-disposition-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Disposal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Disposition Modal -->
+<div class="modal-overlay" id="edit-disposition-modal">
+    <div class="modal" style="max-width: 700px;">
+        <h3>Edit Disposition</h3>
+        <div id="ed-lock-indicator" class="lock-indicator" style="display: none;"></div>
+        <form id="edit-disposition-form" onsubmit="submitEditDisposition(event)">
+            <input type="hidden" id="ed-id">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ed-type">Disposition Type *</label>
+                    <select id="ed-type" required>
+                        <option value="">-- Select --</option>
+                        <option value="recycled">Recycled</option>
+                        <option value="donated">Donated</option>
+                        <option value="sold">Sold</option>
+                        <option value="destroyed">Destroyed</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ed-date">Disposition Date *</label>
+                    <input type="date" id="ed-date" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="ed-reason">Reason</label>
+                <textarea id="ed-reason" rows="2"></textarea>
+            </div>
+
+            <h4 style="margin-top: 1rem;">Data Sanitization</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ed-sanitize-method">Method</label>
+                    <select id="ed-sanitize-method">
+                        <option value="">-- Not Yet --</option>
+                        <option value="dod_wipe">DoD Wipe</option>
+                        <option value="nist_clear">NIST Clear</option>
+                        <option value="physical_destruction">Physical Destruction</option>
+                        <option value="degauss">Degauss</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ed-sanitize-date">Sanitization Date</label>
+                    <input type="date" id="ed-sanitize-date">
+                </div>
+                <div class="form-group">
+                    <label for="ed-sanitize-by">Verified By</label>
+                    <input type="text" id="ed-sanitize-by">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="ed-cert-number">Certificate Number</label>
+                <input type="text" id="ed-cert-number">
+            </div>
+
+            <h4 style="margin-top: 1rem;">Transfer Details</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ed-transferred-to">Transferred To</label>
+                    <input type="text" id="ed-transferred-to">
+                </div>
+                <div class="form-group">
+                    <label for="ed-transfer-method">Transfer Method</label>
+                    <input type="text" id="ed-transfer-method" placeholder="e.g. Pickup, Shipped">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ed-transfer-value">Transfer Value ($)</label>
+                    <input type="number" id="ed-transfer-value" step="0.01" min="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="ed-transfer-notes">Transfer Notes</label>
+                <textarea id="ed-transfer-notes" rows="2"></textarea>
+            </div>
+
+            <div id="ed-error" class="alert alert-danger" style="display: none;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('edit-disposition-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Certificate Upload Modal -->
+<div class="modal-overlay" id="cert-upload-modal">
+    <div class="modal" style="max-width: 500px;">
+        <h3>Upload Sanitization Certificate</h3>
+        <form id="cert-upload-form" onsubmit="uploadCertificate(event)" enctype="multipart/form-data">
+            <input type="hidden" id="cert-disposition-id">
+            <div class="form-group">
+                <label for="cert-file">Certificate File (PDF, JPEG, PNG)</label>
+                <input type="file" id="cert-file" accept=".pdf,.jpg,.jpeg,.png" required>
+            </div>
+            <div id="cert-error" class="alert alert-danger" style="display: none;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('cert-upload-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // BP available globally from base.html
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+        if (window._currentLockKey) {
+            window._lockManager.release(window._currentLockKey);
+            window._currentLockKey = null;
+        }
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', e => {
+            if (e.target === e.currentTarget) { el.classList.remove('open'); if (window._currentLockKey) { window._lockManager.release(window._currentLockKey); window._currentLockKey = null; } }
+        });
+    });
+
+    function openAddDispositionModal() {
+        document.getElementById('add-disposition-form').reset();
+        document.getElementById('dp-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('dp-error').style.display = 'none';
+        document.getElementById('add-disposition-modal').classList.add('open');
+    }
+
+    async function openEditDispositionModal(dispositionId) {
+        document.getElementById('edit-disposition-form').reset();
+        document.getElementById('ed-error').style.display = 'none';
+
+        const lockKey = 'disposition:' + dispositionId;
+        window._currentLockKey = lockKey;
+        const lockResult = await window._lockManager.acquire(lockKey);
+        if (lockResult.conflict) {
+            window._lockManager.showConflict('ed-lock-indicator', lockResult, 'edit-disposition-form');
+        } else {
+            window._lockManager.clearConflict('ed-lock-indicator', 'edit-disposition-form');
+        }
+
+        try {
+            const resp = await fetch(`${BP}/api/disposition/${dispositionId}/data`);
+            if (!resp.ok) throw new Error('Failed to load disposition');
+            const d = await resp.json();
+            document.getElementById('ed-id').value = d.id;
+            document.getElementById('ed-type').value = d.disposition_type || '';
+            document.getElementById('ed-date').value = d.disposition_date || '';
+            document.getElementById('ed-reason').value = d.reason || '';
+            document.getElementById('ed-sanitize-method').value = d.sanitization_method || '';
+            document.getElementById('ed-sanitize-date').value = d.sanitization_date || '';
+            document.getElementById('ed-sanitize-by').value = d.sanitization_verified_by || '';
+            document.getElementById('ed-cert-number').value = d.certificate_number || '';
+            document.getElementById('ed-transferred-to').value = d.transferred_to || '';
+            document.getElementById('ed-transfer-method').value = d.transfer_method || '';
+            document.getElementById('ed-transfer-value').value = d.transfer_value || '';
+            document.getElementById('ed-transfer-notes').value = d.transfer_notes || '';
+            document.getElementById('edit-disposition-modal').classList.add('open');
+        } catch (err) {
+            await window._lockManager.release(lockKey);
+            alert(err.message);
+        }
+    }
+
+    document.getElementById('edit-disposition-form').addEventListener('input', () => {
+        if (window._currentLockKey) window._lockManager.escalate(window._currentLockKey);
+    });
+
+    async function submitEditDisposition(e) {
+        e.preventDefault();
+        const id = document.getElementById('ed-id').value;
+        const errorDiv = document.getElementById('ed-error');
+        errorDiv.style.display = 'none';
+        const payload = {
+            disposition_type: document.getElementById('ed-type').value,
+            disposition_date: document.getElementById('ed-date').value,
+            reason: document.getElementById('ed-reason').value || null,
+            sanitization_method: document.getElementById('ed-sanitize-method').value || null,
+            sanitization_date: document.getElementById('ed-sanitize-date').value || null,
+            sanitization_verified_by: document.getElementById('ed-sanitize-by').value || null,
+            certificate_number: document.getElementById('ed-cert-number').value || null,
+            transferred_to: document.getElementById('ed-transferred-to').value || null,
+            transfer_method: document.getElementById('ed-transfer-method').value || null,
+            transfer_value: document.getElementById('ed-transfer-value').value || null,
+            transfer_notes: document.getElementById('ed-transfer-notes').value || null,
+        };
+        try {
+            const resp = await fetch(`${BP}/api/disposition/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Failed to update'); }
+            if (window._currentLockKey) { await window._lockManager.release(window._currentLockKey); window._currentLockKey = null; }
+            location.reload();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function deleteDisposition(dispositionId) {
+        if (!confirm('Delete this disposition record? This cannot be undone.')) return;
+        try {
+            const resp = await fetch(`${BP}/api/disposition/${dispositionId}`, { method: 'DELETE' });
+            if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Failed to delete'); }
+            location.reload();
+        } catch (err) { alert(err.message); }
+    }
+
+    function openCertUpload(dispositionId) {
+        document.getElementById('cert-upload-form').reset();
+        document.getElementById('cert-disposition-id').value = dispositionId;
+        document.getElementById('cert-error').style.display = 'none';
+        document.getElementById('cert-upload-modal').classList.add('open');
+    }
+
+    async function submitDisposition(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('dp-error');
+        errorDiv.style.display = 'none';
+
+        const payload = {
+            device_table: document.getElementById('dp-device-table').value,
+            device_id: document.getElementById('dp-device-id').value,
+            disposition_type: document.getElementById('dp-type').value,
+            disposition_date: document.getElementById('dp-date').value,
+            reason: document.getElementById('dp-reason').value || null,
+            sanitization_method: document.getElementById('dp-sanitize-method').value || null,
+            sanitization_date: document.getElementById('dp-sanitize-date').value || null,
+            sanitization_verified_by: document.getElementById('dp-sanitize-by').value || null,
+            transferred_to: document.getElementById('dp-transferred-to').value || null,
+            transfer_value: document.getElementById('dp-transfer-value').value || null,
+        };
+
+        try {
+            const resp = await fetch(`${BP}/api/disposition`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'Failed to create disposition');
+            }
+            location.reload();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function uploadCertificate(e) {
+        e.preventDefault();
+        const dispositionId = document.getElementById('cert-disposition-id').value;
+        const errorDiv = document.getElementById('cert-error');
+        errorDiv.style.display = 'none';
+
+        const fileInput = document.getElementById('cert-file');
+        if (!fileInput.files.length) return;
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        try {
+            const resp = await fetch(`${BP}/api/disposition/${dispositionId}/certificate`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'Failed to upload certificate');
+            }
+            location.reload();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+</script>
+{% endblock %}

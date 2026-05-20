@@ -1,0 +1,2957 @@
+{% extends "base.html" %}
+
+{% block title %}Fulfillment - Hardware Asset Tracker{% endblock %}
+{% block nav_fulfillment %}active{% endblock %}
+
+{% block head %}
+<style>
+/* ── Fulfillment page — scoped custom properties ─────────────────── */
+.fulfillment-page {
+  --fl-green: #22c55e; --fl-green-dim: rgba(34,197,94,.12);
+  --fl-amber: #f59e0b; --fl-amber-dim: rgba(245,158,11,.12);
+  --fl-red: #ef4444; --fl-red-dim: rgba(239,68,68,.12);
+  --fl-purple: #a855f7; --fl-orange: #f97316;
+  --fl-card2: rgba(255,255,255,0.04);
+  --fl-border2: rgba(255,255,255,0.08);
+  font-size: 13px;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+[data-theme="light"] .fulfillment-page {
+  --fl-card2: #f1f5f9;
+  --fl-border2: #d1d5db;
+  --fl-green-dim: rgba(34,197,94,.08);
+  --fl-amber-dim: rgba(245,158,11,.08);
+  --fl-red-dim: rgba(239,68,68,.08);
+}
+.fulfillment-page .t3 { color: var(--text-muted); opacity: 0.6; }
+
+/* ── Page header ─────────────────────────────────────────────────── */
+.fl-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.fl-header h1 { margin-bottom: 0.15rem; font-size: 1.25rem; }
+.fl-header p { color: var(--text-muted); font-size: 0.85rem; margin: 0; }
+.fl-header-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+
+/* ── Mode toggle (In-House / OEM) ────────────────────────────────── */
+.mode-toggle { display: flex; border: 1px solid var(--fl-border2); border-radius: 8px; overflow: hidden; background: var(--sidebar-bg); }
+.mode-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; background: transparent; color: var(--text-muted); transition: background .15s, color .15s; }
+.mode-btn.active { background: var(--accent-blue-dim); color: var(--accent-blue-l); }
+
+/* ── Command band ────────────────────────────────────────────────── */
+.cmd-band { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: stretch; overflow: visible; min-height: 80px; }
+.cb-stats { display: flex; align-items: stretch; flex-shrink: 0; border-right: 1px solid var(--border); }
+.cb-stat { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px 20px; gap: 3px; position: relative; cursor: pointer; transition: background .15s; border-right: 1px solid var(--border); }
+.cb-stat:last-child { border-right: none; }
+.cb-stat:hover { background: rgba(255,255,255,.03); }
+[data-theme="light"] .cb-stat:hover { background: rgba(0,0,0,.03); }
+.cb-stat::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; }
+.cbs-blue::after { background: var(--accent-blue); }
+.cbs-red::after { background: var(--fl-red); }
+.cbs-amber::after { background: var(--fl-amber); }
+.cbs-green::after { background: var(--fl-green); }
+.cb-stat-num { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; line-height: 1; display: flex; align-items: baseline; gap: 2px; }
+.cb-stat-num .sub { font-size: 13px; color: var(--text-muted); font-weight: 500; font-family: inherit; opacity: 0.6; }
+.cb-stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+.cb-stat.stat-on { background: rgba(255,255,255,.04); }
+[data-theme="light"] .cb-stat.stat-on { background: rgba(0,0,0,.04); }
+.cb-stat.stat-on::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.cb-stat.cbs-blue.stat-on::before { background: var(--accent-blue); }
+.cb-stat.cbs-red.stat-on::before { background: var(--fl-red); }
+.cb-stat.cbs-amber.stat-on::before { background: var(--fl-amber); }
+
+/* ── Command band tools (search + coverage) ──────────────────────── */
+.cb-tools { display: flex; align-items: center; gap: 8px; padding: 0 16px; flex: 1; border-left: 1px solid var(--fl-border2); }
+.cb-search-wrap { flex: 1; display: flex; align-items: center; gap: 7px; background: var(--fl-card2); border: 1px solid var(--fl-border2); border-radius: 8px; padding: 7px 12px; transition: border-color .15s; max-width: 340px; }
+.cb-search-wrap:focus-within { border-color: var(--accent-blue); }
+.cb-search-input { flex: 1; background: transparent; border: none; outline: none; font-family: inherit; font-size: 12px; color: var(--text); }
+.cb-search-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+.cb-search-clear { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 0; line-height: 1; opacity: 0.6; }
+.cb-search-clear:hover { color: var(--text); opacity: 1; }
+.cb-tool-btn { display: flex; align-items: center; gap: 5px; background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.cb-tool-btn:hover { border-color: var(--accent-blue); color: var(--text); }
+.cb-tool-btn.active { background: var(--accent-blue-dim); border-color: var(--accent-blue); color: var(--accent-blue-l); }
+.cov-count-badge { background: var(--accent-blue); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-left: 5px; font-family: 'Space Grotesk', sans-serif; }
+
+/* ── Coverage multi-select panel ─────────────────────────────────── */
+.cb-coverage-wrap { position: relative; }
+.cb-coverage-panel { position: fixed; width: 280px; background: var(--card-bg); border: 1px solid var(--fl-border2); border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.4); z-index: 500; display: none; overflow: hidden; }
+[data-theme="light"] .cb-coverage-panel { box-shadow: 0 8px 32px rgba(0,0,0,.12); }
+.cb-coverage-panel.open { display: block; }
+.ccp-head { padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); opacity: 0.6; border-bottom: 1px solid var(--border); }
+.ccp-rows { padding: 6px; }
+.ccp-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; cursor: pointer; transition: background .15s; }
+.ccp-row:hover { background: var(--fl-card2); }
+.ccp-cb { width: 15px; height: 15px; border-radius: 3px; border: 1.5px solid var(--fl-border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+.ccp-row.ccp-selected .ccp-cb { background: var(--accent-blue); border-color: var(--accent-blue); }
+.ccp-row.ccp-selected .ccp-cb::after { content: ''; display: block; width: 8px; height: 5px; border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff; transform: rotate(-45deg) translateY(-1px); }
+.ccp-row.ccp-selected { background: var(--accent-blue-dim); }
+.ccp-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--text); flex-shrink: 0; }
+.ccp-info { flex: 1; min-width: 0; }
+.ccp-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.ccp-detail { font-size: 10px; color: var(--text-muted); opacity: 0.6; }
+.ccp-count { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; }
+.ccp-footer { padding: 8px 10px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+.ccp-clear-btn { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-family: inherit; font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: all .15s; }
+.ccp-clear-btn:hover { border-color: var(--fl-red); color: #f87171; }
+.ccp-clear-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+/* ── Pipeline filter bar ─────────────────────────────────────────── */
+.pipe-filter-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; position: relative; margin-top: 16px; margin-bottom: 8px; }
+.pfb-header { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: var(--card-bg); padding: 2px 12px; line-height: 1; z-index: 1; border: 1px solid var(--accent-blue); border-radius: 5px; }
+.pfb-title { font-size: clamp(11px, 0.75vw, 15px); font-weight: 800; color: var(--accent-blue-l); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+.pfb-stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 2px 0 2px; }
+.pfb-stage { display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; padding: 2px 4px; transition: background .15s; border-radius: 6px; }
+.pfb-stage:hover { background: var(--fl-card2); }
+.pfb-stage.pf-on { background: var(--accent-blue-dim); }
+.pfb-stage.pf-on .pfb-dot { background: var(--accent-blue); border-color: var(--accent-blue); box-shadow: 0 0 0 3px var(--accent-blue-dim); }
+.pfb-stage.pf-on .pfb-lbl { color: var(--accent-blue-l); }
+.pfb-stage.pf-on .pfb-num { background: var(--accent-blue-dim); color: var(--accent-blue-l); }
+.pfb-dot { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--fl-border2); background: var(--card-bg); transition: all .15s; flex-shrink: 0; }
+.pfb-lbl { font-size: clamp(10px, 0.7vw, 14px); font-weight: 700; color: var(--text-muted); white-space: nowrap; text-transform: uppercase; letter-spacing: .05em; }
+.pfb-num { font-size: clamp(10px, 0.7vw, 14px); font-weight: 700; background: var(--fl-card2); color: var(--text-muted); padding: 1px 6px; border-radius: 5px; opacity: 0.7; margin-left: 2px; }
+
+/* ── Kanban grid ─────────────────────────────────────────────────── */
+.kanban-grid { display: grid; gap: 10px; }
+.kanban-grid.grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.k-col { background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: 10px; padding-top: 8px; overflow: hidden; display: flex; flex-direction: column; transition: opacity .25s, filter .25s; }
+.k-col.dimmed { opacity: .18; filter: saturate(0); pointer-events: none; }
+.k-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 140px; }
+.k-body.drag-over { background: var(--accent-blue-dim, rgba(18,124,163,.1)); outline: 2px dashed var(--accent-blue); outline-offset: -2px; border-radius: 8px; }
+.o-card.dragging { opacity: .4; transform: scale(.96); }
+.k-empty { display: flex; align-items: center; justify-content: center; height: 70px; color: var(--text-muted); font-size: 11px; opacity: .5; }
+
+/* ── Mock sample cards ───────────────────────────────────────────── */
+.mock-card { border: 1px dashed var(--border) !important; cursor: default !important; pointer-events: none; position: relative; }
+.mock-card::after, .mock-order::after { content: 'MOCK'; position: absolute; top: 32px; right: 8px; font-size: 10px; font-weight: 900; letter-spacing: .12em; color: rgba(239,68,68,.45); border: 1.5px solid rgba(239,68,68,.35); padding: 2px 8px; border-radius: 3px; z-index: 2; text-transform: uppercase; transform: rotate(-12deg); }
+
+/* ── Search hide ────────────────────────────────────────────────── */
+.search-hide { display: none !important; }
+
+/* ── Export button ──────────────────────────────────────────────── */
+.fl-export-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.fl-export-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue-l); }
+.fl-export-btn svg { opacity: .6; }
+
+/* ── Order cards ─────────────────────────────────────────────────── */
+.o-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: clamp(10px, 0.7vw, 16px) clamp(11px, 0.75vw, 16px) clamp(9px, 0.65vw, 14px) clamp(14px, 0.9vw, 20px); cursor: pointer; position: relative; overflow: hidden; transition: border-color .15s, transform .15s; }
+.o-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--urg, var(--fl-border2)); }
+.o-card:hover { border-color: var(--accent-blue-l); transform: translateY(-1px); }
+.o-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.o-id { font-size: clamp(10px, 0.7vw, 14px); color: var(--text-muted); font-weight: 700; letter-spacing: .06em; opacity: 0.6; }
+.o-name { font-size: clamp(13px, 0.95vw, 18px); font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
+.o-owner { display: flex; align-items: center; gap: 4px; font-size: clamp(11px, 0.75vw, 15px); color: var(--text-muted); margin-bottom: 5px; opacity: 0.6; }
+.o-owner span { color: var(--text-muted); font-weight: 500; opacity: 1; }
+.o-meta { display: flex; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }
+.o-chip { font-size: clamp(10px, 0.7vw, 14px); color: var(--text-muted); background: var(--fl-card2); border: 1px solid var(--fl-border2); padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+.o-chip.urg { color: #f87171; border-color: rgba(239,68,68,.3); }
+.o-chip.warn { color: #fbbf24; border-color: rgba(245,158,11,.3); }
+.o-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.o-btn { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-size: clamp(10px, 0.65vw, 13px); font-weight: 600; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: all .15s; min-height: 36px; }
+.o-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue-l); }
+.o-btn-danger { color: var(--fl-red); border-color: var(--fl-red); }
+.o-btn-danger:hover { background: var(--fl-red); color: #fff; }
+
+/* ── Progress bar on cards ───────────────────────────────────────── */
+.o-status { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+.o-progress { padding: 7px 10px; background: var(--fl-card2); }
+.o-progress-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 5px; opacity: 0.6; }
+.o-progress-label span:last-child { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--text-muted); opacity: 1; }
+.o-progress-bar { height: 4px; background: var(--fl-border2); border-radius: 2px; overflow: hidden; }
+.o-progress-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+.fill-blue { background: var(--accent-blue); }
+.fill-amber { background: var(--fl-amber); }
+.fill-green { background: var(--fl-green); }
+
+/* ── Type toggle (Direct / Integrator) ───────────────────────────── */
+.o-type-toggle { display: flex; border: 1px solid var(--fl-border2); border-radius: 5px; overflow: hidden; background: var(--fl-card2); }
+.o-type-opt { font-size: clamp(9px, 0.65vw, 13px); font-weight: 700; padding: 3px 7px; cursor: pointer; color: var(--text-muted); transition: background .15s, color .15s; white-space: nowrap; opacity: 0.6; }
+.o-type-opt.active { background: var(--accent-blue-dim); color: var(--accent-blue-l); opacity: 1; }
+.o-type-opt:hover:not(.active) { color: var(--text-muted); opacity: 0.8; }
+
+/* ── Badges ──────────────────────────────────────────────────────── */
+.badge { font-size: clamp(10px, 0.7vw, 14px); font-weight: 700; padding: 2px 7px; border-radius: 8px; }
+.b-green { background: var(--fl-green-dim); color: #4ade80; }
+.b-red { background: var(--fl-red-dim); color: #f87171; }
+.b-amber { background: var(--fl-amber-dim); color: #fbbf24; }
+.b-blue { background: var(--accent-blue-dim); color: var(--accent-blue-l); }
+.b-gray { background: var(--fl-border2); color: var(--text-muted); }
+.b-purple { background: rgba(168,85,247,.1); color: #c084fc; }
+.badge-sensitive { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(155,89,182,.15); color: #9b59b6; text-transform: uppercase; letter-spacing: .05em; }
+
+/* ── Archived section ────────────────────────────────────────────── */
+.arch-wrap { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.arch-head { padding: 11px 16px; display: flex; align-items: center; gap: 9px; cursor: pointer; transition: background .15s; }
+.arch-head:hover { background: rgba(255,255,255,.02); }
+[data-theme="light"] .arch-head:hover { background: rgba(0,0,0,.02); }
+.arch-title { font-size: 12px; font-weight: 700; color: var(--text-muted); flex: 1; }
+.chevron { font-size: 14px; color: var(--text-muted); transition: transform .2s; display: inline-block; line-height: 1; opacity: 0.6; }
+.chevron.up { transform: rotate(180deg); }
+.arch-body { display: none; padding: 14px 16px; }
+.arch-body.open { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.arch-col-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: 8px; }
+.arch-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; transition: border-color .15s, transform .15s; position: relative; overflow: hidden; }
+.arch-row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--arch-color, var(--fl-border2)); }
+.arch-row:hover { border-color: var(--accent-blue-l); transform: translateY(-1px); }
+.arch-row-name { font-size: 12px; font-weight: 600; padding-left: 2px; }
+.arch-row-meta { font-size: 10px; color: var(--text-muted); opacity: 0.6; white-space: nowrap; }
+.arch-row a { color: var(--text); text-decoration: none; }
+.arch-row a:hover { color: var(--accent-blue-l); }
+.arch-row .arch-se { font-size: 10px; color: var(--text-muted); opacity: 0.5; margin-left: 6px; }
+
+/* ── Deployment section ──────────────────────────────────────────── */
+.deploy-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--fl-border2); }
+.archived-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--fl-border2); }
+
+/* ── Overlay + slide panel ───────────────────────────────────────── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 300; opacity: 0; pointer-events: none; transition: opacity .25s; }
+[data-theme="light"] .overlay { background: rgba(0,0,0,.35); }
+.overlay.open { opacity: 1; pointer-events: all; }
+.ap { position: fixed; top: 0; right: 0; bottom: 0; width: 440px; background: var(--sidebar-bg); border-left: 1px solid var(--border); z-index: 400; transform: translateX(100%); transition: transform .3s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column; overflow: hidden; }
+.ap.open { transform: translateX(0); }
+.ap-head { padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--card-bg); display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0; }
+.ap-info { flex: 1; min-width: 0; }
+.ap-order-id { font-size: 10px; color: var(--text-muted); font-weight: 700; letter-spacing: .06em; margin-bottom: 3px; opacity: 0.6; }
+.ap-order-name { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ap-link { font-size: 11px; color: var(--accent-blue-l); text-decoration: none; font-weight: 600; }
+.ap-link:hover { text-decoration: underline; }
+.ap-close { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 22px; line-height: 1; padding: 0 2px; flex-shrink: 0; transition: color .15s; opacity: 0.6; }
+.ap-close:hover { color: var(--text); opacity: 1; }
+.ap-tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--card-bg); flex-shrink: 0; }
+.ap-tab { flex: 1; padding: 10px 6px; text-align: center; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; text-transform: uppercase; letter-spacing: .05em; opacity: 0.6; }
+.ap-tab:hover { color: var(--text-muted); opacity: 0.8; }
+.ap-tab.active { color: var(--accent-blue-l); border-bottom-color: var(--accent-blue); opacity: 1; }
+.ap-pane { display: none; flex: 1; flex-direction: column; overflow-y: auto; padding: 0; }
+.ap-pane.active { display: flex; }
+
+/* ── Assign pane ─────────────────────────────────────────────────── */
+.ap-sku-reqs { border-bottom: 1px solid var(--border); background: var(--card-bg); flex-shrink: 0; }
+.ap-sku-req-lbl { padding: 8px 16px 4px; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 700; opacity: 0.6; }
+.ap-sku-req-list { display: flex; gap: 7px; padding: 0 16px 10px; flex-wrap: wrap; }
+.ap-sku-req-chip { display: flex; align-items: center; gap: 6px; background: var(--fl-card2); border: 1px solid var(--fl-border2); border-radius: 7px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); transition: all .15s; }
+.ap-sku-req-chip.active { background: var(--accent-blue-dim); border-color: var(--accent-blue); color: var(--accent-blue-l); }
+.req-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.req-count { font-size: 9px; background: var(--fl-border2); padding: 1px 5px; border-radius: 7px; color: var(--text-muted); opacity: 0.6; }
+.ap-sku-req-chip.active .req-count { background: var(--accent-blue-dim); color: var(--accent-blue-l); opacity: 1; }
+.ap-filter-row { padding: 8px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.ap-search { flex: 1; background: var(--fl-card2); border: 1px solid var(--fl-border2); border-radius: 7px; padding: 6px 10px; font-family: inherit; font-size: 12px; color: var(--text); outline: none; transition: border-color .15s; }
+.ap-search:focus { border-color: var(--accent-blue); }
+.ap-search::placeholder { color: var(--text-muted); opacity: 0.6; }
+.ap-sel-all-btn { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 7px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+.ap-sel-all-btn:hover { border-color: var(--accent-blue); color: var(--text); }
+.ap-list { flex: 1; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 7px; }
+.ap-list::-webkit-scrollbar { width: 3px; }
+.ap-list::-webkit-scrollbar-thumb { background: var(--fl-border2); border-radius: 2px; }
+.box-row { display: flex; align-items: center; gap: 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all .15s; }
+.box-row:hover { border-color: var(--fl-border2); background: var(--fl-card2); }
+.box-row.sel { border-color: var(--accent-blue); background: var(--accent-blue-dim); }
+.box-cb { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--fl-border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+.box-row.sel .box-cb { background: var(--accent-blue); border-color: var(--accent-blue); }
+.box-info { flex: 1; min-width: 0; }
+.box-sku-main { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.box-sku-addon { font-size: 11px; color: var(--text-muted); }
+.box-avail { font-size: 10px; font-weight: 600; color: var(--fl-green); white-space: nowrap; }
+.ap-footer { padding: 12px 16px; border-top: 1px solid var(--border); background: var(--card-bg); display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.ap-count { font-size: 12px; color: var(--text-muted); flex: 1; }
+.ap-count strong { color: var(--text); }
+.btn-cancel { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); padding: 8px 14px; border-radius: 7px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.btn-cancel:hover { border-color: var(--accent-blue); color: var(--text); }
+.btn-assign { background: var(--accent-blue); color: #fff; border: none; padding: 8px 16px; border-radius: 7px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: background .15s; }
+.btn-assign:hover:not(:disabled) { background: var(--accent-blue-l); }
+.btn-assign:disabled { opacity: .3; cursor: not-allowed; }
+
+/* ── View pane ───────────────────────────────────────────────────── */
+.vs-stage-chips { display: flex; gap: 4px; padding: 10px 16px 8px; flex-wrap: wrap; }
+.vs-chip { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 4px 8px; border-radius: 5px; background: var(--fl-card2); border: 1px solid var(--border); color: var(--text-muted); opacity: 0.5; transition: all .15s; }
+.vs-chip.vs-done { border-color: var(--fl-green); background: rgba(74,222,128,.1); color: #4ade80; opacity: 1; }
+.vs-chip.vs-now { border-color: var(--accent-blue); background: var(--accent-blue-dim); color: var(--accent-blue-l); opacity: 1; }
+.view-progress { padding: 0 16px 12px; }
+.view-progress-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 5px; opacity: 0.6; }
+.view-progress-meta span:last-child { font-weight: 700; color: var(--text-muted); opacity: 1; }
+.view-progress-bar { height: 5px; background: var(--fl-border2); border-radius: 3px; overflow: hidden; }
+.view-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--fl-green)); border-radius: 3px; }
+.view-section-lbl { padding: 0 16px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); opacity: 0.6; }
+.view-box-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 7px; padding: 9px 12px; margin: 0 16px 7px; }
+.view-box-sn { font-size: 12px; font-weight: 700; flex: 1; }
+.view-box-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; opacity: 0.6; }
+
+/* ── Ship pane ───────────────────────────────────────────────────── */
+.ship-form { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.ship-field-lbl { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; display: block; }
+.ship-input { width: 100%; background: var(--fl-card2); border: 1px solid var(--fl-border2); border-radius: 7px; padding: 8px 11px; font-family: inherit; font-size: 12px; color: var(--text); outline: none; transition: border-color .15s; }
+.ship-input:focus { border-color: var(--accent-blue); }
+.ship-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+.ship-input-row { display: grid; grid-template-columns: 1fr 90px; gap: 6px; }
+.ship-methods { display: flex; gap: 8px; }
+.ship-method { flex: 1; background: var(--fl-card2); border: 1px solid var(--fl-border2); border-radius: 7px; padding: 10px 6px; text-align: center; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-muted); transition: all .15s; font-family: inherit; }
+.ship-method:hover, .ship-method.sel { border-color: var(--accent-blue); color: var(--accent-blue-l); background: var(--accent-blue-dim); }
+.ship-summary { background: var(--fl-card2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.ship-summary-row { display: flex; justify-content: space-between; font-size: 12px; }
+.btn-ship { background: var(--fl-green); color: #0a0d14; border: none; padding: 8px 16px; border-radius: 7px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: background .15s; }
+.btn-ship:hover { background: #16a34a; }
+
+/* ── Side panels (Overdue, Due Soon, Stock) ──────────────────────── */
+.sp { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; background: var(--sidebar-bg); border-left: 1px solid var(--border); z-index: 400; transform: translateX(100%); transition: transform .3s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column; overflow: hidden; }
+.sp.open { transform: translateX(0); }
+.sp-head { padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--card-bg); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.sp-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; flex: 1; }
+.sp-count { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 8px; }
+.sp-close { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 22px; line-height: 1; padding: 0 2px; transition: color .15s; opacity: 0.6; }
+.sp-close:hover { color: var(--text); opacity: 1; }
+.sp-body { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 7px; }
+.sp-body::-webkit-scrollbar { width: 3px; }
+.sp-body::-webkit-scrollbar-thumb { background: var(--fl-border2); border-radius: 2px; }
+.sp-section-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: 10px; opacity: 0.6; }
+
+/* ── Alert rows (overdue / due soon panels) ──────────────────────── */
+.al-row { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 13px; display: flex; align-items: center; gap: 11px; cursor: pointer; transition: border-color .15s; }
+.al-row:hover { border-color: var(--fl-border2); }
+.al-accent { width: 3px; height: 40px; border-radius: 2px; flex-shrink: 0; }
+.al-info { flex: 1; min-width: 0; }
+.al-id { font-size: 10px; color: var(--text-muted); font-weight: 700; letter-spacing: .06em; margin-bottom: 2px; opacity: 0.6; }
+.al-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.al-meta { display: flex; gap: 5px; flex-wrap: wrap; }
+.al-chip { font-size: 10px; color: var(--text-muted); background: var(--fl-card2); border: 1px solid var(--fl-border2); padding: 2px 6px; border-radius: 4px; }
+.al-chip.urg { color: #f87171; border-color: rgba(239,68,68,.3); }
+.al-chip.warn { color: #fbbf24; border-color: rgba(245,158,11,.3); }
+.al-jump { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 5px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; flex-shrink: 0; opacity: 0.6; }
+.al-jump:hover { border-color: var(--accent-blue); color: var(--accent-blue-l); opacity: 1; }
+
+/* ── Stock panel tiles ───────────────────────────────────────────── */
+.sku-pc-tile { display: flex; flex-direction: column; align-items: center; background: var(--fl-card2); border: 1px solid var(--border); border-radius: 9px; padding: 10px 8px 9px; cursor: pointer; transition: border-color .15s, transform .15s; min-width: 76px; max-width: 76px; width: 76px; text-align: center; position: relative; flex-shrink: 0; }
+.sku-pc-tile:hover { border-color: var(--fl-border2); transform: translateY(-2px); }
+.sku-pc-tile.avail-green { border-bottom: 3px solid var(--fl-green); }
+.sku-pc-tile.avail-amber { border-bottom: 3px solid var(--fl-amber); }
+.sku-pc-tile.avail-red { border-bottom: 3px solid var(--fl-red); opacity: .7; }
+.sku-pc-art { display: block; margin: 0 auto 7px; }
+.sku-pc-count { position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; border-radius: 11px; font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 5px; border: 2px solid var(--fl-card2); }
+.avail-green .sku-pc-count { background: var(--fl-green); color: #0a0d14; }
+.avail-amber .sku-pc-count { background: var(--fl-amber); color: #0a0d14; }
+.avail-red .sku-pc-count { background: var(--fl-red); color: #fff; }
+.sku-pc-model { font-size: 12px; color: var(--text); font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.sku-nosku-tile { display: flex; flex-direction: column; align-items: center; background: var(--fl-red-dim); border: 1px solid rgba(239,68,68,.25); border-bottom: 3px solid var(--fl-red); border-radius: 9px; padding: 10px 8px 9px; cursor: pointer; min-width: 76px; max-width: 76px; width: 76px; text-align: center; flex-shrink: 0; }
+
+/* ── Unlinked provisioning notice ────────────────────────────────── */
+.unlinked-notice { font-size: 11px; color: var(--text-muted); background: var(--fl-card2); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; display: flex; align-items: center; gap: 0.4rem; }
+.unlinked-notice a { color: var(--accent-blue-l); text-decoration: none; }
+
+/* ── Mini steps ──────────────────────────────────────────────────── */
+.mini-steps { display: flex; align-items: flex-start; justify-content: center; gap: 0; padding: 8px 0 4px; width: 100%; }
+.ms-step { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; position: relative; }
+.ms-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--fl-border2); background: var(--card-bg); transition: all .15s; }
+.ms-line { flex: 1; height: 1.5px; background: var(--fl-border2); min-width: 8px; max-width: 16px; align-self: flex-start; margin-top: 4px; transition: background .15s; }
+.ms-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; text-align: center; opacity: 0.55; }
+.ms-done .ms-dot { background: var(--fl-green); border-color: var(--fl-green); }
+.ms-done .ms-lbl { color: #4ade80; opacity: 0.75; }
+.ms-line.ms-done { background: var(--fl-green); }
+.ms-now .ms-dot { background: var(--accent-blue); border-color: var(--accent-blue); box-shadow: 0 0 0 3px var(--accent-blue-dim); }
+.ms-now .ms-lbl { color: var(--accent-blue-l); opacity: 0.8; }
+
+/* ── OEM tag ─────────────────────────────────────────────────────── */
+.oem-tag { font-size: 9px; font-weight: 700; background: rgba(249,115,22,.1); color: #fb923c; border: 1px solid rgba(249,115,22,.25); padding: 2px 7px; border-radius: 4px; }
+
+/* ── Shipping status block (mock) ────────────────────────────────── */
+.o-shipping-status { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--fl-card2); }
+.o-shipping-carrier { font-size: 11px; font-weight: 700; color: var(--text); }
+.o-shipping-track { font-size: 10px; color: var(--text-muted); opacity: 0.6; }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+/* ── Ship pane form ─────────────────────────────────────────────── */
+#pane-ship{padding:16px;box-sizing:border-box;}
+.sp-ship-toggle{display:flex;border:1px solid var(--fl-border2);border-radius:7px;overflow:hidden;margin-bottom:14px;}
+.sp-ship-opt{flex:1;padding:7px;font-size:12px;font-weight:600;background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.sp-ship-opt.active{background:var(--accent-blue-dim);color:var(--accent-blue-l);}
+.sp-field-group{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.sp-field-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+.sp-field-input{background:var(--fl-card2);border:1px solid var(--fl-border2);border-radius:6px;color:var(--text, #e2e8f0);font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 10px;outline:none;transition:border-color .15s;resize:vertical;width:100%;box-sizing:border-box;}
+.sp-field-input:focus{border-color:var(--accent-blue);}
+select.sp-field-input option{background:var(--card-bg, #1e2130);color:var(--text, #e2e8f0);}
+input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:160px;}
+[data-theme="light"] input[type="date"].sp-field-input{color-scheme:light;}
+.sp-field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.sp-pane-footer{padding:12px 16px;border-top:1px solid var(--fl-border2);margin-top:auto;}
+.sp-save-btn{width:100%;padding:9px;background:var(--accent-blue);color:#fff;border:none;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;}
+.sp-save-btn:hover{background:var(--accent-blue-l);}
+
+/* ── Deploy modal wizard steps ──────────────────────────────────── */
+.dm-steps{display:flex;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);gap:0;}
+.dm-step{display:flex;align-items:center;gap:8px;opacity:.4;transition:opacity .2s;}
+.dm-step.dm-active{opacity:1;}
+.dm-step.dm-done{opacity:.7;}
+.dm-step-num{width:22px;height:22px;border-radius:50%;background:var(--fl-border2);color:var(--text);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.dm-step.dm-active .dm-step-num{background:var(--accent-blue);color:#fff;}
+.dm-step.dm-done .dm-step-num{background:var(--fl-green);color:#fff;}
+.dm-step-lbl{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;}
+.dm-connector{flex:1;height:1px;background:var(--fl-border2);min-width:20px;margin:0 8px;}
+.dm-pane{padding:20px 24px;}
+
+/* ── Modal shared styles ───────────────────────────────────────── */
+.modal-close{width:28px;height:28px;border-radius:6px;border:1px solid var(--fl-border2);background:transparent;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+.modal-close:hover{background:var(--fl-border2);color:var(--text);}
+.fl-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1100;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:520px;width:95%;max-height:90vh;overflow-y:auto;display:none;flex-direction:column;}
+.fl-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:1090;display:none;}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px 12px;border-bottom:1px solid var(--fl-border2);}
+.modal-title{font-size:16px;font-weight:700;color:var(--text);font-family:'DM Sans',sans-serif;}
+.modal-sub{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.modal-footer{display:flex;gap:0.75rem;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--fl-border2);}
+.modal-btn-pri{padding:8px 20px;background:var(--accent-blue);color:#fff;border:none;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;}
+.modal-btn-pri:hover{background:var(--accent-blue-l);}
+.modal-btn-sec{padding:8px 16px;background:transparent;border:1px solid var(--fl-border2);color:var(--text-muted);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+.modal-btn-sec:hover{border-color:var(--text-muted);color:var(--text);}
+
+@media (max-width: 1280px) {
+  .kanban-grid.grid-5 { grid-template-columns: repeat(3, 1fr); }
+  .pfb-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .arch-body.open { grid-template-columns: repeat(2, 1fr); }
+  .cb-tools { flex-wrap: wrap; }
+}
+@media (max-width: 960px) {
+  .kanban-grid.grid-5 { grid-template-columns: repeat(2, 1fr); }
+  .pfb-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fl-header { flex-direction: column; gap: 10px; }
+  .fl-header-actions { flex-wrap: wrap; }
+  .mode-toggle { order: -1; }
+}
+@media (max-width: 768px) {
+  .kanban-grid.grid-5 { grid-template-columns: 1fr; }
+  .pfb-stages { grid-template-columns: repeat(2, 1fr); }
+  .cmd-band { flex-direction: column; }
+  .cb-stats { border-right: none; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .cb-stat { min-width: 70px; }
+  .arch-body.open { grid-template-columns: 1fr; }
+  .ap { width: 100%; }
+  .sp { width: 100%; }
+  .pipe-filter-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .o-card { padding: 10px 11px 9px 14px; }
+  .o-name { font-size: 13px; }
+  .o-actions { flex-wrap: wrap; }
+  .deploy-section { margin-top: 14px; }
+}
+@media (max-width: 480px) {
+  .sp-field-row { grid-template-columns: 1fr; }
+  .dm-connector { display: none; }
+  .dm-steps { flex-wrap: wrap; gap: 8px; }
+}
+</style>
+<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
+<script src="{{ base_path }}/static/js/scanner.js"></script>
+{% endblock %}
+
+{% block content %}
+{# ── Template variable setup ────────────────────────────────────── #}
+{% set col_labels = {'new': 'Approved PO', 'sourcing': 'Sourcing', 'building': 'Building', 'testing': 'Validation', 'shipped': 'Shipping'} %}
+{% set col_dots = {'new': 'var(--accent-blue-l)', 'sourcing': 'var(--fl-amber)', 'building': '#60a5fa', 'testing': 'var(--fl-purple)', 'shipped': 'var(--fl-orange)'} %}
+
+<div class="fulfillment-page">
+
+<!-- ── PAGE HEADER ───────────────────────────────────────────────── -->
+<div class="fl-header">
+    <div>
+        <h1>Fulfillment</h1>
+        <p>Order pipeline from new request through delivery and installation.</p>
+    </div>
+    <div class="fl-header-actions">
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="mode-ih" onclick="setMode('inhouse')">In-House</button>
+            <button class="mode-btn" id="mode-oem" onclick="setMode('oem')">OEM</button>
+        </div>
+
+        {% if unlinked_prov > 0 %}
+        <div class="unlinked-notice">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>{{ unlinked_prov }} provisioning record{{ 's' if unlinked_prov != 1 else '' }} not linked —
+                <a href="{{ base_path }}/provisioning/queue">view queue</a></span>
+        </div>
+        {% endif %}
+
+        <button class="fl-export-btn" onclick="scanToFind()" title="Scan barcode to find device">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Scan
+        </button>
+        <button class="fl-export-btn" onclick="exportFulfillment()">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+        </button>
+        {% if user and user.has_provisioning_manage %}
+        <button class="btn btn-primary btn-sm" onclick="openNewOrderModal()">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Order
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ══════════════════ IN-HOUSE BOARD ═════════════════════════════ -->
+<div id="board-inhouse">
+
+<!-- ── COMMAND BAND ──────────────────────────────────────────────── -->
+<div class="cmd-band">
+    <div class="cb-stats">
+        <div class="cb-stat cbs-blue" id="stat-active" onclick="handleStatClick('active')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#127CA3" stroke-width="2" style="margin-bottom:2px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+            <div class="cb-stat-num">{{ total_active }}</div>
+            <div class="cb-stat-lbl">Active</div>
+        </div>
+        <div class="cb-stat cbs-red" id="stat-overdue" onclick="handleStatClick('overdue')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="margin-bottom:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="cb-stat-num" {% if overdue_count > 0 %}style="color:var(--fl-red);"{% endif %}>{{ overdue_count }}</div>
+            <div class="cb-stat-lbl">Overdue</div>
+        </div>
+        <div class="cb-stat cbs-amber" id="stat-duesoon" onclick="handleStatClick('duesoon')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-bottom:2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div class="cb-stat-num" {% if due_soon_count > 0 %}style="color:var(--fl-amber);"{% endif %}>{{ due_soon_count }}</div>
+            <div class="cb-stat-lbl">Due Soon</div>
+        </div>
+        <div class="cb-stat cbs-green" id="stat-stock" onclick="handleStatClick('stock')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" style="margin-bottom:2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <div class="cb-stat-num" style="color:var(--fl-green);">{{ stock_available }}<span class="sub">&thinsp;/{{ stock_total }}</span></div>
+            <div class="cb-stat-lbl">Stock</div>
+        </div>
+    </div>
+    <div class="cb-tools">
+        <div class="cb-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input class="cb-search-input" id="cb-search" placeholder="Search orders, customers…" oninput="searchOrders(this.value)">
+            <button class="cb-search-clear" id="cb-search-clear" onclick="clearSearch()" style="display:none;">&#x2715;</button>
+        </div>
+        <div class="cb-coverage-wrap">
+            <button class="cb-tool-btn" id="btn-coverage" onclick="toggleCoverage()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Coverage<span class="cov-count-badge" id="cov-count-badge" style="display:none;"></span>
+            </button>
+            <div class="cb-coverage-panel" id="cb-coverage-panel">
+                <div class="ccp-head">Team Coverage</div>
+                <div class="ccp-rows">
+                    {% set all_members = [current_user_name] + (team_members | reject("equalto", current_user_name) | list) %}
+                    {% for member in all_members %}
+                    {% set is_you = member == current_user_name %}
+                    {% set initials = (member.split()[0][0] ~ member.split()[-1][0]) | upper if member.split()|length > 1 else member[:2]|upper %}
+                    <div class="ccp-row" id="ccp-{{ loop.index }}" onclick="toggleCoverageSelect('{{ member | lower | replace(' ', '_') }}')" data-member-key="{{ member | lower | replace(' ', '_') }}">
+                        <div class="ccp-cb" id="ccb-{{ loop.index }}"></div>
+                        <div class="ccp-avatar" style="background:var(--accent-blue-dim);">{{ initials }}</div>
+                        <div class="ccp-info">
+                            <div class="ccp-name">{{ member }}{% if is_you %} <span style="font-size:9px; color:var(--accent-blue-l); font-weight:700;">(You)</span>{% endif %}</div>
+                            <div class="ccp-detail">
+                                {% set member_order_count = namespace(count=0) %}
+                                {% for status in active_statuses %}{% for card in columns[status] %}{% if card.sales_engineer and card.sales_engineer == member %}{% set member_order_count.count = member_order_count.count + 1 %}{% endif %}{% endfor %}{% endfor %}
+                                {{ member_order_count.count }} order{{ 's' if member_order_count.count != 1 else '' }}
+                                &nbsp;·&nbsp;{{ edge_box_counts.get(member, 0) }} box{{ 'es' if edge_box_counts.get(member, 0) != 1 else '' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="ccp-footer">
+                    <button class="ccp-clear-btn" id="ccp-clear" onclick="clearCoverage()" disabled>Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── ACTIVE PIPELINE FILTER BAR ────────────────────────────────── -->
+<div class="pipe-filter-bar" id="pfb-active">
+    <div class="pfb-header"><span class="pfb-title">Active Pipeline</span></div>
+    <div class="pfb-stages">
+        {% for status in active_statuses %}
+        <div class="pfb-stage" id="pfb-{{ status }}" onclick="filterPipe('{{ status }}')">
+            <div class="pfb-dot" style="background:{{ col_dots[status] }};border-color:{{ col_dots[status] }};"></div>
+            <span class="pfb-lbl">{{ col_labels[status] }}</span>
+            <span class="pfb-num">{{ columns[status] | length }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ── KANBAN: 5 columns ─────────────────────────────────────────── -->
+<div class="kanban-grid grid-5" id="kanban-ih">
+    {% for status in active_statuses %}
+    {% set cards = columns[status] %}
+    <div class="k-col" id="col-{{ status }}">
+        <div class="k-body" ondragover="onOrderDragOver(event)" ondragleave="onOrderDragLeave(event)" ondrop="onOrderDrop(event, '{{ status }}')">
+            {% for card in cards %}
+            <div class="o-card"{% if user.has_provisioning_manage %} draggable="true" ondragstart="onOrderDragStart(event)" ondragend="onOrderDragEnd(event)"{% endif %}
+                 style="--urg:{% if card.urgency == 'overdue' %}var(--fl-red){% elif card.urgency in ('critical', 'soon') %}var(--fl-amber){% else %}var(--accent-blue){% endif %};"
+                 data-id="{{ card.id }}" data-num="{{ card.order_number }}" data-name="{{ card.customer_name | e }}" data-status="{{ status }}"
+                 data-devices="{{ order_devices.get(card.id, []) | tojson | e }}"
+                 data-ship-method="{{ card.ship_method or 'carrier' }}"
+                 data-carrier="{{ card.carrier or '' }}"
+                 data-tracking="{{ card.tracking_number or '' }}"
+                 data-recipient="{{ card.recipient_name or '' }}"
+                 data-shipped-date="{{ card.shipped_date.isoformat() if card.shipped_date else '' }}"
+                 data-delivered-date="{{ card.delivered_date.isoformat() if card.delivered_date else '' }}"
+                 data-shipping-address="{{ card.shipping_address or '' }}"
+                 onclick="openCardPanel(this)">
+                <div class="o-top">
+                    <span class="o-id">{{ card.order_number }}</span>
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        {% if card.is_sensitive and can_see_sensitive %}
+                        <span class="badge-sensitive">Sensitive</span>
+                        {% endif %}
+                        {% if card.urgency == 'overdue' %}
+                        <span class="badge b-red">Overdue</span>
+                        {% elif card.urgency in ('critical', 'soon') %}
+                        <span class="badge b-amber">Due Soon</span>
+                        {% endif %}
+                        {% if card.deployment_type and card.deployment_type != 'direct' %}
+                        <div class="o-type-toggle">
+                            <span class="o-type-opt" onclick="event.stopPropagation();setOrderType(this)">Direct</span>
+                            <span class="o-type-opt active" onclick="event.stopPropagation();setOrderType(this)">{{ card.deployment_type | replace('_', ' ') | title }}</span>
+                        </div>
+                        {% elif card.deployment_type == 'direct' %}
+                        <div class="o-type-toggle">
+                            <span class="o-type-opt active" onclick="event.stopPropagation();setOrderType(this)">Direct</span>
+                            <span class="o-type-opt" onclick="event.stopPropagation();setOrderType(this)">Integrator</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if card.deployment_type == 'via_integrator' and card.integrator_name %}
+                    <span class="o-chip" style="font-size:9px;">via {{ card.integrator_name }}</span>
+                    {% elif card.deployment_type == 'via_distributor' and card.distributor_name %}
+                    <span class="o-chip" style="font-size:9px;">via {{ card.distributor_name }}</span>
+                    {% endif %}
+                </div>
+                <div class="o-name">{{ card.customer_name }}</div>
+                <div class="o-owner">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>{{ card.sales_engineer or 'Unassigned' }}</span>
+                </div>
+                <div class="o-meta">
+                    {% if card.due_date %}
+                    <span class="o-chip{% if card.urgency == 'overdue' %} urg{% elif card.urgency in ('critical', 'soon') %} warn{% endif %}">
+                        {% if card.days_until_due is not none %}
+                            {% if card.days_until_due < 0 %}{{ (card.days_until_due * -1) }}d overdue
+                            {% elif card.days_until_due == 0 %}Due today
+                            {% elif card.days_until_due == 1 %}Due tomorrow
+                            {% else %}Due {{ card.days_until_due }}d
+                            {% endif %}
+                        {% else %}{{ card.due_date.strftime('%b %d') }}
+                        {% endif %}
+                    </span>
+                    {% endif %}
+                    {% if card.sku_requirements %}
+                    {% set first_sku = card.sku_requirements[0] %}
+                    <span class="o-chip">{{ first_sku.get('qty', '?') }}&times; {{ first_sku.get('sku', 'TBD') }}</span>
+                    {% endif %}
+                </div>
+                <div class="mini-steps" id="ms-{{ card.id }}"></div>
+                <div class="o-actions">
+                    {% if user.has_financial_access and card.contract_value %}
+                    <span class="badge b-green" style="margin-right:auto;">${{ "{:,.0f}".format(card.contract_value) }}</span>
+                    {% endif %}
+                    {% if user.has_provisioning_manage %}
+                    <button class="o-btn" onclick="event.stopPropagation();openOemModal('{{ card.id }}', '{{ card.order_number }}')">+ OEM PO</button>
+                    {% endif %}
+                    {% if status == 'shipped' %}
+                    <button class="o-btn" onclick="event.stopPropagation();openDeployModal('{{ card.id }}', '{{ card.order_number }}')">
+                        Schedule Deployment
+                    </button>
+                    {% endif %}
+                    <button class="o-btn" onclick="event.stopPropagation();openCardPanel(this.closest('.o-card'))">
+                        {% if status == 'new' %}Assign ›{% else %}View ›{% endif %}
+                    </button>
+                </div>
+            </div>
+            {% else %}
+            {# ── Mock sample cards (shown when column is empty) ── #}
+            {% if status == 'new' %}
+            <div class="o-card mock-card" style="--urg:var(--accent-blue);">
+                <div class="o-top"><span class="o-id">AT-0000</span></div>
+                <div class="o-name">Acme Corp</div>
+                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Jane Doe</span></div>
+                <div class="o-meta"><span class="o-chip">Due 14d</span><span class="o-chip">5&times; EDGE-4</span></div>
+                <div class="mini-steps">
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">PO In</div></div>
+                    <div class="ms-line ms-done"></div>
+                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Scoped</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Sourced</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Ready</div></div>
+                </div>
+            </div>
+            {% elif status == 'sourcing' %}
+            <div class="o-card mock-card" style="--urg:var(--fl-amber);">
+                <div class="o-top"><span class="o-id">AT-0001</span></div>
+                <div class="o-name">Beta Industries</div>
+                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>John Smith</span></div>
+                <div class="o-meta"><span class="o-chip warn">Due 5d</span><span class="o-chip">3&times; EDGE-8</span></div>
+                <div class="mini-steps">
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Ordered</div></div>
+                    <div class="ms-line ms-done"></div>
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Tracking</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Deliver</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Received</div></div>
+                </div>
+            </div>
+            {% elif status == 'building' %}
+            <div class="o-card mock-card" style="--urg:var(--accent-blue);">
+                <div class="o-top"><span class="o-id">AT-0002</span></div>
+                <div class="o-name">Gamma Health</div>
+                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Sarah Lee</span></div>
+                <div class="o-meta"><span class="o-chip">Due 21d</span><span class="o-chip">10&times; EDGE-4</span></div>
+                <div class="mini-steps">
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Staged</div></div>
+                    <div class="ms-line ms-done"></div>
+                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Building</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Regist.</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Licensed</div></div>
+                </div>
+            </div>
+            {% elif status == 'testing' %}
+            <div class="o-card mock-card" style="--urg:var(--fl-purple);">
+                <div class="o-top"><span class="o-id">AT-0003</span></div>
+                <div class="o-name">Delta Security</div>
+                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Mike Chen</span></div>
+                <div class="o-meta"><span class="o-chip">Due 10d</span><span class="o-chip">2&times; PVA-16</span></div>
+                <div class="mini-steps">
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">HW Chk</div></div>
+                    <div class="ms-line ms-done"></div>
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">SW Ver</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">PVA Evt</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Cert'd</div></div>
+                </div>
+            </div>
+            {% elif status == 'shipped' %}
+            <div class="o-card mock-card" style="--urg:var(--fl-orange);">
+                <div class="o-top"><span class="o-id">AT-0004</span></div>
+                <div class="o-name">Epsilon Schools</div>
+                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Alex Kim</span></div>
+                <div class="o-meta"><span class="o-chip">Shipped Mar 1</span><span class="o-chip">8&times; EDGE-4</span></div>
+                <div class="mini-steps">
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Packed</div></div>
+                    <div class="ms-line ms-done"></div>
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Labeled</div></div>
+                    <div class="ms-line ms-done"></div>
+                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Pickup</div></div>
+                    <div class="ms-line"></div>
+                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Transit</div></div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ── DEPLOYMENT PIPELINE ──────────────────────────────────────── -->
+<div class="deploy-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Deployment Pipeline</span>
+        {% if user and user.has_provisioning_manage %}
+        <button class="cb-tool-btn" onclick="openDeployModal()">+ Schedule Deployment</button>
+        {% endif %}
+    </div>
+    <div class="pipe-filter-bar" id="pfb-deploy">
+        <div class="pfb-header"><span class="pfb-title">Deployment Pipeline</span></div>
+        <div class="pfb-stages">
+            {% for status in deploy_statuses %}
+            <div class="pfb-stage" id="pfb-dep-{{ status }}" onclick="filterDeploy('{{ status }}')">
+                <div class="pfb-dot" style="background:{{ deploy_dot_colors[status] }};border-color:{{ deploy_dot_colors[status] }};"></div>
+                <span class="pfb-lbl">{{ deploy_status_labels[status] }}</span>
+                <span class="pfb-num">{{ deploy_columns[status]|length }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="kanban-grid grid-5" id="kanban-deploy">
+        {% for status in deploy_statuses %}
+        <div class="k-col" id="dep-col-{{ status }}">
+            <div class="k-body">
+                {% if deploy_columns[status] %}
+                {% for dr in deploy_columns[status] %}
+                <div class="o-card"
+                     data-dep-id="{{ dr.id }}" data-dep-status="{{ status }}" data-order-id="{{ dr.customer_order_id or '' }}"
+                     data-search="{{ dr.order_number or '' }} {{ dr.customer_name or '' }} {{ dr.site_name or '' }} {{ dr.se_name or '' }}"
+                     style="--urg:{% if dr.scheduled_date and dr.scheduled_date < today %}var(--fl-red){% elif dr.scheduled_date and (dr.scheduled_date - today).days <= 7 %}var(--fl-amber){% else %}{{ deploy_dot_colors[status] }}{% endif %};">
+                    <div class="o-top">
+                        <span class="o-id">{{ dr.order_number or 'No Order' }}</span>
+                    </div>
+                    <div class="o-name">{{ dr.customer_name or 'Unknown Customer' }}</div>
+                    {% if dr.site_name or dr.address %}
+                    <div class="o-owner">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span>{{ dr.site_name or dr.address|truncate(40) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if dr.se_name %}
+                    <div class="o-owner">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <span>{{ dr.se_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if dr.integrator_name %}
+                    <div class="o-owner">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                        <span>{{ dr.integrator_name }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="o-meta">
+                        {% if dr.scheduled_date %}
+                        <span class="o-chip {% if dr.scheduled_date < today %}urg{% elif (dr.scheduled_date - today).days <= 7 %}warn{% endif %}">
+                            Sched {{ dr.scheduled_date.strftime('%b %d') }}
+                        </span>
+                        {% endif %}
+                        {% if dr.installed_date %}
+                        <span class="o-chip">
+                            Done {{ dr.installed_date.strftime('%b %d') }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="mini-steps" id="ms-dep-{{ dr.id }}"></div>
+                    {% if user and user.has_provisioning_manage %}
+                    <div class="o-actions" style="margin-top:6px;">
+                        <select class="o-btn" style="padding:2px 6px;font-size:10px;"
+                                onchange="updateDeployStatus({{ dr.id }}, this.value, this)"
+                                title="Change status">
+                            {% for ds in deploy_statuses %}
+                            <option value="{{ ds }}" {% if ds == status %}selected{% endif %}>{{ deploy_status_labels[ds] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% else %}
+                {# ── Mock sample cards (shown when column is empty) ── #}
+                {% if status == 'scheduled' %}
+                <div class="o-card mock-card" style="--urg:var(--text-muted);">
+                    <div class="o-top"><span class="o-id">AT-0000</span></div>
+                    <div class="o-name">Acme Corp</div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>123 Main St, Newark NJ</span></div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Jane Doe</span></div>
+                    <div class="o-meta"><span class="o-chip">Sched Mar 15</span></div>
+                    <div class="mini-steps">
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Confirm</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">SE Asgn</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Site Rdy</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Parts</div></div>
+                    </div>
+                </div>
+                {% elif status == 'in_transit' %}
+                <div class="o-card mock-card" style="--urg:var(--accent-blue);">
+                    <div class="o-top"><span class="o-id">AT-0001</span></div>
+                    <div class="o-name">Beta Industries</div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>456 Oak Ave, Boston MA</span></div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>John Smith</span></div>
+                    <div class="o-meta"><span class="o-chip">Sched Mar 10</span></div>
+                    <div class="mini-steps">
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Packed</div></div>
+                        <div class="ms-line ms-done"></div>
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Shipped</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Transit</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Deliver</div></div>
+                    </div>
+                </div>
+                {% elif status == 'on_site' %}
+                <div class="o-card mock-card" style="--urg:var(--fl-amber);">
+                    <div class="o-top"><span class="o-id">AT-0002</span></div>
+                    <div class="o-name">Gamma Health</div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>789 Hospital Rd, Chicago IL</span></div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>TechInstall Co.</span></div>
+                    <div class="o-meta"><span class="o-chip">Sched Feb 28</span></div>
+                    <div class="mini-steps">
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Arrived</div></div>
+                        <div class="ms-line ms-done"></div>
+                        <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Unpack</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Cabled</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Power</div></div>
+                    </div>
+                </div>
+                {% elif status == 'installing' %}
+                <div class="o-card mock-card" style="--urg:var(--fl-purple);">
+                    <div class="o-top"><span class="o-id">AT-0003</span></div>
+                    <div class="o-name">Delta Security</div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>321 Pine Blvd, Dallas TX</span></div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Mike Chen</span></div>
+                    <div class="o-meta"><span class="o-chip">Sched Mar 1</span></div>
+                    <div class="mini-steps">
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">HW Inst</div></div>
+                        <div class="ms-line ms-done"></div>
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Config</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Cameras</div></div>
+                        <div class="ms-line"></div>
+                        <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Testing</div></div>
+                    </div>
+                </div>
+                {% elif status == 'complete' %}
+                <div class="o-card mock-card" style="--urg:var(--fl-green);">
+                    <div class="o-top"><span class="o-id">AT-0004</span></div>
+                    <div class="o-name">Epsilon Schools</div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>555 School Ln, Miami FL</span></div>
+                    <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Alex Kim</span></div>
+                    <div class="o-meta"><span class="o-chip">Done Feb 25</span></div>
+                    <div class="mini-steps">
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Verified</div></div>
+                        <div class="ms-line ms-done"></div>
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Signoff</div></div>
+                        <div class="ms-line ms-done"></div>
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Docs</div></div>
+                        <div class="ms-line ms-done"></div>
+                        <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Closed</div></div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ── ARCHIVED ORDERS ───────────────────────────────────────────── -->
+<div class="archived-section">
+{% set archived_total = columns['delivered'] | length + columns['installed'] | length %}
+<div class="arch-wrap">
+    <div class="arch-head" onclick="toggleArchived()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <span class="arch-title">Archived Orders</span>
+        <span class="badge b-gray">{{ archived_total }} order{{ 's' if archived_total != 1 else '' }}</span>
+        <span class="chevron" id="arch-chev">&#8964;</span>
+    </div>
+    <div class="arch-body" id="arch-body">
+        {% set arch_colors = {'shipped': 'var(--fl-orange)', 'delivered': 'var(--fl-green)', 'installed': 'var(--accent-blue)'} %}
+        {% for status in archived_statuses %}
+        {% set cards = columns[status] %}
+        <div>
+            <div class="arch-col-lbl">{{ order_statuses[status] }} <span class="pfb-num" style="font-size:10px;">{{ cards|length }}</span></div>
+            {% for card in cards %}
+            <a href="{{ base_path }}/orders/{{ card.id }}" style="text-decoration:none;display:block;">
+            <div class="arch-row" style="--arch-color:{{ arch_colors.get(status, 'var(--fl-border2)') }};">
+                <div style="flex:1;min-width:0;">
+                    <span class="arch-row-name">{{ card.order_number }} · {{ card.customer_name }}</span>
+                    {% if card.sales_engineer %}<span class="arch-se">{{ card.sales_engineer }}</span>{% endif %}
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    {% if card.sku_requirements %}
+                    {% set first_sku = card.sku_requirements[0] %}
+                    <span style="font-size:9px;color:var(--text-muted);opacity:.5;">{{ first_sku.get('qty', '?') }}&times; {{ first_sku.get('sku', 'TBD') }}</span>
+                    {% endif %}
+                    {% if card.due_date %}
+                    <span class="arch-row-meta">{{ card.due_date.strftime('%b %d') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            </a>
+            {% else %}
+            <div class="arch-row" style="justify-content:center;"><span class="arch-row-meta" style="font-style:italic;">None</span></div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+</div>
+
+</div>{# /board-inhouse #}
+
+<!-- ══════════════════ OEM BOARD ═════════════════════════════════ -->
+<div id="board-oem" style="display:none;">
+    <div class="cmd-band">
+        <div class="cb-stats">
+            <div class="cb-stat cbs-blue"><div class="cb-stat-num">{{ oem_active }}</div><div class="cb-stat-lbl">Active POs</div></div>
+            <div class="cb-stat"><div class="cb-stat-num">{{ oem_total }}</div><div class="cb-stat-lbl">Total POs</div></div>
+        </div>
+    </div>
+
+    <!-- OEM Pipeline filter bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;margin-top:24px;">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fl-t2);">OEM Pipeline</span>
+        {% if user and user.has_provisioning_manage %}
+        <button class="cb-tool-btn" onclick="openOemModal()">+ New OEM PO</button>
+        {% endif %}
+    </div>
+    <div class="pipe-filter-bar" id="pfb-oem">
+        <div class="pfb-header"><span class="pfb-title">OEM Pipeline</span></div>
+        <div class="pfb-stages">
+            {% set visible_oem = oem_statuses | reject("equalto", "cancelled") | list %}
+            {% for status in visible_oem %}
+            <div class="pfb-stage" id="pfb-oem-{{ status }}" onclick="filterOem('{{ status }}')">
+                <div class="pfb-dot" style="background:{{ oem_dot_colors[status] }};border-color:{{ oem_dot_colors[status] }};"></div>
+                <span class="pfb-lbl">{{ oem_status_labels[status] }}</span>
+                <span class="pfb-num">{{ oem_columns[status]|length }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- OEM Kanban grid -->
+    <div class="kanban-grid grid-5" id="kanban-oem">
+        {% for status in oem_statuses %}
+        {% if status != 'cancelled' %}
+        <div class="k-col" id="oem-col-{{ status }}">
+            <div class="k-body">
+                {% if oem_columns[status] %}
+                {% for po in oem_columns[status] %}
+                <div class="o-card oem-card"
+                     data-search="{{ po.vendor_name or '' }} {{ po.sku or '' }} {{ po.po_number or '' }} {{ po.customer_order_number or '' }} {{ po.customer_name or '' }}"
+                     style="--urg:{% if po.expected_delivery and po.expected_delivery < today %}var(--fl-red){% elif po.expected_delivery and (po.expected_delivery - today).days <= 7 %}var(--fl-amber){% else %}var(--accent-blue){% endif %};">
+                    <div class="o-top">
+                        <span class="o-id">{{ po.po_number or 'No PO#' }}</span>
+                        {% if po.customer_order_number %}
+                        <span class="badge b-blue">{{ po.customer_order_number }}</span>
+                        {% else %}
+                        <span class="badge b-gray">Unlinked</span>
+                        {% endif %}
+                    </div>
+                    <div class="o-name">{{ po.vendor_name }}</div>
+                    {% if po.customer_name %}
+                    <div class="o-owner">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <span>{{ po.customer_name }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="o-meta">
+                        <span class="o-chip">{{ po.qty_received }}/{{ po.qty_ordered }} {{ po.sku }}</span>
+                        {% if po.expected_delivery %}
+                        <span class="o-chip {% if po.expected_delivery < today %}urg{% elif (po.expected_delivery - today).days <= 7 %}warn{% endif %}">
+                            Due {{ po.expected_delivery.strftime('%b %d') }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if po.notes %}
+                    <div class="o-owner" style="margin-top:4px;">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span style="color:var(--text-muted);font-style:italic;">{{ po.notes|truncate(60) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if user and user.has_provisioning_manage %}
+                    <div class="o-actions">
+                        <button class="o-btn" onclick="openOemModal('{{ po.customer_order_id }}', '{{ po.customer_order_number }}', {
+                            id: {{ po.id }}, customer_order_id: {{ po.customer_order_id or 'null' }},
+                            vendor_name: '{{ po.vendor_name|e }}', sku: '{{ po.sku|e }}',
+                            po_number: {{ ('\"' ~ po.po_number ~ '\"') if po.po_number else 'null' }},
+                            qty_ordered: {{ po.qty_ordered }}, qty_received: {{ po.qty_received }},
+                            order_date: {{ ('\"' ~ po.order_date ~ '\"') if po.order_date else 'null' }},
+                            expected_delivery: {{ ('\"' ~ po.expected_delivery ~ '\"') if po.expected_delivery else 'null' }},
+                            received_date: {{ ('\"' ~ po.received_date ~ '\"') if po.received_date else 'null' }},
+                            status: '{{ po.status }}', notes: {{ ('\"' ~ po.notes|e ~ '\"') if po.notes else 'null' }},
+                            customer_order_number: {{ ('\"' ~ po.customer_order_number ~ '\"') if po.customer_order_number else 'null' }},
+                            customer_name: {{ ('\"' ~ po.customer_name|e ~ '\"') if po.customer_name else 'null' }}
+                        })">Edit</button>
+                        <button class="o-btn o-btn-danger" onclick="deleteOemPo({{ po.customer_order_id }}, {{ po.id }})">Delete</button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="k-empty">No {{ oem_status_labels[status]|lower }} POs yet</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+</div>{# end fulfillment-page #}
+
+<!-- ══════════════════ OVERLAY ════════════════════════════════════ -->
+<div class="overlay" id="overlay"></div>
+
+<!-- ══════════════════ SIDE PANELS ════════════════════════════════ -->
+
+<!-- Overdue Panel -->
+<div class="sp" id="sp-overdue">
+    <div class="sp-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="sp-title">Overdue Orders</span>
+        <span class="sp-count badge b-red">{{ overdue_count }}</span>
+        <button class="sp-close" onclick="closeSp('sp-overdue')">&#x2715;</button>
+    </div>
+    <div class="sp-body">
+        {% for status in active_statuses %}
+        {% for card in columns[status] %}
+        {% if card.urgency == 'overdue' %}
+        <div class="al-row" onclick="jumpToCard('col-{{ status }}')">
+            <div class="al-accent" style="background:var(--fl-red);"></div>
+            <div class="al-info">
+                <div class="al-id">{{ card.order_number }}</div>
+                <div class="al-name">{{ card.customer_name }}</div>
+                <div class="al-meta">
+                    <span class="al-chip urg">{{ (card.days_until_due * -1) }}d overdue</span>
+                    <span class="al-chip">{{ col_labels[status] }}</span>
+                    {% if card.sku_requirements %}
+                    <span class="al-chip">{{ card.total_sku_qty }}&times; {{ card.sku_requirements[0].get('sku', '') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <button class="al-jump" onclick="event.stopPropagation();jumpToCard('col-{{ status }}')">Jump ›</button>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% if overdue_count == 0 %}
+        <div class="k-empty" style="height:auto; padding:2rem 0;">No overdue orders</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Due Soon Panel -->
+<div class="sp" id="sp-duesoon">
+    <div class="sp-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="sp-title">Due Soon</span>
+        <span class="sp-count badge b-amber">{{ due_soon_count }}</span>
+        <button class="sp-close" onclick="closeSp('sp-duesoon')">&#x2715;</button>
+    </div>
+    <div class="sp-body">
+        {% for status in active_statuses %}
+        {% for card in columns[status] %}
+        {% if card.urgency in ('critical', 'soon') %}
+        <div class="al-row" onclick="jumpToCard('col-{{ status }}')">
+            <div class="al-accent" style="background:var(--fl-amber);"></div>
+            <div class="al-info">
+                <div class="al-id">{{ card.order_number }}</div>
+                <div class="al-name">{{ card.customer_name }}</div>
+                <div class="al-meta">
+                    <span class="al-chip warn">Due {{ card.days_until_due }}d</span>
+                    <span class="al-chip">{{ col_labels[status] }}</span>
+                    {% if card.sku_requirements %}
+                    <span class="al-chip">{{ card.total_sku_qty }}&times; {{ card.sku_requirements[0].get('sku', '') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <button class="al-jump" onclick="event.stopPropagation();jumpToCard('col-{{ status }}')">Jump ›</button>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% if due_soon_count == 0 %}
+        <div class="k-empty" style="height:auto; padding:2rem 0;">No orders due soon</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stock Panel -->
+<div class="sp" id="sp-stock" style="width:460px;">
+    <div class="sp-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        <span class="sp-title">Edge Box Stock</span>
+        <span class="sp-count badge b-green">{{ stock_available }} avail</span>
+        {% if unclassified_count > 0 %}
+        <span class="sp-count badge b-red" style="margin-left:4px;">{{ unclassified_count }} no SKU</span>
+        {% endif %}
+        <button class="sp-close" onclick="closeSp('sp-stock')">&#x2715;</button>
+    </div>
+    <div class="sp-body">
+        {% if stock_known %}
+        <div class="sp-section-lbl">Edge Boxes by SKU</div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+            {% for g in stock_known %}
+            {% if g.available == 0 %}{% set avail_cls = 'avail-red' %}
+            {% elif g.available <= 2 %}{% set avail_cls = 'avail-amber' %}
+            {% else %}{% set avail_cls = 'avail-green' %}{% endif %}
+            <div class="sku-pc-tile {{ avail_cls }}">
+                <span class="sku-pc-count">{{ g.available }}</span>
+                <svg class="sku-pc-art" width="48" height="28" viewBox="0 0 48 28">
+                    <rect x="2" y="9" width="44" height="10" rx="1.5" fill="none" stroke="var(--border)" stroke-width="1.2"/>
+                    <rect x="5" y="11" width="5" height="6" rx="1" fill="none" stroke="var(--border)" stroke-width=".8"/>
+                    <rect x="12" y="11" width="5" height="6" rx="1" fill="none" stroke="var(--border)" stroke-width=".8"/>
+                    <rect x="19" y="11" width="5" height="6" rx="1" fill="none" stroke="var(--border)" stroke-width=".8"/>
+                    <rect x="30" y="10" width="11" height="8" rx="1" fill="none" stroke="var(--border)" stroke-width=".8"/>
+                </svg>
+                <div class="sku-pc-model">{{ g.model }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="k-empty" style="height:auto; padding:1rem 0;">No boxes with recognized SKUs found.</div>
+        {% endif %}
+
+        {% if stock_unclassified %}
+        <div style="height:1px; background:var(--border); margin:0 0 14px;"></div>
+        <div class="sp-section-lbl">Needs SKU Update</div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+            <div class="sku-nosku-tile">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="margin-bottom:3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <div style="font-size:10px; font-weight:700; color:var(--text-muted);">No SKU</div>
+                <div style="font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; color:var(--fl-red); line-height:1.1;">{{ unclassified_count }}</div>
+                <div style="font-size:9px; color:#f87171;">need update</div>
+            </div>
+        </div>
+        <div style="margin-top:10px; font-size:11px;">
+            <a href="{{ base_path }}/dashboard?select=edge_boxes" style="color:var(--accent-blue-l); text-decoration:none;">
+                Open Edge Boxes inventory →
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ══════════════════ SLIDE PANEL (Assign/View/Ship) ═════════════ -->
+<div class="ap" id="ap">
+    <div class="ap-head">
+        <div class="ap-info">
+            <div class="ap-order-id" id="ap-id">—</div>
+            <div class="ap-order-name" id="ap-name">—</div>
+            <div class="ap-meta">
+                <a class="ap-link" id="ap-link" href="#">View Full Order →</a>
+            </div>
+        </div>
+        <button class="ap-close" onclick="closePanel()">&#x2715;</button>
+    </div>
+    <div class="ap-tab-bar" id="ap-tab-bar">
+        <div class="ap-tab" id="tab-assign" onclick="switchTab('assign')">Assign Boxes</div>
+        <div class="ap-tab" id="tab-view" onclick="switchTab('view')">View Status</div>
+        <div class="ap-tab" id="tab-ship" onclick="switchTab('ship')">Ship Order</div>
+    </div>
+
+    <!-- ASSIGN PANE -->
+    <div class="ap-pane" id="pane-assign">
+        <div class="ap-sku-reqs">
+            <div class="ap-sku-req-lbl">SKU Requirements</div>
+            <div class="ap-sku-req-list" id="ap-sku-reqs">
+                <span class="t3" style="padding:4px 0; font-size:11px;">Select an order to see requirements</span>
+            </div>
+        </div>
+        <div class="ap-filter-row">
+            <input type="text" class="ap-search" id="ap-search" placeholder="Search by SKU" oninput="applyFilters()">
+            <button class="ap-sel-all-btn" onclick="selAll()">Select All</button>
+        </div>
+        <div class="ap-list" id="ap-list">
+            <div class="k-empty">No boxes to display</div>
+        </div>
+        <div class="ap-footer">
+            <span class="ap-count" id="ap-count"><strong>0</strong> selected</span>
+            <button class="btn-cancel" onclick="closePanel()">Cancel</button>
+            <button class="btn-assign" id="btn-assign" disabled onclick="submitBulkAssign()">Assign</button>
+        </div>
+    </div>
+
+    <!-- VIEW PANE -->
+    <div class="ap-pane" id="pane-view">
+        <div class="vs-stage-chips" id="vs-stage-chips">
+            <span class="vs-chip" id="vsc-new">Approved PO</span>
+            <span class="vs-chip" id="vsc-sourcing">Sourcing</span>
+            <span class="vs-chip" id="vsc-building">Building</span>
+            <span class="vs-chip" id="vsc-testing">Validation</span>
+            <span class="vs-chip" id="vsc-shipped">Shipping</span>
+            <span class="vs-chip" id="vsc-scheduled">Scheduled</span>
+            <span class="vs-chip" id="vsc-in_transit">In Transit</span>
+            <span class="vs-chip" id="vsc-on_site">On-Site</span>
+            <span class="vs-chip" id="vsc-installing">Installing</span>
+            <span class="vs-chip" id="vsc-complete">Complete</span>
+        </div>
+        <div class="view-progress">
+            <div class="view-progress-meta"><span>Overall progress</span><span id="view-pct-label">—</span></div>
+            <div class="view-progress-bar"><div class="view-progress-fill" id="view-pct-bar" style="width:0%;"></div></div>
+        </div>
+        <div class="view-section-lbl">Box Assignments</div>
+        <div class="ap-list" id="view-device-list">
+            <div class="k-empty">No box assignments to display</div>
+        </div>
+        <div class="ap-footer">
+            <span style="font-size:11px; color:var(--text-muted); flex:1; opacity:0.6;" id="view-footer-count">0 devices</span>
+            <button class="btn-cancel" onclick="closePanel()">Close</button>
+        </div>
+    </div>
+
+    <!-- SHIP PANE -->
+    <div class="ap-pane" id="pane-ship">
+        <!-- Ship method toggle -->
+        <div class="sp-ship-toggle">
+            <button class="sp-ship-opt active" data-method="carrier" onclick="setShipPaneMethod('carrier')">Carrier</button>
+            <button class="sp-ship-opt" data-method="transferred" onclick="setShipPaneMethod('transferred')">Transferred</button>
+        </div>
+
+        <!-- Carrier fields (shown when method=carrier) -->
+        <div class="sp-ship-fields" id="ship-carrier-fields">
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Carrier</label>
+                <input class="sp-field-input" id="ship-carrier" type="text" placeholder="FedEx, UPS, USPS…">
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Tracking Number</label>
+                <input class="sp-field-input" id="ship-tracking" type="text" placeholder="1Z…">
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Shipping Address</label>
+                <textarea class="sp-field-input" id="ship-address" rows="3" placeholder="Street, City, State ZIP"></textarea>
+            </div>
+            <div class="sp-field-row">
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Shipped Date</label>
+                    <input class="sp-field-input" id="ship-shipped-date" type="date">
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Delivered Date</label>
+                    <input class="sp-field-input" id="ship-delivered-date" type="date">
+                </div>
+            </div>
+        </div>
+
+        <!-- Transferred fields (shown when method=transferred) -->
+        <div class="sp-ship-fields" id="ship-transferred-fields" style="display:none;">
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Recipient Name</label>
+                <input class="sp-field-input" id="ship-recipient" type="text" placeholder="SE name or contact…">
+            </div>
+            <div class="sp-field-row">
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Transferred Date</label>
+                    <input class="sp-field-input" id="ship-transferred-date" type="date">
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">On-Site Date</label>
+                    <input class="sp-field-input" id="ship-onsite-date" type="date">
+                </div>
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Notes</label>
+                <textarea class="sp-field-input" id="ship-notes" rows="3" placeholder="Handoff notes…"></textarea>
+            </div>
+        </div>
+
+        <!-- Save button -->
+        <div class="sp-pane-footer">
+            <button class="sp-save-btn" onclick="saveShipDetails(currentOrderId)">
+                Save Shipping Details
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════ NEW ORDER MODAL ════════════════════════════ -->
+{% if user and user.has_provisioning_manage %}
+<div class="fl-modal-overlay" id="new-order-overlay" onclick="closeNewOrderModal()" style="display:none;position:fixed;inset:0;z-index:1090;"></div>
+<div class="fl-modal" id="new-order-modal" style="display:none;max-width:560px;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1100;">
+    <div class="modal-head">
+        <div>
+            <div class="modal-title">New Customer Order</div>
+            <div class="modal-sub">Fill in order details below</div>
+        </div>
+        <button class="modal-close" onclick="closeNewOrderModal()">✕</button>
+    </div>
+    <form id="new-order-form" onsubmit="submitNewOrder(event)">
+        <div class="dm-pane">
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Customer Name *</label>
+                <input type="text" class="sp-field-input" name="customer_name" required placeholder="e.g. Acme Corp">
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Customer Account</label>
+                <input type="text" class="sp-field-input" name="customer_account" placeholder="Salesforce account name">
+            </div>
+            <div class="sp-field-row">
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Salesforce Order ID</label>
+                    <input type="text" class="sp-field-input" name="salesforce_order_id" placeholder="0065e00000...">
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Salesforce Opp ID</label>
+                    <input type="text" class="sp-field-input" name="salesforce_opp_id" placeholder="0065e00000...">
+                </div>
+            </div>
+            <div class="sp-field-row">
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Sales Engineer</label>
+                    <input type="text" class="sp-field-input" name="sales_engineer" placeholder="Full name">
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Due Date</label>
+                    <input type="date" class="sp-field-input" name="due_date">
+                </div>
+            </div>
+            <div class="sp-field-row">
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Deployment Type</label>
+                    <select class="sp-field-input" name="deployment_type">
+                        <option value="direct">Direct</option>
+                        <option value="via_integrator">Via Integrator</option>
+                        <option value="via_distributor">Via Distributor</option>
+                    </select>
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Status</label>
+                    <select class="sp-field-input" name="status">
+                        {% for k, v in order_statuses.items() %}
+                        <option value="{{ k }}" {% if k == 'new' %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Notes</label>
+                <textarea class="sp-field-input" name="notes" rows="3" placeholder="Deployment context, special requirements..."></textarea>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                <input type="checkbox" id="new-order-sensitive" name="is_sensitive" value="1" style="accent-color:var(--accent-blue);">
+                <label for="new-order-sensitive" style="font-size:12px;color:var(--text-muted);cursor:pointer;">
+                    Mark as sensitive (hide from most users)
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal-btn-sec" onclick="closeNewOrderModal()">Cancel</button>
+            <button type="submit" class="modal-btn-pri" id="new-order-submit">Create Order</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- ══════════════════ DEPLOY MODAL ═════════════════════════════ -->
+{% if user and user.has_provisioning_manage %}
+<div class="fl-modal-overlay" id="deploy-modal-overlay" onclick="closeDeployModal()" style="display:none;position:fixed;inset:0;z-index:1090;"></div>
+<div class="fl-modal" id="deploy-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1100;">
+    <div class="modal-head">
+        <div>
+            <div class="modal-title">Schedule Deployment</div>
+            <div class="modal-sub" id="dm-order-label">New deployment record</div>
+        </div>
+        <button class="modal-close" onclick="closeDeployModal()">✕</button>
+    </div>
+
+    <!-- Step indicators -->
+    <div class="dm-steps">
+        <div class="dm-step dm-active" id="dms-1">
+            <span class="dm-step-num">1</span>
+            <span class="dm-step-lbl">Order & Date</span>
+        </div>
+        <div class="dm-connector"></div>
+        <div class="dm-step" id="dms-2">
+            <span class="dm-step-num">2</span>
+            <span class="dm-step-lbl">Location</span>
+        </div>
+        <div class="dm-connector"></div>
+        <div class="dm-step" id="dms-3">
+            <span class="dm-step-num">3</span>
+            <span class="dm-step-lbl">Team</span>
+        </div>
+    </div>
+
+    <!-- Step 1: Order & Date -->
+    <div class="dm-pane" id="dm-pane-1">
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Customer Order *</label>
+            <select class="sp-field-input" id="dm-order-id">
+                <option value="">Select an order...</option>
+                {% for st in active_statuses %}
+                    {% for card in columns[st] %}
+                    <option value="{{ card.id }}">{{ card.order_number }} — {{ card.customer_name }}</option>
+                    {% endfor %}
+                {% endfor %}
+            </select>
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Scheduled Date</label>
+            <input class="sp-field-input" id="dm-scheduled-date" type="date">
+        </div>
+    </div>
+
+    <!-- Step 2: Location -->
+    <div class="dm-pane" id="dm-pane-2" style="display:none;">
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Existing Site</label>
+            <select class="sp-field-input" id="dm-site-id" onchange="handleSiteSelect()">
+                <option value="">No site — enter address below</option>
+                {% for site in site_list %}
+                <option value="{{ site.id }}">{{ site.name }}{% if site.address %} — {{ site.address }}{% endif %}</option>
+                {% endfor %}
+                <option value="__new__">+ Create New Site</option>
+            </select>
+        </div>
+
+        <!-- Inline new site form (hidden by default) -->
+        <div id="dm-new-site-form" style="display:none;">
+            <div style="border:1px solid var(--fl-border2);border-radius:8px;padding:12px;margin-bottom:10px;">
+                <div class="sp-field-lbl" style="margin-bottom:8px;">NEW SITE DETAILS</div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Site Name *</label>
+                    <input class="sp-field-input" id="dm-site-name" type="text" placeholder="e.g. UTSW Main Campus">
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Site Type *</label>
+                    <select class="sp-field-input" id="dm-site-type">
+                        <option value="customer_site">Customer Site</option>
+                        <option value="partner">Partner</option>
+                        <option value="warehouse">Warehouse</option>
+                        <option value="internal_lab">Internal Lab</option>
+                        <option value="office">Office</option>
+                    </select>
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Customer / Organization</label>
+                    <input class="sp-field-input" id="dm-site-customer" type="text" placeholder="Organization name">
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Address</label>
+                    <input class="sp-field-input" id="dm-site-address" type="text" placeholder="Street address">
+                </div>
+                <div class="sp-field-row">
+                    <div class="sp-field-group">
+                        <label class="sp-field-lbl">City</label>
+                        <input class="sp-field-input" id="dm-site-city" type="text">
+                    </div>
+                    <div class="sp-field-group">
+                        <label class="sp-field-lbl">State</label>
+                        <input class="sp-field-input" id="dm-site-state" type="text">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Free-text address fallback -->
+        <div class="sp-field-group" id="dm-address-group">
+            <label class="sp-field-lbl">Or enter address directly</label>
+            <textarea class="sp-field-input" id="dm-address" rows="2" placeholder="Street, City, State ZIP"></textarea>
+        </div>
+    </div>
+
+    <!-- Step 3: Team -->
+    <div class="dm-pane" id="dm-pane-3" style="display:none;">
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">SE Assigned</label>
+            <select class="sp-field-input" id="dm-se-id">
+                <option value="">Unassigned</option>
+                {% for se in se_list %}
+                <option value="{{ se.id }}">{{ se.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Integrator Name</label>
+            <input class="sp-field-input" id="dm-integrator-name" type="text" placeholder="Company name">
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Integrator Contact</label>
+            <input class="sp-field-input" id="dm-integrator-contact" type="text" placeholder="Contact person">
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Notes</label>
+            <textarea class="sp-field-input" id="dm-notes" rows="3" placeholder="Handoff notes, access info, etc."></textarea>
+        </div>
+    </div>
+
+    <!-- Modal footer -->
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end; padding:12px 20px; border-top:1px solid var(--border);">
+        <button class="btn" id="dm-back-btn" onclick="deployWizardBack()" style="display:none;">Back</button>
+        <button class="btn" onclick="closeDeployModal()">Cancel</button>
+        <button class="btn btn-primary" id="dm-next-btn" onclick="deployWizardNext()">Next</button>
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══════════ OEM PO Modal ═══════════ -->
+<div class="fl-modal-overlay" id="oem-modal-overlay" onclick="closeOemModal()" style="display:none;position:fixed;inset:0;z-index:1090;"></div>
+<div class="fl-modal" id="oem-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1100;">
+    <div class="modal-head">
+        <div>
+            <div class="modal-title" id="oem-modal-title">New OEM PO</div>
+            <div class="modal-sub" id="oem-order-label">Select an order</div>
+        </div>
+        <button class="modal-close" onclick="closeOemModal()">✕</button>
+    </div>
+
+    <!-- Step indicators -->
+    <div class="dm-steps">
+        <div class="dm-step dm-active" id="oems-1">
+            <span class="dm-step-num">1</span>
+            <span class="dm-step-lbl">Order & Vendor</span>
+        </div>
+        <div class="dm-connector"></div>
+        <div class="dm-step" id="oems-2">
+            <span class="dm-step-num">2</span>
+            <span class="dm-step-lbl">Dates & Status</span>
+        </div>
+    </div>
+
+    <!-- Step 1: Order & Vendor -->
+    <div class="dm-pane" id="oem-pane-1">
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Customer Order *</label>
+            <select class="sp-field-input" id="oem-order-id" onchange="handleOemOrderSelect()">
+                <option value="">Select an order...</option>
+                {% for status in active_statuses %}
+                    {% for card in columns[status] %}
+                    <option value="{{ card.id }}">{{ card.order_number }} — {{ card.customer_name }}</option>
+                    {% endfor %}
+                {% endfor %}
+            </select>
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Vendor Name *</label>
+            <input class="sp-field-input" id="oem-vendor-name" type="text" placeholder="Vendor or manufacturer name">
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">SKU *</label>
+            <input class="sp-field-input" id="oem-sku" type="text" placeholder="Part number or SKU">
+        </div>
+        <div class="sp-field-row">
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">PO Number</label>
+                <input class="sp-field-input" id="oem-po-number" type="text" placeholder="PO-2024-001">
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Qty Ordered</label>
+                <input class="sp-field-input" id="oem-qty-ordered" type="number" min="1" value="1">
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Dates & Status -->
+    <div class="dm-pane" id="oem-pane-2" style="display:none;">
+        <div class="sp-field-row">
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Order Date</label>
+                <input class="sp-field-input" id="oem-order-date" type="date">
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Expected Delivery</label>
+                <input class="sp-field-input" id="oem-expected-delivery" type="date">
+            </div>
+        </div>
+        <div class="sp-field-row">
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Received Date</label>
+                <input class="sp-field-input" id="oem-received-date" type="date">
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Qty Received</label>
+                <input class="sp-field-input" id="oem-qty-received" type="number" min="0" value="0">
+            </div>
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Status</label>
+            <select class="sp-field-input" id="oem-status">
+                <option value="ordered">Ordered</option>
+                <option value="in_production">In Production</option>
+                <option value="acceptance">Acceptance</option>
+                <option value="receiving">Receiving</option>
+                <option value="verified">Verified</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+        </div>
+        <div class="sp-field-group">
+            <label class="sp-field-lbl">Notes</label>
+            <textarea class="sp-field-input" id="oem-notes" rows="3" placeholder="Notes about this PO..."></textarea>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+        <button class="modal-btn-sec" id="oem-back-btn" onclick="oemWizardBack()" style="display:none;">Back</button>
+        <button class="modal-btn-sec" onclick="closeOemModal()">Cancel</button>
+        <button class="modal-btn-pri" id="oem-next-btn" onclick="oemWizardNext()">Next</button>
+    </div>
+</div>
+
+<script>
+/* ── State ────────────────────────────────────────────────────────── */
+// BP available globally from base.html
+let currentMode = 'inhouse';
+let openSpId = null;
+let pfbFilter = null;
+let depFilter = null;
+let skuFilter = null;
+let coverageOpen = false;
+let coverageSelected = new Set();
+let currentOrderId = null;
+const TEAM_MEMBERS = {{ team_members | tojson }};
+const CURRENT_USER = '{{ current_user_name | e }}';
+const LOGGED_IN = '{{ current_user_name | lower | replace(" ", "_") }}';
+const ORDER_DEVICES = {{ order_devices | tojson }};
+
+const STAGE_GROUPS = {
+    "new":        ["po_in", "scoped", "sourced", "ready"],
+    "sourcing":   ["ordered", "tracking", "deliver", "received"],
+    "building":   ["staged", "building", "registered", "licensed"],
+    "testing":    ["hw_check", "sw_version", "pva_events", "certified"],
+    "shipped":    ["packed", "labeled", "pickup", "transit"],
+    "scheduled":  ["dep_confirmed", "dep_se_assigned", "dep_site_ready", "dep_parts_staged"],
+    "in_transit": ["dep_packed", "dep_shipped", "dep_in_transit", "dep_delivered"],
+    "on_site":    ["dep_arrived", "dep_unpacked", "dep_cabled", "dep_powered_on"],
+    "installing": ["dep_hw_install", "dep_configured", "dep_cameras_up", "dep_testing"],
+    "complete":   ["dep_verified", "dep_signoff", "dep_docs_sent", "dep_closed"],
+};
+
+const STAGE_LABELS = {
+    "po_in": "PO In", "scoped": "Scoped", "sourced": "Sourced", "ready": "Ready",
+    "ordered": "Order", "tracking": "Tracking", "deliver": "Deliver", "received": "Received",
+    "staged": "Staged", "building": "Building", "registered": "Reg'd", "licensed": "Licensed",
+    "hw_check": "HW Check", "sw_version": "SW Ver", "pva_events": "PVA/Evt", "certified": "Cert'd",
+    "packed": "Packed", "labeled": "Labeled", "pickup": "Pickup", "transit": "Transit",
+    "dep_confirmed": "Confirm", "dep_se_assigned": "SE Asgn",
+    "dep_site_ready": "Site Rdy", "dep_parts_staged": "Parts",
+    "dep_packed": "Packed", "dep_shipped": "Shipped",
+    "dep_in_transit": "Transit", "dep_delivered": "Deliv'd",
+    "dep_arrived": "Arrived", "dep_unpacked": "Unpack",
+    "dep_cabled": "Cabled", "dep_powered_on": "Power On",
+    "dep_hw_install": "HW Inst", "dep_configured": "Config",
+    "dep_cameras_up": "Cameras", "dep_testing": "Testing",
+    "dep_verified": "Verified", "dep_signoff": "Sign-off",
+    "dep_docs_sent": "Docs", "dep_closed": "Closed",
+};
+
+function getStageGroup(stageName) {
+    for (const [group, stages] of Object.entries(STAGE_GROUPS)) {
+        if (stages.includes(stageName)) return group;
+    }
+    return null;
+}
+
+function updateStageChips(devices) {
+    document.querySelectorAll('.vs-chip').forEach(c => {
+        c.classList.remove('vs-done', 'vs-now');
+    });
+
+    if (!devices.length) return;
+
+    const groupDone = {};
+    const groupNow = {};
+    const groupKeys = Object.keys(STAGE_GROUPS);
+
+    devices.forEach(dev => {
+        const currentGroup = getStageGroup(dev.current_stage);
+        let foundCurrent = false;
+        for (const group of groupKeys) {
+            if (group === currentGroup) {
+                foundCurrent = true;
+                groupNow[group] = (groupNow[group] || 0) + 1;
+            } else if (!foundCurrent) {
+                groupDone[group] = (groupDone[group] || 0) + 1;
+            }
+        }
+    });
+
+    const totalDevices = devices.length;
+    for (const group of groupKeys) {
+        const chip = document.getElementById('vsc-' + group);
+        if (!chip) continue;
+        if ((groupDone[group] || 0) >= totalDevices) {
+            chip.classList.add('vs-done');
+        } else if (groupNow[group]) {
+            chip.classList.add('vs-now');
+        }
+    }
+}
+
+/* ── Existing functions (unchanged) ───────────────────────────────── */
+
+function openNewOrderModal() {
+    document.getElementById('new-order-overlay').style.display = 'block';
+    document.getElementById('new-order-modal').style.display = 'flex';
+}
+function closeNewOrderModal() {
+    document.getElementById('new-order-overlay').style.display = 'none';
+    document.getElementById('new-order-modal').style.display = 'none';
+    document.getElementById('new-order-form').reset();
+}
+
+async function submitNewOrder(e) {
+    e.preventDefault();
+    const btn = document.getElementById('new-order-submit');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+    const fd = new FormData(e.target);
+    const body = {};
+    for (const [k, v] of fd.entries()) body[k] = v;
+    if (body.is_sensitive === '1') body.is_sensitive = true;
+    else body.is_sensitive = false;
+    try {
+        const resp = await fetch(`${BP}/api/orders/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (resp.ok && data.id) {
+            window.location.href = `${BP}/orders/${data.id}`;
+        } else {
+            alert(data.detail || 'Failed to create order');
+            btn.disabled = false;
+            btn.textContent = 'Create Order';
+        }
+    } catch (err) {
+        alert('Network error');
+        btn.disabled = false;
+        btn.textContent = 'Create Order';
+    }
+}
+
+function toggleArchived() {
+    document.getElementById('arch-body').classList.toggle('open');
+    document.getElementById('arch-chev').classList.toggle('up');
+}
+
+/* ── Mode toggle (In-House / OEM) ─────────────────────────────────── */
+function setMode(m) {
+    currentMode = m;
+    document.getElementById('mode-ih').classList.toggle('active', m === 'inhouse');
+    document.getElementById('mode-oem').classList.toggle('active', m === 'oem');
+    document.getElementById('board-inhouse').style.display = m === 'inhouse' ? '' : 'none';
+    document.getElementById('board-oem').style.display = m === 'oem' ? '' : 'none';
+    pfbFilter = null;
+}
+
+/* ── Active Pipeline filter bar ───────────────────────────────────── */
+const pfbColMap = {
+    'new': 'col-new', 'sourcing': 'col-sourcing', 'building': 'col-building',
+    'testing': 'col-testing', 'shipped': 'col-shipped'
+};
+function filterPipe(stage) {
+    pfbFilter = pfbFilter === stage ? null : stage;
+    document.querySelectorAll('#pfb-active .pfb-stage').forEach(el => el.classList.remove('pf-on'));
+    if (pfbFilter) {
+        const el = document.getElementById('pfb-' + pfbFilter);
+        if (el) el.classList.add('pf-on');
+    }
+    const target = pfbFilter ? pfbColMap[pfbFilter] : null;
+    Object.values(pfbColMap).forEach(id => {
+        const col = document.getElementById(id);
+        if (col) col.classList.toggle('dimmed', target !== null && target !== id);
+    });
+}
+
+/* ── Deployment Pipeline filter bar ───────────────────────────────── */
+const depColMap = {
+    'scheduled':  'dep-col-scheduled',
+    'in_transit': 'dep-col-in_transit',
+    'on_site':    'dep-col-on_site',
+    'installing': 'dep-col-installing',
+    'complete':   'dep-col-complete',
+};
+function filterDeploy(stage) {
+    depFilter = depFilter === stage ? null : stage;
+    document.querySelectorAll('#pfb-deploy .pfb-stage').forEach(el => el.classList.remove('pf-on'));
+    if (depFilter) {
+        document.getElementById('pfb-dep-' + depFilter)?.classList.add('pf-on');
+    }
+    const target = depFilter ? depColMap[depFilter] : null;
+    Object.values(depColMap).forEach(id => {
+        const col = document.getElementById(id);
+        if (col) col.classList.toggle('dimmed', target !== null && target !== id);
+    });
+}
+
+/* ── OEM Pipeline filter bar ─────────────────────────────────────── */
+const oemColIds = {
+    'ordered':       'oem-col-ordered',
+    'in_production': 'oem-col-in_production',
+    'acceptance':    'oem-col-acceptance',
+    'receiving':     'oem-col-receiving',
+    'verified':      'oem-col-verified',
+};
+let oemFilter = null;
+function filterOem(stage) {
+    oemFilter = oemFilter === stage ? null : stage;
+    document.querySelectorAll('#pfb-oem .pfb-stage').forEach(el =>
+        el.classList.remove('pf-on')
+    );
+    if (oemFilter) {
+        document.getElementById('pfb-oem-' + oemFilter)?.classList.add('pf-on');
+    }
+    const target = oemFilter ? oemColIds[oemFilter] : null;
+    Object.values(oemColIds).forEach(id => {
+        const col = document.getElementById(id);
+        if (col) col.classList.toggle('dimmed', target !== null && target !== id);
+    });
+}
+
+/* ── Card click → open slide panel ────────────────────────────────── */
+const tabMap = { new: 'assign', sourcing: 'view', building: 'view', testing: 'view' };
+function openCardPanel(el) {
+    const id = el.dataset.id;
+    const num = el.dataset.num;
+    const name = el.dataset.name;
+    const status = el.dataset.status;
+    let devices = [];
+    try { devices = JSON.parse(el.dataset.devices || '[]'); } catch (e) {}
+    openPanel(id, num, name, tabMap[status] || 'view', devices, el);
+}
+
+/* ── Slide panel open/close ───────────────────────────────────────── */
+function openPanel(orderId, orderNum, customerName, mode, devices, cardEl) {
+    currentOrderId = orderId;
+    document.getElementById('ap-id').textContent = orderNum;
+    document.getElementById('ap-name').textContent = customerName;
+    document.getElementById('ap-link').href = BP + '/orders/' + orderId;
+    renderAssignRows(devices || []);
+    renderDeviceRows(devices || []);
+    if (cardEl) populateShipPane(cardEl);
+    switchTab(mode || 'assign');
+    document.getElementById('overlay').classList.add('open');
+    document.getElementById('ap').classList.add('open');
+}
+
+function closePanel() {
+    document.getElementById('overlay').classList.remove('open');
+    document.getElementById('ap').classList.remove('open');
+}
+
+function switchTab(tab) {
+    ['assign', 'view', 'ship'].forEach(t => {
+        document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+        document.getElementById('pane-' + t).classList.toggle('active', t === tab);
+    });
+}
+
+/* ── View pane — render device rows from order_devices ────────────── */
+function renderDeviceRows(devices) {
+    const list = document.getElementById('view-device-list');
+    const footer = document.getElementById('view-footer-count');
+
+    if (!devices.length) {
+        list.innerHTML = '<div class="k-empty">No box assignments to display</div>';
+        footer.textContent = '0 devices';
+        updateStageChips([]);
+        document.getElementById('view-pct-label').textContent = '—';
+        document.getElementById('view-pct-bar').style.width = '0%';
+        return;
+    }
+
+    /* Stage chips — group-based */
+    updateStageChips(devices);
+
+    const completedCount = devices.filter(d => d.is_complete).length;
+    const pct = Math.round((completedCount / devices.length) * 100);
+    document.getElementById('view-pct-label').textContent = pct + '%';
+    const bar = document.getElementById('view-pct-bar');
+    bar.style.width = pct + '%';
+    bar.className = 'view-progress-fill' + (pct >= 100 ? ' fill-green' : pct >= 50 ? ' fill-blue' : ' fill-amber');
+
+    /* Render device rows */
+    let html = '';
+    devices.forEach(d => {
+        const valBadge = d.validation_result === 'PASS'
+            ? '<span class="badge b-green">PASS</span>'
+            : d.validation_result === 'FAIL'
+            ? '<span class="badge b-red">FAIL</span>'
+            : d.validation_result === 'WARN'
+            ? '<span class="badge b-amber">WARN</span>'
+            : '<span class="badge b-gray">Pending</span>';
+
+        const assignOpts = '<option value=""' + (!d.assigned_to_name ? ' selected' : '') + '>Unassigned</option>'
+            + TEAM_MEMBERS.map(m => '<option value="' + m + '"' + (d.assigned_to_name === m ? ' selected' : '') + '>' + m + '</option>').join('');
+
+        html += '<div class="view-box-row' + (d.is_complete ? '" style="opacity:.5;"' : '"') + '>'
+            + '<div style="flex:1;min-width:0;">'
+            +   '<div class="view-box-sn">' + (d.serial || '—') + '</div>'
+            +   '<div class="view-box-sub">' + (d.part_number || 'No SKU') + ' · ' + d.current_stage + '</div>'
+            + '</div>'
+            + '<select class="ship-input" style="width:130px;padding:4px 6px;font-size:10px;" '
+            +   'onchange="assignBox(' + d.prov_id + ',this.value,currentOrderId)">' + assignOpts + '</select>'
+            + valBadge
+            + '</div>';
+    });
+
+    list.innerHTML = html;
+    footer.textContent = devices.length + ' device' + (devices.length !== 1 ? 's' : '') + ' · ' + completedCount + ' complete';
+}
+
+async function assignBox(provId, assigneeName, orderIdOverride) {
+    const row = document.querySelector(`.box-row[data-prov-id="${provId}"]`)
+             || document.querySelector(`.view-box-row[data-prov-id="${provId}"]`);
+    try {
+        const res = await fetch(`${BP}/api/provisioning/${provId}/technician`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ technician_name: assigneeName })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (row) {
+            row.style.transition = 'background .3s';
+            row.style.background = 'var(--green-dim, rgba(34,197,94,.15))';
+            setTimeout(() => row.style.background = '', 1200);
+        }
+    } catch (err) {
+        console.error('assignBox failed:', err);
+        if (row) {
+            row.style.transition = 'background .3s';
+            row.style.background = 'var(--red-dim, rgba(239,68,68,.15))';
+            setTimeout(() => row.style.background = '', 1200);
+        }
+    }
+}
+
+/* ── Assign pane — render device rows ─────────────────────────────── */
+function renderAssignRows(devices) {
+    const list = document.getElementById('ap-list');
+    const skuReqs = document.getElementById('ap-sku-reqs');
+
+    /* SKU requirement chips from unique part numbers */
+    const skus = [...new Set(devices.map(d => d.part_number).filter(Boolean))];
+    if (skus.length) {
+        skuReqs.innerHTML = '<span class="ap-sku-req-chip active" onclick="filterSku(this,\'\')">All</span>'
+            + skus.map(s => '<span class="ap-sku-req-chip" data-sku="' + s + '" onclick="filterSku(this,\'' + s + '\')">' + s + '</span>').join('');
+    } else {
+        skuReqs.innerHTML = '<span class="t3" style="padding:4px 0; font-size:11px;">No SKUs assigned</span>';
+    }
+
+    if (!devices.length) {
+        list.innerHTML = '<div class="k-empty">No boxes to display</div>';
+        skuFilter = null;
+        updateCount();
+        return;
+    }
+
+    let html = '';
+    devices.forEach(d => {
+        const assignOpts = '<option value=""' + (!d.assigned_to_name ? ' selected' : '') + '>Unassigned</option>'
+            + TEAM_MEMBERS.map(m => '<option value="' + m + '"' + (d.assigned_to_name === m ? ' selected' : '') + '>' + m + '</option>').join('');
+
+        const valBadge = d.validation_result === 'PASS'
+            ? '<span class="badge b-green" style="font-size:9px;">PASS</span>'
+            : d.validation_result === 'FAIL'
+            ? '<span class="badge b-red" style="font-size:9px;">FAIL</span>'
+            : d.validation_result === 'WARN'
+            ? '<span class="badge b-amber" style="font-size:9px;">WARN</span>'
+            : '<span class="badge b-gray" style="font-size:9px;">Pending</span>';
+
+        html += '<div class="box-row' + (d.is_complete ? ' completed' : '') + '" data-sku="' + (d.part_number || '') + '" data-prov-id="' + d.prov_id + '" onclick="toggleBox(this)">'
+            + '<div class="box-cb"></div>'
+            + '<div style="flex:1;min-width:0;">'
+            +   '<div style="font-size:12px;font-weight:600;">' + (d.serial || '—') + '</div>'
+            +   '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + (d.part_number || 'No SKU') + ' · ' + d.current_stage + '</div>'
+            + '</div>'
+            + '<select class="ship-input" style="width:130px;padding:4px 6px;font-size:10px;" '
+            +   'onclick="event.stopPropagation();" '
+            +   'onchange="assignBox(' + d.prov_id + ',this.value,currentOrderId)">' + assignOpts + '</select>'
+            + valBadge
+            + '</div>';
+    });
+
+    list.innerHTML = html;
+    skuFilter = null;
+    updateCount();
+}
+
+/* ── Assign pane interactions ────────────────────────────────────── */
+function filterSku(el, sku) {
+    document.querySelectorAll('.ap-sku-req-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    skuFilter = sku;
+    applyFilters();
+}
+
+function applyFilters() {
+    const q = (document.getElementById('ap-search').value || '').toLowerCase();
+    document.querySelectorAll('#ap-list .box-row').forEach(r => {
+        const skuMatch = !skuFilter || r.dataset.sku === skuFilter;
+        const textMatch = !q || r.textContent.toLowerCase().includes(q);
+        r.style.display = (skuMatch && textMatch) ? '' : 'none';
+    });
+}
+
+function toggleBox(el) {
+    el.classList.toggle('sel');
+    updateCount();
+}
+
+function selAll() {
+    const vis = [...document.querySelectorAll('#ap-list .box-row')].filter(r => r.style.display !== 'none');
+    const allSel = vis.every(r => r.classList.contains('sel'));
+    vis.forEach(r => r.classList.toggle('sel', !allSel));
+    updateCount();
+}
+
+function updateCount() {
+    const n = document.querySelectorAll('#ap-list .box-row.sel').length;
+    const el = document.getElementById('ap-count');
+    if (el) el.innerHTML = '<strong>' + n + '</strong> selected';
+    const btn = document.getElementById('btn-assign');
+    if (btn) btn.disabled = n === 0;
+}
+
+async function submitBulkAssign() {
+    if (!currentOrderId) return;
+    const selected = Array.from(document.querySelectorAll('#ap-list .box-row.sel'))
+        .map(r => parseInt(r.dataset.provId)).filter(Boolean);
+    if (!selected.length) return;
+
+    const btn = document.getElementById('btn-assign');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Assigning…';
+
+    try {
+        const res = await fetch(BP + '/api/provisioning/bulk-assign-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prov_ids: selected, order_id: currentOrderId })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'HTTP ' + res.status);
+        }
+        const data = await res.json();
+        /* Flash success on assigned rows then refresh panel */
+        document.querySelectorAll('#ap-list .box-row.sel').forEach(r => {
+            r.style.transition = 'background .3s';
+            r.style.background = 'var(--green-dim, rgba(34,197,94,.15))';
+        });
+        setTimeout(() => location.reload(), 800);
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = origText;
+        alert('Assignment failed: ' + err.message);
+    }
+}
+
+/* ── Ship pane interactions ───────────────────────────────────────── */
+function setShipPaneMethod(method) {
+    document.querySelectorAll('.sp-ship-opt').forEach(b =>
+        b.classList.toggle('active', b.dataset.method === method)
+    );
+    document.getElementById('ship-carrier-fields').style.display =
+        method === 'carrier' ? '' : 'none';
+    document.getElementById('ship-transferred-fields').style.display =
+        method === 'transferred' ? '' : 'none';
+}
+
+function populateShipPane(cardEl) {
+    const method = cardEl.dataset.shipMethod || 'carrier';
+    setShipPaneMethod(method);
+    document.getElementById('ship-carrier').value        = cardEl.dataset.carrier || '';
+    document.getElementById('ship-tracking').value       = cardEl.dataset.tracking || '';
+    document.getElementById('ship-address').value        = cardEl.dataset.shippingAddress || '';
+    document.getElementById('ship-shipped-date').value   = cardEl.dataset.shippedDate || '';
+    document.getElementById('ship-delivered-date').value = cardEl.dataset.deliveredDate || '';
+    document.getElementById('ship-recipient').value      = cardEl.dataset.recipient || '';
+    document.getElementById('ship-transferred-date').value = cardEl.dataset.shippedDate || '';
+    document.getElementById('ship-onsite-date').value    = cardEl.dataset.deliveredDate || '';
+}
+
+async function saveShipDetails(orderId) {
+    if (!orderId) return;
+    const method = document.querySelector('.sp-ship-opt.active')?.dataset.method || 'carrier';
+    const payload = {
+        ship_method:      method,
+        carrier:          document.getElementById('ship-carrier').value.trim(),
+        tracking_number:  document.getElementById('ship-tracking').value.trim(),
+        shipping_address: document.getElementById('ship-address').value.trim(),
+        shipped_date:     document.getElementById('ship-shipped-date').value || null,
+        delivered_date:   document.getElementById('ship-delivered-date').value || null,
+        recipient_name:   document.getElementById('ship-recipient').value.trim(),
+    };
+    const btn = document.querySelector('.sp-save-btn');
+    try {
+        btn.disabled = true;
+        btn.textContent = 'Saving\u2026';
+        const res = await fetch(`${BP}/fulfillment/${orderId}/ship`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        btn.textContent = 'Saved \u2713';
+        btn.style.background = 'var(--fl-green)';
+        // Flash the source kanban card
+        var card = document.querySelector('.o-card[data-id="' + orderId + '"]');
+        if (card) {
+            card.style.transition = 'box-shadow .3s';
+            card.style.boxShadow = '0 0 0 2px var(--fl-green)';
+            setTimeout(function() { card.style.boxShadow = ''; }, 2000);
+        }
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = 'Save Shipping Details';
+            btn.style.background = '';
+        }, 1800);
+    } catch(err) {
+        console.error('saveShipDetails failed:', err);
+        btn.textContent = 'Error \u2014 retry';
+        btn.style.background = 'var(--fl-red)';
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = 'Save Shipping Details';
+            btn.style.background = '';
+        }, 1800);
+    }
+}
+
+/* ── Order type toggle (Direct / Integrator) ──────────────────────── */
+function setOrderType(el) {
+    const toggle = el.closest('.o-type-toggle');
+    const card = el.closest('.o-card');
+    const orderId = card ? card.dataset.id : null;
+    toggle.querySelectorAll('.o-type-opt').forEach(o => o.classList.remove('active'));
+    el.classList.add('active');
+
+    if (!orderId) return;
+    const label = el.textContent.trim().toLowerCase();
+    const typeMap = { 'direct': 'direct', 'integrator': 'via_integrator', 'via integrator': 'via_integrator',
+                      'distributor': 'via_distributor', 'via distributor': 'via_distributor' };
+    const deployType = typeMap[label] || 'direct';
+
+    fetch(BP + '/api/orders/' + orderId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deployment_type: deployType })
+    }).then(r => {
+        if (r.ok) {
+            toggle.style.transition = 'box-shadow .3s';
+            toggle.style.boxShadow = '0 0 0 2px var(--fl-green)';
+            setTimeout(() => toggle.style.boxShadow = '', 800);
+        }
+    }).catch(() => {});
+}
+
+/* ── Stat click → panel open or filter reset ──────────────────────── */
+function handleStatClick(stat) {
+    if (stat === 'active') {
+        pfbFilter = null;
+        Object.values(pfbColMap).forEach(id => {
+            const col = document.getElementById(id);
+            if (col) col.classList.remove('dimmed');
+        });
+        document.querySelectorAll('#pfb-active .pfb-stage').forEach(el => el.classList.remove('pf-on'));
+        if (openSpId) closeSp(openSpId);
+        const el = document.getElementById('stat-active');
+        if (el) { el.classList.add('stat-on'); setTimeout(() => el.classList.remove('stat-on'), 600); }
+        return;
+    }
+    const spMap = { overdue: 'sp-overdue', duesoon: 'sp-duesoon', stock: 'sp-stock' };
+    const spId = spMap[stat];
+    if (!spId) return;
+    if (openSpId === spId) {
+        closeSp(spId);
+    } else {
+        if (openSpId) closeSp(openSpId);
+        openSp(spId);
+    }
+}
+
+/* ── Side panel open/close ────────────────────────────────────────── */
+function openSp(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    document.getElementById('overlay').classList.add('open');
+    el.classList.add('open');
+    openSpId = id;
+    const statMap = { 'sp-overdue': 'stat-overdue', 'sp-duesoon': 'stat-duesoon', 'sp-stock': 'stat-stock' };
+    const sid = statMap[id];
+    if (sid) { const s = document.getElementById(sid); if (s) s.classList.add('stat-on'); }
+}
+
+function closeSp(id) {
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('open');
+    if (!document.getElementById('ap').classList.contains('open')) {
+        document.getElementById('overlay').classList.remove('open');
+    }
+    const statMap = { 'sp-overdue': 'stat-overdue', 'sp-duesoon': 'stat-duesoon', 'sp-stock': 'stat-stock' };
+    const sid = statMap[id];
+    if (sid) { const s = document.getElementById(sid); if (s) s.classList.remove('stat-on'); }
+    openSpId = null;
+}
+
+/* ── Overlay click handler ────────────────────────────────────────── */
+document.getElementById('overlay').onclick = function() {
+    closePanel();
+    if (openSpId) closeSp(openSpId);
+};
+
+/* ── Jump to column ───────────────────────────────────────────────── */
+function jumpToCard(colId) {
+    closeSp(openSpId);
+    setTimeout(() => {
+        const el = document.getElementById(colId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.style.outline = '2px solid var(--accent-blue)';
+        el.style.outlineOffset = '3px';
+        setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 1400);
+    }, 320);
+}
+
+/* ── Search ────────────────────────────────────────────────────────── */
+function searchOrders(val) {
+    var q = val.trim().toLowerCase();
+    document.getElementById('cb-search-clear').style.display = q ? '' : 'none';
+    var board = currentMode === 'oem' ? '#board-oem' : '#board-inhouse';
+    document.querySelectorAll(board + ' .o-card').forEach(function(card) {
+        if (!q) { card.classList.remove('search-hide'); return; }
+        /* Mock cards have no real data — hide them during any search */
+        if (card.classList.contains('mock-card')) { card.classList.add('search-hide'); return; }
+        var haystack = (card.dataset.search || '') + ' ' +
+                       (card.dataset.num || '') + ' ' +
+                       (card.dataset.name || '');
+        card.classList.toggle('search-hide', haystack.toLowerCase().indexOf(q) === -1);
+    });
+}
+function clearSearch() {
+    document.getElementById('cb-search').value = '';
+    document.getElementById('cb-search-clear').style.display = 'none';
+    document.querySelectorAll('.search-hide').forEach(function(c) { c.classList.remove('search-hide'); });
+}
+
+/* ── Coverage multi-select ────────────────────────────────────────── */
+function toggleCoverage() {
+    coverageOpen = !coverageOpen;
+    const panel = document.getElementById('cb-coverage-panel');
+    const btn = document.getElementById('btn-coverage');
+    if (coverageOpen) {
+        const rect = btn.getBoundingClientRect();
+        panel.style.top = (rect.bottom + 8) + 'px';
+        panel.style.left = Math.min(rect.left, window.innerWidth - 296) + 'px';
+        panel.classList.add('open');
+        btn.classList.add('active');
+    } else {
+        panel.classList.remove('open');
+        btn.classList.toggle('active', coverageSelected.size > 0);
+    }
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.cb-coverage-wrap')) {
+        const panel = document.getElementById('cb-coverage-panel');
+        if (panel) panel.classList.remove('open');
+        const btn = document.getElementById('btn-coverage');
+        if (btn) btn.classList.toggle('active', coverageSelected.size > 0);
+        coverageOpen = false;
+    }
+});
+
+function toggleCoverageSelect(name) {
+    if (coverageSelected.has(name)) coverageSelected.delete(name);
+    else coverageSelected.add(name);
+    updateCoverageUI();
+    applyCoverageFilter();
+}
+
+function updateCoverageUI() {
+    document.querySelectorAll('.ccp-row[data-member-key]').forEach(row => {
+        row.classList.toggle('ccp-selected', coverageSelected.has(row.dataset.memberKey));
+    });
+    const badge = document.getElementById('cov-count-badge');
+    const btn = document.getElementById('btn-coverage');
+    if (coverageSelected.size > 0) {
+        badge.textContent = coverageSelected.size;
+        badge.style.display = '';
+        btn.classList.add('active');
+    } else {
+        badge.style.display = 'none';
+        btn.classList.remove('active');
+    }
+    const clearBtn = document.getElementById('ccp-clear');
+    if (clearBtn) clearBtn.disabled = coverageSelected.size === 0;
+}
+
+function applyCoverageFilter() {
+    document.querySelectorAll('#kanban-ih .o-card').forEach(card => {
+        if (coverageSelected.size === 0) { card.style.display = ''; return; }
+        const ownerRow = card.querySelector('.o-owner span');
+        const ownerKey = (ownerRow?.textContent || '').trim().toLowerCase().replace(/\s+/g, '_');
+        const match = coverageSelected.has(ownerKey);
+        card.style.display = match ? '' : 'none';
+    });
+}
+
+function clearCoverage() {
+    coverageSelected.clear();
+    updateCoverageUI();
+    applyCoverageFilter();
+}
+
+/* ── OEM PO modal ────────────────────────────────────────────────── */
+let oemCurrentStep = 1;
+let oemEditPoId = null;
+let oemEditOrderId = null;
+
+function openOemModal(orderId, orderNum, poData) {
+    oemCurrentStep = 1;
+    oemEditPoId = poData ? poData.id : null;
+    oemEditOrderId = poData ? poData.customer_order_id : null;
+
+    document.getElementById('oem-modal-title').textContent =
+        poData ? 'Edit OEM PO' : 'New OEM PO';
+
+    // Reset all fields
+    document.getElementById('oem-order-id').value = '';
+    document.getElementById('oem-vendor-name').value = '';
+    document.getElementById('oem-sku').value = '';
+    document.getElementById('oem-po-number').value = '';
+    document.getElementById('oem-qty-ordered').value = '1';
+    document.getElementById('oem-order-date').value = '';
+    document.getElementById('oem-expected-delivery').value = '';
+    document.getElementById('oem-received-date').value = '';
+    document.getElementById('oem-qty-received').value = '0';
+    document.getElementById('oem-status').value = 'ordered';
+    document.getElementById('oem-notes').value = '';
+
+    if (poData) {
+        document.getElementById('oem-order-id').value = poData.customer_order_id || '';
+        document.getElementById('oem-vendor-name').value = poData.vendor_name || '';
+        document.getElementById('oem-sku').value = poData.sku || '';
+        document.getElementById('oem-po-number').value = poData.po_number || '';
+        document.getElementById('oem-qty-ordered').value = poData.qty_ordered || 1;
+        document.getElementById('oem-order-date').value = poData.order_date || '';
+        document.getElementById('oem-expected-delivery').value = poData.expected_delivery || '';
+        document.getElementById('oem-received-date').value = poData.received_date || '';
+        document.getElementById('oem-qty-received').value = poData.qty_received || 0;
+        document.getElementById('oem-status').value = poData.status || 'ordered';
+        document.getElementById('oem-notes').value = poData.notes || '';
+        document.getElementById('oem-order-label').textContent =
+            poData.customer_order_number
+                ? poData.customer_order_number + ' — ' + poData.customer_name
+                : 'Linked order';
+        document.getElementById('oem-order-id').disabled = true;
+    } else if (orderId) {
+        document.getElementById('oem-order-id').value = orderId;
+        document.getElementById('oem-order-label').textContent =
+            orderNum ? orderNum : 'Order #' + orderId;
+        document.getElementById('oem-order-id').disabled = false;
+    } else {
+        document.getElementById('oem-order-label').textContent = 'Select an order';
+        document.getElementById('oem-order-id').disabled = false;
+    }
+
+    updateOemWizard();
+    document.getElementById('oem-modal-overlay').style.display = 'block';
+    document.getElementById('oem-modal').style.display = 'flex';
+    document.getElementById('oem-modal').style.flexDirection = 'column';
+}
+
+function closeOemModal() {
+    document.getElementById('oem-modal-overlay').style.display = 'none';
+    document.getElementById('oem-modal').style.display = 'none';
+    document.getElementById('oem-order-id').disabled = false;
+    oemCurrentStep = 1;
+    oemEditPoId = null;
+    oemEditOrderId = null;
+}
+
+function updateOemWizard() {
+    [1, 2].forEach(function(i) {
+        var el = document.getElementById('oems-' + i);
+        el.classList.remove('dm-active', 'dm-done');
+        if (i < oemCurrentStep) el.classList.add('dm-done');
+        else if (i === oemCurrentStep) el.classList.add('dm-active');
+    });
+    [1, 2].forEach(function(i) {
+        document.getElementById('oem-pane-' + i).style.display =
+            i === oemCurrentStep ? '' : 'none';
+    });
+    document.getElementById('oem-back-btn').style.display =
+        oemCurrentStep > 1 ? '' : 'none';
+    var nextBtn = document.getElementById('oem-next-btn');
+    nextBtn.textContent = oemCurrentStep === 2
+        ? (oemEditPoId ? 'Save Changes' : 'Create PO')
+        : 'Next';
+}
+
+async function oemWizardNext() {
+    if (oemCurrentStep === 1) {
+        var orderId = document.getElementById('oem-order-id').value;
+        var vendor  = document.getElementById('oem-vendor-name').value.trim();
+        var sku     = document.getElementById('oem-sku').value.trim();
+        if (!orderId) { alert('Please select a customer order.'); return; }
+        if (!vendor)  { alert('Vendor name is required.'); return; }
+        if (!sku)     { alert('SKU is required.'); return; }
+        oemCurrentStep = 2;
+        updateOemWizard();
+    } else {
+        await submitOemPo();
+    }
+}
+
+function oemWizardBack() {
+    if (oemCurrentStep > 1) { oemCurrentStep--; updateOemWizard(); }
+}
+
+function handleOemOrderSelect() {
+    var sel = document.getElementById('oem-order-id');
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById('oem-order-label').textContent =
+        opt.value ? opt.text : 'Select an order';
+}
+
+async function submitOemPo() {
+    var btn = document.getElementById('oem-next-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    var orderId = oemEditOrderId
+        || parseInt(document.getElementById('oem-order-id').value);
+
+    var payload = {
+        vendor_name:       document.getElementById('oem-vendor-name').value.trim(),
+        sku:               document.getElementById('oem-sku').value.trim(),
+        po_number:         document.getElementById('oem-po-number').value.trim() || null,
+        qty_ordered:       parseInt(document.getElementById('oem-qty-ordered').value) || 1,
+        qty_received:      parseInt(document.getElementById('oem-qty-received').value) || 0,
+        order_date:        document.getElementById('oem-order-date').value || null,
+        expected_delivery: document.getElementById('oem-expected-delivery').value || null,
+        received_date:     document.getElementById('oem-received-date').value || null,
+        status:            document.getElementById('oem-status').value,
+        notes:             document.getElementById('oem-notes').value.trim() || null,
+    };
+
+    try {
+        var url, method;
+        if (oemEditPoId) {
+            url    = BP + '/api/orders/' + orderId + '/oem-pos/' + oemEditPoId;
+            method = 'PUT';
+        } else {
+            url    = BP + '/api/orders/' + orderId + '/oem-pos';
+            method = 'POST';
+        }
+        var res = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            var err = await res.json();
+            alert('Failed: ' + (err.detail || err.error || res.status));
+            btn.disabled = false;
+            btn.textContent = oemEditPoId ? 'Save Changes' : 'Create PO';
+            return;
+        }
+        closeOemModal();
+        window.location.reload();
+    } catch(e) {
+        console.error('submitOemPo error:', e);
+        alert('Submission failed. Check console.');
+        btn.disabled = false;
+        btn.textContent = oemEditPoId ? 'Save Changes' : 'Create PO';
+    }
+}
+
+async function deleteOemPo(orderId, poId) {
+    if (!confirm('Delete this OEM PO? This cannot be undone.')) return;
+    try {
+        var res = await fetch(BP + '/api/orders/' + orderId + '/oem-pos/' + poId, {
+            method: 'DELETE'
+        });
+        if (!res.ok) {
+            var err = await res.json();
+            alert('Delete failed: ' + (err.detail || err.error || res.status));
+            return;
+        }
+        window.location.reload();
+    } catch(e) {
+        console.error('deleteOemPo error:', e);
+        alert('Delete failed. Check console.');
+    }
+}
+
+/* ── Deploy modal wizard ─────────────────────────────────────────── */
+let dmCurrentStep = 1;
+let dmCreatedSiteId = null;
+
+function openDeployModal(orderId, orderNum) {
+    dmCurrentStep = 1;
+    dmCreatedSiteId = null;
+    updateDeployWizard();
+    const orderSelect = document.getElementById('dm-order-id');
+    const label = document.getElementById('dm-order-label');
+    if (orderId) {
+        orderSelect.value = orderId;
+        label.textContent = orderNum || 'Order #' + orderId;
+    } else {
+        orderSelect.value = '';
+        label.textContent = 'New deployment record';
+    }
+    // Reset all fields
+    document.getElementById('dm-scheduled-date').value = '';
+    document.getElementById('dm-site-id').value = '';
+    document.getElementById('dm-address').value = '';
+    document.getElementById('dm-se-id').value = '';
+    document.getElementById('dm-integrator-name').value = '';
+    document.getElementById('dm-integrator-contact').value = '';
+    document.getElementById('dm-notes').value = '';
+    document.getElementById('dm-new-site-form').style.display = 'none';
+    document.getElementById('dm-address-group').style.display = '';
+    const overlay = document.getElementById('deploy-modal-overlay');
+    const modal = document.getElementById('deploy-modal');
+    if (overlay) overlay.style.display = 'block';
+    if (modal) { modal.style.display = 'flex'; }
+}
+
+function closeDeployModal() {
+    const overlay = document.getElementById('deploy-modal-overlay');
+    const modal = document.getElementById('deploy-modal');
+    if (overlay) overlay.style.display = 'none';
+    if (modal) modal.style.display = 'none';
+    dmCurrentStep = 1;
+    dmCreatedSiteId = null;
+}
+
+function updateDeployWizard() {
+    [1, 2, 3].forEach(function(i) {
+        const el = document.getElementById('dms-' + i);
+        if (!el) return;
+        el.classList.remove('dm-active', 'dm-done');
+        if (i < dmCurrentStep) el.classList.add('dm-done');
+        else if (i === dmCurrentStep) el.classList.add('dm-active');
+    });
+    [1, 2, 3].forEach(function(i) {
+        const pane = document.getElementById('dm-pane-' + i);
+        if (pane) pane.style.display = i === dmCurrentStep ? '' : 'none';
+    });
+    const backBtn = document.getElementById('dm-back-btn');
+    if (backBtn) backBtn.style.display = dmCurrentStep > 1 ? '' : 'none';
+    const nextBtn = document.getElementById('dm-next-btn');
+    if (nextBtn) nextBtn.textContent = dmCurrentStep === 3 ? 'Create Deployment' : 'Next';
+}
+
+async function deployWizardNext() {
+    if (dmCurrentStep === 1) {
+        const orderId = document.getElementById('dm-order-id').value;
+        if (!orderId) { alert('Please select a customer order.'); return; }
+        dmCurrentStep = 2;
+        updateDeployWizard();
+    } else if (dmCurrentStep === 2) {
+        const siteSelect = document.getElementById('dm-site-id').value;
+        if (siteSelect === '__new__') {
+            const created = await createSiteInline();
+            if (!created) return;
+        }
+        dmCurrentStep = 3;
+        updateDeployWizard();
+    } else if (dmCurrentStep === 3) {
+        await submitDeployment();
+    }
+}
+
+function deployWizardBack() {
+    if (dmCurrentStep > 1) { dmCurrentStep--; updateDeployWizard(); }
+}
+
+function handleSiteSelect() {
+    const val = document.getElementById('dm-site-id').value;
+    const newForm = document.getElementById('dm-new-site-form');
+    const addrGroup = document.getElementById('dm-address-group');
+    if (val === '__new__') {
+        newForm.style.display = '';
+        addrGroup.style.display = 'none';
+    } else if (val) {
+        newForm.style.display = 'none';
+        addrGroup.style.display = 'none';
+    } else {
+        newForm.style.display = 'none';
+        addrGroup.style.display = '';
+    }
+}
+
+async function createSiteInline() {
+    const name = document.getElementById('dm-site-name').value.trim();
+    const siteType = document.getElementById('dm-site-type').value;
+    if (!name) { alert('Site name is required.'); return false; }
+    try {
+        const res = await fetch(BP + '/api/sites', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name:      name,
+                site_type: siteType,
+                customer:  document.getElementById('dm-site-customer').value.trim(),
+                address:   document.getElementById('dm-site-address').value.trim(),
+                city:      document.getElementById('dm-site-city').value.trim(),
+                state:     document.getElementById('dm-site-state').value.trim(),
+            })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert('Site creation failed: ' + (err.detail || res.status));
+            return false;
+        }
+        const data = await res.json();
+        dmCreatedSiteId = data.id;
+        return true;
+    } catch(err) {
+        console.error('createSiteInline error:', err);
+        alert('Site creation failed. Check console.');
+        return false;
+    }
+}
+
+async function submitDeployment() {
+    const btn = document.getElementById('dm-next-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    const siteSelectVal = document.getElementById('dm-site-id').value;
+    const siteId = dmCreatedSiteId
+        || (siteSelectVal && siteSelectVal !== '__new__' ? parseInt(siteSelectVal) : null);
+    const address = document.getElementById('dm-address').value.trim();
+    const seVal = document.getElementById('dm-se-id').value;
+
+    const payload = {
+        customer_order_id:  parseInt(document.getElementById('dm-order-id').value),
+        scheduled_date:     document.getElementById('dm-scheduled-date').value || null,
+        site_id:            siteId,
+        address:            address || null,
+        se_assigned_id:     seVal ? parseInt(seVal) : null,
+        integrator_name:    document.getElementById('dm-integrator-name').value.trim() || null,
+        integrator_contact: document.getElementById('dm-integrator-contact').value.trim() || null,
+        notes:              document.getElementById('dm-notes').value.trim() || null,
+    };
+
+    try {
+        const res = await fetch(BP + '/fulfillment/deployments', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert('Failed: ' + (err.detail || res.status));
+            btn.disabled = false;
+            btn.textContent = 'Create Deployment';
+            return;
+        }
+        closeDeployModal();
+        window.location.reload();
+    } catch(err) {
+        console.error('submitDeployment error:', err);
+        alert('Submission failed. Check console.');
+        btn.disabled = false;
+        btn.textContent = 'Create Deployment';
+    }
+}
+
+/* ── Mini-steps: render from device data on page load ──────────────── */
+function renderMiniSteps() {
+    document.querySelectorAll('.o-card[data-id][data-status]:not(.mock-card)').forEach(cardEl => {
+        const orderId = cardEl.dataset.id;
+        const status = cardEl.dataset.status;
+        let devices = [];
+        try { devices = JSON.parse(cardEl.dataset.devices || '[]'); } catch(e) { /* bad JSON */ }
+        const stepsEl = document.getElementById('ms-' + orderId);
+        if (!stepsEl) return;
+
+        const substages = STAGE_GROUPS[status] || [];
+        if (substages.length === 0) { stepsEl.innerHTML = ''; return; }
+
+        let furthestIdx = 0;  // default: first step is "now" when no devices assigned
+        devices.forEach(dev => {
+            const idx = substages.indexOf(dev.current_stage);
+            if (idx > furthestIdx) furthestIdx = idx;
+        });
+
+        let html = '';
+        substages.forEach((stageName, idx) => {
+            const label = STAGE_LABELS[stageName] || stageName;
+            let cls = 'ms-step';
+            if (furthestIdx >= 0 && idx < furthestIdx) cls += ' ms-done';
+            else if (idx === furthestIdx) cls += ' ms-now';
+
+            html += '<div class="' + cls + '">' +
+                '<div class="ms-dot"></div>' +
+                '<div class="ms-lbl">' + label + '</div>' +
+                '</div>';
+
+            if (idx < substages.length - 1) {
+                const lineCls = (furthestIdx >= 0 && idx < furthestIdx)
+                    ? 'ms-line ms-done' : 'ms-line';
+                html += '<div class="' + lineCls + '"></div>';
+            }
+        });
+        stepsEl.innerHTML = html;
+    });
+}
+
+async function updateDeployStatus(depId, newStatus, selectEl) {
+    try {
+        var res = await fetch(BP + '/fulfillment/deployments/' + depId + '/status', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: newStatus})
+        });
+        if (!res.ok) {
+            var err = await res.json();
+            alert('Failed: ' + (err.detail || res.status));
+            selectEl.value = selectEl.dataset.prev || selectEl.querySelector('[selected]')?.value;
+            return;
+        }
+        window.location.reload();
+    } catch(e) {
+        console.error('updateDeployStatus error:', e);
+        alert('Update failed.');
+    }
+}
+
+function renderDeployMiniSteps() {
+    document.querySelectorAll('.o-card[data-dep-id]').forEach(cardEl => {
+        const depId = cardEl.dataset.depId;
+        const status = cardEl.dataset.depStatus;
+        const orderId = cardEl.dataset.orderId;
+        const stepsEl = document.getElementById('ms-dep-' + depId);
+        if (!stepsEl) return;
+
+        const substages = STAGE_GROUPS[status] || [];
+        if (substages.length === 0) { stepsEl.innerHTML = ''; return; }
+
+        /* Calculate completion from linked order's devices if available */
+        let doneCount = 0;
+        const devices = orderId ? (ORDER_DEVICES[orderId] || []) : [];
+        if (devices.length > 0) {
+            /* Count how many devices are fully complete */
+            const completeDevices = devices.filter(d => d.is_complete).length;
+            /* Calculate progress ratio across substages */
+            const allStages = [];
+            for (const grp in STAGE_GROUPS) allStages.push(...STAGE_GROUPS[grp]);
+            const furthestIdx = devices.reduce((max, d) => {
+                const idx = allStages.indexOf(d.current_stage);
+                return idx > max ? idx : max;
+            }, -1);
+            /* Map progress to deployment substage count */
+            if (completeDevices === devices.length) {
+                doneCount = substages.length; /* all done */
+            } else {
+                doneCount = Math.min(Math.floor((furthestIdx / Math.max(allStages.length, 1)) * substages.length), substages.length - 1);
+            }
+        } else {
+            /* No linked devices — show first step done (deployment was created) */
+            doneCount = 1;
+        }
+
+        let html = '';
+        substages.forEach((stageName, idx) => {
+            const label = STAGE_LABELS[stageName] || stageName;
+            let cls = 'ms-step';
+            if (idx < doneCount) cls += ' ms-done';
+            else if (idx === doneCount) cls += ' ms-now';
+
+            html += '<div class="' + cls + '">' +
+                '<div class="ms-dot"></div>' +
+                '<div class="ms-lbl">' + label + '</div>' +
+                '</div>';
+
+            if (idx < substages.length - 1) {
+                const lineCls = idx < doneCount ? 'ms-line ms-done' : 'ms-line';
+                html += '<div class="' + lineCls + '"></div>';
+            }
+        });
+        stepsEl.innerHTML = html;
+    });
+}
+
+/* ── Drag-and-drop between kanban columns ─────────────────────────── */
+let draggedOrderId = null;
+function onOrderDragStart(e) {
+    const card = e.target.closest('.o-card');
+    if (!card || card.classList.contains('mock-card')) { e.preventDefault(); return; }
+    draggedOrderId = card.dataset.id;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.dataset.id);
+}
+function onOrderDragEnd(e) {
+    const card = e.target.closest('.o-card');
+    if (card) card.classList.remove('dragging');
+    draggedOrderId = null;
+    document.querySelectorAll('.k-body.drag-over').forEach(b => b.classList.remove('drag-over'));
+}
+function onOrderDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+}
+function onOrderDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+async function onOrderDrop(e, newStatus) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    const orderId = e.dataTransfer.getData('text/plain');
+    if (!orderId) return;
+    const card = document.querySelector('.o-card[data-id="' + orderId + '"]');
+    if (card && card.dataset.status === newStatus) return; /* same column */
+    try {
+        const res = await fetch(BP + '/api/orders/' + orderId, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert('Move failed: ' + (err.error || 'HTTP ' + res.status));
+            return;
+        }
+        /* Move card visually into the target column */
+        if (card) {
+            const targetBody = document.querySelector('#col-' + newStatus + ' .k-body');
+            if (targetBody) {
+                card.dataset.status = newStatus;
+                targetBody.appendChild(card);
+                card.style.transition = 'box-shadow .3s';
+                card.style.boxShadow = '0 0 0 2px var(--fl-green)';
+                setTimeout(() => card.style.boxShadow = '', 1200);
+            }
+        }
+    } catch (err) {
+        alert('Move failed: ' + err.message);
+    }
+}
+
+/* ── Scan to find device ─────────────────────────────────────────── */
+function scanToFind() {
+    const scanner = new BarcodeScanner(BP);
+    scanner.start(async (barcode) => {
+        scanner.showToast(`Looking up <span class="scanner-toast-serial">${barcode}</span>...`, 'info', { duration: 0 });
+
+        try {
+            const resp = await fetch(`${BP}/api/receive/scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ barcode }),
+            });
+            const data = await resp.json();
+
+            if (data.status === 'already_exists') {
+                scanner.showToast(
+                    `Found <span class="scanner-toast-serial">${barcode}</span> in ${data.display_table}`,
+                    'success',
+                    {
+                        action: 'View',
+                        onAction: () => {
+                            scanner.stop();
+                            window.location.href = `${BP}/provisioning/${data.device_id}`;
+                        },
+                        duration: 0,
+                    }
+                );
+            } else {
+                scanner.showToast(
+                    `<span class="scanner-toast-serial">${barcode}</span> not in inventory`,
+                    'warning',
+                    {
+                        action: 'Receive',
+                        onAction: () => {
+                            scanner.stop();
+                            window.location.href = `${BP}/receive`;
+                        },
+                        duration: 0,
+                    }
+                );
+            }
+        } catch (err) {
+            scanner.showToast('Lookup failed: ' + err.message, 'error');
+        }
+    });
+}
+
+/* ── Export fulfillment data ──────────────────────────────────────── */
+function exportFulfillment() {
+    window.location.href = BP + '/api/fulfillment/export';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    renderMiniSteps();
+    renderDeployMiniSteps();
+    // Mark test orders with MOCK stamp (order numbers AT-1xxx are manually created test data)
+    document.querySelectorAll('.o-card[data-num]').forEach(card => {
+        const num = card.dataset.num || '';
+        if (/^AT-1\d{3}$/.test(num)) card.classList.add('mock-order');
+    });
+});
+</script>
+{% endblock %}

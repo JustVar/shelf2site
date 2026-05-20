@@ -1,0 +1,883 @@
+{% extends "base.html" %}
+
+{% block title %}Warranty & RMA - Hardware Asset Tracker{% endblock %}
+{% block nav_warranty %}active{% endblock %}
+
+{% block content %}
+<h1>Warranty & RMA Tracking</h1>
+
+<!-- Alerts -->
+{% if expiring_count > 0 %}
+<div class="alert-banner" style="border-left-color: #FFD700;">
+    <span class="icon">!</span>
+    <span>
+        <strong>{{ expiring_count }} warrant{{ 'ies' if expiring_count != 1 else 'y' }}</strong>
+        expiring within 30 days. Review and renew as needed.
+    </span>
+</div>
+{% endif %}
+{% if internal_overdue > 0 %}
+<div class="alert-banner" style="border-left-color: #e94560;">
+    <span class="icon">!</span>
+    <span>
+        <strong>{{ internal_overdue }} internal loaner{{ 's' if internal_overdue != 1 else '' }}</strong>
+        overdue for return.
+    </span>
+</div>
+{% endif %}
+
+<!-- Scope Tabs -->
+<div class="warranty-tabs" style="display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border);">
+    <button class="warranty-tab active" id="tab-external" onclick="switchWarrantyTab('external')" style="padding: 0.6rem 1.5rem; border: none; background: none; color: var(--text); font-weight: 600; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid var(--accent, #3498db); margin-bottom: -2px; font-family: inherit;">
+        External Warranties <span class="badge" style="background: var(--card-bg); border: 1px solid var(--border); font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">{{ external_warranties|length }}</span>
+    </button>
+    <button class="warranty-tab" id="tab-internal" onclick="switchWarrantyTab('internal')" style="padding: 0.6rem 1.5rem; border: none; background: none; color: var(--text-muted); font-weight: 500; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; font-family: inherit;">
+        Internal Loaners <span class="badge" style="background: var(--card-bg); border: 1px solid var(--border); font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">{{ internal_warranties|length }}</span>
+    </button>
+</div>
+
+<!-- EXTERNAL SECTION -->
+<div id="section-external">
+    <!-- Quarterly Forecast -->
+    {% if quarterly_forecast %}
+    <div id="warranty-forecast" class="table-section" style="margin-bottom: 1.5rem;">
+        <h2>Warranty Expiration Forecast</h2>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            {% for q in quarterly_forecast %}
+            <div style="flex: 1; min-width: 140px; padding: 1rem; border-radius: 8px; background: var(--card-bg); border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 0.85rem; color: var(--text-muted);">{{ q.label }}</div>
+                <div style="font-size: 1.8rem; font-weight: bold; color: {{ '#FF4444' if q.count > 0 else 'var(--text-muted)' }};">{{ q.count }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">device{{ 's' if q.count != 1 else '' }} expiring</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="table-header">
+        <div class="header-actions">
+            {% if user.is_editor_or_above %}
+            <button class="btn btn-primary btn-sm" onclick="openAddWarrantyModal('external')">+ Add Warranty</button>
+            {% endif %}
+            <a href="{{ base_path }}/api/warranty/export?format=xlsx" class="btn btn-sm">Export Excel</a>
+            <a href="{{ base_path }}/api/warranty/export?format=csv" class="btn btn-sm">Export CSV</a>
+        </div>
+    </div>
+
+    <div class="table-section">
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Device</th>
+                        <th>Vendor</th>
+                        <th>Tier</th>
+                        <th>Type</th>
+                        <th>Warranted By</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Status</th>
+                        <th>Reg #</th>
+                        <th>Registered</th>
+                        {% if user.is_editor_or_above %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in external_warranties %}
+                    <tr>
+                        <td>{{ item.device_label }}</td>
+                        <td>{{ item.warranty.vendor or '-' }}</td>
+                        <td>{{ item.warranty.warranty_tier or '-' }}</td>
+                        <td>{{ item.warranty.warranty_type or '-' }}</td>
+                        <td>
+                            {% set wh = item.warranty.warranty_holder or 'brand' %}
+                            {% if wh == 'oem' %}<span class="badge badge-info">OEM</span>
+                            {% elif wh == 'customer' %}<span class="badge">Customer</span>
+                            {% elif wh == 'vendor' %}<span class="badge badge-warning">Vendor</span>
+                            {% else %}<span class="badge badge-success">Company</span>{% endif %}
+                        </td>
+                        <td>{{ item.warranty.warranty_start or '-' }}</td>
+                        <td>{{ item.warranty.warranty_end or '-' }}</td>
+                        <td>
+                            {% if item.badge == 'expired' %}
+                            <span class="badge badge-danger">Expired</span>
+                            {% elif item.badge == 'expiring' %}
+                            <span class="badge badge-warning">{{ item.days_left }}d left</span>
+                            {% else %}
+                            <span class="badge badge-success">Active</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.warranty.registration_number or '-' }}</td>
+                        <td>
+                            {% if item.warranty.registration_status == 'registered' %}
+                            <span class="badge badge-success">Registered</span>
+                            {% elif item.warranty.registration_status == 'not_registered' %}
+                            <span class="badge badge-warning">Not Registered</span>
+                            {% elif item.warranty.registration_status == 'not_required' %}
+                            <span class="badge" style="background: var(--text-muted); color: var(--bg);">N/A</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        {% if user.is_editor_or_above %}
+                        <td>
+                            <button class="btn btn-sm" onclick="openEditWarrantyModal({{ item.warranty.id }})">Edit</button>
+                            <button class="btn btn-sm" onclick="openAddClaimModal({{ item.warranty.id }})">Open RMA</button>
+                            {% if user.has_warranty_admin %}
+                            <button class="btn btn-sm" style="color: #FF4444;" onclick="deleteWarranty({{ item.warranty.id }})">Delete</button>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-muted);">No external warranties recorded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Active Claims -->
+    <div class="table-section" style="margin-top: 2rem;">
+        <h2>Active RMA Claims</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Claim #</th>
+                        <th>Device</th>
+                        <th>Date</th>
+                        <th>Issue</th>
+                        <th>Status</th>
+                        <th>RMA #</th>
+                        <th>Tracking</th>
+                        {% if user.is_editor_or_above %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in active_claims %}
+                    <tr>
+                        <td>{{ item.claim.claim_number or '-' }}</td>
+                        <td>{{ item.device_label }}</td>
+                        <td>{{ item.claim.claim_date or '-' }}</td>
+                        <td title="{{ item.claim.issue_description or '' }}">{{ (item.claim.issue_description or '-')[:50] }}</td>
+                        <td>
+                            <span class="badge badge-{{ 'warning' if item.claim.claim_status == 'shipped' else 'info' }}">
+                                {{ item.claim.claim_status }}
+                            </span>
+                        </td>
+                        <td>{{ item.claim.rma_number or '-' }}</td>
+                        <td>{{ item.claim.tracking_number or '-' }}</td>
+                        {% if user.is_editor_or_above %}
+                        <td><button class="btn btn-sm" onclick="openUpdateClaimModal({{ item.claim.id }})">Update</button></td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No active RMA claims.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- INTERNAL LOANERS SECTION -->
+<div id="section-internal" style="display: none;">
+    <div class="table-header">
+        <div class="header-actions">
+            {% if user.is_editor_or_above %}
+            <button class="btn btn-primary btn-sm" onclick="openAddWarrantyModal('internal')">+ Add Internal Loaner</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-section">
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Device</th>
+                        <th>From Team</th>
+                        <th>To Team</th>
+                        <th>Contact</th>
+                        <th>Agreement #</th>
+                        <th>Start</th>
+                        <th>Return By</th>
+                        <th>Status</th>
+                        {% if user.is_editor_or_above %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in internal_warranties %}
+                    <tr>
+                        <td>{{ item.device_label }}</td>
+                        <td>{{ item.warranty.loaner_from_team or '-' }}</td>
+                        <td>{{ item.warranty.loaner_to_team or '-' }}</td>
+                        <td>{{ item.warranty.loaner_contact or '-' }}</td>
+                        <td>{{ item.warranty.loaner_agreement or '-' }}</td>
+                        <td>{{ item.warranty.warranty_start or '-' }}</td>
+                        <td>{{ item.warranty.warranty_end or '-' }}</td>
+                        <td>
+                            {% if item.badge == 'expired' %}
+                            <span class="badge badge-danger">Overdue</span>
+                            {% elif item.badge == 'expiring' %}
+                            <span class="badge badge-warning">{{ item.days_left }}d left</span>
+                            {% else %}
+                            <span class="badge badge-success">Active</span>
+                            {% endif %}
+                        </td>
+                        {% if user.is_editor_or_above %}
+                        <td>
+                            <button class="btn btn-sm" onclick="openEditWarrantyModal({{ item.warranty.id }})">Edit</button>
+                            {% if user.has_warranty_admin %}
+                            <button class="btn btn-sm" style="color: #FF4444;" onclick="deleteWarranty({{ item.warranty.id }})">Delete</button>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">No internal loaners recorded. Use "+ Add Internal Loaner" to track equipment shared between teams.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Warranty Modal -->
+<div class="modal-overlay" id="add-warranty-modal">
+    <div class="modal" style="max-width: 700px;">
+        <h3 id="add-warranty-title">Add Warranty</h3>
+        <form id="add-warranty-form" onsubmit="submitWarranty(event)">
+            <input type="hidden" id="w-scope" value="external">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="w-device-table">Device Category *</label>
+                    <select id="w-device-table" required>
+                        <option value="">-- Select --</option>
+                        {% for key, name in table_choices.items() %}
+                        <option value="{{ key }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="w-device-id">Device ID *</label>
+                    <input type="number" id="w-device-id" required min="1">
+                </div>
+            </div>
+
+            <!-- External-only fields -->
+            <div id="w-external-fields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="w-vendor">Vendor *</label>
+                        <input type="text" id="w-vendor" placeholder="e.g. QNAP, Axis">
+                    </div>
+                    <div class="form-group">
+                        <label for="w-tier">Tier</label>
+                        <select id="w-tier">
+                            <option value="">-- Select --</option>
+                            <option value="standard">Standard</option>
+                            <option value="extended">Extended</option>
+                            <option value="premium">Premium</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="w-type">Warranty Type</label>
+                        <select id="w-type">
+                            <option value="">-- Select --</option>
+                            <option value="manufacturer">Manufacturer</option>
+                            <option value="third-party">Third-Party</option>
+                            <option value="extended">Extended</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="w-holder">Warranted By</label>
+                        <select id="w-holder">
+                            <option value="brand">Company (we ship)</option>
+                            <option value="oem">OEM (they ship)</option>
+                            <option value="vendor">Vendor</option>
+                            <option value="customer">Customer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="w-reg">Registration #</label>
+                        <input type="text" id="w-reg" placeholder="Optional">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Internal-only fields -->
+            <div id="w-internal-fields" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="w-from-team">From Team *</label>
+                        <input type="text" id="w-from-team" placeholder="Team that owns the equipment">
+                    </div>
+                    <div class="form-group">
+                        <label for="w-to-team">To Team *</label>
+                        <input type="text" id="w-to-team" placeholder="Team currently using it">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="w-contact">Contact Person</label>
+                        <input type="text" id="w-contact" placeholder="Responsible person">
+                    </div>
+                    <div class="form-group">
+                        <label for="w-agreement">Agreement / Ticket #</label>
+                        <input type="text" id="w-agreement" placeholder="Internal reference">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shared date fields -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="w-purchase-date" id="w-purchase-label">Purchase Date</label>
+                    <input type="date" id="w-purchase-date">
+                </div>
+                <div class="form-group">
+                    <label for="w-start" id="w-start-label">Warranty Start</label>
+                    <input type="date" id="w-start">
+                </div>
+                <div class="form-group">
+                    <label for="w-end" id="w-end-label">Warranty End *</label>
+                    <input type="date" id="w-end" required>
+                </div>
+            </div>
+
+            <div id="w-external-extra">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="w-reg-status">Registration Status</label>
+                        <select id="w-reg-status">
+                            <option value="">-- Select --</option>
+                            <option value="registered">Registered</option>
+                            <option value="not_registered">Not Registered</option>
+                            <option value="not_required">Not Required</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="w-coverage">Coverage Details</label>
+                    <textarea id="w-coverage" rows="2" placeholder="What's covered under this warranty"></textarea>
+                </div>
+            </div>
+
+            <div id="w-error" class="alert alert-danger" style="display: none;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-warranty-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Claim Modal -->
+<div class="modal-overlay" id="add-claim-modal">
+    <div class="modal" style="max-width: 600px;">
+        <h3>Open RMA Claim</h3>
+        <form id="add-claim-form" onsubmit="submitClaim(event)">
+            <input type="hidden" id="c-warranty-id">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="c-number">Claim Number</label>
+                    <input type="text" id="c-number" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label for="c-date">Claim Date *</label>
+                    <input type="date" id="c-date" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="c-issue">Issue Description *</label>
+                <textarea id="c-issue" rows="3" required placeholder="Describe the issue"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="c-rma">RMA Number</label>
+                <input type="text" id="c-rma" placeholder="If already assigned">
+            </div>
+            <div id="c-error" class="alert alert-danger" style="display: none;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-claim-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Open Claim</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Update Claim Modal -->
+<div class="modal-overlay" id="update-claim-modal">
+    <div class="modal" style="max-width: 600px;">
+        <h3>Update RMA Claim</h3>
+        <form id="update-claim-form" onsubmit="updateClaim(event)">
+            <input type="hidden" id="uc-id">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="uc-status">Status *</label>
+                    <select id="uc-status" required>
+                        <option value="opened">Opened</option>
+                        <option value="approved">Approved</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="received">Received</option>
+                        <option value="closed">Closed</option>
+                        <option value="denied">Denied</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="uc-rma">RMA Number</label>
+                    <input type="text" id="uc-rma">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="uc-tracking">Tracking Number</label>
+                    <input type="text" id="uc-tracking">
+                </div>
+                <div class="form-group">
+                    <label for="uc-shipped">Shipped Date</label>
+                    <input type="date" id="uc-shipped">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="uc-expected">Expected Return</label>
+                    <input type="date" id="uc-expected">
+                </div>
+                <div class="form-group">
+                    <label for="uc-received">Received Date</label>
+                    <input type="date" id="uc-received">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="uc-replacement-sn">Replacement Device S/N</label>
+                <input type="text" id="uc-replacement-sn">
+            </div>
+            <div class="form-group">
+                <label for="uc-notes">Resolution Notes</label>
+                <textarea id="uc-notes" rows="2"></textarea>
+            </div>
+            <div id="uc-error" class="alert alert-danger" style="display: none;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('update-claim-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Claim</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Warranty Modal -->
+<div class="modal-overlay" id="edit-warranty-modal">
+    <div class="modal" style="max-width: 700px;">
+        <h3 id="edit-warranty-title">Edit Warranty</h3>
+        <div id="ew-lock-indicator" class="lock-indicator" style="display: none;"></div>
+        <form id="edit-warranty-form" onsubmit="submitEditWarranty(event)">
+            <input type="hidden" id="ew-id">
+            <input type="hidden" id="ew-scope" value="external">
+
+            <!-- External fields -->
+            <div id="ew-external-fields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ew-vendor">Vendor *</label>
+                        <input type="text" id="ew-vendor">
+                    </div>
+                    <div class="form-group">
+                        <label for="ew-tier">Tier</label>
+                        <select id="ew-tier">
+                            <option value="">-- Select --</option>
+                            <option value="standard">Standard</option>
+                            <option value="extended">Extended</option>
+                            <option value="premium">Premium</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ew-type">Warranty Type</label>
+                        <select id="ew-type">
+                            <option value="">-- Select --</option>
+                            <option value="manufacturer">Manufacturer</option>
+                            <option value="third-party">Third-Party</option>
+                            <option value="extended">Extended</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ew-holder">Warranted By</label>
+                        <select id="ew-holder">
+                            <option value="brand">Company (we ship)</option>
+                            <option value="oem">OEM (they ship)</option>
+                            <option value="vendor">Vendor</option>
+                            <option value="customer">Customer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ew-reg">Registration #</label>
+                        <input type="text" id="ew-reg">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Internal fields -->
+            <div id="ew-internal-fields" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ew-from-team">From Team</label>
+                        <input type="text" id="ew-from-team">
+                    </div>
+                    <div class="form-group">
+                        <label for="ew-to-team">To Team</label>
+                        <input type="text" id="ew-to-team">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ew-contact">Contact</label>
+                        <input type="text" id="ew-contact">
+                    </div>
+                    <div class="form-group">
+                        <label for="ew-agreement">Agreement #</label>
+                        <input type="text" id="ew-agreement">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shared date fields -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ew-purchase-date">Purchase Date</label>
+                    <input type="date" id="ew-purchase-date">
+                </div>
+                <div class="form-group">
+                    <label for="ew-start" id="ew-start-label">Start</label>
+                    <input type="date" id="ew-start">
+                </div>
+                <div class="form-group">
+                    <label for="ew-end" id="ew-end-label">End *</label>
+                    <input type="date" id="ew-end" required>
+                </div>
+            </div>
+            <div id="ew-external-extra">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ew-reg-status">Registration Status</label>
+                        <select id="ew-reg-status">
+                            <option value="">-- Select --</option>
+                            <option value="registered">Registered</option>
+                            <option value="not_registered">Not Registered</option>
+                            <option value="not_required">Not Required</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="ew-coverage">Coverage Details</label>
+                    <textarea id="ew-coverage" rows="2"></textarea>
+                </div>
+            </div>
+            <div id="ew-error" class="alert alert-danger" style="display: none;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('edit-warranty-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // BP available globally from base.html
+
+    // --- Tab switching ---
+    function switchWarrantyTab(tab) {
+        document.getElementById('section-external').style.display = tab === 'external' ? '' : 'none';
+        document.getElementById('section-internal').style.display = tab === 'internal' ? '' : 'none';
+        document.getElementById('tab-external').style.borderBottomColor = tab === 'external' ? 'var(--accent, #3498db)' : 'transparent';
+        document.getElementById('tab-external').style.color = tab === 'external' ? 'var(--text)' : 'var(--text-muted)';
+        document.getElementById('tab-external').style.fontWeight = tab === 'external' ? '600' : '500';
+        document.getElementById('tab-internal').style.borderBottomColor = tab === 'internal' ? 'var(--accent, #3498db)' : 'transparent';
+        document.getElementById('tab-internal').style.color = tab === 'internal' ? 'var(--text)' : 'var(--text-muted)';
+        document.getElementById('tab-internal').style.fontWeight = tab === 'internal' ? '600' : '500';
+    }
+
+    // --- Modal helpers ---
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+        if (window._currentLockKey) {
+            window._lockManager.release(window._currentLockKey);
+            window._currentLockKey = null;
+        }
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeModal(e.target.id);
+        });
+    });
+
+    function toggleAddScope(scope) {
+        const isInternal = scope === 'internal';
+        document.getElementById('w-scope').value = scope;
+        document.getElementById('w-external-fields').style.display = isInternal ? 'none' : '';
+        document.getElementById('w-internal-fields').style.display = isInternal ? '' : 'none';
+        document.getElementById('w-external-extra').style.display = isInternal ? 'none' : '';
+        document.getElementById('add-warranty-title').textContent = isInternal ? 'Add Internal Loaner' : 'Add Warranty';
+        document.getElementById('w-start-label').textContent = isInternal ? 'Loaner Start' : 'Warranty Start';
+        document.getElementById('w-end-label').textContent = isInternal ? 'Return By *' : 'Warranty End *';
+        document.getElementById('w-purchase-label').textContent = isInternal ? 'Date Issued' : 'Purchase Date';
+        // Toggle required
+        document.getElementById('w-vendor').required = !isInternal;
+    }
+
+    function toggleEditScope(scope) {
+        const isInternal = scope === 'internal';
+        document.getElementById('ew-scope').value = scope;
+        document.getElementById('ew-external-fields').style.display = isInternal ? 'none' : '';
+        document.getElementById('ew-internal-fields').style.display = isInternal ? '' : 'none';
+        document.getElementById('ew-external-extra').style.display = isInternal ? 'none' : '';
+        document.getElementById('edit-warranty-title').textContent = isInternal ? 'Edit Internal Loaner' : 'Edit Warranty';
+        document.getElementById('ew-start-label').textContent = isInternal ? 'Loaner Start' : 'Start';
+        document.getElementById('ew-end-label').textContent = isInternal ? 'Return By *' : 'End *';
+        document.getElementById('ew-vendor').required = !isInternal;
+    }
+
+    // --- Add warranty ---
+    function openAddWarrantyModal(scope) {
+        document.getElementById('add-warranty-form').reset();
+        document.getElementById('w-error').style.display = 'none';
+        toggleAddScope(scope || 'external');
+        document.getElementById('add-warranty-modal').classList.add('open');
+    }
+
+    function openAddClaimModal(warrantyId) {
+        document.getElementById('add-claim-form').reset();
+        document.getElementById('c-warranty-id').value = warrantyId;
+        document.getElementById('c-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('c-error').style.display = 'none';
+        document.getElementById('add-claim-modal').classList.add('open');
+    }
+
+    function openUpdateClaimModal(claimId) {
+        document.getElementById('update-claim-form').reset();
+        document.getElementById('uc-id').value = claimId;
+        document.getElementById('uc-error').style.display = 'none';
+        document.getElementById('update-claim-modal').classList.add('open');
+    }
+
+    // --- Edit warranty (with lock) ---
+    async function openEditWarrantyModal(warrantyId) {
+        document.getElementById('edit-warranty-form').reset();
+        document.getElementById('ew-error').style.display = 'none';
+
+        const lockKey = 'warranty:' + warrantyId;
+        window._currentLockKey = lockKey;
+        const lockResult = await window._lockManager.acquire(lockKey);
+        if (lockResult.conflict) {
+            window._lockManager.showConflict('ew-lock-indicator', lockResult, 'edit-warranty-form');
+        } else {
+            window._lockManager.clearConflict('ew-lock-indicator', 'edit-warranty-form');
+        }
+
+        try {
+            const resp = await fetch(`${BP}/api/warranty/${warrantyId}`);
+            if (!resp.ok) throw new Error('Failed to load warranty');
+            const w = await resp.json();
+            const scope = w.warranty_scope || 'external';
+
+            document.getElementById('ew-id').value = w.id;
+            toggleEditScope(scope);
+
+            // External fields
+            document.getElementById('ew-vendor').value = w.vendor || '';
+            document.getElementById('ew-tier').value = w.warranty_tier || '';
+            document.getElementById('ew-type').value = w.warranty_type || '';
+            document.getElementById('ew-holder').value = w.warranty_holder || 'brand';
+            document.getElementById('ew-reg').value = w.registration_number || '';
+            document.getElementById('ew-reg-status').value = w.registration_status || '';
+            document.getElementById('ew-coverage').value = w.coverage_details || '';
+
+            // Internal fields
+            document.getElementById('ew-from-team').value = w.loaner_from_team || '';
+            document.getElementById('ew-to-team').value = w.loaner_to_team || '';
+            document.getElementById('ew-contact').value = w.loaner_contact || '';
+            document.getElementById('ew-agreement').value = w.loaner_agreement || '';
+
+            // Shared
+            document.getElementById('ew-purchase-date').value = w.purchase_date || '';
+            document.getElementById('ew-start').value = w.warranty_start || '';
+            document.getElementById('ew-end').value = w.warranty_end || '';
+
+            document.getElementById('edit-warranty-modal').classList.add('open');
+        } catch (err) {
+            await window._lockManager.release(lockKey);
+            alert(err.message);
+        }
+    }
+
+    document.getElementById('edit-warranty-form').addEventListener('input', () => {
+        if (window._currentLockKey) window._lockManager.escalate(window._currentLockKey);
+    });
+
+    // --- Submit handlers ---
+    async function submitEditWarranty(e) {
+        e.preventDefault();
+        const id = document.getElementById('ew-id').value;
+        const scope = document.getElementById('ew-scope').value;
+        const errorDiv = document.getElementById('ew-error');
+        errorDiv.style.display = 'none';
+
+        const payload = {
+            warranty_scope: scope,
+            vendor: document.getElementById('ew-vendor').value || null,
+            warranty_tier: document.getElementById('ew-tier').value || null,
+            warranty_type: document.getElementById('ew-type').value || null,
+            warranty_holder: document.getElementById('ew-holder').value || 'brand',
+            registration_number: document.getElementById('ew-reg').value || null,
+            purchase_date: document.getElementById('ew-purchase-date').value || null,
+            warranty_start: document.getElementById('ew-start').value || null,
+            warranty_end: document.getElementById('ew-end').value,
+            registration_status: document.getElementById('ew-reg-status').value || null,
+            coverage_details: document.getElementById('ew-coverage').value || null,
+            loaner_from_team: document.getElementById('ew-from-team').value || null,
+            loaner_to_team: document.getElementById('ew-to-team').value || null,
+            loaner_contact: document.getElementById('ew-contact').value || null,
+            loaner_agreement: document.getElementById('ew-agreement').value || null,
+        };
+        try {
+            const resp = await fetch(`${BP}/api/warranty/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Failed to update'); }
+            if (window._currentLockKey) { await window._lockManager.release(window._currentLockKey); window._currentLockKey = null; }
+            location.reload();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function deleteWarranty(warrantyId) {
+        if (!confirm('Delete this warranty record? This cannot be undone.')) return;
+        try {
+            const resp = await fetch(`${BP}/api/warranty/${warrantyId}`, { method: 'DELETE' });
+            if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Failed to delete'); }
+            location.reload();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function submitWarranty(e) {
+        e.preventDefault();
+        const scope = document.getElementById('w-scope').value;
+        const errorDiv = document.getElementById('w-error');
+        errorDiv.style.display = 'none';
+
+        const payload = {
+            device_table: document.getElementById('w-device-table').value,
+            device_id: document.getElementById('w-device-id').value,
+            warranty_scope: scope,
+            vendor: document.getElementById('w-vendor').value || (scope === 'internal' ? 'Internal' : ''),
+            warranty_tier: document.getElementById('w-tier').value || null,
+            warranty_type: document.getElementById('w-type').value || null,
+            warranty_holder: document.getElementById('w-holder').value || 'brand',
+            registration_number: document.getElementById('w-reg').value || null,
+            purchase_date: document.getElementById('w-purchase-date').value || null,
+            warranty_start: document.getElementById('w-start').value || null,
+            warranty_end: document.getElementById('w-end').value,
+            coverage_details: document.getElementById('w-coverage').value || null,
+            registration_status: document.getElementById('w-reg-status').value || null,
+            loaner_from_team: document.getElementById('w-from-team').value || null,
+            loaner_to_team: document.getElementById('w-to-team').value || null,
+            loaner_contact: document.getElementById('w-contact').value || null,
+            loaner_agreement: document.getElementById('w-agreement').value || null,
+        };
+
+        try {
+            const resp = await fetch(`${BP}/api/warranty`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'Failed to create');
+            }
+            location.reload();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function submitClaim(e) {
+        e.preventDefault();
+        const errorDiv = document.getElementById('c-error');
+        errorDiv.style.display = 'none';
+
+        const payload = {
+            warranty_id: document.getElementById('c-warranty-id').value,
+            claim_number: document.getElementById('c-number').value || null,
+            claim_date: document.getElementById('c-date').value,
+            issue_description: document.getElementById('c-issue').value,
+            rma_number: document.getElementById('c-rma').value || null,
+            claim_status: 'opened',
+        };
+
+        try {
+            const resp = await fetch(`${BP}/api/claim`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'Failed to create claim');
+            }
+            location.reload();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function updateClaim(e) {
+        e.preventDefault();
+        const claimId = document.getElementById('uc-id').value;
+        const errorDiv = document.getElementById('uc-error');
+        errorDiv.style.display = 'none';
+
+        const payload = {
+            claim_status: document.getElementById('uc-status').value,
+            rma_number: document.getElementById('uc-rma').value || null,
+            tracking_number: document.getElementById('uc-tracking').value || null,
+            shipped_date: document.getElementById('uc-shipped').value || null,
+            expected_return: document.getElementById('uc-expected').value || null,
+            received_date: document.getElementById('uc-received').value || null,
+            replacement_device_sn: document.getElementById('uc-replacement-sn').value || null,
+            resolution_notes: document.getElementById('uc-notes').value || null,
+        };
+
+        try {
+            const resp = await fetch(`${BP}/api/claim/${claimId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'Failed to update claim');
+            }
+            location.reload();
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+</script>
+{% endblock %}

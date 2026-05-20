@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Asset Tracker{% endblock %}
+
+{% block head %}{% endblock %}
+
+{% block content %}
+{% from 'partials/icons.html' import icon %}
+
+<!-- Search -->
+<div class="db-search" onclick="document.getElementById('db-search-input').focus()">
+  {{ icon('search', size=14) }}
+  <input id="db-search-input" type="text" placeholder="Search or press / to jump here..." autocomplete="off">
+  <span class="db-search-hint">/</span>
+</div>
+
+<!-- Hero Row -->
+<div class="db-hero">
+  <div class="db-hero-cell">
+    <div class="db-hero-n">{{ total_items }}</div>
+    <div class="db-hero-l">Total items</div>
+  </div>
+
+  <div class="db-hero-cell">
+    <div class="db-hero-l" style="margin-bottom:8px">Deployed</div>
+    <div class="db-deployed-row">
+      <div class="db-deployed-label">Edge Box</div>
+      <div class="db-deployed-n" style="color:#378ADD">{{ deployed.edge_box }}</div>
+    </div>
+    <div class="db-deployed-row">
+      <div class="db-deployed-label">Cloud Box</div>
+      <div class="db-deployed-n" style="color:#7B68EE">{{ deployed.cloud_box }}</div>
+    </div>
+    <div class="db-deployed-row">
+      <div class="db-deployed-label">C2C</div>
+      <div class="db-deployed-n" style="color:#1D9E75">{{ deployed.camera_c2c }}</div>
+    </div>
+  </div>
+
+  <div class="db-hero-cell">
+    <div class="db-hero-l" style="margin-bottom:8px">Ready to Deploy</div>
+    <div class="db-deployed-row">
+      <div class="db-deployed-label">Edge Box</div>
+      <div class="db-deployed-n" style="color:#378ADD">{{ ready.edge_box }}</div>
+    </div>
+    <div class="db-deployed-row">
+      <div class="db-deployed-label">Cloud Box</div>
+      <div class="db-deployed-n" style="color:#7B68EE">{{ ready.cloud_box }}</div>
+    </div>
+    <div class="db-deployed-row">
+      <div class="db-deployed-label">C2C</div>
+      <div class="db-deployed-n" style="color:#1D9E75">{{ ready.camera_c2c }}</div>
+    </div>
+  </div>
+
+
+</div>
+
+<!-- Composition Bar -->
+{% if category_counts %}
+<div class="db-comp">
+  <div class="db-panel-title">
+    Inventory composition
+    <span style="font-size:11px;color:var(--sx-gray)">Click segment to filter</span>
+  </div>
+  <div class="db-comp-bar">
+    {% for cat in category_counts %}
+    <a href="{{ base_path }}/inventory/?category={{ cat.name }}"
+       class="db-comp-seg" style="width:{{ cat.pct }}%;background:{{ cat.color }}"
+       title="{{ cat.display }}: {{ cat.count }}"></a>
+    {% endfor %}
+  </div>
+  <div class="db-comp-legend">
+    {% for cat in category_counts %}
+    <a href="{{ base_path }}/inventory/?category={{ cat.name }}" class="db-comp-leg-item">
+      <div class="db-comp-leg-dot" style="background:{{ cat.color }}"></div>
+      {{ cat.display }} {{ cat.count }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Main Layout -->
+<div class="db-main">
+  <div class="db-left">
+
+    <!-- Status Panels -->
+    <div class="db-status-grid">
+      {% set product_labels = {"edge_box": "Edge Box", "cloud_box": "Cloud Box", "camera_c2c": "Camera 2 Cloud"} %}
+      {% for cat in product_categories %}
+      <div class="db-panel">
+        <div class="db-status-title">{{ product_labels[cat] }}</div>
+        <div class="db-row">
+          <div class="db-row-l"><div class="db-dot" style="background:#F0A500"></div>Pending</div>
+          <div class="db-row-n" style="color:#F0A500">{{ product_status[cat].pending }}</div>
+        </div>
+        <div class="db-row">
+          <div class="db-row-l"><div class="db-dot" style="background:var(--sx-gray)"></div>Unassigned</div>
+          <div class="db-row-n" style="color:var(--sx-gray)">{{ product_status[cat].unassigned }}</div>
+        </div>
+        <div class="db-row">
+          <div class="db-row-l"><div class="db-dot" style="background:var(--sx-red)"></div>Un-deployable</div>
+          <div class="db-row-n" style="color:var(--sx-red)">{{ product_status[cat].un_deployable }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="db-panel">
+      <div class="db-panel-title">
+        Recent activity
+        <a href="{{ base_path }}/inventory" class="db-panel-link">View all →</a>
+      </div>
+      {% if recent_activity %}
+        {% for item in recent_activity %}
+        <a href="{{ base_path }}/items/{{ item.id }}" class="db-rec">
+          <span class="db-rec-label" style="background:{{ item.color }}22;color:{{ item.color }}">
+            {{ item.category_display[:8] if item.category_display else '—' }}
+          </span>
+          <span class="db-rec-text">{{ item.name }}</span>
+          {% if item.is_new %}
+          <span class="db-rec-badge" style="background:var(--sx-green-dim);color:var(--sx-green)">New</span>
+          {% else %}
+          <span class="db-rec-badge" style="background:var(--sx-blue-dim);color:var(--sx-blue-light)">Edit</span>
+          {% endif %}
+          <span class="db-rec-time">{{ item.last_updated }}</span>
+        </a>
+        {% endfor %}
+      {% else %}
+      <div style="text-align:center;padding:2rem;color:var(--sx-gray)">
+        No items yet. <a href="{{ base_path }}/intake" style="color:var(--sx-blue)">Add your first item</a>.
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <div class="db-right">
+
+    <!-- Quick Actions -->
+    <div class="db-panel">
+      <div class="db-panel-title">Quick actions</div>
+      <a href="{{ base_path }}/intake" class="db-action">
+        <div class="db-action-icon" style="background:var(--sx-blue-dim);color:var(--sx-blue)">+</div>
+        <span class="db-action-text">Add item</span>
+        <span class="db-action-key">N</span>
+      </a>
+      <a href="{{ base_path }}/checkout" class="db-action">
+        <div class="db-action-icon" style="background:var(--sx-green-dim);color:var(--sx-green)">✓</div>
+        <span class="db-action-text">Check out</span>
+        <span class="db-action-key">O</span>
+      </a>
+      <a href="{{ base_path }}/checkin" class="db-action">
+        <div class="db-action-icon" style="background:var(--sx-amber-dim);color:var(--sx-amber)">↩</div>
+        <span class="db-action-text">Check in</span>
+        <span class="db-action-key">I</span>
+      </a>
+      <a href="{{ base_path }}/triage" class="db-action">
+        <div class="db-action-icon" style="background:var(--sx-red-dim);color:var(--sx-red)">!</div>
+        <span class="db-action-text">Triage</span>
+        <span class="db-action-key">T</span>
+      </a>
+      <a href="{{ base_path }}/intake?mode=import" class="db-action">
+        <div class="db-action-icon" style="background:rgba(124,77,255,.12);color:#7C4DFF">↑</div>
+        <span class="db-action-text">Import</span>
+        <span class="db-action-key">M</span>
+      </a>
+    </div>
+
+    <!-- COG by Category (financial users only) -->
+    {% if user.has_financial_access and cog_by_category %}
+    <div class="db-panel">
+      <div class="db-panel-title">COG by category</div>
+      {% for item in cog_by_category %}
+      <div class="db-row">
+        <div class="db-row-l">{{ item.category }}</div>
+        <div class="db-row-n">${{ "{:,.0f}".format(item.total) }}</div>
+      </div>
+      {% endfor %}
+      <div class="db-divider"></div>
+      <div class="db-row">
+        <div class="db-row-l" style="font-weight:600">Total</div>
+        <div class="db-row-n">${{ "{:,.0f}".format(cog_total) }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+
+// Press / to focus search
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    document.getElementById('db-search-input').focus();
+  }
+});
+
+// Keyboard shortcuts for quick actions
+document.addEventListener('keydown', e => {
+  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+  const map = { 'n': '/intake', 'o': '/checkout', 'i': '/checkin', 't': '/triage', 'm': '/intake?mode=import' };
+  if (map[e.key.toLowerCase()]) window.location.href = BP + map[e.key.toLowerCase()];
+});
+
+// Search on enter
+document.getElementById('db-search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.value.trim()) {
+    window.location.href = BP + '/search?q=' + encodeURIComponent(e.target.value.trim());
+  }
+});
+</script>
+{% endblock %}

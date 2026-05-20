@@ -1,0 +1,805 @@
+{% extends "base.html" %}
+
+{% block title %}{{ device_name }} Provisioning - Hardware Asset Tracker{% endblock %}
+{% block nav_fulfillment %}active{% endblock %}
+
+{% block head %}
+<style>
+/* Hero Visual Pipeline */
+.prov-detail-pipeline {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    padding: 1rem 0.5rem;
+}
+
+.pipeline-stage-group {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.pipeline-connector {
+    width: 36px;
+    height: 3px;
+    background: var(--border);
+    flex-shrink: 0;
+    align-self: center;
+    margin-top: -28px;
+}
+.pipeline-connector.completed {
+    background: var(--success, #27ae60);
+}
+
+.pipeline-stage-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.75rem 0.9rem;
+    min-width: 95px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    transition: all 0.3s;
+}
+.pipeline-stage-box.completed {
+    border-color: var(--success, #27ae60);
+    background: rgba(39, 174, 96, 0.08);
+}
+.pipeline-stage-box.current {
+    border-color: var(--info, #3498db);
+    background: rgba(52, 152, 219, 0.08);
+    box-shadow: 0 0 12px rgba(52, 152, 219, 0.3);
+    animation: pulse-box 2s ease-in-out infinite;
+}
+.pipeline-stage-box.future {
+    opacity: 0.45;
+}
+
+@keyframes pulse-box {
+    0%, 100% { box-shadow: 0 0 8px rgba(52, 152, 219, 0.2); }
+    50% { box-shadow: 0 0 18px rgba(52, 152, 219, 0.45); }
+}
+
+.pipeline-stage-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+}
+.pipeline-stage-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pipeline-stage-icon .future-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+}
+.pipeline-stage-icon .current-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--info, #3498db);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+.pipeline-stage-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+    min-height: 28px;
+}
+.pipeline-stage-who {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.pipeline-stage-when {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+/* Two-column layout */
+.prov-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.5rem;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .prov-detail-grid { grid-template-columns: 1fr; }
+}
+
+/* Detail key-value grid */
+.detail-kv {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 0.5rem 1rem;
+    font-size: 0.88rem;
+}
+.detail-kv dt {
+    color: var(--text-muted);
+    font-weight: 500;
+    margin: 0;
+}
+.detail-kv dd {
+    margin: 0;
+    font-weight: 400;
+}
+
+/* Action sidebar */
+.prov-detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+.prov-detail-actions .btn {
+    width: 100%;
+    text-align: center;
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+}
+
+/* Audit timeline */
+.audit-timeline {
+    max-height: 500px;
+    overflow-y: auto;
+}
+.audit-entry {
+    border-left: 3px solid var(--border);
+    padding: 0.5rem 0 0.5rem 1rem;
+    margin-bottom: 0.3rem;
+    position: relative;
+}
+.audit-entry::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 0.7rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent, #3498db);
+}
+.audit-entry.stage-completed::before { background: var(--success, #27ae60); }
+.audit-entry.reverted::before { background: var(--warning, #f39c12); }
+.audit-entry.created::before { background: var(--info, #3498db); }
+.audit-entry.deleted::before { background: var(--danger, #e74c3c); }
+.audit-entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+}
+.audit-entry-action {
+    font-weight: 600;
+    color: var(--text);
+}
+.audit-entry-time {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+.audit-entry-user {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.audit-entry-details {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+
+/* Metadata edit form */
+#metadata-edit .form-group {
+    margin-bottom: 0.6rem;
+}
+#metadata-edit label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+}
+#metadata-edit input,
+#metadata-edit select,
+#metadata-edit textarea {
+    width: 100%;
+    background: var(--input-bg, var(--card-bg));
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.45rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: 'Inter', sans-serif;
+}
+#metadata-edit textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* Zendesk section */
+#zendesk-details .detail-kv {
+    margin-bottom: 0.5rem;
+}
+</style>
+<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
+<script src="{{ base_path }}/static/js/scanner.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Back link + Title -->
+<div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+    <a href="{{ base_path }}/provisioning/" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Provisioning Queue</a>
+</div>
+<div style="display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <h1 style="margin: 0;">{{ device_name }}</h1>
+    {% if rec.is_complete %}
+    <span class="badge badge-success" style="font-size: 0.8rem;">Completed</span>
+    {% endif %}
+    {% set pri = rec.priority or 'normal' %}
+    {% if pri == 'urgent' %}
+    <span class="badge badge-danger">Urgent</span>
+    {% elif pri == 'high' %}
+    <span class="badge badge-warning">High</span>
+    {% elif pri == 'low' %}
+    <span class="badge" style="background: var(--border); color: var(--text-muted);">Low</span>
+    {% endif %}
+    {% if deployment_type %}
+    <span class="badge badge-info" style="font-size: 0.75rem;">{{ deployment_type | replace('_', ' ') | title }}</span>
+    {% endif %}
+    {% if is_overdue_due_date %}
+    <span class="badge badge-danger" style="font-size: 0.75rem;">Overdue</span>
+    {% elif due_soon %}
+    <span class="badge badge-warning" style="font-size: 0.75rem;">Due Soon</span>
+    {% endif %}
+</div>
+
+<!-- Hero Visual Pipeline -->
+<div class="prov-detail-pipeline">
+    {% for stage in stages %}
+    <div class="pipeline-stage-group">
+        {% if not loop.first %}
+        <div class="pipeline-connector {{ 'completed' if stages[loop.index0 - 1].completed else '' }}"></div>
+        {% endif %}
+        <div class="pipeline-stage-box {{ 'completed' if stage.completed else 'current' if stage.name == rec.current_stage and not rec.is_complete else 'future' }}">
+            <div class="pipeline-stage-label">{{ stage.label }}</div>
+            <div class="pipeline-stage-icon">
+                {% if stage.completed %}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success, #27ae60)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                {% elif stage.name == rec.current_stage and not rec.is_complete %}
+                <div class="current-dot"></div>
+                {% else %}
+                <div class="future-circle"></div>
+                {% endif %}
+            </div>
+            <div class="pipeline-stage-meta">
+                {% if stage.completed and stage.completed_by %}
+                <span class="pipeline-stage-who">{{ stage.completed_by }}</span>
+                <span class="pipeline-stage-when">{{ stage.completed_at[:10] if stage.completed_at else '' }}</span>
+                {% elif stage.name == rec.current_stage and not rec.is_complete %}
+                <span class="pipeline-stage-who" style="color: var(--info, #3498db);">In Progress</span>
+                {% else %}
+                <span class="pipeline-stage-who">&nbsp;</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-cards" style="margin-bottom: 2rem;">
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Current Stage</div>
+        <div style="font-size: 1.4rem; font-weight: 700;">
+            {% if rec.is_complete %}
+            <span style="color: var(--success, #27ae60);">Complete</span>
+            {% else %}
+            {{ rec.current_stage | replace('_', ' ') | title }}
+            {% endif %}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ completed_stages }}/{{ total_stages }} stages done</div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Priority</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: {{ '#FF4444' if pri == 'urgent' else '#f39c12' if pri == 'high' else 'var(--text)' }};">
+            {{ pri | title }}
+        </div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Days Active</div>
+        <div style="font-size: 1.4rem; font-weight: 700;">{{ days_active }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">since {{ rec.created_at.strftime('%m/%d/%Y') if rec.created_at else '—' }}</div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Completion</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: {{ 'var(--success)' if progress_pct == 100 else 'var(--info)' }};">{{ progress_pct }}%</div>
+        <div style="height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 0.3rem;">
+            <div style="height: 100%; width: {{ progress_pct }}%; background: {{ 'var(--success)' if progress_pct == 100 else 'var(--info)' }}; border-radius: 3px;"></div>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Site</div>
+        <div style="font-size: 1.2rem; font-weight: 600;">{{ site_name }}</div>
+    </div>
+    <div class="summary-card">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Assignee</div>
+        <div style="font-size: 1.2rem; font-weight: 600;">{{ assignee_name }}</div>
+    </div>
+</div>
+
+<!-- Two-column layout -->
+<div class="prov-detail-grid">
+    <!-- LEFT: Main content -->
+    <div>
+        <!-- Device Information -->
+        <div class="table-section">
+            <h2>Device Information</h2>
+            <dl class="detail-kv">
+                <dt>Device Name</dt>
+                <dd>{{ device_name }}</dd>
+                <dt>Category</dt>
+                <dd>{{ display_table }}</dd>
+                {% if edge_box %}
+                <dt>Serial Number</dt>
+                <dd style="display: flex; align-items: center; gap: 0.5rem;">
+                    {{ edge_box.serial or '—' }}
+                    <button class="btn-edit" onclick="scanVerifySerial('{{ edge_box.serial or '' }}')"
+                            title="Scan barcode to verify serial"
+                            style="padding: 4px; min-width: 28px; min-height: 28px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: 5px; color: var(--text-muted); cursor: pointer;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </button>
+                </dd>
+                {% if edge_box.part_number %}
+                <dt>Part / SKU</dt>
+                <dd>{{ edge_box.part_number }}
+                    {% if edge_box.sku_version %}
+                    <span class="badge {{ 'badge-info' if edge_box.sku_version == '2026' else 'badge-warning' }}" style="font-size: 0.7rem; margin-left: 0.3rem;">{{ edge_box.sku_version }}</span>
+                    {% endif %}
+                </dd>
+                {% endif %}
+                <dt>Status</dt>
+                <dd>{{ edge_box.status or '—' }}</dd>
+                {% if edge_box.deployment_type %}
+                <dt>Deployment Type</dt>
+                <dd>{{ edge_box.deployment_type | replace('_', ' ') | title }}</dd>
+                {% endif %}
+                {% if edge_box.mac1 %}
+                <dt>MAC 1</dt>
+                <dd style="font-family: monospace; font-size: 0.85rem;">{{ edge_box.mac1 }}</dd>
+                {% endif %}
+                {% if edge_box.mac2 %}
+                <dt>MAC 2</dt>
+                <dd style="font-family: monospace; font-size: 0.85rem;">{{ edge_box.mac2 }}</dd>
+                {% endif %}
+                <dt>UUID</dt>
+                <dd style="font-family: monospace; font-size: 0.82rem;">
+                    {% if edge_box.uuid %}
+                    {{ edge_box.uuid }}
+                    {% else %}
+                    <span style="color: var(--warning, #f39c12);">Missing — required before registration</span>
+                    {% endif %}
+                </dd>
+                {% else %}
+                <dt>Device ID</dt>
+                <dd>{{ rec.device_id }}</dd>
+                {% endif %}
+            </dl>
+        </div>
+
+        <!-- Provisioning Details (editable) -->
+        <div class="table-section" id="metadata-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Provisioning Details</h2>
+                {% if can_manage %}<button class="btn btn-sm" onclick="toggleEditMode()">Edit</button>{% endif %}
+            </div>
+
+            <!-- Display mode -->
+            <div id="metadata-display">
+                <dl class="detail-kv">
+                    <dt>Start Date</dt>
+                    <dd>{{ rec.start_date.strftime('%Y-%m-%d') if rec.start_date else '—' }}</dd>
+                    <dt>Due Date</dt>
+                    <dd>
+                        {{ rec.due_date.strftime('%Y-%m-%d') if rec.due_date else '—' }}
+                        {% if is_overdue_due_date %}
+                        <span class="badge badge-danger" style="font-size: 0.7rem; margin-left: 0.3rem;">Overdue</span>
+                        {% elif due_soon %}
+                        <span class="badge badge-warning" style="font-size: 0.7rem; margin-left: 0.3rem;">Due Soon</span>
+                        {% endif %}
+                    </dd>
+                    <dt>Pipeline Bucket</dt>
+                    <dd>{{ bucket_label }}</dd>
+                    <dt>Location</dt>
+                    <dd>{{ rec.location_note or '—' }}</dd>
+                    <dt>Notes</dt>
+                    <dd style="white-space: pre-wrap;">{{ rec.notes or '—' }}</dd>
+                    <dt>Created By</dt>
+                    <dd>{{ creator_name }}</dd>
+                    <dt>Created</dt>
+                    <dd>{{ rec.created_at.strftime('%Y-%m-%d %H:%M') if rec.created_at else '—' }}</dd>
+                    {% if rec.completed_at %}
+                    <dt>Completed</dt>
+                    <dd>{{ rec.completed_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+
+            <!-- Edit mode (hidden by default) -->
+            <div id="metadata-edit" style="display: none;">
+                <form onsubmit="saveMetadata(event)">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                        <div class="form-group">
+                            <label>Site</label>
+                            <select id="detail-site-id">
+                                <option value="">No site</option>
+                                {% for s in sites %}
+                                <option value="{{ s.id }}" {{ 'selected' if rec.site_id == s.id else '' }}>{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Assigned To</label>
+                            <select id="detail-assigned-to">
+                                <option value="">Unassigned</option>
+                                {% for u in users_list %}
+                                <option value="{{ u.id }}" {{ 'selected' if rec.assigned_to == u.id else '' }}>{{ u.display_name or u.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Priority</label>
+                            <select id="detail-priority">
+                                <option value="low" {{ 'selected' if rec.priority == 'low' else '' }}>Low</option>
+                                <option value="normal" {{ 'selected' if (rec.priority or 'normal') == 'normal' else '' }}>Normal</option>
+                                <option value="high" {{ 'selected' if rec.priority == 'high' else '' }}>High</option>
+                                <option value="urgent" {{ 'selected' if rec.priority == 'urgent' else '' }}>Urgent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Pipeline Bucket</label>
+                            <select id="detail-bucket">
+                                <option value="">None</option>
+                                {% for key, label in deployment_buckets.items() %}
+                                <option value="{{ key }}" {{ 'selected' if rec.deployment_bucket == key else '' }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" id="detail-start-date" value="{{ rec.start_date.isoformat() if rec.start_date else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Due Date</label>
+                            <input type="date" id="detail-due-date" value="{{ rec.due_date.isoformat() if rec.due_date else '' }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Location Note</label>
+                        <input type="text" id="detail-location" value="{{ rec.location_note or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="detail-notes">{{ rec.notes or '' }}</textarea>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button" class="btn btn-sm" onclick="toggleEditMode()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Zendesk Ticket (conditional) -->
+        {% if rec.zendesk_ticket_id %}
+        <div class="table-section" id="zendesk-section">
+            <h2>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 0.3rem;">
+                    <path d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 0 0-2 2v3a2 2 0 1 1 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 1 1 0-4V7a2 2 0 0 0-2-2H5z"/>
+                </svg>
+                Zendesk Ticket #{{ rec.zendesk_ticket_id }}
+            </h2>
+            <div id="zendesk-details">
+                <span style="color: var(--text-muted); font-size: 0.85rem;">Loading ticket details...</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Validation Report (conditional) -->
+        {% if rec.validation_result %}
+        <div class="table-section">
+            <h2>Validation Report</h2>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span class="badge badge-{{ 'success' if rec.validation_result == 'PASS' else 'danger' if rec.validation_result == 'FAIL' else 'warning' }}" style="font-size: 0.9rem; padding: 4px 12px;">
+                    {{ rec.validation_result }}
+                </span>
+                {% if rec.validation_date %}
+                <span style="color: var(--text-muted); font-size: 0.85rem;">{{ rec.validation_date.strftime('%Y-%m-%d %H:%M') }}</span>
+                {% endif %}
+                {% if rec.validation_report_path %}
+                <a href="{{ base_path }}/api/provisioning/{{ rec.id }}/validation-report" class="btn btn-sm" style="text-decoration: none;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download Report
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT: Actions + Timeline sidebar -->
+    <div>
+        <!-- Action Buttons -->
+        <div class="prov-detail-actions">
+            {% if not rec.is_complete %}
+            {% if can_manage %}
+            <button class="btn btn-success" onclick="advanceStage({{ rec.id }})">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 0.3rem;">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Advance to Next Stage
+            </button>
+            <button class="btn" onclick="revertStage({{ rec.id }})" style="background: var(--card-bg); border: 1px solid var(--border);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 0.3rem;">
+                    <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                </svg>
+                Revert Last Stage
+            </button>
+            {% else %}
+            <div style="text-align: center; padding: 0.6rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); font-size: 0.85rem;">
+                View-only access
+            </div>
+            {% endif %}
+            {% else %}
+            <div style="text-align: center; padding: 0.8rem; background: rgba(39, 174, 96, 0.1); border: 1px solid var(--success, #27ae60); border-radius: 8px; color: var(--success, #27ae60); font-weight: 600;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -3px; margin-right: 0.3rem;">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Provisioning Complete
+            </div>
+            {% endif %}
+            {% if can_manage %}
+            <button class="btn btn-sm" onclick="toggleEditMode()" style="margin-top: 0.5rem;">Edit Details</button>
+            <button class="btn btn-sm" onclick="deleteProvisioning({{ rec.id }})" style="color: var(--danger, #e74c3c); margin-top: 0.25rem;">Delete Record</button>
+            {% endif %}
+            <!-- Watch / Unwatch button -->
+            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
+                <button id="watch-btn" class="btn btn-sm" onclick="toggleWatch()" style="width: 100%;">
+                    <svg id="watch-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -1px; margin-right: 0.3rem;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span id="watch-label">Watch this record</span>
+                </button>
+                <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.3rem;" id="watch-hint">Get Slack DMs when this record advances</div>
+            </div>
+        </div>
+
+        <!-- Audit Timeline -->
+        <div class="table-section">
+            <h2 style="font-size: 1rem;">Activity Log</h2>
+            <div class="audit-timeline">
+                {% for entry in audit_entries %}
+                <div class="audit-entry {{ 'stage-completed' if 'stage_completed' in (entry.event_type or '') else 'reverted' if 'revert' in (entry.event_type or '') else 'created' if 'created' in (entry.event_type or '') else '' }}">
+                    <div class="audit-entry-header">
+                        <span class="audit-entry-action">{{ entry.event_type | replace('provisioning_', '') | replace('_', ' ') | title }}</span>
+                        <span class="audit-entry-time">{{ entry.timestamp.strftime('%m/%d %H:%M') if entry.timestamp else '' }}</span>
+                    </div>
+                    <div class="audit-entry-user">{{ audit_users_map.get(entry.user_id, 'System') }}</div>
+                    {% if entry.details %}
+                    <div class="audit-entry-details">{{ entry.details }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if not audit_entries %}
+                <div style="color: var(--text-muted); text-align: center; padding: 1.5rem; font-size: 0.85rem;">
+                    No activity recorded yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+const PROV_ID = {{ rec.id }};
+
+function scanVerifySerial(expectedSerial) {
+    const scanner = new BarcodeScanner(BP);
+    scanner.start((scanned) => {
+        const trimmed = scanned.trim();
+        if (!expectedSerial) {
+            scanner.showToast(
+                `Scanned: <span class="scanner-toast-serial">${trimmed}</span> — no serial on record to compare`,
+                'info',
+                { duration: 5000 }
+            );
+        } else if (trimmed.toLowerCase() === expectedSerial.toLowerCase()) {
+            scanner.showToast('Serial verified', 'success', { duration: 2500 });
+        } else {
+            scanner.showToast(
+                `Mismatch — scanned <span class="scanner-toast-serial">${trimmed}</span>, expected <span class="scanner-toast-serial">${expectedSerial}</span>`,
+                'warning',
+                { duration: 0 }
+            );
+        }
+        // Auto-close after showing result
+        setTimeout(() => scanner.stop(), trimmed.toLowerCase() === (expectedSerial || '').toLowerCase() ? 2500 : 6000);
+    });
+}
+
+async function advanceStage(id) {
+    if (!confirm('Advance to the next stage?')) return;
+    try {
+        const resp = await fetch(`${BP}/api/provisioning/${id}/advance`, {method: 'POST'});
+        const data = await resp.json();
+        if (resp.ok) { location.reload(); }
+        else { alert(data.error || 'Failed to advance stage'); }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+async function revertStage(id) {
+    if (!confirm('Revert the last completed stage?')) return;
+    try {
+        const resp = await fetch(`${BP}/api/provisioning/${id}/revert`, {method: 'POST'});
+        const data = await resp.json();
+        if (resp.ok) { location.reload(); }
+        else { alert(data.error || 'Failed to revert stage'); }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+async function deleteProvisioning(id) {
+    if (!confirm('Delete this provisioning record? This cannot be undone.')) return;
+    try {
+        const resp = await fetch(`${BP}/api/provisioning/${id}`, {method: 'DELETE'});
+        const data = await resp.json();
+        if (resp.ok) { window.location.href = `${BP}/provisioning/`; }
+        else { alert(data.error || 'Failed to delete'); }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+function toggleEditMode() {
+    const display = document.getElementById('metadata-display');
+    const edit = document.getElementById('metadata-edit');
+    if (edit.style.display === 'none') {
+        edit.style.display = 'block';
+        display.style.display = 'none';
+    } else {
+        edit.style.display = 'none';
+        display.style.display = 'block';
+    }
+}
+
+async function saveMetadata(e) {
+    e.preventDefault();
+    const body = {
+        site_id: document.getElementById('detail-site-id').value || null,
+        assigned_to: document.getElementById('detail-assigned-to').value || null,
+        priority: document.getElementById('detail-priority').value,
+        deployment_bucket: document.getElementById('detail-bucket').value || null,
+        start_date: document.getElementById('detail-start-date').value || null,
+        due_date: document.getElementById('detail-due-date').value || null,
+        location_note: document.getElementById('detail-location').value || null,
+        notes: document.getElementById('detail-notes').value || null,
+    };
+    try {
+        const resp = await fetch(`${BP}/api/provisioning/${PROV_ID}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (resp.ok) { location.reload(); }
+        else { alert(data.error || 'Failed to save'); }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+async function loadZendeskTicket(ticketId) {
+    const container = document.getElementById('zendesk-details');
+    if (!container || !ticketId) return;
+    try {
+        const resp = await fetch(`${BP}/api/provisioning/zendesk-ticket/${ticketId}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            let html = '<dl class="detail-kv">';
+            html += `<dt>Subject</dt><dd>${escHtml(data.subject || '—')}</dd>`;
+            html += `<dt>Status</dt><dd><span class="badge badge-info">${escHtml(data.status || '—')}</span></dd>`;
+            if (data.organization) html += `<dt>Organization</dt><dd>${escHtml(data.organization)}</dd>`;
+            if (data.priority) html += `<dt>Priority</dt><dd>${escHtml(data.priority)}</dd>`;
+            if (data.edge_box) {
+                if (data.edge_box.serial_number) html += `<dt>Serial (ticket)</dt><dd style="font-family:monospace;">${escHtml(data.edge_box.serial_number)}</dd>`;
+                if (data.edge_box.customer_site) html += `<dt>Customer Site</dt><dd>${escHtml(data.edge_box.customer_site)}</dd>`;
+                if (data.edge_box.licenses) html += `<dt>Licenses</dt><dd>${escHtml(data.edge_box.licenses)}</dd>`;
+                if (data.edge_box.due_date) html += `<dt>Due Date (ticket)</dt><dd>${escHtml(data.edge_box.due_date)}</dd>`;
+                if (data.edge_box.service_type) html += `<dt>Service Type</dt><dd>${escHtml(data.edge_box.service_type)}</dd>`;
+            }
+            html += '</dl>';
+            if (data.url) {
+                html += `<a href="${escHtml(data.url)}" target="_blank" rel="noopener" class="btn btn-sm" style="margin-top: 0.5rem; text-decoration: none;">Open in Zendesk</a>`;
+            }
+            container.innerHTML = html;
+        } else {
+            const data = await resp.json();
+            container.innerHTML = `<span style="color: var(--text-muted); font-size: 0.85rem;">${escHtml(data.error || 'Could not load ticket')}</span>`;
+        }
+    } catch (err) {
+        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Could not load ticket details</span>';
+    }
+}
+
+function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+// Watch / Unwatch
+let _isWatching = false;
+let _watchSubId = null;
+
+async function loadWatchState() {
+    try {
+        const resp = await fetch(`${BP}/api/notifications/watch/provisioning/${PROV_ID}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            _isWatching = data.watching;
+            _watchSubId = data.sub_id;
+            updateWatchBtn();
+        }
+    } catch (err) { /* silent */ }
+}
+
+function updateWatchBtn() {
+    const btn = document.getElementById('watch-btn');
+    const label = document.getElementById('watch-label');
+    const hint = document.getElementById('watch-hint');
+    if (!btn) return;
+    if (_isWatching) {
+        btn.style.color = 'var(--success, #27ae60)';
+        btn.style.borderColor = 'var(--success, #27ae60)';
+        label.textContent = 'Watching — click to unwatch';
+        hint.textContent = 'You\'ll receive Slack DMs for this record';
+    } else {
+        btn.style.color = '';
+        btn.style.borderColor = '';
+        label.textContent = 'Watch this record';
+        hint.textContent = 'Get Slack DMs when this record advances';
+    }
+}
+
+async function toggleWatch() {
+    try {
+        const resp = await fetch(`${BP}/api/notifications/watch/provisioning/${PROV_ID}`, {method: 'POST'});
+        if (resp.ok) {
+            const data = await resp.json();
+            _isWatching = data.watching;
+            _watchSubId = data.sub_id || null;
+            updateWatchBtn();
+        }
+    } catch (err) { alert('Error: ' + err.message); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    {% if rec.zendesk_ticket_id %}
+    loadZendeskTicket({{ rec.zendesk_ticket_id }});
+    {% endif %}
+    loadWatchState();
+});
+</script>
+{% endblock %}

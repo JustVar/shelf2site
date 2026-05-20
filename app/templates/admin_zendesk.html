@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Zendesk Integration - Hardware Asset Tracker{% endblock %}
+{% block nav_admin %}{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 0.25rem;">Zendesk Integration</h1>
+<p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+    Connect to your Zendesk instance for ticket tracking and customer context.
+</p>
+
+<!-- Connection Settings -->
+<div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">Connection Settings</h3>
+    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem;">
+        <div style="color: var(--text-muted); font-weight: 500;">Subdomain</div>
+        <div><code style="background: var(--input-bg); padding: 2px 6px; border-radius: 4px;">{{ zendesk_subdomain }}</code></div>
+        <div style="color: var(--text-muted); font-weight: 500;">Email</div>
+        <div><code style="background: var(--input-bg); padding: 2px 6px; border-radius: 4px;">{{ zendesk_email }}</code></div>
+        <div style="color: var(--text-muted); font-weight: 500;">API Token</div>
+        <div>
+            {% if zendesk_token_set %}
+            <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 500; background: rgba(39,174,96,0.15); color: var(--success);">Configured</span>
+            {% else %}
+            <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 500; background: rgba(231,76,60,0.15); color: var(--danger);">Not Set</span>
+            {% endif %}
+        </div>
+        <div style="color: var(--text-muted); font-weight: 500;">Status</div>
+        <div id="connection-status">
+            {% if is_configured %}
+            <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 500; background: rgba(52,152,219,0.15); color: var(--info);">Ready to test</span>
+            {% else %}
+            <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 500; background: rgba(243,156,18,0.15); color: var(--warning);">Not configured</span>
+            {% endif %}
+        </div>
+    </div>
+    {% if is_configured %}
+    <button class="btn btn-primary" onclick="testConnection()">Test Connection</button>
+    {% else %}
+    <div style="border-left: 3px solid var(--warning); padding: 0.75rem 1rem; background: rgba(243,156,18,0.08); border-radius: 0 6px 6px 0; font-size: 0.88rem;">
+        Set <code>ZENDESK_SUBDOMAIN</code>, <code>ZENDESK_EMAIL</code>, and
+        <code>ZENDESK_API_TOKEN</code> in your <code>.env</code> file, then restart the service.
+    </div>
+    {% endif %}
+</div>
+
+{% if is_configured %}
+<!-- Organizations -->
+<div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">Organizations</h3>
+        <button class="btn btn-sm" onclick="loadOrganizations()">Load</button>
+    </div>
+    <div id="orgs-container">
+        <p style="color: var(--text-muted); font-size: 0.88rem;">Click "Load" to fetch organizations from Zendesk.</p>
+    </div>
+</div>
+
+<!-- Recent Tickets -->
+<div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">Recent Tickets</h3>
+        <button class="btn btn-sm" onclick="loadTickets()">Load</button>
+    </div>
+    <div id="tickets-container">
+        <p style="color: var(--text-muted); font-size: 0.88rem;">Click "Load" to fetch recent tickets from Zendesk.</p>
+    </div>
+</div>
+
+<!-- Ticket Fields -->
+<div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">Ticket Fields</h3>
+        <button class="btn btn-sm" onclick="loadTicketFields()">Load</button>
+    </div>
+    <div id="fields-container">
+        <p style="color: var(--text-muted); font-size: 0.88rem;">Click "Load" to see available ticket fields for integration mapping.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>// BP available globally from base.html</script>
+<script src="{{ base_path }}/static/js/admin-zendesk.js"></script>
+{% endblock %}

@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+{% block title %}Asset Triage - Asset Tracker{% endblock %}
+
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+{% endblock %}
+
+{% block content %}
+{% from 'partials/icons.html' import icon %}
+
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem">
+  <div>
+    <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0 0 4px 0">Asset triage</h1>
+    <div style="font-size:12px;color:var(--sx-gray)">Items missing role-required fields</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="trg-tabs">
+  {% for key, cfg in roles.items() %}
+  <a href="{{ base_path }}/triage/?role={{ key }}&sort={{ sort }}&per_page={{ per_page }}&page=1"
+     class="trg-tab {% if role == key %}trg-tab--active{% endif %}">
+    {{ cfg.label }}
+    <span class="trg-badge">{{ role_counts[key] }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Controls -->
+<div class="trg-controls">
+  <div style="display:flex;align-items:center;gap:8px">
+    <label for="trg-sort" style="font-size:11px;color:var(--sx-gray);text-transform:uppercase;letter-spacing:.05em">Sort</label>
+    <select id="trg-sort" class="inv-select">
+      <option value="modified_desc" {% if sort == 'modified_desc' %}selected{% endif %}>Last modified (new first)</option>
+      <option value="modified_asc" {% if sort == 'modified_asc' %}selected{% endif %}>Last modified (old first)</option>
+      <option value="gaps_desc" {% if sort == 'gaps_desc' %}selected{% endif %}>Gap count (most first)</option>
+      <option value="gaps_asc" {% if sort == 'gaps_asc' %}selected{% endif %}>Gap count (least first)</option>
+      <option value="name_asc" {% if sort == 'name_asc' %}selected{% endif %}>Name (A→Z)</option>
+      <option value="name_desc" {% if sort == 'name_desc' %}selected{% endif %}>Name (Z→A)</option>
+    </select>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <label for="trg-per-page" style="font-size:11px;color:var(--sx-gray);text-transform:uppercase;letter-spacing:.05em">Per page</label>
+    <select id="trg-per-page" class="inv-select">
+      <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+      <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+      <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+    </select>
+  </div>
+</div>
+
+<!-- Bulk actions -->
+<div id="trg-bulk-bar" class="trg-bulk-bar" style="display:none">
+  <div class="trg-bulk-left">
+    <span class="trg-bulk-count-wrap"><span id="trg-bulk-count">0</span> selected</span>
+    <button type="button" class="trg-bulk-clear" onclick="trgClearSelection()">Clear</button>
+  </div>
+
+  <!-- Right side: toggles between "Actions" button and "apply row" -->
+  <div class="trg-bulk-right" id="trg-bulk-right">
+
+    <!-- State 1: no action picked yet — show dropdown trigger -->
+    <div id="trg-bulk-menu-wrap" class="trg-bulk-menu-wrap">
+      <button type="button" id="trg-bulk-menu-trigger" class="trg-bulk-menu-trigger" onclick="trgBulkToggleMenu(event)">
+        Actions
+        <span class="trg-bulk-menu-caret">▾</span>
+      </button>
+      <div id="trg-bulk-menu" class="trg-bulk-menu" role="menu">
+        <button type="button" class="trg-bulk-menu-item" onclick="trgBulkPickAction('location')">Set location</button>
+        <button type="button" class="trg-bulk-menu-item" onclick="trgBulkPickAction('status')">Set status</button>
+        <button type="button" class="trg-bulk-menu-item" onclick="trgBulkPickAction('department')">Set department / owner</button>
+        <button type="button" class="trg-bulk-menu-item" onclick="trgBulkPickAction('export')">Export to CSV</button>
+      </div>
+    </div>
+
+    <!-- State 2: action picked — show value input + apply + close -->
+    <div id="trg-bulk-apply-row" class="trg-bulk-apply-row" style="display:none">
+      <span id="trg-bulk-action-label" class="trg-bulk-action-label"></span>
+      <div id="trg-bulk-value-wrap">
+        <select id="trg-bulk-value-select" class="inv-select" style="display:none"></select>
+        <input type="text" id="trg-bulk-value-text" class="inv-input" placeholder="Department / owner" style="display:none">
+      </div>
+      <button type="button" id="trg-bulk-apply" class="trg-bulk-apply" onclick="trgApplyBulk()" disabled>Apply</button>
+      <button type="button" class="trg-bulk-cancel-action" onclick="trgBulkCancelAction()" aria-label="Cancel action">×</button>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="inv-table-wrap">
+  <table class="inv-table trg-table" style="min-width:900px">
+    <thead>
+      <tr>
+        <th class="sx-stick-left sx-stick-left--checkbox" style="width:30px">
+          <input type="checkbox" id="trg-select-all" onclick="trgToggleSelectAll(this)" aria-label="Select all">
+        </th>
+        <th class="sx-stick-left sx-stick-left--chevron" style="width:30px"></th>
+        <th class="sx-stick-left sx-stick-left--id" style="width:50px">ID</th>
+        <th class="sx-stick-left sx-stick-left--primary">Item</th>
+        <th>Category</th>
+        <th style="width:100px">Missing</th>
+        <th class="sx-stick-right sx-stick-right--actions" style="width:80px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if items %}
+        {% for entry in items %}
+        {% set itm = entry.item %}
+        {% set union_gaps = entry.union_gaps %}
+        <tr class="trg-row" data-item-id="{{ itm.id }}" onclick="trgHandleRowClick(event, {{ itm.id }})">
+          <td class="sx-stick-left sx-stick-left--checkbox">
+            <input type="checkbox" class="trg-row-select" value="{{ itm.id }}" onclick="trgOnRowCheckboxChange(event)" aria-label="Select item {{ itm.id }}">
+          </td>
+          <td class="sx-stick-left sx-stick-left--chevron">
+            <button type="button" class="trg-chevron" aria-label="Toggle details">▶</button>
+          </td>
+          <td class="sx-stick-left sx-stick-left--id" style="font-size:11px;color:var(--sx-gray);font-family:var(--sx-font-mono)">{{ itm.id }}</td>
+          <td class="sx-stick-left sx-stick-left--primary">
+            <div style="font-weight:500;color:var(--sx-white)">{{ itm.item_name or '—' }}</div>
+            <div style="font-size:11px;color:var(--sx-gray)">{{ itm.item_sn or '—' }}</div>
+          </td>
+          <td>
+            {% set cat_str = itm.item_category|string if itm.item_category else None %}
+            {% if cat_str %}
+            {% set color = category_colors.get(cat_str, '#888888') %}
+            <span class="inv-cat-pill" style="background:{{ color }}22;color:{{ color }}">
+              {{ cat_str.replace('_', ' ').title() }}
+            </span>
+            {% else %}
+            <span style="color:var(--sx-gray)">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="trg-gap-chip">{{ entry.active_role_gap_count }} missing</span>
+          </td>
+          <td class="sx-stick-right sx-stick-right--actions" style="text-align:right">
+            <a href="{{ base_path }}/items/{{ itm.id }}?edit=1" class="inv-btn" style="padding:3px 10px;font-size:11px">Open</a>
+          </td>
+        </tr>
+        <tr class="trg-expand-row" id="trg-expand-{{ itm.id }}">
+          <td colspan="7">
+            <div class="trg-expand-inner">
+              <div class="trg-expand-title">Missing fields</div>
+              {% if union_gaps %}
+              <table class="trg-gap-table">
+                <thead>
+                  <tr>
+                    <th style="width:180px">Field</th>
+                    <th>Required by</th>
+                    <th style="width:70px"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for gap in union_gaps %}
+                  <tr data-field="{{ gap }}">
+                    <td>{{ field_labels.get(gap, gap) }}</td>
+                    <td>
+                      {% set role_short = {'hw': 'HW', 'acct': 'Acct', 'deploy': 'Deploy'} %}
+                      {% for r_key, r_cfg in roles.items() %}
+                        {% if gap in entry.all_gaps[r_key] %}
+                        <span class="trg-role-chip trg-role-chip--{{ r_key }}" title="{{ r_cfg.label }}">{{ role_short[r_key] }}</span>
+                        {% endif %}
+                      {% endfor %}
+                    </td>
+                    <td style="text-align:right">
+                      <button type="button" class="trg-fix-btn" onclick="trgQvOpen({{ itm.id }}, '{{ gap }}')">Fix</button>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <div class="trg-expand-empty">No remaining gaps on this item.</div>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="7">
+            <div class="trg-empty-state">
+              <div class="trg-empty-icon" aria-hidden="true">✓</div>
+              <div class="trg-empty-title">All clear</div>
+              <div class="trg-empty-body">No items need attention for <strong>{{ roles[role].label }}</strong>.</div>
+            </div>
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<div class="trg-pagination">
+  <div class="inv-page-info">
+    Showing {{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total_items] | min }} of {{ total_items }}
+  </div>
+  <div class="inv-page-btns">
+    <a href="{{ base_path }}/triage/?role={{ role }}&sort={{ sort }}&per_page={{ per_page }}&page={{ page - 1 }}"
+       class="inv-page-btn {% if page == 1 %}inv-page-btn--disabled{% endif %}">← Prev</a>
+    <span class="inv-page-btn inv-page-btn--active">{{ page }} / {{ total_pages }}</span>
+    <a href="{{ base_path }}/triage/?role={{ role }}&sort={{ sort }}&per_page={{ per_page }}&page={{ page + 1 }}"
+       class="inv-page-btn {% if page == total_pages %}inv-page-btn--disabled{% endif %}">Next →</a>
+  </div>
+</div>
+{% endif %}
+
+<div id="trg-qv-panel" class="trg-qv-panel" aria-hidden="true">
+  <div class="trg-qv-body" id="trg-qv-body">
+    <div class="trg-qv-loading">Loading…</div>
+  </div>
+</div>
+
+<script>
+// Bulk-action lookups, serialized server-side to avoid a round-trip.
+var TRG_LOCATIONS = {{ locations_for_bulk | tojson }};
+var TRG_STATUSES = {{ statuses_for_bulk | tojson }};
+</script>
+
+<script>
+function trgToggleRow(itemId) {
+  var row = document.getElementById('trg-expand-' + itemId);
+  if (!row) return;
+  var isOpen = row.classList.contains('open');
+  if (isOpen) {
+    row.classList.remove('open');
+  } else {
+    row.classList.add('open');
+  }
+  var chevrons = document.querySelectorAll('.trg-row[data-item-id="' + itemId + '"] .trg-chevron');
+  for (var i = 0; i < chevrons.length; i++) {
+    chevrons[i].textContent = isOpen ? '▶' : '▼';
+  }
+}
+
+function trgHandleRowClick(ev, itemId) {
+  // Don't toggle if the click was on a link, button (other than chevron),
+  // or form control — those have their own click behaviors.
+  var target = ev.target;
+  if (target.closest('a, button:not(.trg-chevron), input, select, textarea')) return;
+  trgToggleRow(itemId);
+}
+
+// ── Bulk selection + actions ────────────────────────────────────────────────
+var TRG_BULK_ACTION_LABELS = {
+  location: 'Set location',
+  status: 'Set status',
+  department: 'Set department / owner',
+  export: 'Export to CSV',
+};
+var trgBulkCurrentAction = null;  // replaces the old <select>.value state
+
+function trgBulkToggleMenu(ev) {
+  ev.stopPropagation();
+  var menu = document.getElementById('trg-bulk-menu');
+  menu.classList.toggle('trg-bulk-menu--open');
+}
+
+function trgBulkCloseMenu() {
+  var menu = document.getElementById('trg-bulk-menu');
+  menu.classList.remove('trg-bulk-menu--open');
+}
+
+// Close menu on outside click
+document.addEventListener('click', function(ev) {
+  var menu = document.getElementById('trg-bulk-menu');
+  if (!menu || !menu.classList.contains('trg-bulk-menu--open')) return;
+  if (menu.contains(ev.target) || ev.target.id === 'trg-bulk-menu-trigger') return;
+  trgBulkCloseMenu();
+});
+
+function trgBulkPickAction(action) {
+  trgBulkCurrentAction = action;
+  trgBulkCloseMenu();
+  document.getElementById('trg-bulk-menu-wrap').style.display = 'none';
+  document.getElementById('trg-bulk-apply-row').style.display = 'flex';
+  document.getElementById('trg-bulk-action-label').textContent = TRG_BULK_ACTION_LABELS[action];
+
+  var wrap = document.getElementById('trg-bulk-value-wrap');
+  var sel = document.getElementById('trg-bulk-value-select');
+  var txt = document.getElementById('trg-bulk-value-text');
+  wrap.style.display = '';
+  sel.style.display = 'none';
+  txt.style.display = 'none';
+  sel.innerHTML = '';
+
+  if (action === 'location') {
+    sel.style.display = '';
+    var o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = '— Select location —';
+    sel.appendChild(o0);
+    for (var i = 0; i < TRG_LOCATIONS.length; i++) {
+      var o = document.createElement('option');
+      o.value = TRG_LOCATIONS[i].id;
+      o.textContent = TRG_LOCATIONS[i].name;
+      sel.appendChild(o);
+    }
+  } else if (action === 'status') {
+    sel.style.display = '';
+    var s0 = document.createElement('option');
+    s0.value = ''; s0.textContent = '— Select status —';
+    sel.appendChild(s0);
+    for (var j = 0; j < TRG_STATUSES.length; j++) {
+      var os = document.createElement('option');
+      os.value = TRG_STATUSES[j];
+      os.textContent = TRG_STATUSES[j];
+      sel.appendChild(os);
+    }
+  } else if (action === 'department') {
+    txt.style.display = '';
+    txt.value = '';
+  } else if (action === 'export') {
+    // No value needed
+    wrap.style.display = 'none';
+  }
+
+  // Rewire live validation so Apply enables the moment value is ready
+  sel.onchange = trgUpdateBulkBar;
+  txt.oninput = trgUpdateBulkBar;
+  trgUpdateBulkBar();
+  if (action !== 'export') {
+    // Focus the value input for immediate typing/picking
+    setTimeout(function() {
+      if (txt.style.display !== 'none') txt.focus();
+      else if (sel.style.display !== 'none') sel.focus();
+    }, 50);
+  }
+}
+
+function trgBulkCancelAction() {
+  trgBulkCurrentAction = null;
+  document.getElementById('trg-bulk-apply-row').style.display = 'none';
+  document.getElementById('trg-bulk-menu-wrap').style.display = '';
+  var sel = document.getElementById('trg-bulk-value-select');
+  var txt = document.getElementById('trg-bulk-value-text');
+  sel.value = '';
+  txt.value = '';
+  trgUpdateBulkBar();
+}
+
+function trgGetSelectedIds() {
+  var boxes = document.querySelectorAll('.trg-row-select:checked');
+  var ids = [];
+  for (var i = 0; i < boxes.length; i++) ids.push(parseInt(boxes[i].value, 10));
+  return ids;
+}
+
+function trgUpdateBulkBar() {
+  var ids = trgGetSelectedIds();
+  var bar = document.getElementById('trg-bulk-bar');
+  var countEl = document.getElementById('trg-bulk-count');
+  var applyBtn = document.getElementById('trg-bulk-apply');
+  countEl.textContent = ids.length;
+  bar.style.display = ids.length > 0 ? 'flex' : 'none';
+  var valueReady = trgBulkValueReady(trgBulkCurrentAction);
+  applyBtn.disabled = ids.length === 0 || !trgBulkCurrentAction || !valueReady;
+
+  // When selection drops to 0, reset action state so the bar reopens clean next time
+  if (ids.length === 0 && trgBulkCurrentAction) {
+    trgBulkCancelAction();
+  }
+}
+
+function trgBulkValueReady(action) {
+  if (!action) return false;
+  if (action === 'export') return true;
+  if (action === 'department') {
+    var txt = document.getElementById('trg-bulk-value-text');
+    return !!(txt && txt.value.trim());
+  }
+  // location, status — select dropdown
+  var sel = document.getElementById('trg-bulk-value-select');
+  return !!(sel && sel.value);
+}
+
+function trgOnRowCheckboxChange(ev) {
+  // Stop row-click handler from toggling expansion
+  ev.stopPropagation();
+  trgUpdateBulkBar();
+  var allBoxes = document.querySelectorAll('.trg-row-select');
+  var checkedBoxes = document.querySelectorAll('.trg-row-select:checked');
+  var selectAll = document.getElementById('trg-select-all');
+  if (checkedBoxes.length === 0) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  } else if (checkedBoxes.length === allBoxes.length) {
+    selectAll.checked = true;
+    selectAll.indeterminate = false;
+  } else {
+    selectAll.checked = false;
+    selectAll.indeterminate = true;
+  }
+}
+
+function trgToggleSelectAll(el) {
+  var allBoxes = document.querySelectorAll('.trg-row-select');
+  for (var i = 0; i < allBoxes.length; i++) allBoxes[i].checked = el.checked;
+  el.indeterminate = false;
+  trgUpdateBulkBar();
+}
+
+function trgClearSelection() {
+  var allBoxes = document.querySelectorAll('.trg-row-select');
+  for (var i = 0; i < allBoxes.length; i++) allBoxes[i].checked = false;
+  var selectAll = document.getElementById('trg-select-all');
+  selectAll.checked = false;
+  selectAll.indeterminate = false;
+  trgBulkCancelAction();
+  trgUpdateBulkBar();
+}
+
+function trgApplyBulk() {
+  var action = trgBulkCurrentAction;
+  var ids = trgGetSelectedIds();
+  if (!action || ids.length === 0) return;
+
+  if (action === 'export') {
+    trgExportCsv(ids);
+    return;
+  }
+
+  var sel = document.getElementById('trg-bulk-value-select');
+  var txt = document.getElementById('trg-bulk-value-text');
+  var value = (action === 'department') ? txt.value.trim() : sel.value;
+
+  if (!value) {
+    if (window.SxToast) window.SxToast.error('Please choose a value');
+    return;
+  }
+
+  if (!confirm('Apply this change to ' + ids.length + ' item(s)?')) return;
+
+  var applyBtn = document.getElementById('trg-bulk-apply');
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Applying…';
+
+  var formData = new FormData();
+  formData.append('action', action);
+  formData.append('value', value);
+  for (var i = 0; i < ids.length; i++) formData.append('item_ids', ids[i]);
+
+  fetch(BP + '/triage/bulk', { method: 'POST', body: formData })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Apply';
+      if (!result.success) {
+        if (window.SxToast) window.SxToast.error(result.error || 'Bulk update failed');
+        return;
+      }
+      var msg = 'Updated ' + result.updated_count + ' item(s)';
+      if (result.skipped_count > 0) {
+        msg += ' · ' + result.skipped_count + ' skipped (locked by other users)';
+      }
+      if (window.SxToast) window.SxToast.success(msg);
+      // Reload to reflect new state — simpler than reconciling DOM for every row
+      window.location.reload();
+    })
+    .catch(function() {
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Apply';
+      if (window.SxToast) window.SxToast.error('Network error');
+    });
+}
+
+function trgExportCsv(ids) {
+  var url = BP + '/triage/export?ids=' + ids.join(',');
+  window.location.href = url;
+}
+
+function trgApplyControls() {
+  var sortEl = document.getElementById('trg-sort');
+  var perPageEl = document.getElementById('trg-per-page');
+  var url = new URL(window.location.href);
+  url.searchParams.set('sort', sortEl.value);
+  url.searchParams.set('per_page', perPageEl.value);
+  url.searchParams.set('page', '1');
+  window.location.href = url.toString();
+}
+
+document.getElementById('trg-sort').addEventListener('change', trgApplyControls);
+document.getElementById('trg-per-page').addEventListener('change', trgApplyControls);
+
+var trgQvCurrentItemId = null;
+var trgQvCurrentField = null;
+
+function trgQvOpen(itemId, fieldName) {
+  trgQvCurrentItemId = itemId;
+  trgQvCurrentField = fieldName;
+  var panel = document.getElementById('trg-qv-panel');
+  var body = document.getElementById('trg-qv-body');
+  body.innerHTML = '<div class="trg-qv-loading">Loading…</div>';
+  panel.classList.add('trg-qv-panel--open');
+  panel.setAttribute('aria-hidden', 'false');
+  fetch(BP + '/triage/fix/' + itemId + '/' + fieldName)
+    .then(function(r) { return r.text(); })
+    .then(function(html) { body.innerHTML = html; })
+    .catch(function(e) { body.innerHTML = '<div class="trg-qv-error">Failed to load editor</div>'; });
+}
+
+function trgQvClose() {
+  var panel = document.getElementById('trg-qv-panel');
+  panel.classList.remove('trg-qv-panel--open');
+  panel.setAttribute('aria-hidden', 'true');
+  trgQvCurrentItemId = null;
+  trgQvCurrentField = null;
+}
+
+var trgQvLastClickedAction = 'save';  // which submit button was clicked
+
+// Capture which submit button was clicked (before form submit fires)
+document.addEventListener('click', function(ev) {
+  if (ev.target && ev.target.matches && ev.target.matches('button[data-action]')) {
+    trgQvLastClickedAction = ev.target.getAttribute('data-action');
+  }
+});
+
+function trgQvSave(ev) {
+  ev.preventDefault();
+  var form = ev.target;
+  var formData = new FormData(form);
+  var itemId = trgQvCurrentItemId;
+  var fieldName = trgQvCurrentField;
+  var errEl = document.getElementById('trg-qv-error');
+  if (errEl) errEl.style.display = 'none';
+  var action = trgQvLastClickedAction;  // 'save' or 'save_next'
+
+  fetch(BP + '/triage/fix/' + itemId + '/' + fieldName, {
+    method: 'POST',
+    body: formData,
+  }).then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (!result.success) {
+        if (errEl) {
+          errEl.textContent = result.error || 'Save failed';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+      trgQvOnSaveSuccess(itemId, fieldName, result.gaps_remaining, result.total_gaps, action, result.missing_fields);
+      if (window.SxToast) window.SxToast.success('Field saved');
+    }).catch(function(e) {
+      if (errEl) {
+        errEl.textContent = 'Network error';
+        errEl.style.display = 'block';
+      }
+    });
+  return false;
+}
+
+function trgQvOnSaveSuccess(itemId, fieldName, gapsRemaining, totalGaps, action, missingFields) {
+  var expandRow = document.getElementById('trg-expand-' + itemId);
+  var savedFieldStillMissing = missingFields && missingFields.indexOf(fieldName) !== -1;
+  var savedFieldRow = expandRow ? expandRow.querySelector('tr[data-field="' + fieldName + '"]') : null;
+
+  if (savedFieldRow && !savedFieldStillMissing) {
+    // Field actually cleared — show checkmark, then reconcile full expansion
+    savedFieldRow.classList.add('trg-gap-row--saved');
+    setTimeout(function() {
+      trgQvReconcileExpansion(itemId, missingFields);
+      trgQvUpdateMainRow(itemId, gapsRemaining);
+    }, 700);
+  } else {
+    // Field still missing (or row not found) — just reconcile immediately (no checkmark)
+    trgQvReconcileExpansion(itemId, missingFields);
+    trgQvUpdateMainRow(itemId, gapsRemaining);
+  }
+
+  if (action === 'save_next') {
+    // Auto-advance to the next remaining gap on this item after the checkmark animation
+    setTimeout(function() {
+      var expandRowNow = document.getElementById('trg-expand-' + itemId);
+      if (!expandRowNow) { trgQvClose(); return; }
+      var nextRow = expandRowNow.querySelector('tr[data-field]');
+      if (nextRow) {
+        var nextField = nextRow.getAttribute('data-field');
+        trgQvOpen(itemId, nextField);
+      } else {
+        trgQvClose();
+      }
+    }, 750);
+  } else {
+    trgQvClose();
+  }
+}
+
+function trgQvUpdateMainRow(itemId, gapsRemaining) {
+  var mainRow = document.querySelector('.trg-row[data-item-id="' + itemId + '"]');
+  if (!mainRow) return;
+  var activeRoleKey = new URL(window.location.href).searchParams.get('role') || 'hw';
+  var activeCount = gapsRemaining[activeRoleKey];
+  var chip = mainRow.querySelector('.trg-gap-chip');
+  if (chip) chip.textContent = activeCount + ' missing';
+  if (activeCount === 0) {
+    var expandRow = document.getElementById('trg-expand-' + itemId);
+    mainRow.parentNode.removeChild(mainRow);
+    if (expandRow) expandRow.parentNode.removeChild(expandRow);
+  }
+}
+
+function trgQvReconcileExpansion(itemId, missingFields) {
+  var expandRow = document.getElementById('trg-expand-' + itemId);
+  if (!expandRow || !missingFields) return;
+  var fieldRows = expandRow.querySelectorAll('tr[data-field]');
+  for (var i = 0; i < fieldRows.length; i++) {
+    var f = fieldRows[i].getAttribute('data-field');
+    if (missingFields.indexOf(f) === -1) {
+      fieldRows[i].parentNode.removeChild(fieldRows[i]);
+    }
+  }
+}
+
+document.addEventListener('click', function(ev) {
+  var panel = document.getElementById('trg-qv-panel');
+  if (!panel || !panel.classList.contains('trg-qv-panel--open')) return;
+  if (panel.contains(ev.target)) return;
+  if (ev.target.classList && ev.target.classList.contains('trg-fix-btn')) return;
+  trgQvClose();
+});
+
+document.addEventListener('keydown', function(ev) {
+  if (ev.key === 'Escape') trgQvClose();
+});
+
+// Listen for global triage gap changes from any user's edits (including our own)
+// and update the tab badge counts live.
+document.addEventListener('DOMContentLoaded', function() {
+  if (!window._sseManager) return;
+  window._sseManager.on('triage_gap_changed', function(data) {
+    if (!data || !data.role_counts) return;
+    var tabs = document.querySelectorAll('.trg-tab');
+    for (var i = 0; i < tabs.length; i++) {
+      var href = tabs[i].getAttribute('href') || '';
+      var match = href.match(/role=([^&]+)/);
+      if (!match) continue;
+      var roleKey = match[1];
+      var newCount = data.role_counts[roleKey];
+      if (typeof newCount !== 'undefined') {
+        var badge = tabs[i].querySelector('.trg-badge');
+        if (badge) badge.textContent = newCount;
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

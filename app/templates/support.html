@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Review Queue - Hardware Asset Tracker{% endblock %}
+{% block nav_review %}active{% endblock %}
+
+{% block content %}
+<h1>Review Queue</h1>
+
+<!-- Summary Cards -->
+<div class="cards">
+    <div class="card pending">
+        <div class="number">{{ request.state.pending_count }}</div>
+        <div class="label">Pending</div>
+    </div>
+    <div class="card" style="border-color: var(--success);">
+        <div class="number" style="color: var(--success);">{{ approved_count }}</div>
+        <div class="label">Approved</div>
+    </div>
+    <div class="card">
+        <div class="number">{{ dismissed_count }}</div>
+        <div class="label">Dismissed</div>
+    </div>
+</div>
+
+<!-- Status Filter Tabs -->
+<div class="tabs" id="review-tabs">
+    <a class="tab {% if status_filter == 'pending' %}active{% endif %}"
+       href="{{ base_path }}/review?status_filter=pending">
+        Pending <span class="badge badge-pending">{{ request.state.pending_count }}</span>
+    </a>
+    <a class="tab {% if status_filter == 'approved' %}active{% endif %}"
+       href="{{ base_path }}/review?status_filter=approved">
+        Approved
+    </a>
+    <a class="tab {% if status_filter == 'dismissed' %}active{% endif %}"
+       href="{{ base_path }}/review?status_filter=dismissed">
+        Dismissed
+    </a>
+</div>
+
+<!-- Device Queue Table -->
+<div class="table-section" id="review-table">
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>MAC Address</th>
+                    <th>IP Address</th>
+                    <th>Hostname</th>
+                    <th>Manufacturer</th>
+                    <th>Suggested Category</th>
+                    <th>Scanner</th>
+                    <th>Network</th>
+                    <th>First Seen</th>
+                    <th>Last Seen</th>
+                    <th>Status</th>
+                    {% if status_filter == 'pending' %}
+                    <th>Target Table</th>
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if devices %}
+                {% for d in devices %}
+                <tr id="pending-row-{{ d.id }}">
+                    <td style="font-family: monospace;">{{ d.mac_address }}</td>
+                    <td>{{ d.ip_address or '-' }}</td>
+                    <td>{{ d.hostname or '-' }}</td>
+                    <td>{{ d.manufacturer or 'Unknown' }}</td>
+                    <td>
+                        {{ table_display_names.get(d.suggested_table or 'network_equipment', (d.suggested_table or 'network_equipment').replace('_', ' ').title()) }}
+                        {% if d.suggested_table in ('edge_boxes', 'trade_show_boxes') %}
+                        <span class="badge" style="background: var(--warning); color: #000; font-size: 0.7rem; margin-left: 4px;">Sites Admin</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ d.scanner_id or '-' }}</td>
+                    <td>{{ d.network_segment or '-' }}</td>
+                    <td>{{ d.first_seen.strftime('%Y-%m-%d %H:%M') if d.first_seen else '-' }}</td>
+                    <td>{{ d.last_seen.strftime('%Y-%m-%d %H:%M') if d.last_seen else '-' }}</td>
+                    <td>
+                        <span class="status-{{ d.status }}">{{ d.status.title() }}</span>
+                    </td>
+                    {% if status_filter == 'pending' %}
+                    <td>
+                        <select id="table-override-{{ d.id }}" class="table-override-select"
+                                style="font-size: 0.85rem; padding: 2px 4px; max-width: 160px;">
+                            {% for t in available_tables %}
+                            <option value="{{ t }}" {% if t == (d.suggested_table or 'network_equipment') %}selected{% endif %}>
+                                {{ table_display_names.get(t, t.replace('_', ' ').title()) }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn btn-success btn-sm"
+                                onclick="approveDevice({{ d.id }})">Approve</button>
+                        <button class="btn btn-danger btn-sm"
+                                onclick="dismissDevice({{ d.id }})">Dismiss</button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="{{ 12 if status_filter == 'pending' else 10 }}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No {{ status_filter }} devices.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // BP available globally from base.html
+
+    async function approveDevice(deviceId) {
+        if (!confirm('Approve this device and add it to inventory?')) return;
+        const targetTable = document.getElementById(`table-override-${deviceId}`).value;
+        try {
+            const resp = await fetch(`${BP}/api/pending/${deviceId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_table: targetTable }),
+            });
+            if (resp.ok) {
+                document.getElementById(`pending-row-${deviceId}`).remove();
+                // Decrement pending count display
+                const countEl = document.querySelector('.card.pending .number');
+                if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
+            } else {
+                const data = await resp.json();
+                alert(data.error || 'Failed to approve');
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    async function dismissDevice(deviceId) {
+        const reason = prompt('Reason for dismissing (optional):');
+        if (reason === null) return; // cancelled
+        try {
+            const resp = await fetch(`${BP}/api/pending/${deviceId}/dismiss`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason }),
+            });
+            if (resp.ok) {
+                document.getElementById(`pending-row-${deviceId}`).remove();
+                // Decrement pending count display
+                const countEl = document.querySelector('.card.pending .number');
+                if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
+            } else {
+                const data = await resp.json();
+                alert(data.error || 'Failed to dismiss');
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    // SSE for real-time pending updates
+    if (typeof EventSource !== 'undefined') {
+        const evtSource = new EventSource(`${BP}/events/stream`);
+        evtSource.addEventListener('update', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.type === 'device_pending') {
+                location.reload();
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+<!-- HTMX partial: global search results grouped by category -->
+{% if results %}
+<!-- Category summary badges -->
+<div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+    {% for table_name, cat in categories.items() %}
+    <span class="badge-category">
+        <span class="cat-dot" style="background: {{ cat.color }};"></span>
+        {{ cat.display_name }}
+        <span style="font-weight: 700;">{{ cat.count }}</span>
+    </span>
+    {% endfor %}
+    <span style="color: var(--text-muted); font-size: 0.85rem; align-self: center; margin-left: 0.5rem;">
+        {{ total }} total result{{ 's' if total != 1 else '' }}{% if total > results|length %} (showing {{ results|length }}){% endif %}
+    </span>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30px;"></th>
+            <th>Category</th>
+            <th>Name / Device</th>
+            <th>Serial</th>
+            <th>Status</th>
+            <th>MAC Address</th>
+            <th>Location</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in results %}
+        <tr data-device-id="{{ row.id }}" data-device-table="{{ row.table_name }}">
+            <td>
+                {% if row.completeness >= 80 %}
+                <span class="dot dot-green" title="{{ row.completeness }}% complete"></span>
+                {% elif row.completeness >= 50 %}
+                <span class="dot dot-yellow" title="{{ row.completeness }}% complete"></span>
+                {% else %}
+                <span class="dot dot-red" title="{{ row.completeness }}% complete"></span>
+                {% endif %}
+            </td>
+            <td>
+                <span class="badge-category">
+                    <span class="cat-dot" style="background: {{ row.color }};"></span>
+                    {{ row.category }}
+                </span>
+            </td>
+            <td>{{ row.name }}</td>
+            <td>{{ row.serial }}</td>
+            <td>{{ row.status }}</td>
+            <td style="font-family: monospace;">{{ row.mac_address }}</td>
+            <td>{{ row.location }}</td>
+            <td>
+                <button class="btn-edit" onclick="openSearchDrawer('{{ row.table_name }}', {{ row.id }})" title="Edit device">
+                    <svg viewBox="0 0 24 24" width="14" height="14">
+                        <path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                    </svg>
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% elif query %}
+<div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+    No devices found matching "<strong>{{ query }}</strong>".
+</div>
+{% else %}
+<div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+    Type at least 2 characters to search across all device categories.
+</div>
+{% endif %}

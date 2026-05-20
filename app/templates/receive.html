@@ -1,0 +1,1226 @@
+{% extends "base.html" %}
+
+{% block title %}Receive & Scan - Hardware Asset Tracker{% endblock %}
+{% block nav_receive %}active{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ base_path }}/static/css/receive.css">
+<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
+<script src="{{ base_path }}/static/js/scanner.js">
+// Category pre-selection from ?category= query param
+(function() {
+    const preselect = "{{ preselect_category }}";
+    if (!preselect) return;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Pre-select category dropdown
+        const sel = document.getElementById('device-target-table');
+        if (sel) {
+            sel.value = preselect;
+            if (typeof toggleCategoryFields === 'function') toggleCategoryFields();
+        }
+        // Pre-fill serial with empty string to trigger step reveal
+        const serialInput = document.getElementById('device-serial');
+        if (serialInput) serialInput.value = '';
+        // Reveal steps 3, 4, 5
+        ['step-details','step-photo','step-submit'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        // Scroll to manual serial entry
+        const manualInput = document.getElementById('manual-serial');
+        if (manualInput) {
+            manualInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            manualInput.focus();
+        }
+    });
+})();
+</script>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Receive &amp; Scan</h1>
+
+<!-- Mode Toggle -->
+<div class="mode-toggle" style="display: flex; gap: 0; margin-bottom: 1rem; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);">
+    <button class="mode-btn active" id="mode-receive-btn" onclick="setMode('receive')"
+            style="flex: 1; padding: 0.6rem 1rem; font-size: 0.88rem; font-weight: 600; border: none; cursor: pointer; background: var(--primary, #157ca4); color: #fff; transition: background 0.15s;">
+        Receive New Device
+    </button>
+    <button class="mode-btn" id="mode-assign-btn" onclick="setMode('assign')"
+            style="flex: 1; padding: 0.6rem 1rem; font-size: 0.88rem; font-weight: 600; border: none; cursor: pointer; background: var(--card-bg); color: var(--text); transition: background 0.15s;">
+        Assign Drive
+    </button>
+</div>
+
+<!-- ============ RECEIVE MODE (default) ============ -->
+<div id="receive-mode">
+
+<!-- Step 1: Receiving Event -->
+<div class="receive-step" id="step-event">
+    <h2>1. Receiving Event</h2>
+    <div class="form-group">
+        <label for="event-select">Select event or create new</label>
+        <select id="event-select" onchange="onEventSelect()">
+            <option value="">-- No event (standalone scan) --</option>
+            {% for event in events %}
+            <option value="{{ event.id }}">
+                {{ event.received_date.strftime('%m/%d') if event.received_date else 'N/A' }}
+                &mdash; {{ event.vendor or 'Unknown vendor' }}
+                (PO: {{ event.purchase_order or 'N/A' }})
+                [{{ event.received_quantity or 0 }}/{{ event.expected_quantity or '?' }}]
+            </option>
+            {% endfor %}
+            <option value="__new__">+ Create New Event</option>
+        </select>
+    </div>
+    <div id="new-event-form" class="sub-form" style="display: none;">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="event-vendor">Vendor</label>
+                <input type="text" id="event-vendor" placeholder="e.g. QNAP">
+            </div>
+            <div class="form-group">
+                <label for="event-po">PO Number</label>
+                <input type="text" id="event-po" placeholder="PO-12345">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="event-qty">Expected Qty</label>
+                <input type="number" id="event-qty" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label for="event-notes">Notes</label>
+                <input type="text" id="event-notes" placeholder="Optional">
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
+    </div>
+    <div id="event-status" style="display: none;"></div>
+</div>
+
+<!-- Step 2: Scan Barcode -->
+<div class="receive-step" id="step-scan">
+    <h2>2. Scan Barcode</h2>
+    <div id="scanner-container">
+        <div class="scanner-buttons" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="start-scan-btn" onclick="startScanner()">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right:4px;vertical-align:middle;">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Start Camera
+            </button>
+            <label class="quick-mode-toggle" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; color: var(--text-muted); user-select: none;">
+                <input type="checkbox" id="quick-mode-cb" style="accent-color: var(--primary);">
+                Quick Mode
+                <span title="Scan → auto-submit recognized devices → scan next. Keeps camera running." style="cursor: help; opacity: 0.6;">(?)</span>
+            </label>
+        </div>
+    </div>
+    <div class="manual-entry">
+        <div class="form-group" style="flex:1;">
+            <label for="manual-serial">Or enter serial manually</label>
+            <input type="text" id="manual-serial" placeholder="Type or paste serial number"
+                   onkeydown="if(event.key==='Enter')processManualSerial()">
+        </div>
+        <button class="btn btn-primary" onclick="processManualSerial()">Look Up</button>
+    </div>
+    <div id="scan-result" style="display: none;"></div>
+</div>
+
+<!-- Step 3: Device Details -->
+<div class="receive-step" id="step-details" style="display: none;">
+    <h2>3. Device Details</h2>
+    <div class="form-group">
+        <label for="device-target-table">Target Category</label>
+        <select id="device-target-table" onchange="toggleCategoryFields()">
+            {% for tbl, name in table_choices.items() %}
+            <option value="{{ tbl }}">{{ name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="device-serial">Serial Number</label>
+            <input type="text" id="device-serial" readonly class="readonly-field">
+        </div>
+        <div class="form-group">
+            <label for="device-manufacturer">Manufacturer</label>
+            <input type="text" id="device-manufacturer" placeholder="e.g. QNAP">
+        </div>
+    </div>
+    <div class="form-group">
+        <label for="device-model">Model</label>
+        <input type="text" id="device-model" placeholder="e.g. TS-264">
+    </div>
+
+    <!-- NAS-specific fields -->
+    <div id="nas-fields" style="display: none;">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="device-bay-count">Bay Count</label>
+                <input type="number" id="device-bay-count" min="1">
+            </div>
+            <div class="form-group">
+                <label for="device-ram">RAM (GB)</label>
+                <input type="text" id="device-ram" placeholder="8">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="device-mac1">MAC Address 1</label>
+                <input type="text" id="device-mac1" placeholder="AA:BB:CC:DD:EE:FF">
+            </div>
+            <div class="form-group">
+                <label for="device-mac2">MAC Address 2</label>
+                <input type="text" id="device-mac2" placeholder="AA:BB:CC:DD:EE:FF">
+            </div>
+        </div>
+    </div>
+
+    <!-- Deployment Type — edge boxes, NUCs, cameras, access control -->
+    <div id="deployment-type-field" style="display: none;">
+        <div class="form-group">
+            <label for="device-deployment-type">Deployment Type</label>
+            <select id="device-deployment-type">
+                <option value="internal" selected>Internal</option>
+                <option value="stock">Stock</option>
+                <option value="customer">Customer</option>
+                <option value="pilot">Pilot</option>
+                <option value="demo">Demo</option>
+                <option value="trade_show">Trade Show</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Edge Box specific fields -->
+    <div id="edge-box-fields" style="display: none;">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="device-part-number">Part Number (SKU)</label>
+                <input type="text" id="device-part-number" placeholder="e.g. PVA-25-SFF v2">
+            </div>
+            <div class="form-group">
+                <label for="device-form-factor">Form Factor</label>
+                <select id="device-form-factor">
+                    <option value="">— Select —</option>
+                    <option value="SFF">SFF</option>
+                    <option value="Tower">Tower</option>
+                    <option value="Rack">Rack</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Common fields -->
+    <div class="form-group">
+        <label for="device-mac-address">MAC Address</label>
+        <input type="text" id="device-mac-address" placeholder="AA:BB:CC:DD:EE:FF">
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="device-location">Location</label>
+            <input type="text" id="device-location" placeholder="Lab, Office, etc.">
+        </div>
+        <div class="form-group">
+            <label for="device-status">Status</label>
+            <select id="device-status">
+                <option value="Received">Received</option>
+                <option value="In Storage">In Storage</option>
+                <option value="Deployed">Deployed</option>
+                <option value="Testing">Testing</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label for="device-notes">Notes</label>
+        <input type="text" id="device-notes" placeholder="Optional notes">
+    </div>
+</div>
+
+<!-- Step 4: Photo -->
+<div class="receive-step" id="step-photo" style="display: none;">
+    <h2>4. Photo (Optional)</h2>
+    <label class="photo-upload-label" for="photo-input">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>Tap to take photo of label</span>
+    </label>
+    <input type="file" id="photo-input" accept="image/*" capture="environment"
+           onchange="uploadAndProcessPhoto(this)" style="display:none;">
+    <div id="photo-preview"></div>
+    <div id="ocr-results" class="ocr-results-card" style="display: none;"></div>
+</div>
+
+<!-- Submit -->
+<div class="receive-step" id="step-submit" style="display: none;">
+    <label class="checkbox-label">
+        <input type="checkbox" id="direct-to-inventory" checked>
+        Add directly to inventory (skip review queue)
+    </label>
+    <button class="btn btn-success btn-submit" onclick="submitDevice()">
+        Submit Device
+    </button>
+</div>
+
+<!-- Success banner -->
+<div id="success-banner" class="receive-step success-step" style="display: none;">
+    <div class="success-icon">&#10003;</div>
+    <div class="success-text">Device added successfully!</div>
+    <button class="btn btn-primary" onclick="scanAnother()">Scan Another</button>
+</div>
+
+<!-- Duplicate Warning Modal -->
+<div class="modal-overlay" id="duplicate-modal" style="display: none;">
+    <div class="modal">
+        <h3 style="color: var(--warning); margin-bottom: 1rem;">Duplicate Serial Number</h3>
+        <div id="duplicate-details" style="margin-bottom: 1.5rem; line-height: 1.6;"></div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="closeDuplicateModal()">Cancel</button>
+            <button class="btn btn-danger" onclick="proceedWithDuplicate()">Add Anyway</button>
+        </div>
+    </div>
+</div>
+
+</div><!-- /receive-mode -->
+
+<!-- ============ ASSIGN DRIVE MODE ============ -->
+<div id="assign-mode" style="display: none;">
+
+<!-- Step A: Scan Drive Serial -->
+<div class="receive-step" id="assign-step-scan">
+    <h2>1. Scan Drive Serial</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.8rem;">
+        Scan or enter the serial number of a storage drive already in inventory.
+    </p>
+    <div id="assign-scanner-container">
+        <div class="scanner-buttons">
+            <button class="btn btn-primary" id="assign-start-scan-btn" onclick="assignStartScanner()">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right:4px;vertical-align:middle;">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Start Camera
+            </button>
+        </div>
+    </div>
+    <div class="manual-entry">
+        <div class="form-group" style="flex:1;">
+            <label for="assign-serial">Or enter serial manually</label>
+            <input type="text" id="assign-serial" placeholder="Type or paste drive serial number"
+                   onkeydown="if(event.key==='Enter')assignLookupDrive()">
+        </div>
+        <button class="btn btn-primary" onclick="assignLookupDrive()">Look Up</button>
+    </div>
+    <div id="assign-scan-result" style="display: none;"></div>
+</div>
+
+<!-- Drive Info Card (shown after lookup) -->
+<div class="receive-step" id="assign-step-drive" style="display: none;">
+    <h2>2. Drive Details</h2>
+    <div id="assign-drive-card"></div>
+</div>
+
+<!-- Step B: Pick Target Device -->
+<div class="receive-step" id="assign-step-target" style="display: none;">
+    <h2>3. Select Target Device</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.8rem;">
+        Search for the device this drive will be installed in.
+    </p>
+    <div class="form-group">
+        <label for="assign-device-search">Search devices</label>
+        <input type="text" id="assign-device-search" placeholder="Type device name, serial, or location..."
+               oninput="assignSearchDevicesDebounced()">
+    </div>
+    <div id="assign-search-results" style="max-height: 300px; overflow-y: auto;"></div>
+</div>
+
+<!-- Assign Success -->
+<div id="assign-success-banner" class="receive-step success-step" style="display: none;">
+    <div class="success-icon">&#10003;</div>
+    <div class="success-text">Drive assigned!</div>
+    <button class="btn btn-primary" onclick="assignAnother()">Assign Another</button>
+</div>
+
+</div><!-- /assign-mode -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+/** @type {BarcodeScanner|null} */
+let receiveScanner = null;
+/** @type {BarcodeScanner|null} */
+let assignScanner = null;
+let currentEventId = null;
+let currentMode = 'receive';
+let quickModeActive = false;
+
+// =============================================
+// MODE SWITCHING
+// =============================================
+function setMode(mode) {
+    currentMode = mode;
+    const receiveDiv = document.getElementById('receive-mode');
+    const assignDiv = document.getElementById('assign-mode');
+    const receiveBtn = document.getElementById('mode-receive-btn');
+    const assignBtn = document.getElementById('mode-assign-btn');
+
+    if (mode === 'receive') {
+        receiveDiv.style.display = 'block';
+        assignDiv.style.display = 'none';
+        receiveBtn.style.background = 'var(--primary, #157ca4)';
+        receiveBtn.style.color = '#fff';
+        assignBtn.style.background = 'var(--card-bg)';
+        assignBtn.style.color = 'var(--text)';
+    } else {
+        receiveDiv.style.display = 'none';
+        assignDiv.style.display = 'block';
+        assignBtn.style.background = 'var(--primary, #157ca4)';
+        assignBtn.style.color = '#fff';
+        receiveBtn.style.background = 'var(--card-bg)';
+        receiveBtn.style.color = 'var(--text)';
+    }
+
+    // Stop any running scanners when switching modes
+    if (receiveScanner) receiveScanner.stop();
+    if (assignScanner) assignScanner.stop();
+}
+
+// =============================================
+// RECEIVE MODE (existing workflow — unchanged)
+// =============================================
+
+// --- Event selection ---
+function onEventSelect() {
+    const sel = document.getElementById('event-select');
+    const form = document.getElementById('new-event-form');
+    const status = document.getElementById('event-status');
+    if (sel.value === '__new__') {
+        form.style.display = 'block';
+        status.style.display = 'none';
+        currentEventId = null;
+    } else {
+        form.style.display = 'none';
+        currentEventId = sel.value ? parseInt(sel.value) : null;
+        if (currentEventId) {
+            status.style.display = 'block';
+            status.innerHTML = '<span class="badge badge-info">Event #' + currentEventId + ' selected</span>';
+        } else {
+            status.style.display = 'none';
+        }
+    }
+}
+
+async function createEvent() {
+    const body = {
+        vendor: document.getElementById('event-vendor').value,
+        purchase_order: document.getElementById('event-po').value,
+        expected_quantity: parseInt(document.getElementById('event-qty').value) || null,
+        notes: document.getElementById('event-notes').value,
+    };
+    const resp = await fetch(`${BP}/api/receive/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (data.status === 'created') {
+        currentEventId = data.event_id;
+        document.getElementById('new-event-form').style.display = 'none';
+        const status = document.getElementById('event-status');
+        status.style.display = 'block';
+        status.innerHTML = '<span class="badge badge-success">Created event #' + data.event_id +
+            ' — ' + (data.vendor || 'Unknown') + ' PO:' + (data.purchase_order || 'N/A') + '</span>';
+        // Add to dropdown
+        const sel = document.getElementById('event-select');
+        const opt = document.createElement('option');
+        opt.value = data.event_id;
+        opt.textContent = 'Today — ' + (data.vendor || 'Unknown') + ' (PO: ' + (data.purchase_order || 'N/A') + ')';
+        opt.selected = true;
+        sel.insertBefore(opt, sel.querySelector('option[value="__new__"]'));
+    }
+}
+
+// --- Scanner ---
+function startScanner() {
+    quickModeActive = document.getElementById('quick-mode-cb').checked;
+    receiveScanner = new BarcodeScanner(BP);
+    receiveScanner.start(onScanSuccess, { showCounter: quickModeActive });
+}
+
+function onScanSuccess(decodedText) {
+    if (quickModeActive) {
+        processQuickScan(decodedText);
+    } else {
+        if (receiveScanner) receiveScanner.stop();
+        processBarcode(decodedText);
+    }
+}
+
+async function processQuickScan(barcode) {
+    const resp = await fetch(`${BP}/api/receive/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: barcode, receiving_event_id: currentEventId }),
+    });
+    const data = await resp.json();
+
+    if (data.status === 'already_exists') {
+        receiveScanner.showToast(
+            `<span class="scanner-toast-serial">${barcode}</span> already in ${data.display_table}`,
+            'error'
+        );
+        return;
+    }
+
+    if (data.status === 'recognized' && data.prefill) {
+        // Auto-submit recognized device
+        const body = {
+            serial: data.serial,
+            manufacturer: data.prefill.manufacturer || '',
+            model: data.prefill.model || '',
+            target_table: data.prefill.target_table || 'edge_boxes',
+            location: '',
+            status: 'Inventory',
+            notes: 'Quick-scan intake',
+            mac_address: null,
+            direct_to_inventory: true,
+            receiving_event_id: currentEventId,
+        };
+        if (data.prefill.target_table === 'nas_devices') {
+            body.bay_count = data.prefill.bay_count || null;
+            body.ram_gb = data.prefill.ram_gb || null;
+        }
+
+        const submitResp = await fetch(`${BP}/api/receive/device`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        if (submitResp.ok) {
+            receiveScanner.showToast(
+                `<span class="scanner-toast-serial">${barcode}</span> added to ${data.prefill.target_table || 'inventory'}`,
+                'success'
+            );
+        } else {
+            const err = await submitResp.json().catch(() => ({}));
+            receiveScanner.showToast(
+                `Failed: ${err.error || 'submission error'}`,
+                'error'
+            );
+        }
+    } else {
+        // Unknown — pause scanner, let user fill details manually
+        if (receiveScanner) receiveScanner.stop();
+        processBarcode(barcode);
+    }
+}
+
+function processManualSerial() {
+    const serial = document.getElementById('manual-serial').value.trim();
+    if (serial) processBarcode(serial);
+}
+
+async function processBarcode(barcode) {
+    const result = document.getElementById('scan-result');
+    result.style.display = 'block';
+    result.innerHTML = '<div class="alert alert-info">Looking up: <strong>' + barcode + '</strong>...</div>';
+
+    const resp = await fetch(`${BP}/api/receive/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: barcode, receiving_event_id: currentEventId }),
+    });
+    const data = await resp.json();
+
+    if (data.status === 'already_exists') {
+        result.innerHTML = '<div class="alert alert-danger">Serial <strong>' + barcode +
+            '</strong> already exists in <strong>' + data.display_table + '</strong>.</div>';
+        return;
+    }
+
+    // Show detail form
+    document.getElementById('step-details').style.display = 'block';
+    document.getElementById('step-photo').style.display = 'block';
+    document.getElementById('step-submit').style.display = 'block';
+    document.getElementById('device-serial').value = data.serial;
+
+    if (data.prefill) {
+        if (data.prefill.manufacturer)
+            document.getElementById('device-manufacturer').value = data.prefill.manufacturer;
+        if (data.prefill.model)
+            document.getElementById('device-model').value = data.prefill.model;
+        if (data.prefill.target_table) {
+            document.getElementById('device-target-table').value = data.prefill.target_table;
+            toggleCategoryFields();
+        }
+        if (data.prefill.bay_count)
+            document.getElementById('device-bay-count').value = data.prefill.bay_count;
+        if (data.prefill.ram_gb)
+            document.getElementById('device-ram').value = data.prefill.ram_gb;
+    }
+
+    if (data.status === 'recognized') {
+        result.innerHTML = '<div class="alert alert-success">Recognized: <strong>' +
+            (data.prefill.manufacturer || '') + '</strong> — auto-filled fields below.</div>';
+    } else {
+        result.innerHTML = '<div class="alert alert-warning">Serial not recognized. Fill in details manually.</div>';
+    }
+
+    // Scroll to details
+    document.getElementById('step-details').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// --- Category fields ---
+function toggleCategoryFields() {
+    const table = document.getElementById('device-target-table').value;
+    document.getElementById('nas-fields').style.display = table === 'nas_devices' ? 'block' : 'none';
+    const dtField = document.getElementById('deployment-type-field');
+    if (dtField) dtField.style.display = ['edge_boxes','nucs','cameras','access_control'].includes(table) ? 'block' : 'none';
+    const ebFields = document.getElementById('edge-box-fields');
+    if (ebFields) ebFields.style.display = table === 'edge_boxes' ? 'block' : 'none';
+}
+
+// --- Photo ---
+let uploadedPhotoUrl = null;
+let ocrData = null;
+
+async function uploadAndProcessPhoto(input) {
+    const preview = document.getElementById('photo-preview');
+    const ocrResults = document.getElementById('ocr-results');
+
+    if (!input.files || !input.files[0]) return;
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        preview.innerHTML = '<img src="' + e.target.result + '" alt="Label photo">';
+    };
+    reader.readAsDataURL(input.files[0]);
+
+    // Upload photo with OCR processing
+    ocrResults.innerHTML = '<div class="ocr-loading">Processing image with OCR...</div>';
+    ocrResults.style.display = 'block';
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+    formData.append('run_ocr', 'true');
+    if (currentEventId) formData.append('receiving_event_id', currentEventId);
+    formData.append('caption', 'Intake photo');
+
+    try {
+        const resp = await fetch(`${BP}/api/receive/photo`, { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (data.status === 'uploaded' && data.ocr) {
+            uploadedPhotoUrl = data.photo_url;
+            ocrData = data.ocr;
+            displayOcrResults(data.ocr);
+        } else {
+            ocrResults.innerHTML = '<div class="ocr-error">Photo uploaded, but OCR processing unavailable.</div>';
+        }
+    } catch (e) {
+        ocrResults.innerHTML = '<div class="ocr-error">Error: ' + e.message + '</div>';
+    }
+}
+
+function displayOcrResults(ocr) {
+    const results = document.getElementById('ocr-results');
+
+    // Check if any data was extracted
+    const hasData = ocr.serial || ocr.model || ocr.manufacturer || ocr.mac_address || ocr.part_number;
+
+    if (!hasData) {
+        results.innerHTML = '<div class="ocr-empty">No text detected in image. You can fill fields manually.</div>';
+        return;
+    }
+
+    let html = '<div class="ocr-header"><strong>OCR Extracted Data</strong></div>';
+    html += '<div class="ocr-fields">';
+
+    if (ocr.serial) {
+        html += `<div class="ocr-field">
+            <span class="ocr-label">Serial:</span>
+            <span class="ocr-value">${ocr.serial}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-serial', '${ocr.serial}')">Use</button>
+        </div>`;
+    }
+    if (ocr.manufacturer) {
+        html += `<div class="ocr-field">
+            <span class="ocr-label">Manufacturer:</span>
+            <span class="ocr-value">${ocr.manufacturer}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-manufacturer', '${ocr.manufacturer}')">Use</button>
+        </div>`;
+    }
+    if (ocr.model) {
+        html += `<div class="ocr-field">
+            <span class="ocr-label">Model:</span>
+            <span class="ocr-value">${ocr.model}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-model', '${ocr.model}')">Use</button>
+        </div>`;
+    }
+    if (ocr.mac_address) {
+        html += `<div class="ocr-field">
+            <span class="ocr-label">MAC:</span>
+            <span class="ocr-value">${ocr.mac_address}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-mac1', '${ocr.mac_address}')">Use</button>
+        </div>`;
+    }
+    if (ocr.part_number) {
+        html += `<div class="ocr-field">
+            <span class="ocr-label">Part #:</span>
+            <span class="ocr-value">${ocr.part_number}</span>
+        </div>`;
+    }
+
+    html += '</div>';
+    html += '<button class="btn btn-sm btn-primary" onclick="fillAllOcrFields()" style="margin-top: 0.5rem;">Auto-Fill All Fields</button>';
+
+    results.innerHTML = html;
+}
+
+function fillField(fieldId, value) {
+    const field = document.getElementById(fieldId);
+    if (field && !field.readOnly) {
+        field.value = value;
+        field.style.background = 'var(--success-bg)';
+        setTimeout(() => { field.style.background = ''; }, 1000);
+    }
+}
+
+function fillAllOcrFields() {
+    if (!ocrData) return;
+
+    if (ocrData.serial) fillField('device-serial', ocrData.serial);
+    if (ocrData.manufacturer) fillField('device-manufacturer', ocrData.manufacturer);
+    if (ocrData.model) fillField('device-model', ocrData.model);
+    if (ocrData.mac_address) {
+        fillField('device-mac-address', ocrData.mac_address);
+        fillField('device-mac1', ocrData.mac_address);  // Also fill NAS field if visible
+    }
+}
+
+// --- Duplicate Detection ---
+let duplicateCheckData = null;
+let bypassDuplicateCheck = false;
+
+async function checkForDuplicate(serial) {
+    if (!serial || !serial.trim()) return null;
+
+    try {
+        const resp = await fetch(`${BP}/api/receive/check-duplicate?serial=${encodeURIComponent(serial.trim())}`);
+        const data = await resp.json();
+        return data.exists ? data : null;
+    } catch (e) {
+        console.error('Duplicate check failed:', e);
+        return null;
+    }
+}
+
+function showDuplicateModal(duplicateData) {
+    duplicateCheckData = duplicateData;
+    const modal = document.getElementById('duplicate-modal');
+    const details = document.getElementById('duplicate-details');
+
+    details.innerHTML = `
+        <p><strong>Serial Number:</strong> ${duplicateData.serial}</p>
+        <p><strong>Already exists in:</strong> ${duplicateData.display_table}</p>
+        ${duplicateData.location ? `<p><strong>Location:</strong> ${duplicateData.location}</p>` : ''}
+        ${duplicateData.status ? `<p><strong>Status:</strong> ${duplicateData.status}</p>` : ''}
+        <p style="margin-top: 1rem; color: var(--text-muted);">
+            This serial number already exists in the inventory. Adding it again may create a duplicate entry.
+        </p>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function closeDuplicateModal() {
+    document.getElementById('duplicate-modal').style.display = 'none';
+    duplicateCheckData = null;
+    bypassDuplicateCheck = false;
+
+    // Re-enable submit button
+    const submitBtn = document.querySelector('.btn-submit');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Device';
+    }
+}
+
+function proceedWithDuplicate() {
+    bypassDuplicateCheck = true;
+    closeDuplicateModal();
+    submitDevice(); // Retry submission
+}
+
+// --- Data Validation ---
+function validateMacAddress(mac) {
+    if (!mac || !mac.trim()) return { valid: true }; // Empty is allowed
+
+    const clean = mac.replace(/[:\-.]/g, '').toUpperCase();
+    if (clean.length !== 12) {
+        return { valid: false, error: 'MAC address must be 12 hex characters' };
+    }
+    if (!/^[0-9A-F]{12}$/.test(clean)) {
+        return { valid: false, error: 'MAC address must contain only hex digits (0-9, A-F)' };
+    }
+
+    // Normalized format
+    const normalized = clean.match(/.{2}/g).join(':');
+    return { valid: true, normalized };
+}
+
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+
+    field.classList.add('input-error');
+    field.classList.remove('input-success');
+
+    // Add error message if not exists
+    let errorDiv = field.nextElementSibling;
+    if (!errorDiv || !errorDiv.classList.contains('field-error')) {
+        errorDiv = document.createElement('div');
+        errorDiv.className = 'field-error';
+        field.parentElement.appendChild(errorDiv);
+    }
+    errorDiv.textContent = message;
+}
+
+function clearFieldError(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+
+    field.classList.remove('input-error');
+
+    const errorDiv = field.nextElementSibling;
+    if (errorDiv && errorDiv.classList.contains('field-error')) {
+        errorDiv.remove();
+    }
+}
+
+function showFieldSuccess(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+
+    field.classList.add('input-success');
+    field.classList.remove('input-error');
+    clearFieldError(fieldId);
+}
+
+// Add MAC validation on blur
+document.addEventListener('DOMContentLoaded', () => {
+    ['device-mac-address', 'device-mac1', 'device-mac2'].forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('blur', function() {
+                const value = this.value.trim();
+                if (!value) {
+                    clearFieldError(fieldId);
+                    return;
+                }
+
+                const result = validateMacAddress(value);
+                if (!result.valid) {
+                    showFieldError(fieldId, result.error);
+                } else {
+                    if (result.normalized) {
+                        this.value = result.normalized;
+                    }
+                    showFieldSuccess(fieldId);
+                    setTimeout(() => {
+                        field.classList.remove('input-success');
+                    }, 2000);
+                }
+            });
+        }
+    });
+});
+
+// --- Submit ---
+async function submitDevice() {
+    const submitBtn = document.querySelector('.btn-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    const serial = document.getElementById('device-serial').value;
+
+    // Check for duplicate serial (unless user already bypassed)
+    if (!bypassDuplicateCheck) {
+        const duplicate = await checkForDuplicate(serial);
+        if (duplicate) {
+            showDuplicateModal(duplicate);
+            return; // Stop submission, wait for user decision
+        }
+    }
+
+    // Reset bypass flag after use
+    bypassDuplicateCheck = false;
+
+    const body = {
+        serial: serial,
+        manufacturer: document.getElementById('device-manufacturer').value,
+        model: document.getElementById('device-model').value,
+        target_table: document.getElementById('device-target-table').value,
+        location: document.getElementById('device-location').value,
+        status: document.getElementById('device-status').value,
+        notes: document.getElementById('device-notes').value,
+        mac_address: document.getElementById('device-mac-address').value || null,
+        direct_to_inventory: document.getElementById('direct-to-inventory').checked,
+        receiving_event_id: currentEventId,
+    };
+
+    // NAS-specific
+    if (body.target_table === 'nas_devices') {
+        const bc = document.getElementById('device-bay-count').value;
+        if (bc) body.bay_count = parseInt(bc);
+        body.ram_gb = document.getElementById('device-ram').value || null;
+        body.mac_address_1 = document.getElementById('device-mac1').value || null;
+        body.mac_address_2 = document.getElementById('device-mac2').value || null;
+    }
+
+    // Deployment type categories
+    const dtCategories = ['edge_boxes', 'nucs', 'cameras', 'access_control'];
+    if (dtCategories.includes(body.target_table)) {
+        body.deployment_type = document.getElementById('device-deployment-type').value || 'internal';
+    }
+
+    // Edge box specific
+    if (body.target_table === 'edge_boxes') {
+        body.part_number = document.getElementById('device-part-number').value || null;
+        body.form_factor = document.getElementById('device-form-factor').value || null;
+    }
+
+    const resp = await fetch(`${BP}/api/receive/device`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+        const error = await resp.json();
+
+        // Show field-specific errors if available
+        if (error.field_errors) {
+            for (const [field, message] of Object.entries(error.field_errors)) {
+                const fieldId = `device-${field.replace('_', '-')}`;
+                showFieldError(fieldId, message);
+            }
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Device';
+            return;
+        }
+
+        // Generic error
+        alert('Error: ' + (error.error || 'Failed to submit device'));
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Device';
+        return;
+    }
+
+    const data = await resp.json();
+
+    if (data.status === 'created' || data.status === 'pending_review') {
+        // Photo already uploaded during preview (if present)
+        // Link photo to device if we have the device ID
+        if (uploadedPhotoUrl && data.device_id) {
+            // Update photo metadata to link to device
+            const photoMeta = {
+                device_table: data.target_table || body.target_table,
+                device_id: data.device_id,
+            };
+            await fetch(`${BP}/api/receive/photo/link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(photoMeta),
+            }).catch(() => {}); // Ignore errors for metadata update
+        }
+
+        // Show success
+        document.getElementById('step-details').style.display = 'none';
+        document.getElementById('step-photo').style.display = 'none';
+        document.getElementById('step-submit').style.display = 'none';
+        document.getElementById('scan-result').style.display = 'none';
+
+        const banner = document.getElementById('success-banner');
+        banner.style.display = 'block';
+        const msg = data.status === 'created'
+            ? 'Device added to <strong>' + (body.target_table) + '</strong>!'
+            : 'Device sent to <strong>review queue</strong> for approval.';
+        banner.querySelector('.success-text').innerHTML = msg;
+        banner.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Device';
+    }
+}
+
+function scanAnother() {
+    // Reset form for next device
+    document.getElementById('success-banner').style.display = 'none';
+    document.getElementById('scan-result').style.display = 'none';
+    document.getElementById('step-details').style.display = 'none';
+    document.getElementById('step-photo').style.display = 'none';
+    document.getElementById('step-submit').style.display = 'none';
+    document.getElementById('manual-serial').value = '';
+    document.getElementById('device-serial').value = '';
+    document.getElementById('device-manufacturer').value = '';
+    document.getElementById('device-model').value = '';
+    document.getElementById('device-location').value = '';
+    document.getElementById('device-notes').value = '';
+    document.getElementById('device-mac-address').value = '';
+    document.getElementById('device-bay-count').value = '';
+    document.getElementById('device-ram').value = '';
+    document.getElementById('device-mac1').value = '';
+    document.getElementById('device-mac2').value = '';
+    document.getElementById('photo-input').value = '';
+    document.getElementById('photo-preview').innerHTML = '';
+    document.getElementById('ocr-results').style.display = 'none';
+    document.getElementById('ocr-results').innerHTML = '';
+    uploadedPhotoUrl = null;
+    ocrData = null;
+    const submitBtn = document.querySelector('.btn-submit');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Device'; }
+    document.getElementById('step-scan').scrollIntoView({ behavior: 'smooth' });
+}
+
+// =============================================
+// ASSIGN DRIVE MODE
+// =============================================
+
+let assignDriveData = null;
+let assignSearchTimeout = null;
+
+// --- Assign Scanner ---
+function assignStartScanner() {
+    assignScanner = new BarcodeScanner(BP);
+    assignScanner.start((decodedText) => {
+        if (assignScanner) assignScanner.stop();
+        document.getElementById('assign-serial').value = decodedText;
+        assignLookupDrive();
+    });
+}
+
+function assignStopScanner() {
+    if (assignScanner) {
+        assignScanner.stop();
+    }
+}
+
+// --- Drive Lookup ---
+async function assignLookupDrive() {
+    const serial = document.getElementById('assign-serial').value.trim();
+    if (!serial) return;
+
+    const result = document.getElementById('assign-scan-result');
+    result.style.display = 'block';
+    result.innerHTML = '<div class="alert alert-info">Looking up drive: <strong>' + serial + '</strong>...</div>';
+
+    try {
+        const resp = await fetch(`${BP}/api/drives/lookup?serial=${encodeURIComponent(serial)}`);
+
+        if (!resp.ok) {
+            result.innerHTML = '<div class="alert alert-warning">Drive not found in inventory. Add it first via <a href="javascript:setMode(\'receive\')" style="color: var(--primary);">Receive mode</a>.</div>';
+            document.getElementById('assign-step-drive').style.display = 'none';
+            document.getElementById('assign-step-target').style.display = 'none';
+            return;
+        }
+
+        const drive = await resp.json();
+        assignDriveData = drive;
+        result.innerHTML = '<div class="alert alert-success">Drive found!</div>';
+
+        // Show drive card
+        const card = document.getElementById('assign-drive-card');
+        const capText = drive.capacity_gb ? (drive.capacity_gb >= 1000 ? (drive.capacity_gb / 1000) + ' TB' : drive.capacity_gb + ' GB') : 'N/A';
+        const installedText = drive.installed_in
+            ? `<span style="color: var(--warning);">Currently in: ${drive.installed_in}</span>`
+            : '<span style="color: var(--text-muted);">Not installed</span>';
+
+        card.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.88rem;">
+                <div><strong>Serial:</strong> <span style="font-family: monospace;">${drive.serial}</span></div>
+                <div><strong>Status:</strong> ${drive.status || 'N/A'}</div>
+                <div><strong>Manufacturer:</strong> ${drive.manufacturer || 'N/A'}</div>
+                <div><strong>Model:</strong> ${drive.model || 'N/A'}</div>
+                <div><strong>Capacity:</strong> ${capText}</div>
+                <div><strong>Type:</strong> ${drive.drive_type || 'N/A'} ${drive.form_factor || ''} ${drive.interface || ''}</div>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.85rem;">${installedText}</div>
+        `;
+
+        document.getElementById('assign-step-drive').style.display = 'block';
+        document.getElementById('assign-step-target').style.display = 'block';
+        document.getElementById('assign-search-results').innerHTML = '';
+        document.getElementById('assign-device-search').value = '';
+        document.getElementById('assign-step-drive').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    } catch (e) {
+        result.innerHTML = '<div class="alert alert-danger">Error: ' + e.message + '</div>';
+    }
+}
+
+// --- Device Search (debounced) ---
+const ASSIGN_TARGET_TABLES = ['edge_boxes', 'computers', 'nas_devices', 'trade_show_boxes'];
+const TABLE_LABELS = {
+    edge_boxes: 'Edge Box',
+    computers: 'Computer',
+    nas_devices: 'NAS',
+    trade_show_boxes: 'Trade Show Box',
+};
+
+function assignSearchDevicesDebounced() {
+    clearTimeout(assignSearchTimeout);
+    assignSearchTimeout = setTimeout(assignSearchDevices, 300);
+}
+
+async function assignSearchDevices() {
+    const q = document.getElementById('assign-device-search').value.trim();
+    const container = document.getElementById('assign-search-results');
+
+    if (q.length < 2) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem;">Type at least 2 characters to search...</div>';
+        return;
+    }
+
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem;">Searching...</div>';
+
+    // Search across all target tables in parallel
+    const searches = ASSIGN_TARGET_TABLES.map(async (table) => {
+        try {
+            const resp = await fetch(`${BP}/api/devices/${table}?q=${encodeURIComponent(q)}&limit=10`);
+            if (!resp.ok) return [];
+            const data = await resp.json();
+            return (data.items || []).map(item => ({
+                table: table,
+                id: item.id,
+                serial: item.serial || '',
+                name: item.device_name || item.device || item.model || item.org || item.site_name || '-',
+                manufacturer: item.manufacturer || '',
+                location: item.location || '',
+            }));
+        } catch (e) {
+            return [];
+        }
+    });
+
+    const results = (await Promise.all(searches)).flat();
+
+    if (results.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem;">No devices found.</div>';
+        return;
+    }
+
+    let html = '';
+    for (const r of results) {
+        const label = TABLE_LABELS[r.table] || r.table;
+        const displayName = r.manufacturer ? `${r.manufacturer} ${r.name}`.trim() : r.name;
+        html += `
+            <div onclick="assignDriveToDevice('${r.table}', ${r.id})"
+                 style="padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; font-size: 0.88rem;"
+                 onmouseover="this.style.background='rgba(21,124,164,0.1)'" onmouseout="this.style.background=''">
+                <span style="display: inline-block; background: rgba(21,124,164,0.15); color: var(--primary); padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem;">${label}</span>
+                <strong>${displayName}</strong>
+                ${r.serial ? ` <span style="color: var(--text-muted); font-size: 0.8rem;">(${r.serial})</span>` : ''}
+                ${r.location ? ` <span style="color: var(--text-muted); font-size: 0.8rem;">— ${r.location}</span>` : ''}
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+// --- Assign Drive to Device ---
+async function assignDriveToDevice(targetTable, targetId) {
+    if (!assignDriveData) return;
+
+    const container = document.getElementById('assign-search-results');
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem;">Assigning...</div>';
+
+    try {
+        const resp = await fetch(`${BP}/api/drives/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                drive_id: assignDriveData.id,
+                target_table: targetTable,
+                target_id: targetId,
+            }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            container.innerHTML = '<div class="alert alert-danger">' + (data.error || 'Assignment failed') + '</div>';
+            return;
+        }
+
+        // Success
+        document.getElementById('assign-step-scan').style.display = 'none';
+        document.getElementById('assign-step-drive').style.display = 'none';
+        document.getElementById('assign-step-target').style.display = 'none';
+
+        const banner = document.getElementById('assign-success-banner');
+        banner.style.display = 'block';
+        let msg = 'Drive <strong>' + assignDriveData.serial + '</strong> assigned to <strong>' + data.installed_in + '</strong>!';
+        if (data.previously_installed) {
+            msg += '<br><span style="font-size: 0.85rem; color: var(--text-muted);">Previously in: ' + data.previously_installed + '</span>';
+        }
+        banner.querySelector('.success-text').innerHTML = msg;
+        banner.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (e) {
+        container.innerHTML = '<div class="alert alert-danger">Error: ' + e.message + '</div>';
+    }
+}
+
+function assignAnother() {
+    // Reset assign mode
+    assignDriveData = null;
+    document.getElementById('assign-success-banner').style.display = 'none';
+    document.getElementById('assign-step-scan').style.display = 'block';
+    document.getElementById('assign-step-drive').style.display = 'none';
+    document.getElementById('assign-step-target').style.display = 'none';
+    document.getElementById('assign-serial').value = '';
+    document.getElementById('assign-scan-result').style.display = 'none';
+    document.getElementById('assign-drive-card').innerHTML = '';
+    document.getElementById('assign-device-search').value = '';
+    document.getElementById('assign-search-results').innerHTML = '';
+    document.getElementById('assign-step-scan').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Category pre-selection from ?category= query param
+(function() {
+    const preselect = "{{ preselect_category }}";
+    if (!preselect) return;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Pre-select category dropdown
+        const sel = document.getElementById('device-target-table');
+        if (sel) {
+            sel.value = preselect;
+            if (typeof toggleCategoryFields === 'function') toggleCategoryFields();
+        }
+        // Pre-fill serial with empty string to trigger step reveal
+        const serialInput = document.getElementById('device-serial');
+        if (serialInput) serialInput.value = '';
+        // Reveal steps 3, 4, 5
+        ['step-details','step-photo','step-submit'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        // Scroll to manual serial entry
+        const manualInput = document.getElementById('manual-serial');
+        if (manualInput) {
+            manualInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            manualInput.focus();
+        }
+    });
+})();
+</script>
+{% endblock %}

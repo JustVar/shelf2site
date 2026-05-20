@@ -1,0 +1,1447 @@
+{% extends "base.html" %}
+
+{% block title %}Provisioning - Hardware Asset Tracker{% endblock %}
+{% block nav_fulfillment %}active{% endblock %}
+
+{% block content %}
+<h1>Edge Box Provisioning</h1>
+<p style="color: var(--text-muted); margin-top: -0.5rem; margin-bottom: 1rem; font-size: 0.88rem;">
+    Track edge box deployment stages for pilot and customer sale installations.
+</p>
+
+<!-- Summary Cards -->
+<div class="summary-cards" style="margin-bottom: 1.5rem;">
+    <div class="summary-card">
+        <div class="summary-icon" style="background: rgba(52, 152, 219, 0.15); color: var(--info);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ total_active }}</div>
+            <div class="summary-label">In Progress</div>
+        </div>
+    </div>
+    {% for stage in default_stages %}
+    {% set count = stage_counts.get(stage.name, 0) %}
+    {% if count > 0 %}
+    <div class="summary-card">
+        <div class="summary-data" style="padding-left: 0.5rem;">
+            <div class="summary-number" style="font-size: 1.4rem;">{{ count }}</div>
+            <div class="summary-label">{{ stage.label }}</div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    <div class="summary-card {{ 'attention' if overdue_count > 0 else '' }}">
+        <div class="summary-icon" style="background: rgba(231, 76, 60, 0.15); color: var(--danger);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ overdue_count }}</div>
+            <div class="summary-label">Overdue (7+ days)</div>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-icon" style="background: rgba(39, 174, 96, 0.15); color: var(--success);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="summary-data">
+            <div class="summary-number">{{ completed_count }}</div>
+            <div class="summary-label">Completed (30d)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="prov-filter-bar">
+    <div class="prov-filter-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="prov-search" placeholder="Search devices, sites, notes..." oninput="applyFilters()">
+    </div>
+    <select id="filter-priority" onchange="applyFilters()">
+        <option value="">All Priorities</option>
+        <option value="urgent">Urgent</option>
+        <option value="high">High</option>
+        <option value="normal">Normal</option>
+        <option value="low">Low</option>
+    </select>
+    <select id="filter-stage" onchange="applyFilters()">
+        <option value="">All Stages</option>
+        {% for stage in default_stages %}
+        <option value="{{ stage.name }}">{{ stage.label }}</option>
+        {% endfor %}
+    </select>
+    <select id="filter-bucket" onchange="applyFilters()">
+        <option value="">All Buckets</option>
+        {% for key, label in deployment_buckets.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+        <option value="no_bucket">No Bucket</option>
+    </select>
+    <select id="filter-date" onchange="applyFilters()">
+        <option value="">All Dates</option>
+        <option value="overdue">Overdue</option>
+        <option value="due_soon">Due Soon (7d)</option>
+        <option value="no_date">No Due Date</option>
+    </select>
+    <button class="btn btn-sm" onclick="clearFilters()" title="Clear all filters" style="padding: 0.4rem 0.6rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+</div>
+
+<!-- View Toggle -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div class="view-toggle-buttons">
+        <button id="view-btn-board" class="view-toggle-btn active" onclick="switchView('board')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18"/><rect x="14" y="3" width="7" height="18"/></svg>
+            Board
+        </button>
+        <button id="view-btn-table" class="view-toggle-btn" onclick="switchView('table')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            Table
+        </button>
+        <button id="view-btn-grid" class="view-toggle-btn" onclick="switchView('grid')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Grid
+        </button>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ base_path }}/api/provisioning/export" class="btn" title="Export to Excel" style="display: flex; align-items: center; gap: 0.3rem; padding: 0.5rem 0.8rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+        </a>
+        {% if can_manage %}<button class="btn btn-success" onclick="openCreateModal()">+ New Provisioning</button>{% endif %}
+    </div>
+</div>
+
+<!-- Pipeline Board View -->
+<div id="board-view" class="provisioning-view" style="display: block;">
+    <div class="pipeline-board">
+        {% for bucket_key, bucket_label in deployment_buckets.items() %}
+        <div class="pipeline-column" data-bucket="{{ bucket_key }}"
+             ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '{{ bucket_key }}')">
+            <div class="pipeline-column-header">
+                <span class="pipeline-column-title">{{ bucket_label }}</span>
+                <span class="pipeline-column-count" id="count-{{ bucket_key }}">0</span>
+            </div>
+            <div class="pipeline-column-cards" id="bucket-{{ bucket_key }}">
+            </div>
+        </div>
+        {% endfor %}
+        <div class="pipeline-column" data-bucket="no_bucket"
+             ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '')">
+            <div class="pipeline-column-header">
+                <span class="pipeline-column-title">No Bucket</span>
+                <span class="pipeline-column-count" id="count-no_bucket">0</span>
+            </div>
+            <div class="pipeline-column-cards" id="bucket-no_bucket">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Grid Detail View -->
+<div id="grid-view" class="provisioning-view" style="display: none;">
+    <div class="table-section">
+        <div style="overflow-x: auto;">
+            <table id="grid-detail-table" style="font-size: 0.85rem;">
+                <thead>
+                    <tr>
+                        <th style="cursor: pointer;" onclick="sortGrid('device_name')">Edge Box <span class="sort-arrow" data-col="device_name">&#8597;</span></th>
+                        <th style="cursor: pointer;" onclick="sortGrid('assignee_name')">Assignment <span class="sort-arrow" data-col="assignee_name">&#8597;</span></th>
+                        <th style="cursor: pointer;" onclick="sortGrid('start_date')">Start Date <span class="sort-arrow" data-col="start_date">&#8597;</span></th>
+                        <th style="cursor: pointer;" onclick="sortGrid('due_date')">Due Date <span class="sort-arrow" data-col="due_date">&#8597;</span></th>
+                        <th style="cursor: pointer;" onclick="sortGrid('deployment_bucket')">Bucket <span class="sort-arrow" data-col="deployment_bucket">&#8597;</span></th>
+                        <th style="cursor: pointer;" onclick="sortGrid('progress_pct')">Progress <span class="sort-arrow" data-col="progress_pct">&#8597;</span></th>
+                    </tr>
+                </thead>
+                <tbody id="grid-detail-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Table View -->
+<div id="table-view" class="provisioning-view" style="display: none;">
+<h3 style="margin-bottom: 1rem;">Provisioning Queue</h3>
+<div class="table-section">
+    <div style="overflow-x: auto;">
+        <table style="font-size: 0.85rem;">
+            <thead>
+                <tr>
+                    <th class="prov-checkbox-col" style="width: 32px; padding: 0.4rem 0.5rem;">
+                        <input type="checkbox" id="select-all" title="Select all" style="cursor: pointer;">
+                    </th>
+                    <th>Edge Box</th>
+                    <th>Type</th>
+                    <th>Target Site</th>
+                    <th>Due Date</th>
+                    <th>Location</th>
+                    <th>Zendesk</th>
+                    <th>Progress</th>
+                    <th>Current Stage</th>
+                    <th>Assigned To</th>
+                    <th>Priority</th>
+                    <th>Days</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="table-view-tbody">
+                {% for item in queue_items %}
+                <tr id="prov-row-{{ item.id }}" class="prov-table-row"
+                    data-id="{{ item.id }}"
+                    data-name="{{ item.device_name|lower }}"
+                    data-site="{{ (item.site_name or '')|lower }}"
+                    data-notes="{{ (item.notes or '')|lower }}"
+                    data-location="{{ (item.location_note or '')|lower }}"
+                    data-priority="{{ item.priority }}"
+                    data-stage="{{ item.current_stage }}"
+                    data-bucket="{{ item.deployment_bucket or '' }}"
+                    data-overdue="{{ 'true' if item.is_overdue_due_date else 'false' }}"
+                    data-due-soon="{{ 'true' if item.due_soon else 'false' }}"
+                    data-has-due="{{ 'true' if item.due_date else 'false' }}">
+                    <td class="prov-checkbox-col" style="padding: 0.4rem 0.5rem;" onclick="event.stopPropagation()">
+                        <input type="checkbox" class="prov-select" value="{{ item.id }}" style="cursor: pointer;">
+                    </td>
+                    <td style="font-weight: 500; cursor: pointer;" onclick="window.location.href='{{ base_path }}/provisioning/{{ item.id }}'">{{ item.device_name }}</td>
+                    <td>
+                        {% if item.deployment_type == 'pilot' %}
+                        <span style="background: #6c5ce7; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 500;">Pilot</span>
+                        {% elif item.deployment_type == 'customer' %}
+                        <span style="background: #00b894; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 500;">Customer</span>
+                        {% else %}
+                        <span class="badge-category" style="font-size: 0.7rem; padding: 1px 6px;">{{ (item.deployment_type or item.display_table) | replace('_', ' ') | title }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.site_name }}</td>
+                    <td>
+                        {% if item.due_date %}
+                        <span {% if item.is_overdue_due_date %}style="color: var(--danger); font-weight: 600;"{% elif item.due_soon %}style="color: var(--warning); font-weight: 500;"{% endif %}>
+                            {{ item.due_date }}
+                        </span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.location_note %}
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">{{ item.location_note[:40] }}{% if item.location_note|length > 40 %}...{% endif %}</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.zendesk_ticket_id %}
+                        <a href="https://example-help.zendesk.com/agent/tickets/{{ item.zendesk_ticket_id }}"
+                           target="_blank" style="color: var(--info); text-decoration: none; font-size: 0.8rem;">#{{ item.zendesk_ticket_id }}</a>
+                        {% else %}
+                        <span style="color: var(--text-muted);">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="provision-progress" title="{{ item.completed_stages }}/{{ item.total_stages }} stages">
+                            {% for stage in item.stages %}
+                            <div class="provision-stage {{ 'completed' if stage.completed else ('current' if stage.name == item.current_stage else '') }}"
+                                 title="{{ stage.label }}{% if stage.completed %} ✓ {{ stage.completed_by }} ({{ stage.completed_at[:10] if stage.completed_at else '' }}){% endif %}">
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">{{ item.completed_stages }}/{{ item.total_stages }}</span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 500;">{{ item.current_stage_label }}</span>
+                    </td>
+                    <td>{{ item.assignee_name }}</td>
+                    <td>
+                        {% set pcolors = {"low": "#95a5a6", "normal": "#3498db", "high": "#f39c12", "urgent": "#e74c3c"} %}
+                        <span style="background: {{ pcolors.get(item.priority, '#3498db') }}; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 500;">{{ item.priority|capitalize }}</span>
+                    </td>
+                    <td>
+                        {% if item.is_overdue %}
+                        <span style="color: var(--danger); font-weight: 600;">{{ item.days_in_stage }}d</span>
+                        {% else %}
+                        {{ item.days_in_stage }}d
+                        {% endif %}
+                    </td>
+                    <td style="white-space: nowrap;">
+                        {% if can_manage %}
+                        <button class="btn btn-sm" onclick="openEditModal({{ item.id }})" title="Edit" style="padding: 2px 6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="advanceStage({{ item.id }})" title="Complete current stage">Advance</button>
+                        <button class="btn btn-warning btn-sm" onclick="revertStage({{ item.id }})" title="Revert last stage">Revert</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProvisioning({{ item.id }})" title="Delete">Del</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not queue_items %}
+                <tr id="prov-empty-row"><td colspan="13" style="text-align: center; padding: 2rem; color: var(--text-muted);">No active edge box provisioning. Click "+ New Provisioning" to start.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+<!-- Completed (last 30 days) -->
+{% if completed_items %}
+<h3 style="margin-top: 2rem;">Recently Completed</h3>
+<div class="table-section">
+    <div style="overflow-x: auto;">
+        <table style="font-size: 0.85rem;">
+            <thead>
+                <tr>
+                    <th>Edge Box</th>
+                    <th>Type</th>
+                    <th>Site</th>
+                    <th>Completed</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in completed_items %}
+                <tr>
+                    <td><a href="{{ base_path }}/provisioning/{{ item.id }}" style="color: var(--text); text-decoration: none; font-weight: 500;">{{ item.device_name }}</a></td>
+                    <td>
+                        {% if item.deployment_type == 'pilot' %}
+                        <span style="background: #6c5ce7; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 500;">Pilot</span>
+                        {% elif item.deployment_type == 'customer' %}
+                        <span style="background: #00b894; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 500;">Customer</span>
+                        {% else %}
+                        <span class="badge-category" style="font-size: 0.7rem; padding: 1px 6px;">{{ (item.deployment_type or 'Edge Box') | replace('_', ' ') | title }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.site_name }}</td>
+                    <td>{{ item.completed_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<style>
+/* Filter Bar */
+.prov-filter-bar {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.prov-filter-search {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0 0.6rem;
+    flex: 1;
+    min-width: 200px;
+}
+.prov-filter-search svg { color: var(--text-muted); flex-shrink: 0; }
+.prov-filter-search input {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    padding: 0.45rem 0;
+    font-size: 0.85rem;
+    width: 100%;
+    outline: none;
+}
+.prov-filter-bar select {
+    font-size: 0.85rem;
+    padding: 0.45rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text);
+    cursor: pointer;
+}
+
+/* View Toggle Buttons */
+.view-toggle-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+.view-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg);
+    color: var(--text-muted);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+.view-toggle-btn:hover {
+    background: var(--bg-elevated);
+    color: var(--text);
+}
+.view-toggle-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+.view-toggle-btn svg {
+    flex-shrink: 0;
+}
+
+/* Pipeline Board */
+.pipeline-board {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+}
+.pipeline-column {
+    flex: 1 1 250px;
+    min-width: 200px;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    transition: border-color 0.2s;
+}
+@media (min-width: 1920px) {
+    .pipeline-column { max-width: 520px; }
+}
+.pipeline-column.drag-over {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, var(--bg-elevated));
+}
+.pipeline-column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.pipeline-column-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.pipeline-column-count {
+    background: var(--text-muted);
+    color: var(--bg);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.pipeline-column-cards {
+    flex: 1;
+    padding: 0.75rem;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Pipeline Card */
+.pipeline-card {
+    background: var(--bg);
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.pipeline-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.pipeline-card.overdue {
+    border-color: var(--danger);
+}
+.pipeline-card.due-soon {
+    border-color: var(--warning);
+}
+.pipeline-card.dragging {
+    opacity: 0.4;
+    border-style: dashed;
+}
+.pipeline-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.5rem;
+}
+.pipeline-card-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.pipeline-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+}
+.pipeline-card-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--text-muted);
+}
+.pipeline-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Grid Detail Table */
+#grid-detail-table th {
+    cursor: pointer;
+    user-select: none;
+}
+#grid-detail-table th:hover {
+    background: var(--bg-hover);
+}
+#grid-detail-table tr {
+    cursor: pointer;
+}
+#grid-detail-table tr:hover {
+    background: var(--bg-hover);
+}
+#grid-detail-table .overdue-date {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+/* Edit Modal */
+.edit-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.edit-modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    width: 480px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+</style>
+
+<!-- Create Modal -->
+<div id="create-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">New Edge Box Provisioning</h3>
+            <button onclick="document.getElementById('create-modal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form id="create-prov-form" onsubmit="createProvisioning(event)">
+            <input type="hidden" name="device_table" value="edge_boxes">
+            <div class="form-group">
+                <label>Edge Box *</label>
+                <select id="prov-device" name="device_id" required>
+                    <option value="">Loading edge boxes...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Deployment Type</label>
+                <select name="deployment_type">
+                    <option value="">Select type...</option>
+                    <option value="pilot">Pilot</option>
+                    <option value="customer">Customer Sale</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Customer Order <span style="font-weight: normal; color: var(--text-muted);">(optional — links this box to an order)</span></label>
+                <select name="customer_order_id" id="prov-order-select" onchange="onOrderSelect(this)">
+                    <option value="" data-customer="">— None (assign later) —</option>
+                    {% for o in open_orders %}
+                    <option value="{{ o.id }}" data-customer="{{ o.customer_name | e }}">{{ o.order_number }} — {{ o.customer_name }}{% if o.sku_requirements %} ({{ o.sku_requirements | length }} SKU{{ 's' if o.sku_requirements | length != 1 }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+                {% if not open_orders %}
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">No open orders yet. <a href="{{ base_path }}/orders/" style="color: var(--accent);">Create one first</a>.</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>Customer / Organization</label>
+                <input type="text" id="prov-zendesk-org" name="zendesk_org" placeholder="Type customer name…" autocomplete="off"
+                       oninput="this._autoFilled = false">
+            </div>
+            <div class="form-group">
+                <label>Target Site</label>
+                <select name="site_id">
+                    <option value="">None (assign later)</option>
+                    {% for s in sites %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Assigned To</label>
+                <select name="assigned_to">
+                    <option value="">Unassigned</option>
+                    {% for u in users_list %}
+                    <option value="{{ u.id }}">{{ u.display_name or u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Priority</label>
+                <select name="priority">
+                    <option value="low">Low</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Pipeline Bucket</label>
+                <select name="deployment_bucket">
+                    <option value="">None (assign later)</option>
+                    {% for key, label in deployment_buckets.items() %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Zendesk Ticket ID <span style="font-weight: normal; color: var(--text-muted);">(optional)</span></label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="number" id="zendesk-ticket-input" name="zendesk_ticket_id" placeholder="e.g., 524" style="flex: 1;">
+                    <button type="button" class="btn" onclick="fetchZendeskTicket()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Fetch</button>
+                </div>
+                <div id="zendesk-ticket-info" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); display: none;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Start Date</label>
+                    <input type="date" name="start_date" style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Due Date</label>
+                    <input type="date" name="due_date" style="width: 100%;">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Location Note</label>
+                <input type="text" name="location_note" placeholder="e.g., In QA Office, Sales Engineer's possession" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" rows="2" style="width: 100%;"></textarea>
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+                <button type="button" class="btn" onclick="document.getElementById('create-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-success">Create</button>
+            </div>
+        </form>
+        <div id="create-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="edit-modal-overlay">
+    <div class="edit-modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;" id="edit-modal-title">Edit Provisioning</h3>
+            <button onclick="closeEditModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form id="edit-prov-form" onsubmit="saveEdit(event)">
+            <input type="hidden" id="edit-prov-id">
+            <div class="form-group">
+                <label>Target Site</label>
+                <select id="edit-site-id" name="site_id">
+                    <option value="">None</option>
+                    {% for s in sites %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Assigned To</label>
+                <select id="edit-assigned-to" name="assigned_to">
+                    <option value="">Unassigned</option>
+                    {% for u in users_list %}
+                    <option value="{{ u.id }}">{{ u.display_name or u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Priority</label>
+                <select id="edit-priority" name="priority">
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Pipeline Bucket</label>
+                <select id="edit-bucket" name="deployment_bucket">
+                    <option value="">None</option>
+                    {% for key, label in deployment_buckets.items() %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Start Date</label>
+                    <input type="date" id="edit-start-date" name="start_date" style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Due Date</label>
+                    <input type="date" id="edit-due-date" name="due_date" style="width: 100%;">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Location Note</label>
+                <input type="text" id="edit-location" name="location_note" placeholder="e.g., Warehouse shelf B4" style="width: 100%;">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="edit-notes" name="notes" rows="3" style="width: 100%;"></textarea>
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+                <button type="button" class="btn" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-success">Save Changes</button>
+            </div>
+        </form>
+        <div id="edit-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // BP available globally from base.html
+    const ALL_ITEMS = {{ queue_items | tojson }};
+    const BUCKET_LABELS = {{ deployment_buckets | tojson }};
+    let boardData = null; // Cached board API response
+
+    // -----------------------------------------------------------------------
+    // Filtering
+    // -----------------------------------------------------------------------
+    function getFilterValues() {
+        return {
+            search: (document.getElementById('prov-search').value || '').toLowerCase().trim(),
+            priority: document.getElementById('filter-priority').value,
+            stage: document.getElementById('filter-stage').value,
+            bucket: document.getElementById('filter-bucket').value,
+            date: document.getElementById('filter-date').value,
+        };
+    }
+
+    function itemMatchesFilter(item, f) {
+        if (f.search) {
+            const hay = `${item.device_name} ${item.site_name || ''} ${item.location_note || ''} ${item.notes || ''} ${item.assignee_name || ''}`.toLowerCase();
+            if (!hay.includes(f.search)) return false;
+        }
+        if (f.priority && item.priority !== f.priority) return false;
+        if (f.stage && item.current_stage !== f.stage) return false;
+        if (f.bucket) {
+            const itemBucket = item.deployment_bucket || '';
+            if (f.bucket === 'no_bucket') {
+                if (itemBucket) return false;
+            } else if (itemBucket !== f.bucket) return false;
+        }
+        if (f.date === 'overdue' && !item.is_overdue_due_date) return false;
+        if (f.date === 'due_soon' && !item.due_soon) return false;
+        if (f.date === 'no_date' && item.due_date) return false;
+        return true;
+    }
+
+    function applyFilters() {
+        const f = getFilterValues();
+        const currentView = document.querySelector('.view-toggle-btn.active').id.replace('view-btn-', '');
+
+        // Table view: show/hide rows
+        document.querySelectorAll('.prov-table-row').forEach(row => {
+            const match = rowMatchesFilter(row, f);
+            row.style.display = match ? '' : 'none';
+        });
+
+        // Board view: re-render with filter
+        if (currentView === 'board') loadBoardView();
+
+        // Grid view: re-render with filter
+        if (currentView === 'grid') loadGridView();
+    }
+
+    function rowMatchesFilter(row, f) {
+        if (f.search) {
+            const hay = `${row.dataset.name} ${row.dataset.site} ${row.dataset.location} ${row.dataset.notes}`;
+            if (!hay.includes(f.search)) return false;
+        }
+        if (f.priority && row.dataset.priority !== f.priority) return false;
+        if (f.stage && row.dataset.stage !== f.stage) return false;
+        if (f.bucket) {
+            if (f.bucket === 'no_bucket') {
+                if (row.dataset.bucket) return false;
+            } else if (row.dataset.bucket !== f.bucket) return false;
+        }
+        if (f.date === 'overdue' && row.dataset.overdue !== 'true') return false;
+        if (f.date === 'due_soon' && row.dataset.dueSoon !== 'true') return false;
+        if (f.date === 'no_date' && row.dataset.hasDue !== 'false') return false;
+        return true;
+    }
+
+    function clearFilters() {
+        document.getElementById('prov-search').value = '';
+        document.getElementById('filter-priority').value = '';
+        document.getElementById('filter-stage').value = '';
+        document.getElementById('filter-bucket').value = '';
+        document.getElementById('filter-date').value = '';
+        applyFilters();
+    }
+
+    // -----------------------------------------------------------------------
+    // Create Modal
+    // -----------------------------------------------------------------------
+    async function loadEdgeBoxes() {
+        const select = document.getElementById('prov-device');
+        select.innerHTML = '<option value="">Loading edge boxes...</option>';
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/devices/edge_boxes`);
+            const data = await resp.json();
+            select.innerHTML = '<option value="">Select edge box...</option>';
+            for (const d of data.devices) {
+                select.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+            }
+        } catch (err) {
+            select.innerHTML = '<option value="">Error loading edge boxes</option>';
+        }
+    }
+
+    function openCreateModal() {
+        document.getElementById('create-modal').style.display = 'flex';
+        loadEdgeBoxes();
+    }
+
+    function onOrderSelect(sel) {
+        const orgInput = document.getElementById('prov-zendesk-org');
+        const customerName = sel.options[sel.selectedIndex].dataset.customer || '';
+        // Only auto-fill if the org field is empty or was previously auto-filled from an order
+        if (customerName) {
+            orgInput.value = customerName;
+            orgInput._autoFilled = true;
+        } else if (orgInput._autoFilled) {
+            orgInput.value = '';
+            orgInput._autoFilled = false;
+        }
+    }
+
+    async function fetchZendeskTicket() {
+        const input = document.getElementById('zendesk-ticket-input');
+        const infoDiv = document.getElementById('zendesk-ticket-info');
+        const ticketId = input.value.trim();
+
+        if (!ticketId) {
+            infoDiv.style.display = 'none';
+            return;
+        }
+
+        infoDiv.style.display = 'block';
+        infoDiv.innerHTML = '<span style="color: var(--info);">Fetching ticket...</span>';
+
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/zendesk-ticket/${ticketId}`);
+            const data = await resp.json();
+
+            if (resp.ok) {
+                let html = `<div style="padding: 0.75rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">`;
+                html += `<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">`;
+                html += `<strong>Ticket #${data.ticket_id}</strong>: ${data.subject}`;
+                html += `<a href="${data.url}" target="_blank" style="color: var(--info); font-size: 0.8rem; white-space: nowrap; margin-left: 0.5rem;">View &#8599;</a>`;
+                html += `</div>`;
+                html += `<div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">`;
+                html += `Status: ${data.status}`;
+                if (data.priority) html += ` | Priority: ${data.priority}`;
+                if (data.organization) html += ` | Org: ${data.organization}`;
+                html += `</div>`;
+
+                const eb = data.edge_box;
+                if (eb.serial_number || eb.uuid || eb.mac1 || eb.customer_site) {
+                    html += `<div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">`;
+                    html += `<strong style="font-size: 0.85rem;">Edge Box Details:</strong>`;
+                    html += `<div style="display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.5rem; margin-top: 0.25rem; font-size: 0.85rem;">`;
+                    if (eb.serial_number) html += `<span style="color: var(--text-muted);">Serial:</span><span style="font-family: monospace;">${eb.serial_number}</span>`;
+                    if (eb.uuid) html += `<span style="color: var(--text-muted);">UUID:</span><span style="font-family: monospace; font-size: 0.75rem;">${eb.uuid}</span>`;
+                    if (eb.mac1) html += `<span style="color: var(--text-muted);">MAC 1:</span><span style="font-family: monospace;">${eb.mac1}</span>`;
+                    if (eb.mac2) html += `<span style="color: var(--text-muted);">MAC 2:</span><span style="font-family: monospace;">${eb.mac2}</span>`;
+                    if (eb.customer_site) html += `<span style="color: var(--text-muted);">Site:</span><span>${eb.customer_site}</span>`;
+                    if (eb.due_date) html += `<span style="color: var(--text-muted);">Due:</span><span>${eb.due_date}</span>`;
+                    html += `</div>`;
+                    if (eb.licenses) {
+                        html += `<div style="margin-top: 0.5rem;"><strong style="font-size: 0.85rem;">Licenses:</strong><div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; white-space: pre-line;">${eb.licenses}</div></div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                if (data.inventory_match) {
+                    const inv = data.inventory_match;
+                    html += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(39, 174, 96, 0.1); border: 1px solid var(--success); border-radius: 4px;">`;
+                    html += `<strong style="color: var(--success); font-size: 0.85rem;">&#10003; Found in Inventory</strong><br>`;
+                    html += `<div style="font-size: 0.85rem; margin-top: 0.25rem;">`;
+                    html += `${inv.part_number} <span class="badge-sku-${inv.sku_version}">${inv.sku_version.toUpperCase()}</span>`;
+                    html += ` | Status: ${inv.status}`;
+                    if (inv.deployment_type) html += ` | ${inv.deployment_type ? inv.deployment_type.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : ''}`;
+                    html += `</div></div>`;
+                } else if (eb.serial_number) {
+                    html += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(243, 156, 18, 0.1); border: 1px solid var(--warning); border-radius: 4px; font-size: 0.85rem; color: var(--warning);">`;
+                    html += `&#9888; Serial ${eb.serial_number} not found in inventory`;
+                    html += `</div>`;
+                }
+
+                if (data.legacy_sku && data.new_sku) {
+                    html += `<div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">`;
+                    html += `<strong style="font-size: 0.85rem;">SKU Conversion:</strong> `;
+                    html += `<span class="badge-sku-legacy">LEGACY</span> ${data.legacy_sku} &rarr; `;
+                    html += `<span class="badge-sku-2026">2026</span> ${data.new_sku}`;
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+                infoDiv.innerHTML = html;
+            } else {
+                infoDiv.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+            }
+        } catch (err) {
+            infoDiv.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
+        }
+    }
+
+    async function createProvisioning(e) {
+        e.preventDefault();
+        const form = document.getElementById('create-prov-form');
+        const fd = new FormData(form);
+        const body = {};
+        for (const [k, v] of fd.entries()) { if (v) body[k] = v; }
+        const msg = document.getElementById('create-msg');
+        try {
+            const resp = await fetch(`${BP}/api/provisioning`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                msg.innerHTML = '<span style="color: var(--success);">Provisioning created!</span>';
+                setTimeout(() => location.reload(), 500);
+            } else {
+                msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+            }
+        } catch (err) {
+            msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Edit Modal
+    // -----------------------------------------------------------------------
+    function openEditModal(provId) {
+        const item = ALL_ITEMS.find(i => i.id === provId);
+        if (!item) return;
+
+        document.getElementById('edit-prov-id').value = provId;
+        document.getElementById('edit-modal-title').textContent = `Edit: ${item.device_name}`;
+        document.getElementById('edit-site-id').value = item.site_id || '';
+        document.getElementById('edit-assigned-to').value = item.assigned_to || '';
+        document.getElementById('edit-priority').value = item.priority || 'normal';
+        document.getElementById('edit-bucket').value = item.deployment_bucket || '';
+        document.getElementById('edit-start-date').value = item.start_date || '';
+        document.getElementById('edit-due-date').value = item.due_date || '';
+        document.getElementById('edit-location').value = item.location_note || '';
+        document.getElementById('edit-notes').value = item.notes || '';
+        document.getElementById('edit-msg').innerHTML = '';
+
+        document.getElementById('edit-modal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        document.getElementById('edit-modal').style.display = 'none';
+    }
+
+    async function saveEdit(e) {
+        e.preventDefault();
+        const provId = document.getElementById('edit-prov-id').value;
+        const body = {
+            site_id: document.getElementById('edit-site-id').value || null,
+            assigned_to: document.getElementById('edit-assigned-to').value || null,
+            priority: document.getElementById('edit-priority').value,
+            deployment_bucket: document.getElementById('edit-bucket').value || null,
+            start_date: document.getElementById('edit-start-date').value || null,
+            due_date: document.getElementById('edit-due-date').value || null,
+            location_note: document.getElementById('edit-location').value || null,
+            notes: document.getElementById('edit-notes').value || null,
+        };
+        const msg = document.getElementById('edit-msg');
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/${provId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                msg.innerHTML = `<span style="color: var(--success);">Saved! Changed: ${data.changed.join(', ') || 'none'}</span>`;
+                setTimeout(() => location.reload(), 600);
+            } else {
+                msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+            }
+        } catch (err) {
+            msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
+        }
+    }
+
+    // Close modals on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.getElementById('create-modal').style.display = 'none';
+            closeEditModal();
+        }
+    });
+
+    // -----------------------------------------------------------------------
+    // Stage Actions
+    // -----------------------------------------------------------------------
+    async function advanceStage(id) {
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/${id}/advance`, {method: 'POST'});
+            const data = await resp.json();
+            if (resp.ok) { location.reload(); }
+            else { alert(data.error); }
+        } catch (err) { alert(err.message); }
+    }
+
+    async function revertStage(id) {
+        if (!confirm('Revert the last completed stage?')) return;
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/${id}/revert`, {method: 'POST'});
+            const data = await resp.json();
+            if (resp.ok) { location.reload(); }
+            else { alert(data.error); }
+        } catch (err) { alert(err.message); }
+    }
+
+    async function deleteProvisioning(id) {
+        if (!confirm('Delete this provisioning record?')) return;
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/${id}`, {method: 'DELETE'});
+            const data = await resp.json();
+            if (resp.ok) { location.reload(); }
+            else { alert(data.error); }
+        } catch (err) { alert(err.message); }
+    }
+
+    // -----------------------------------------------------------------------
+    // View Switching
+    // -----------------------------------------------------------------------
+    function switchView(viewName) {
+        document.querySelectorAll('.view-toggle-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`view-btn-${viewName}`).classList.add('active');
+        document.querySelectorAll('.provisioning-view').forEach(v => v.style.display = 'none');
+        document.getElementById(`${viewName}-view`).style.display = 'block';
+
+        if (viewName === 'board') loadBoardView();
+        else if (viewName === 'grid') loadGridView();
+        else applyFilters(); // Re-apply filters for table view
+    }
+
+    // -----------------------------------------------------------------------
+    // Board View (Pipeline Kanban)
+    // -----------------------------------------------------------------------
+    let draggedItemId = null;
+
+    async function loadBoardView() {
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/by-bucket`);
+            const data = await resp.json();
+            if (!resp.ok) return;
+
+            boardData = data;
+            const f = getFilterValues();
+
+            document.querySelectorAll('.pipeline-column-cards').forEach(col => col.innerHTML = '');
+
+            for (const [bucketKey, items] of Object.entries(data.buckets)) {
+                const container = document.getElementById(`bucket-${bucketKey}`);
+                const countBadge = document.getElementById(`count-${bucketKey}`);
+                if (!container) continue;
+
+                const filtered = items.filter(item => itemMatchesFilter(item, f));
+                countBadge.textContent = filtered.length;
+
+                filtered.forEach(item => {
+                    const card = createPipelineCard(item);
+                    container.appendChild(card);
+                });
+
+                if (filtered.length === 0) {
+                    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem;">Empty</div>';
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load board view:', err);
+        }
+    }
+
+    function createPipelineCard(item) {
+        const card = document.createElement('div');
+        card.className = 'pipeline-card';
+        card.dataset.id = item.id;
+        card.draggable = true;
+        if (item.is_overdue_due_date) card.classList.add('overdue');
+        else if (item.due_soon) card.classList.add('due-soon');
+
+        const deploymentBadge = item.deployment_type === 'pilot'
+            ? '<span style="background: #6c5ce7; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 500;">Pilot</span>'
+            : item.deployment_type === 'customer'
+            ? '<span style="background: #00b894; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 500;">Customer</span>'
+            : '';
+
+        const dueDateHtml = item.due_date
+            ? `<div class="pipeline-card-meta-item" ${item.is_overdue_due_date ? 'style="color: var(--danger); font-weight: 600;"' : ''}>
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                   ${item.due_date}
+               </div>`
+            : '';
+
+        const locationHtml = item.location_note
+            ? `<div class="pipeline-card-meta-item" title="${item.location_note}">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                   ${item.location_note.substring(0, 30)}${item.location_note.length > 30 ? '...' : ''}
+               </div>`
+            : '';
+
+        const zendeskHtml = item.zendesk_ticket_id
+            ? `<div class="pipeline-card-meta-item">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                   <a href="https://example-help.zendesk.com/agent/tickets/${item.zendesk_ticket_id}"
+                      target="_blank" onclick="event.stopPropagation();"
+                      style="color: var(--info); text-decoration: none; font-size: 0.8rem;">
+                       Ticket #${item.zendesk_ticket_id}
+                   </a>
+               </div>`
+            : '';
+
+        card.innerHTML = `
+            <div class="pipeline-card-header">
+                <div class="pipeline-card-title">${item.device_name}</div>
+                ${deploymentBadge}
+            </div>
+            <div class="pipeline-card-meta">
+                ${dueDateHtml}
+                ${locationHtml}
+                ${zendeskHtml}
+                <div class="pipeline-card-meta-item">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    ${item.assignee_name}
+                </div>
+            </div>
+            <div class="pipeline-card-footer">
+                <div style="font-size: 0.75rem; color: var(--text-muted);">${item.current_stage}</div>
+                <div style="font-size: 0.75rem;">${item.completed_stages}/${item.total_stages} stages</div>
+            </div>
+        `;
+
+        card.onclick = () => window.location.href = `${BP}/provisioning/${item.id}`;
+
+        // Drag events
+        card.addEventListener('dragstart', (e) => {
+            draggedItemId = item.id;
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', item.id);
+        });
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            draggedItemId = null;
+            document.querySelectorAll('.pipeline-column').forEach(c => c.classList.remove('drag-over'));
+        });
+
+        return card;
+    }
+
+    // Drag-and-drop handlers for columns
+    function onDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        e.currentTarget.classList.add('drag-over');
+    }
+
+    function onDragLeave(e) {
+        e.currentTarget.classList.remove('drag-over');
+    }
+
+    async function onDrop(e, newBucket) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        const itemId = parseInt(e.dataTransfer.getData('text/plain'));
+        if (!itemId) return;
+
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/${itemId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ deployment_bucket: newBucket || null }),
+            });
+            if (resp.ok) {
+                loadBoardView(); // Refresh board
+            } else {
+                const data = await resp.json();
+                alert(data.error || 'Failed to move card');
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Grid View
+    // -----------------------------------------------------------------------
+    let gridSortBy = 'due_date';
+    let gridSortAsc = true;
+
+    function loadGridView() {
+        const f = getFilterValues();
+        let items = ALL_ITEMS.filter(item => itemMatchesFilter(item, f));
+
+        // Sort
+        items.sort((a, b) => {
+            let va = a[gridSortBy] || '';
+            let vb = b[gridSortBy] || '';
+            if (typeof va === 'number') return gridSortAsc ? va - vb : vb - va;
+            va = String(va).toLowerCase();
+            vb = String(vb).toLowerCase();
+            if (va < vb) return gridSortAsc ? -1 : 1;
+            if (va > vb) return gridSortAsc ? 1 : -1;
+            return 0;
+        });
+
+        const tbody = document.getElementById('grid-detail-tbody');
+        tbody.innerHTML = '';
+
+        items.forEach(item => {
+            const row = document.createElement('tr');
+            row.onclick = () => window.location.href = `${BP}/provisioning/${item.id}`;
+
+            const bucketLabel = BUCKET_LABELS[item.deployment_bucket] || item.deployment_bucket || '&mdash;';
+
+            row.innerHTML = `
+                <td style="font-weight: 500;">${item.device_name}</td>
+                <td>${item.assignee_name}</td>
+                <td>${item.start_date || '<span style="color: var(--text-muted);">&mdash;</span>'}</td>
+                <td ${item.is_overdue_due_date ? 'class="overdue-date"' : ''}>${item.due_date || '<span style="color: var(--text-muted);">&mdash;</span>'}</td>
+                <td>${bucketLabel}</td>
+                <td>${item.progress_pct}%</td>
+            `;
+
+            tbody.appendChild(row);
+        });
+
+        // Update sort arrows
+        document.querySelectorAll('.sort-arrow').forEach(a => {
+            if (a.dataset.col === gridSortBy) {
+                a.textContent = gridSortAsc ? '\u25B2' : '\u25BC';
+            } else {
+                a.textContent = '\u2195';
+            }
+        });
+    }
+
+    function sortGrid(field) {
+        if (gridSortBy === field) {
+            gridSortAsc = !gridSortAsc;
+        } else {
+            gridSortBy = field;
+            gridSortAsc = true;
+        }
+        loadGridView();
+    }
+
+    // -----------------------------------------------------------------------
+    // Initialize
+    // -----------------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+        loadBoardView();
+    });
+
+    // -----------------------------------------------------------------------
+    // Bulk assign — checkbox multi-select + Assign to Order modal
+    // -----------------------------------------------------------------------
+    let _selectedProvIds = new Set();
+
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'select-all') {
+            document.querySelectorAll('.prov-select').forEach(cb => {
+                // Only toggle visible (non-filtered) rows
+                const row = cb.closest('tr');
+                if (!row || row.style.display === 'none') return;
+                cb.checked = e.target.checked;
+                if (e.target.checked) {
+                    _selectedProvIds.add(+cb.value);
+                } else {
+                    _selectedProvIds.delete(+cb.value);
+                }
+            });
+            _updateBulkBar();
+        } else if (e.target.classList.contains('prov-select')) {
+            if (e.target.checked) {
+                _selectedProvIds.add(+e.target.value);
+            } else {
+                _selectedProvIds.delete(+e.target.value);
+                const sa = document.getElementById('select-all');
+                if (sa) sa.checked = false;
+            }
+            _updateBulkBar();
+        }
+    });
+
+    function _updateBulkBar() {
+        const bar = document.getElementById('bulk-action-bar');
+        if (!bar) return;
+        const n = _selectedProvIds.size;
+        bar.style.display = n > 0 ? 'flex' : 'none';
+        const countEl = document.getElementById('bulk-count');
+        if (countEl) countEl.textContent = `${n} record${n !== 1 ? 's' : ''} selected`;
+    }
+
+    function clearSelection() {
+        _selectedProvIds.clear();
+        document.querySelectorAll('.prov-select').forEach(cb => cb.checked = false);
+        const sa = document.getElementById('select-all');
+        if (sa) sa.checked = false;
+        _updateBulkBar();
+    }
+
+    async function openAssignModal() {
+        if (_selectedProvIds.size === 0) return;
+        // Fetch open orders
+        let orders = [];
+        try {
+            const resp = await fetch(`${BP}/api/orders/open`);
+            if (resp.ok) orders = await resp.json();
+        } catch (err) {
+            showToast('Failed to load orders: ' + err.message, 'error');
+            return;
+        }
+
+        const n = _selectedProvIds.size;
+        let selectedOrderId = null;
+
+        const modalHtml = `
+<div id="assign-order-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;">
+  <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;width:min(520px,95vw);max-height:80vh;display:flex;flex-direction:column;">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;font-size:1rem;">Assign ${n} Record${n !== 1 ? 's' : ''} to Order</h3>
+      <button onclick="document.getElementById('assign-order-modal').remove()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">&times;</button>
+    </div>
+    <div style="padding:0.75rem 1.25rem;border-bottom:1px solid var(--border);">
+      <input type="text" id="order-search" placeholder="Search by order number or customer..." autocomplete="off"
+             style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:6px;background:var(--input-bg,var(--card-bg));color:var(--text);font-size:0.875rem;"
+             oninput="filterOrderList(this.value)">
+    </div>
+    <div id="order-list" style="overflow-y:auto;flex:1;padding:0.5rem 0.75rem;">
+      ${orders.length === 0
+        ? '<p style="text-align:center;color:var(--text-muted);padding:1.5rem;">No open orders found.</p>'
+        : orders.map(o => `
+          <div class="order-pick-row" data-id="${o.id}" data-search="${(o.order_number + ' ' + o.customer_name).toLowerCase()}"
+               onclick="selectOrderRow(this, ${o.id})"
+               style="padding:0.6rem 0.75rem;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.25rem;border:1px solid transparent;">
+            <div>
+              <span style="font-weight:600;font-size:0.875rem;">${o.order_number}</span>
+              <span style="color:var(--text-muted);font-size:0.8rem;margin-left:0.5rem;">${o.customer_name}</span>
+            </div>
+            <span style="font-size:0.75rem;padding:1px 8px;border-radius:10px;background:var(--border);color:var(--text-muted);">${o.status}</span>
+          </div>`).join('')}
+    </div>
+    <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button class="btn btn-sm" style="color:var(--danger,#e74c3c);border-color:var(--danger,#e74c3c);" onclick="confirmAssign(null)">Unlink from Order</button>
+      <button id="assign-confirm-btn" class="btn btn-primary btn-sm" disabled onclick="confirmAssign(selectedOrderId_)">Assign</button>
+    </div>
+  </div>
+</div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.getElementById('order-search').focus();
+    }
+
+    // Expose selected order ID for the confirm button
+    let selectedOrderId_ = null;
+
+    function selectOrderRow(el, orderId) {
+        document.querySelectorAll('.order-pick-row').forEach(r => {
+            r.style.border = '1px solid transparent';
+            r.style.background = '';
+        });
+        el.style.border = '1px solid var(--info, #3498db)';
+        el.style.background = 'rgba(52,152,219,0.08)';
+        selectedOrderId_ = orderId;
+        const btn = document.getElementById('assign-confirm-btn');
+        if (btn) btn.disabled = false;
+    }
+
+    function filterOrderList(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('.order-pick-row').forEach(row => {
+            row.style.display = (!q || row.dataset.search.includes(q)) ? '' : 'none';
+        });
+    }
+
+    async function confirmAssign(orderId) {
+        const modal = document.getElementById('assign-order-modal');
+        if (modal) modal.remove();
+
+        const ids = [..._selectedProvIds];
+        try {
+            const resp = await fetch(`${BP}/api/provisioning/bulk-assign-order`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({prov_ids: ids, order_id: orderId}),
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                const msg = orderId
+                    ? `${data.updated} record${data.updated !== 1 ? 's' : ''} linked to ${data.order_number}`
+                    : `${data.updated} record${data.updated !== 1 ? 's' : ''} unlinked`;
+                showToast(msg, 'success');
+                clearSelection();
+                // Reload the current view
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(data.error || 'Failed to assign', 'error');
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+        }
+    }
+
+    // Close modal on backdrop click
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('assign-order-modal');
+        if (modal && e.target === modal) modal.remove();
+    });
+</script>
+
+<!-- Bulk Action Bar -->
+<div id="bulk-action-bar" style="display:none; position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
+     background:var(--card-bg); border:1px solid var(--border); border-radius:8px;
+     padding:0.6rem 1rem; gap:0.75rem; box-shadow:0 4px 20px rgba(0,0,0,0.25);
+     z-index:200; align-items:center;">
+    <span id="bulk-count" style="font-size:0.85rem; color:var(--text-muted);"></span>
+    <button class="btn btn-primary btn-sm" onclick="openAssignModal()">Assign to Order</button>
+    <button class="btn btn-sm" onclick="clearSelection()">Clear</button>
+</div>
+{% endblock %}

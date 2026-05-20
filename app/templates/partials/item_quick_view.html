@@ -1,0 +1,182 @@
+{% if edit_mode %}
+<!-- ═══ QV EDIT MODE ═══ -->
+<form onsubmit="return saveQvEdit(this)" class="qv-body">
+  <div class="qv-field">
+    <div class="qv-field-label">Item Name</div>
+    <input type="text" name="item_name" class="itk-input" value="{{ item.item_name or '' }}">
+  </div>
+  <div class="qv-field">
+    <div class="qv-field-label">Serial Number</div>
+    <input type="text" name="item_sn" class="itk-input" value="{{ item.item_sn or '' }}">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="qv-field">
+      <div class="qv-field-label">Manufacturer</div>
+      <input type="text" name="item_manufacturer" class="itk-input" value="{{ item.item_manufacturer or '' }}">
+    </div>
+    <div class="qv-field">
+      <div class="qv-field-label">Model</div>
+      <input type="text" name="item_model" class="itk-input" value="{{ item.item_model or '' }}">
+    </div>
+  </div>
+
+  <div class="qv-divider"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="qv-field">
+      <div class="qv-field-label">Status</div>
+      <select name="item_status" class="itk-input">
+        <option value="">Select status...</option>
+        {% for s in statuses %}
+        <option value="{{ s }}" {% if item.item_status|string == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="qv-field">
+      <div class="qv-field-label">Location</div>
+      <select name="location_id" class="itk-input">
+        <option value="">Select location...</option>
+        {% for loc in locations %}
+        <option value="{{ loc.id }}" {% if item.location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="qv-field">
+      <div class="qv-field-label">Department / Owner</div>
+      <input type="text" name="department_or_owner" class="itk-input" value="{{ item.department_or_owner or '' }}">
+    </div>
+  </div>
+
+  <div class="qv-divider"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="qv-field">
+      <div class="qv-field-label">Company SKU</div>
+      <input type="text" name="brand_sku" class="itk-input" value="{{ item.brand_sku or '' }}">
+    </div>
+    <div class="qv-field">
+      <div class="qv-field-label">Company PN</div>
+      <input type="text" name="brand_pn" class="itk-input" value="{{ item.brand_pn or '' }}">
+    </div>
+  </div>
+
+  <div class="qv-divider"></div>
+
+  <div class="qv-field">
+    <div class="qv-field-label">Notes</div>
+    <textarea name="notes" class="itk-input itk-textarea" rows="3">{{ item.notes or '' }}</textarea>
+  </div>
+
+  <div style="display:flex;gap:8px;padding-top:0.75rem;justify-content:flex-end">
+    <button type="button" class="inv-btn" onclick="openQuickView(_qvItemId)">Cancel</button>
+    <button type="submit" class="itk-submit" style="padding:7px 18px;font-size:12px">Save</button>
+  </div>
+</form>
+
+{% else %}
+<!-- ═══ QV READ MODE ═══ -->
+<div class="qv-body">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
+    <span style="font-size:11px;padding:3px 9px;border-radius:4px;font-weight:600;background:{{ color }}22;color:{{ color }}">
+      {{ category_display }}
+    </span>
+    {% set s = item.item_status|string|lower|replace(' ','')|replace('-','') if item.item_status else 'unassigned' %}
+    <span class="inv-status inv-status--{{ s }}">{{ item.item_status or '—' }}</span>
+  </div>
+
+  <div class="qv-field">
+    <div class="qv-field-label">Item Name</div>
+    <div class="qv-field-value">{{ item.item_name or '—' }}</div>
+  </div>
+  <div class="qv-field">
+    <div class="qv-field-label">Serial Number</div>
+    <div class="qv-field-value" style="font-family:var(--sx-font-mono);font-size:12px">{{ item.item_sn or '—' }}</div>
+  </div>
+  <div class="qv-field">
+    <div class="qv-field-label">Manufacturer / Model</div>
+    <div class="qv-field-value">{{ item.item_manufacturer or '—' }} {{ item.item_model or '' }}</div>
+  </div>
+
+  <div class="qv-divider"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="qv-field">
+      <div class="qv-field-label">Location</div>
+      <div class="qv-field-value">{{ location }}</div>
+    </div>
+    <div class="qv-field">
+      <div class="qv-field-label">Department / Owner</div>
+      <div class="qv-field-value">{{ item.department_or_owner or '—' }}</div>
+    </div>
+    <div class="qv-field">
+      <div class="qv-field-label">Company SKU</div>
+      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.brand_sku or '—' }}</div>
+    </div>
+    <div class="qv-field">
+      <div class="qv-field-label">Company PN</div>
+      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.brand_pn or '—' }}</div>
+    </div>
+  </div>
+
+  <div class="qv-divider"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    {% if item.item_mac_address_1 %}
+    <div class="qv-field">
+      <div class="qv-field-label">MAC Address 1</div>
+      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.item_mac_address_1 | upper }}</div>
+    </div>
+    {% endif %}
+    {% if item.item_mac_address_2 %}
+    <div class="qv-field">
+      <div class="qv-field-label">MAC Address 2</div>
+      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.item_mac_address_2 | upper }}</div>
+    </div>
+    {% endif %}
+    {% if item.appliance_uuid %}
+    <div class="qv-field" style="grid-column:1/-1">
+      <div class="qv-field-label">Appliance UUID</div>
+      <div class="qv-field-value" style="font-size:11px;font-family:var(--sx-font-mono)">{{ item.appliance_uuid }}</div>
+    </div>
+    {% endif %}
+    {% if item.tracking_number %}
+    <div class="qv-field">
+      <div class="qv-field-label">Tracking Number</div>
+      <div class="qv-field-value" style="font-size:12px">{{ item.tracking_number }}</div>
+    </div>
+    {% endif %}
+    {% if item.dispatched_date %}
+    <div class="qv-field">
+      <div class="qv-field-label">Dispatched</div>
+      <div class="qv-field-value" style="font-size:12px">{{ item.dispatched_date }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if item.notes %}
+  <div class="qv-divider"></div>
+  <div class="qv-field">
+    <div class="qv-field-label">Notes</div>
+    <div class="qv-field-value" style="font-size:12px;line-height:1.5">{{ item.notes }}</div>
+  </div>
+  {% endif %}
+
+  <div class="qv-divider"></div>
+  <div style="font-size:11px;color:var(--sx-gray)">
+    Last updated: {{ item.last_updated.strftime('%b %d, %Y') if item.last_updated else '—' }}
+  </div>
+</div>
+
+<div class="qv-actions">
+  {% if user.is_editor_or_above %}
+  <button type="button" onclick="openQvEdit()"
+     style="flex:1;text-align:center;font-size:12px;padding:8px 12px;border-radius:8px;border:1px solid var(--sx-border);color:var(--sx-white);background:var(--sx-surface);cursor:pointer">
+    Edit
+  </button>
+  {% endif %}
+  <a href="{{ base_path }}/items/{{ item.id }}"
+     style="flex:1;text-align:center;font-size:12px;padding:8px 12px;border-radius:8px;border:1px solid var(--sx-blue);color:var(--sx-white);text-decoration:none;background:var(--sx-blue)">
+    Full Details →
+  </a>
+</div>
+{% endif %}

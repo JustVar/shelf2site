@@ -1,0 +1,89 @@
+<!-- HTMX partial: full table for a specific inventory category -->
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30px;">
+                <input type="checkbox" id="bulk-select-all"
+                       onchange="toggleSelectAll(this)"
+                       title="Select all"
+                       style="width: 16px; height: 16px; cursor: pointer;">
+            </th>
+            <th style="width: 30px;"></th>
+            {% for col in columns %}
+            <th>{{ col.replace('_', ' ').title() }}</th>
+            {% endfor %}
+            {% if table_name in ['cameras', 'mobile_devices', 'printers'] %}
+            <th>Credentials</th>
+            {% endif %}
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if items %}
+        {% for item in items %}
+        <tr>
+            <td>
+                <input type="checkbox" class="bulk-checkbox"
+                       data-table="{{ table_name }}"
+                       data-id="{{ item.id }}"
+                       onchange="updateBulkSelection()"
+                       style="width: 16px; height: 16px; cursor: pointer;">
+            </td>
+            <td>
+                {% set comp = item.data_completeness or 0 %}
+                {% if comp >= 80 %}
+                <span class="dot dot-green" title="{{ comp }}% complete"></span>
+                {% elif comp >= 50 %}
+                <span class="dot dot-yellow" title="{{ comp }}% complete"></span>
+                {% else %}
+                <span class="dot dot-red" title="{{ comp }}% complete"></span>
+                {% endif %}
+            </td>
+            {% for col in columns %}
+            <td>
+                {% set val = item.__dict__.get(col) %}
+                {% if val is none %}
+                <span style="color: var(--text-muted);">-</span>
+                {% elif val.__class__.__name__ == 'datetime' %}
+                {{ val.strftime('%Y-%m-%d') }}
+                {% else %}
+                {{ val }}
+                {% endif %}
+            </td>
+            {% endfor %}
+            {% if table_name in ['cameras', 'mobile_devices', 'printers'] %}
+            <td>
+                <button class="btn-creds"
+                        onclick="showCredentials('{{ table_name }}', {{ item.id }})">
+                    View
+                </button>
+            </td>
+            {% endif %}
+            <td>
+                <button class="btn-edit"
+                        onclick="openEditModal('{{ table_name }}', {{ item.id }})"
+                        title="Edit device">
+                    <svg viewBox="0 0 24 24" width="14" height="14">
+                        <path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                    </svg>
+                </button>
+                <button class="btn-history"
+                        onclick="openHistoryModal('{{ table_name }}', {{ item.id }})"
+                        title="View change history">
+                    <svg viewBox="0 0 24 24" width="14" height="14">
+                        <path fill="currentColor" d="M13,3A9,9 0 0,0 4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3Z"/>
+                    </svg>
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+            <td colspan="{{ columns|length + 4 }}"
+                style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                No devices found.
+            </td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>

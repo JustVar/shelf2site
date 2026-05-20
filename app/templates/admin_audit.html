@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log - Hardware Asset Tracker{% endblock %}
+{% block nav_admin_audit %}active{% endblock %}
+
+{% block content %}
+<h1>Audit Log</h1>
+
+<!-- Filters -->
+<div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: end;">
+    <div class="form-group" style="margin-bottom: 0;">
+        <label>Event Type</label>
+        <select id="filter-event" onchange="applyFilters()" style="width: 200px;">
+            <option value="">All Events</option>
+            <option value="device_added" {% if current_event_type == 'device_added' %}selected{% endif %}>Device Added</option>
+            <option value="device_edited" {% if current_event_type == 'device_edited' %}selected{% endif %}>Device Edited</option>
+            <option value="device_deleted" {% if current_event_type == 'device_deleted' %}selected{% endif %}>Device Deleted</option>
+            <option value="device_approved" {% if current_event_type == 'device_approved' %}selected{% endif %}>Device Approved</option>
+            <option value="device_dismissed" {% if current_event_type == 'device_dismissed' %}selected{% endif %}>Device Dismissed</option>
+            <option value="credential_viewed" {% if current_event_type == 'credential_viewed' %}selected{% endif %}>Credential Viewed</option>
+            <option value="user_login" {% if current_event_type == 'user_login' %}selected{% endif %}>User Login</option>
+            <option value="user_logout" {% if current_event_type == 'user_logout' %}selected{% endif %}>User Logout</option>
+            <option value="user_login_failed" {% if current_event_type == 'user_login_failed' %}selected{% endif %}>Login Failed</option>
+            <option value="oui_added" {% if current_event_type == 'oui_added' %}selected{% endif %}>OUI Added</option>
+            <option value="oui_removed" {% if current_event_type == 'oui_removed' %}selected{% endif %}>OUI Removed</option>
+            <option value="scan_triggered" {% if current_event_type == 'scan_triggered' %}selected{% endif %}>Scan Triggered</option>
+            <option value="scan_completed" {% if current_event_type == 'scan_completed' %}selected{% endif %}>Scan Completed</option>
+        </select>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+        <label>User</label>
+        <select id="filter-user" onchange="applyFilters()" style="width: 180px;">
+            <option value="">All Users</option>
+            {% for u in all_users %}
+            <option value="{{ u.id }}" {% if current_user_filter == u.id|string %}selected{% endif %}>{{ u.display_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Audit Entries -->
+<div class="table-section">
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Event</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>IP</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if entries %}
+                {% for e in entries %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') if e.timestamp else '-' }}</td>
+                    <td>{{ users_map.get(e.user_id, 'System') if e.user_id else 'System' }}</td>
+                    <td><span class="badge badge-count">{{ e.event_type }}</span></td>
+                    <td>{{ e.action or '-' }}</td>
+                    <td>
+                        {% if e.target_table %}
+                        {{ e.target_table }}{% if e.target_id %}/{{ e.target_id }}{% endif %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td style="font-family: monospace; font-size: 0.8rem;">{{ e.ip_address or '-' }}</td>
+                    <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis;" title="{{ e.details or '' }}">
+                        {{ e.details or '-' }}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No audit log entries found.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">
+    Showing most recent 500 entries.
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // BP available globally from base.html
+    function applyFilters() {
+        const eventType = document.getElementById('filter-event').value;
+        const userId = document.getElementById('filter-user').value;
+        const params = new URLSearchParams();
+        if (eventType) params.set('event_type', eventType);
+        if (userId) params.set('user_filter', userId);
+        window.location.href = `${BP}/admin/audit?${params.toString()}`;
+    }
+</script>
+{% endblock %}

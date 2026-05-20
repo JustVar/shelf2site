@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Channels - Hardware Asset Tracker{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <a href="{{ base_path }}/admin/users" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Admin</a>
+</div>
+<h1>Notification Channels</h1>
+<p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+    Configure how users receive provisioning event notifications.
+    Each user can independently choose <strong>Slack DM</strong>, <strong>email</strong>, or both
+    from the notification panel on any page.
+</p>
+
+<!-- Status Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">Bot Token (xoxb-)</div>
+        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; color: {{ 'var(--success, #27ae60)' if bot_configured else 'var(--danger, #e74c3c)' }};">
+            {{ 'Configured' if bot_configured else 'Not Set' }}
+        </div>
+        <code style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all;">SLACK_BOT_TOKEN</code>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">Channel Webhook</div>
+        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; color: {{ 'var(--success, #27ae60)' if webhook_configured else 'var(--warning, #f39c12)' }};">
+            {{ 'Configured' if webhook_configured else 'Not Set' }}
+        </div>
+        <code style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all;">SLACK_WEBHOOK_URL</code>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">Test Webhook</div>
+        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; color: {{ 'var(--success, #27ae60)' if test_webhook_configured else 'var(--warning, #f39c12)' }};">
+            {{ 'Configured' if test_webhook_configured else 'Not Set' }}
+        </div>
+        <code style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all;">SLACK_TEST_WEBHOOK_URL</code>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">SMTP Host</div>
+        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; color: {{ 'var(--success, #27ae60)' if smtp_configured else 'var(--warning, #f39c12)' }};">
+            {{ smtp_host if smtp_configured else 'Not Set' }}
+        </div>
+        <code style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all;">SMTP_HOST</code>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">SMTP Auth</div>
+        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; color: {{ 'var(--success, #27ae60)' if smtp_auth_configured else 'var(--warning, #f39c12)' }};">
+            {% if smtp_auth_configured %}Configured
+            {% elif smtp_configured %}No auth (open relay)
+            {% else %}Not Set{% endif %}
+        </div>
+        <code style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all;">SMTP_USER / SMTP_PASSWORD</code>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">Your Account Email</div>
+        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; color: {{ 'var(--text)' if user_email else 'var(--warning, #f39c12)' }}; word-break: break-all;">
+            {{ user_email if user_email else 'Not set' }}
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted);">Used for Slack auto-match &amp; email delivery</div>
+    </div>
+</div>
+
+<!-- ── Slack Bot ─────────────────────────────────────────────────────── -->
+<div class="table-section" style="margin-bottom: 1.5rem;">
+    <h2>Slack Bot</h2>
+    {% if bot_configured %}
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Bot token is active. Required scopes:
+        <code>users:read</code>, <code>users:read.email</code>, <code>chat:write</code>, <code>im:write</code>
+    </p>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start;">
+        <div>
+            <button class="btn btn-primary" onclick="testSlackConnection()">Test Bot Token</button>
+            <div id="slack-test-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+        </div>
+        <div>
+            <button class="btn" onclick="testSlackDm()">Send Test DM to Myself</button>
+            <div id="slack-dm-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+        </div>
+    </div>
+    {% else %}
+    <p style="font-size: 0.85rem; color: var(--text-muted);">
+        To enable Slack DMs, add <code>SLACK_BOT_TOKEN=xoxb-...</code> to the <code>.env</code> file on the NUC and restart the service.
+    </p>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; margin-top: 0.75rem;">
+        <div style="color: var(--text-muted); margin-bottom: 0.5rem;"># Add to /opt/hardware_inventory/.env</div>
+        <div>SLACK_BOT_TOKEN=xoxb-your-token-here</div>
+        <div style="color: var(--text-muted); margin-top: 0.5rem;"># Optional: test channel for E2E runs</div>
+        <div>SLACK_TEST_WEBHOOK_URL=https://hooks.slack.com/services/...</div>
+    </div>
+    <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+        <strong>How to get a bot token:</strong>
+        Create a Slack App at api.slack.com &rarr; Install to Workspace &rarr; copy the Bot OAuth Token (starts with <code>xoxb-</code>).
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Email / SMTP ──────────────────────────────────────────────────── -->
+<div class="table-section" style="margin-bottom: 1.5rem;">
+    <h2>Email / SMTP</h2>
+    {% if smtp_configured %}
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        SMTP host is set. Users who enable <strong>Email</strong> delivery on their subscriptions
+        will receive notifications at their account email address.
+    </p>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start;">
+        <div>
+            <button class="btn btn-primary" onclick="testEmail()">Send Test Email to Myself</button>
+            <div id="email-test-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+        </div>
+    </div>
+    {% else %}
+    <p style="font-size: 0.85rem; color: var(--text-muted);">
+        To enable email notifications, add SMTP settings to the <code>.env</code> file on the NUC and restart the service.
+    </p>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; margin-top: 0.75rem;">
+        <div style="color: var(--text-muted); margin-bottom: 0.5rem;"># Add to /opt/hardware_inventory/.env</div>
+        <div>SMTP_HOST=smtp.office365.com</div>
+        <div>SMTP_PORT=587</div>
+        <div>SMTP_USER=notifications@example.com</div>
+        <div>SMTP_PASSWORD=your-app-password</div>
+        <div>SMTP_FROM=Asset Tracker &lt;notifications@example.com&gt;</div>
+        <div style="color: var(--text-muted); margin-top: 0.5rem;"># Set to false for SSL-only servers (port 465)</div>
+        <div>SMTP_TLS=true</div>
+    </div>
+    <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+        <strong>Microsoft 365 / Exchange:</strong> Use an app password or service account with SMTP AUTH enabled.
+        Contact your M365 admin if SMTP AUTH is disabled tenant-wide.
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── How Notifications Work ───────────────────────────────────────── -->
+<div class="table-section">
+    <h2>How Notifications Work</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 0.75rem;">
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.5rem;">1. User sets email</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">Each user adds their email via User Management. This is used for Slack auto-match and email delivery.</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.5rem;">2. User subscribes</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">Click the bell icon on any provisioning detail page, or open the notification panel and go to My Subscriptions.</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.5rem;">3. Choose delivery</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">Each subscription has independent Slack and Email toggles. Users can enable one or both channels per subscription.</div>
+        </div>
+        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 600; margin-bottom: 0.5rem;">4. Event fires</div>
+            <div style="font-size: 0.83rem; color: var(--text-muted);">When a provisioning stage advances or completes, the app delivers to each subscriber via their chosen channels automatically.</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.25rem; padding: 0.75rem 1rem; background: rgba(52, 152, 219, 0.08); border: 1px solid rgba(52, 152, 219, 0.3); border-radius: 8px; font-size: 0.85rem;">
+        <strong>Note:</strong> Slack DMs require <code>SLACK_BOT_TOKEN</code>. Email requires <code>SMTP_HOST</code>.
+        Both channels are independent — configuring one does not affect the other.
+        Notifications are suppressed during E2E test runs.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>// BP available globally from base.html</script>
+<script src="{{ base_path }}/static/js/admin-notifications.js"></script>
+{% endblock %}

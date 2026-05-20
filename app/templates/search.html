@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Search - Hardware Asset Tracker{% endblock %}
+{% block nav_search %}active{% endblock %}
+
+{% block content %}
+<h1>Global Search</h1>
+<p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+    Search across all 16 device categories simultaneously.
+</p>
+
+<!-- Search Input -->
+<div class="search-bar-container" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; max-width: 600px;">
+        <input type="search"
+               id="global-search-input"
+               placeholder="Search by name, serial, MAC, IP, vendor, location, notes..."
+               autofocus
+               style="flex: 1; padding: 0.7rem 1rem; font-size: 1rem;">
+        <button type="button" id="search-clear-btn"
+                style="display:none; background:none; border:1px solid var(--border); border-radius:4px; padding:0.4rem 0.8rem; color:var(--text-muted); cursor:pointer; font-size:0.85rem;">
+            Clear
+        </button>
+        <span id="search-spinner" style="display:none; color: var(--text-muted); white-space: nowrap;">Searching...</span>
+    </div>
+</div>
+
+<!-- Result Count -->
+<div id="search-result-count" style="display: none; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+    <strong id="search-count-value">0</strong> results found
+</div>
+
+<!-- Search Results -->
+<div class="table-section">
+    <div id="search-results" style="overflow-x: auto;">
+        <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            Type at least 2 characters to search across all device categories.
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // BP available globally from base.html
+
+    // ── Search via plain fetch (no HTMX) ──────────────────────
+    const _searchInput = document.getElementById('global-search-input');
+    const _searchResults = document.getElementById('search-results');
+    const _searchSpinner = document.getElementById('search-spinner');
+    const _searchCount = document.getElementById('search-result-count');
+    const _searchCountVal = document.getElementById('search-count-value');
+    const _clearBtn = document.getElementById('search-clear-btn');
+    let _searchTimer = null;
+
+    _searchInput.addEventListener('input', function() {
+        clearTimeout(_searchTimer);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            _searchResults.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">Type at least 2 characters to search across all device categories.</div>';
+            _searchCount.style.display = 'none';
+            _clearBtn.style.display = q.length > 0 ? 'inline-block' : 'none';
+            return;
+        }
+        _clearBtn.style.display = 'inline-block';
+        _searchTimer = setTimeout(() => doSearch(q), 300);
+    });
+
+    _clearBtn.addEventListener('click', function() {
+        _searchInput.value = '';
+        _searchInput.focus();
+        _searchResults.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">Type at least 2 characters to search across all device categories.</div>';
+        _searchCount.style.display = 'none';
+        _clearBtn.style.display = 'none';
+    });
+
+    async function doSearch(q) {
+        _searchSpinner.style.display = 'inline';
+        try {
+            const resp = await fetch(`${BP}/search/results?q=${encodeURIComponent(q)}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const html = await resp.text();
+            _searchResults.innerHTML = html;
+
+            const rows = _searchResults.querySelectorAll('tbody tr[data-device-id]');
+            if (rows.length > 0) {
+                _searchCountVal.textContent = rows.length;
+                _searchCount.style.display = 'block';
+            } else {
+                _searchCount.style.display = 'none';
+            }
+        } catch (e) {
+            _searchResults.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--danger,#e74c3c);">Search failed — please try again.</div>';
+            _searchCount.style.display = 'none';
+        } finally {
+            _searchSpinner.style.display = 'none';
+        }
+    }
+
+    // ── Edit via Global Edit Modal ─────────────────────────────
+    function openSearchDrawer(tableName, deviceId) {
+        GlobalEditModal.open(tableName, deviceId, {
+            onSuccess: function() {
+                // Re-run the current search to refresh results
+                const q = _searchInput.value.trim();
+                if (q.length >= 2) doSearch(q);
+            }
+        });
+    }
+</script>
+{% endblock %}

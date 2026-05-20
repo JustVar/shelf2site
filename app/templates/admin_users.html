@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Users - Hardware Asset Tracker{% endblock %}
+{% block nav_admin_users %}active{% endblock %}
+
+{% block content %}
+<div class="users-page">
+  <div class="users-page__header">
+    <div class="users-page__title">
+      <h1>Users</h1>
+      <p class="users-page__subtitle"><span id="users-count-active">0</span> active · <span id="users-count-inactive">0</span> inactive</p>
+    </div>
+    <div class="users-page__controls">
+      <input type="text" id="users-search" class="users-search" placeholder="Search…" autocomplete="off">
+      <select id="users-role-filter" class="users-role-filter">
+        <option value="">All roles</option>
+        <option value="admin-tier">Admin tier</option>
+        <option value="editor">Editor</option>
+        <option value="viewer">Viewer</option>
+      </select>
+      <button type="button" id="users-add-btn" class="users-add-btn">+ Add user</button>
+    </div>
+  </div>
+
+  <div id="users-grid" class="users-grid"></div>
+
+  <div id="users-empty" class="users-empty" style="display:none;">
+    <p>No users match your search.</p>
+  </div>
+</div>
+
+<!-- Drawer overlay + drawer (skeleton; U2c populates body and wires save) -->
+<div id="user-drawer-overlay" class="sx-drawer-overlay"></div>
+<aside id="user-drawer" class="sx-drawer" aria-hidden="true">
+  <div class="sx-drawer-header">
+    <div>
+      <h3 id="user-drawer-title" class="sx-drawer-title">Edit user</h3>
+      <p id="user-drawer-subtitle" class="sx-drawer-subtitle">—</p>
+    </div>
+    <button type="button" id="user-drawer-close" class="sx-drawer-close" aria-label="Close">×</button>
+  </div>
+  <div class="sx-drawer-body" id="user-drawer-body">
+    <div id="user-drawer-error" class="sx-drawer-error"></div>
+    <div id="user-drawer-locked-banner" class="sx-drawer-locked-banner" style="display:none;"></div>
+
+    <div class="sx-drawer-section">
+      <div class="sx-drawer-section-label">Identity</div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="ud-username">Username</label>
+        <input type="text" id="ud-username" autocomplete="off">
+        <div class="sx-drawer-field-hint" id="ud-username-hint">Cannot be changed after creation.</div>
+      </div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="ud-display-name">Display name</label>
+        <input type="text" id="ud-display-name" autocomplete="off">
+      </div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="ud-email">Email</label>
+        <input type="email" id="ud-email" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="sx-drawer-section">
+      <div class="sx-drawer-section-label">Role &amp; department</div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="ud-role">Role</label>
+        <select id="ud-role">
+          <option value="viewer">Viewer</option>
+          <option value="editor">Editor</option>
+          <option value="warranty_admin">Warranty admin</option>
+          <option value="trials_admin">Trials admin</option>
+          <option value="procurement_admin">Procurement admin</option>
+          <option value="admin">Admin</option>
+          <option value="ceo">CEO</option>
+          <option value="system_admin">System admin</option>
+          <option value="justin_admin">Super admin</option>
+        </select>
+      </div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="ud-department">Department</label>
+        <select id="ud-department">
+          <option value="">— Unassigned —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sx-drawer-section">
+      <div class="sx-drawer-section-label">Slack</div>
+      <div class="sx-drawer-field">
+        <label class="sx-drawer-field-label" for="ud-slack-user-id">Slack user ID</label>
+        <input type="text" id="ud-slack-user-id" autocomplete="off" placeholder="U02ABC123">
+        <div class="sx-drawer-field-hint">Used for at-mentions in alert channels.</div>
+      </div>
+      <div class="sx-drawer-field">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="ud-slack-auto-match" style="margin:0;">
+          <span>Auto-match by email</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="sx-drawer-section" id="ud-permissions-section">
+      <div class="sx-drawer-section-label">Permissions</div>
+      <div id="ud-permissions-groups">
+        <!-- JS populates: 4 group blocks, each with rows -->
+      </div>
+    </div>
+
+    <div class="sx-drawer-section" id="ud-password-section">
+      <div class="sx-drawer-section-label" id="ud-password-label">Password</div>
+      <div class="sx-drawer-field" id="ud-password-add-mode" style="display:none;">
+        <label class="sx-drawer-field-label" for="ud-password-input">Initial password</label>
+        <input type="text" id="ud-password-input" autocomplete="off" placeholder="≥12 chars · upper + lower + digit">
+        <div class="sx-drawer-field-hint">Admin tells the user this in person/Slack — no email sent yet.</div>
+      </div>
+      <div class="sx-drawer-field" id="ud-password-edit-mode" style="display:none;">
+        <button type="button" class="users-btn" id="ud-reset-password-btn">Reset password</button>
+        <span class="sx-drawer-field-hint" style="margin-left:8px;">Generates a new one and shows it once.</span>
+      </div>
+    </div>
+  </div>
+  <div class="sx-drawer-footer" id="user-drawer-footer">
+    <button type="button" id="user-drawer-disable" class="users-btn users-btn--danger" style="display:none;">Disable user</button>
+    <div style="display: flex; gap: 8px; margin-left: auto;">
+      <button type="button" id="user-drawer-cancel" class="users-btn">Cancel</button>
+      <button type="button" id="user-drawer-save" class="users-btn users-btn--primary">Save</button>
+    </div>
+  </div>
+</aside>
+
+<script>
+const USERS = {{ users_json | tojson }};
+const DEPARTMENTS = {{ departments_json | tojson }};
+const DEPARTMENTS_FULL = {{ departments_full_json | tojson }};
+</script>
+
+<script src="{{ base_path }}/static/js/admin-users-v2.js?v=20260515c"></script>
+{% endblock %}

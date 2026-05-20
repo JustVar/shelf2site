@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+
+{% block title %}{{ order.order_number }} — {{ order.customer_name }} - Hardware Asset Tracker{% endblock %}
+{% block nav_fulfillment %}active{% endblock %}
+
+{% block content %}
+<div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
+    <a href="{{ base_path }}/orders/" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">&larr; Orders</a>
+</div>
+
+<!-- Header -->
+<div style="display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+    <div style="flex:1; min-width:200px;">
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <h1 style="margin:0; font-family:monospace;">{{ order.order_number }}</h1>
+            {% set sc = STATUS_COLORS.get(order.status, 'var(--text-muted)') %}
+            <span id="status-badge" style="font-size:0.82rem; font-weight:600; padding:0.2rem 0.65rem; border-radius:99px;
+                         background:{{ sc }}22; color:{{ sc }}; border:1px solid {{ sc }}55;">
+                {{ ORDER_STATUSES.get(order.status, order.status) | title }}
+            </span>
+        </div>
+        <div style="font-size:1.1rem; font-weight:500; margin-top:0.35rem;">{{ order.customer_name }}</div>
+        {% if order.customer_account and order.customer_account != order.customer_name %}
+        <div style="font-size:0.85rem; color:var(--text-muted);">{{ order.customer_account }}</div>
+        {% endif %}
+    </div>
+    {% if user.has_provisioning_manage %}
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="openEditModal()">Edit Order</button>
+        <button class="btn btn-sm" onclick="updateStatus()" style="color:var(--info,#3498db); border-color:var(--info,#3498db);">Update Status</button>
+        <button class="btn btn-sm" onclick="deleteOrder()" style="color:var(--danger,#e74c3c); border-color:var(--danger,#e74c3c);">Delete</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Summary cards — column layout so label sits on top, value below, all left-aligned -->
+<div class="summary-cards" style="margin-bottom:1.5rem;">
+    <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
+        <div style="font-size:0.78rem; color:var(--text-muted);">SF Order ID</div>
+        <div style="font-size:0.9rem; font-weight:600; word-break:break-all;">
+            {{ order.salesforce_order_id or '—' }}
+        </div>
+    </div>
+    <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
+        <div style="font-size:0.78rem; color:var(--text-muted);">Sales Engineer</div>
+        <div style="font-size:0.9rem; font-weight:600;">
+            {{ order.sales_engineer or '—' }}
+        </div>
+    </div>
+    <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
+        <div style="font-size:0.78rem; color:var(--text-muted);">Due Date</div>
+        <div style="font-size:0.9rem; font-weight:600;">{{ order.due_date or '—' }}</div>
+    </div>
+    <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
+        <div style="font-size:0.78rem; color:var(--text-muted);">Deployment</div>
+        <div style="font-size:0.85rem; font-weight:600;">
+            {% if order.deployment_type == 'via_integrator' %}Via Integrator
+            {% elif order.deployment_type == 'via_distributor' %}Via Distributor
+            {% else %}Direct{% endif %}
+        </div>
+        {% if order.integrator_name %}
+        <div style="font-size:0.75rem; color:var(--text-muted);">{{ order.integrator_name }}</div>
+        {% elif order.distributor_name %}
+        <div style="font-size:0.75rem; color:var(--text-muted);">{{ order.distributor_name }}</div>
+        {% endif %}
+    </div>
+    <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
+        <div style="font-size:0.78rem; color:var(--text-muted);">Provisioning</div>
+        <div style="font-size:1.2rem; font-weight:700; line-height:1.1;">{{ prov_records | length }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">linked records</div>
+    </div>
+    <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
+        <div style="font-size:0.78rem; color:var(--text-muted);">OEM POs</div>
+        <div style="font-size:1.2rem; font-weight:700; line-height:1.1;">{{ oem_pos | length }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">purchase orders</div>
+    </div>
+</div>
+
+<!-- SKU Requirements + Availability -->
+<div class="table-section" style="margin-bottom:1.5rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+        <h2 style="margin:0;">SKU Requirements</h2>
+        <button class="btn btn-sm" onclick="refreshAvailability()" style="font-size:0.78rem; padding:0.2rem 0.55rem; margin-left:auto;">Refresh</button>
+    </div>
+    {% if availability %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Qty Needed</th>
+                <th>Source Plan</th>
+                <th>Available in Stock</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="avail-tbody">
+            {% for row in availability %}
+            <tr>
+                <td style="font-weight:500; white-space:nowrap;">{{ row.model }}</td>
+                <td>{{ row.qty }}</td>
+                <td style="color:var(--text-muted); font-size:0.85rem;">
+                    {% if row.source == 'stock' %}From stock
+                    {% elif row.source == 'oem' %}OEM order
+                    {% else %}TBD{% endif %}
+                </td>
+                <td>{{ row.available }}</td>
+                <td>
+                    {% if row.status == 'ok' %}
+                    <span class="badge badge-success">✓ Sufficient</span>
+                    {% elif row.status == 'partial' %}
+                    <span class="badge badge-warning">⚠ Partial ({{ row.available }}/{{ row.qty }})</span>
+                    {% else %}
+                    <span class="badge badge-danger">✗ None available</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">
+        No SKU requirements defined. {% if user.has_provisioning_manage %}<a href="#" onclick="openEditModal()">Edit order</a> to add them.{% endif %}
+    </p>
+    {% endif %}
+</div>
+
+<!-- OEM Purchase Orders -->
+<div class="table-section" style="margin-bottom:1.5rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+        <h2 style="margin:0;">OEM Purchase Orders</h2>
+        {% if user.has_provisioning_manage %}
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('add-po-modal').classList.add('open')"
+                style="font-size:0.78rem; padding:0.2rem 0.55rem; margin-left:auto;">+ Add PO</button>
+        {% endif %}
+    </div>
+    {% if oem_pos %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Vendor</th>
+                <th>PO #</th>
+                <th>SKU</th>
+                <th>Ordered</th>
+                <th>Received</th>
+                <th>Order Date</th>
+                <th>Expected</th>
+                <th>Status</th>
+                {% if user.has_provisioning_manage %}<th></th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for po in oem_pos %}
+            <tr>
+                <td style="font-weight:500;">{{ po.vendor_name }}</td>
+                <td style="font-size:0.85rem; color:var(--text-muted);">{{ po.po_number or '—' }}</td>
+                <td>{{ po.sku }}</td>
+                <td>{{ po.qty_ordered }}</td>
+                <td>
+                    {% if po.qty_received >= po.qty_ordered %}
+                    <span style="color:var(--success,#27ae60); font-weight:600;">{{ po.qty_received }}</span>
+                    {% elif po.qty_received > 0 %}
+                    <span style="color:var(--warning,#f39c12); font-weight:600;">{{ po.qty_received }}</span>
+                    {% else %}
+                    <span style="color:var(--text-muted);">0</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:0.85rem;">{{ po.order_date or '—' }}</td>
+                <td style="font-size:0.85rem;">{{ po.expected_delivery or '—' }}</td>
+                <td>
+                    {% if po.status == 'received' %}<span class="badge badge-success">Received</span>
+                    {% elif po.status == 'partial' %}<span class="badge badge-warning">Partial</span>
+                    {% elif po.status == 'cancelled' %}<span class="badge badge-danger">Cancelled</span>
+                    {% else %}<span class="badge">Ordered</span>{% endif %}
+                </td>
+                {% if user.has_provisioning_manage %}
+                <td>
+                    <button class="btn btn-sm" onclick='editPO({{ po.id }}, {{ {
+                        "vendor_name": po.vendor_name, "po_number": po.po_number or "",
+                        "sku": po.sku, "qty_ordered": po.qty_ordered, "qty_received": po.qty_received,
+                        "order_date": (po.order_date | string) if po.order_date else "",
+                        "expected_delivery": (po.expected_delivery | string) if po.expected_delivery else "",
+                        "status": po.status, "notes": po.notes or ""
+                    } | tojson }})' style="font-size:0.75rem; padding:0.15rem 0.45rem;">Edit</button>
+                    <button class="btn btn-sm" onclick="deletePO({{ po.id }})"
+                            style="font-size:0.75rem; padding:0.15rem 0.45rem; color:var(--danger,#e74c3c); border-color:var(--danger,#e74c3c);">✕</button>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No OEM purchase orders yet.</p>
+    {% endif %}
+</div>
+
+<!-- Linked Provisioning Records -->
+<div class="table-section" style="margin-bottom:1.5rem;">
+    <h2>Linked Provisioning Records</h2>
+    {% if prov_records %}
+    <table class="data-table" style="margin-top:0.75rem;">
+        <thead>
+            <tr>
+                <th>Device</th>
+                <th>Stage</th>
+                <th>Assignee</th>
+                <th>Priority</th>
+                <th>Complete</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in prov_records %}
+            {% set p = item.record %}
+            <tr>
+                <td>
+                    <a href="{{ base_path }}/provisioning/{{ p.id }}" style="color:var(--accent,#3498db);">
+                        {{ item.device_label }}
+                    </a>
+                </td>
+                <td style="font-size:0.85rem;">{{ p.current_stage | title }}</td>
+                <td style="font-size:0.85rem;">{{ p.assignee.display_name if p.assignee else '—' }}</td>
+                <td>
+                    {% if p.priority == 'urgent' %}<span class="badge badge-danger">Urgent</span>
+                    {% elif p.priority == 'high' %}<span class="badge badge-warning">High</span>
+                    {% else %}<span class="badge">{{ p.priority | title }}</span>{% endif %}
+                </td>
+                <td>
+                    {% if p.is_complete %}<span class="badge badge-success">✓ Complete</span>
+                    {% else %}<span class="badge">In Progress</span>{% endif %}
+                </td>
+                {% if user.has_provisioning_manage %}
+                <td>
+                    <button class="btn btn-sm" onclick="unlinkProvisioning({{ p.id }})"
+                            style="font-size:0.75rem; padding:0.15rem 0.45rem; color:var(--text-muted);"
+                            title="Unlink from this order">Unlink</button>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">
+        No provisioning records linked. Link them from the <a href="{{ base_path }}/provisioning/" style="color:var(--accent,#3498db);">Provisioning page</a>.
+    </p>
+    {% endif %}
+</div>
+
+<!-- Notes sections -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;" class="notes-grid">
+    <div class="table-section">
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Pre-Site Survey Notes</h2>
+        </div>
+        <div id="pre-survey-display" style="font-size:0.88rem; color:var(--text); white-space:pre-wrap; min-height:80px;">
+            {{ order.pre_site_survey or '' }}
+        </div>
+        {% if not order.pre_site_survey %}
+        <div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No pre-site survey notes yet.</div>
+        {% endif %}
+        {% if user.has_provisioning_manage %}
+        <button class="btn btn-sm" onclick="editNotes('pre')" style="margin-top:0.75rem; font-size:0.8rem;">Edit</button>
+        {% endif %}
+    </div>
+    <div class="table-section">
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Post-Install Notes</h2>
+        </div>
+        <div id="post-install-display" style="font-size:0.88rem; color:var(--text); white-space:pre-wrap; min-height:80px;">
+            {{ order.post_install_notes or '' }}
+        </div>
+        {% if not order.post_install_notes %}
+        <div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No post-install notes yet.</div>
+        {% endif %}
+        {% if user.has_provisioning_manage %}
+        <button class="btn btn-sm" onclick="editNotes('post')" style="margin-top:0.75rem; font-size:0.8rem;">Edit</button>
+        {% endif %}
+    </div>
+</div>
+
+{% if order.notes %}
+<div class="table-section" style="margin-bottom:1.5rem;">
+    <h2>Order Notes</h2>
+    <div style="font-size:0.88rem; white-space:pre-wrap; margin-top:0.5rem;">{{ order.notes }}</div>
+</div>
+{% endif %}
+
+<!-- Status update modal -->
+{% if user.has_provisioning_manage %}
+<div id="status-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:380px;">
+        <div class="modal-header">
+            <h2>Update Status</h2>
+            <button class="modal-close" onclick="document.getElementById('status-modal').classList.remove('open')">✕</button>
+        </div>
+        <div class="form-group" style="margin-top:0.75rem;">
+            <label>New Status</label>
+            <select id="status-select" class="form-control">
+                {% for key, label in ORDER_STATUSES.items() %}
+                <option value="{{ key }}" {% if key == order.status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="document.getElementById('status-modal').classList.remove('open')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveStatus()">Save</button>
+        </div>
+        <div id="status-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
+    </div>
+</div>
+
+<!-- Add OEM PO modal -->
+<div id="add-po-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:560px;">
+        <div class="modal-header">
+            <h2 id="po-modal-title">Add OEM Purchase Order</h2>
+            <button class="modal-close" onclick="document.getElementById('add-po-modal').classList.remove('open')">✕</button>
+        </div>
+        <input type="hidden" id="po-edit-id">
+        <div class="form-row">
+            <div class="form-group" style="flex:2;">
+                <label>Vendor / OEM <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="po-vendor" class="form-control" placeholder="e.g. Axis Communications">
+            </div>
+            <div class="form-group">
+                <label>PO Number</label>
+                <input type="text" id="po-number" class="form-control" placeholder="Optional">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="flex:2;">
+                <label>SKU / Model <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="po-sku" class="form-control" list="edge-skus" placeholder="e.g. EDGE25-56TB-NR">
+            </div>
+            <div class="form-group">
+                <label>Qty Ordered</label>
+                <input type="number" id="po-qty-ordered" class="form-control" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label>Qty Received</label>
+                <input type="number" id="po-qty-received" class="form-control" value="0" min="0">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Order Date</label>
+                <input type="date" id="po-order-date" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Expected Delivery</label>
+                <input type="date" id="po-expected" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="po-status" class="form-control">
+                    <option value="ordered">Ordered</option>
+                    <option value="partial">Partial</option>
+                    <option value="received">Received</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Notes</label>
+            <input type="text" id="po-notes" class="form-control" placeholder="Optional">
+        </div>
+        <div id="po-error" class="alert alert-danger" style="display:none;"></div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="document.getElementById('add-po-modal').classList.remove('open')">Cancel</button>
+            <button class="btn btn-primary" onclick="savePO()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Notes edit modal -->
+<div id="notes-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:600px;">
+        <div class="modal-header">
+            <h2 id="notes-modal-title">Edit Notes</h2>
+            <button class="modal-close" onclick="document.getElementById('notes-modal').classList.remove('open')">✕</button>
+        </div>
+        <input type="hidden" id="notes-type">
+        <div class="form-group" style="margin-top:0.75rem;">
+            <textarea id="notes-textarea" class="form-control" rows="8" style="width:100%;"></textarea>
+        </div>
+        <div id="notes-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="document.getElementById('notes-modal').classList.remove('open')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveNotes()">Save</button>
+        </div>
+    </div>
+</div>
+<!-- Datalist of all current 2026 EDGE SKUs for PO SKU autocomplete -->
+<datalist id="edge-skus">
+    <option value="EDGE10-28TB-NR">10 ch · 28TB · No RAID · 1U</option>
+    <option value="EDGE10-36TB-NR">10 ch · 36TB · No RAID · 1U</option>
+    <option value="EDGE10-40TB-NR">10 ch · 40TB · No RAID · 1U</option>
+    <option value="EDGE25-56TB-NR">25 ch · 56TB · No RAID · 1U</option>
+    <option value="EDGE25-72TB-NR">25 ch · 72TB · No RAID · 1U</option>
+    <option value="EDGE25-80TB-NR">25 ch · 80TB · No RAID · 1U</option>
+    <option value="EDGE50-112TB-NR">50 ch · 112TB · No RAID · 2U</option>
+    <option value="EDGE50-144TB-NR">50 ch · 144TB · No RAID · 2U</option>
+    <option value="EDGE50-160TB-NR">50 ch · 160TB · No RAID · 2U</option>
+    <option value="EDGE100-168TB-NR">100 ch · 168TB · No RAID · 2U</option>
+    <option value="EDGE100-216TB-NR">100 ch · 216TB · No RAID · 2U</option>
+    <option value="EDGE100-240TB-NR">100 ch · 240TB · No RAID · 2U</option>
+    <option value="EDGE50-84TB-Z2">50 ch · 84TB · RAID-Z2 · 2U</option>
+    <option value="EDGE50-108TB-Z2">50 ch · 108TB · RAID-Z2 · 2U</option>
+    <option value="EDGE50-120TB-Z2">50 ch · 120TB · RAID-Z2 · 2U</option>
+    <option value="EDGE100-140TB-Z2">100 ch · 140TB · RAID-Z2 · 2U</option>
+    <option value="EDGE100-180TB-Z2">100 ch · 180TB · RAID-Z2 · 2U</option>
+    <option value="EDGE100-200TB-Z2">100 ch · 200TB · RAID-Z2 · 2U</option>
+    <option value="EDGE200-308TB-Z2">200 ch · 308TB · RAID-Z2 · 4U</option>
+    <option value="EDGE200-396TB-Z2">200 ch · 396TB · RAID-Z2 · 4U</option>
+    <option value="EDGE200-440TB-Z2">200 ch · 440TB · RAID-Z2 · 4U</option>
+    <option value="EDGE300-476TB-Z2">300 ch · 476TB · RAID-Z2 · 4U</option>
+    <option value="EDGE300-612TB-Z2">300 ch · 612TB · RAID-Z2 · 4U</option>
+    <option value="EDGE300-680TB-Z2">300 ch · 680TB · RAID-Z2 · 4U</option>
+</datalist>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// BP available globally from base.html
+const ORDER_ID = {{ order.id }};
+
+// ---------------------------------------------------------------------------
+// Status update
+// ---------------------------------------------------------------------------
+function updateStatus() {
+    document.getElementById('status-modal').classList.add('open');
+}
+async function saveStatus() {
+    const status = document.getElementById('status-select').value;
+    try {
+        const resp = await fetch(`${BP}/api/orders/${ORDER_ID}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status}),
+        });
+        if (resp.ok) location.reload();
+        else {
+            const d = await resp.json();
+            document.getElementById('status-error').textContent = d.error || 'Failed';
+        }
+    } catch(e) { document.getElementById('status-error').textContent = e.message; }
+}
+
+// ---------------------------------------------------------------------------
+// Delete order
+// ---------------------------------------------------------------------------
+async function deleteOrder() {
+    if (!confirm('Delete this order? Provisioning records will be unlinked but not deleted.')) return;
+    const resp = await fetch(`${BP}/api/orders/${ORDER_ID}`, {method: 'DELETE'});
+    if (resp.ok) window.location.href = `${BP}/orders/`;
+    else { const d = await resp.json(); alert(d.error || 'Failed to delete'); }
+}
+
+// ---------------------------------------------------------------------------
+// OEM PO management
+// ---------------------------------------------------------------------------
+function editPO(poId, data) {
+    document.getElementById('po-modal-title').textContent = 'Edit OEM Purchase Order';
+    document.getElementById('po-edit-id').value = poId;
+    document.getElementById('po-vendor').value = data.vendor_name || '';
+    document.getElementById('po-number').value = data.po_number || '';
+    document.getElementById('po-sku').value = data.sku || '';
+    document.getElementById('po-qty-ordered').value = data.qty_ordered || 1;
+    document.getElementById('po-qty-received').value = data.qty_received || 0;
+    document.getElementById('po-order-date').value = data.order_date || '';
+    document.getElementById('po-expected').value = data.expected_delivery || '';
+    document.getElementById('po-status').value = data.status || 'ordered';
+    document.getElementById('po-notes').value = data.notes || '';
+    document.getElementById('po-error').style.display = 'none';
+    document.getElementById('add-po-modal').classList.add('open');
+}
+
+async function savePO() {
+    const editId = document.getElementById('po-edit-id').value;
+    const isEdit = !!editId;
+    const payload = {
+        vendor_name: document.getElementById('po-vendor').value.trim(),
+        po_number: document.getElementById('po-number').value.trim() || null,
+        sku: document.getElementById('po-sku').value.trim(),
+        qty_ordered: parseInt(document.getElementById('po-qty-ordered').value) || 1,
+        qty_received: parseInt(document.getElementById('po-qty-received').value) || 0,
+        order_date: document.getElementById('po-order-date').value || null,
+        expected_delivery: document.getElementById('po-expected').value || null,
+        status: document.getElementById('po-status').value,
+        notes: document.getElementById('po-notes').value.trim() || null,
+    };
+    const url = isEdit
+        ? `${BP}/api/orders/${ORDER_ID}/oem-pos/${editId}`
+        : `${BP}/api/orders/${ORDER_ID}/oem-pos`;
+    try {
+        const resp = await fetch(url, {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        if (resp.ok) location.reload();
+        else {
+            const d = await resp.json();
+            document.getElementById('po-error').textContent = d.error || 'Failed';
+            document.getElementById('po-error').style.display = 'block';
+        }
+    } catch(e) {
+        document.getElementById('po-error').textContent = e.message;
+        document.getElementById('po-error').style.display = 'block';
+    }
+}
+
+async function deletePO(poId) {
+    if (!confirm('Delete this OEM purchase order?')) return;
+    const resp = await fetch(`${BP}/api/orders/${ORDER_ID}/oem-pos/${poId}`, {method: 'DELETE'});
+    if (resp.ok) location.reload();
+    else { const d = await resp.json(); alert(d.error || 'Failed'); }
+}
+
+// Clear PO modal on open for new PO
+document.querySelector('[onclick*="add-po-modal"]') && document.querySelector('[onclick*="add-po-modal"]').addEventListener('click', function() {
+    if (!document.getElementById('po-edit-id').value) {
+        document.getElementById('po-modal-title').textContent = 'Add OEM Purchase Order';
+        ['po-vendor','po-number','po-sku','po-notes'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('po-qty-ordered').value = 1;
+        document.getElementById('po-qty-received').value = 0;
+        document.getElementById('po-order-date').value = '';
+        document.getElementById('po-expected').value = '';
+        document.getElementById('po-status').value = 'ordered';
+    }
+    document.getElementById('po-edit-id').value = '';
+    document.getElementById('po-error').style.display = 'none';
+});
+
+// ---------------------------------------------------------------------------
+// Unlink provisioning
+// ---------------------------------------------------------------------------
+async function unlinkProvisioning(provId) {
+    if (!confirm('Unlink this provisioning record from the order?')) return;
+    const resp = await fetch(`${BP}/api/provisioning/${provId}/link-order`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({order_id: null}),
+    });
+    if (resp.ok) location.reload();
+    else alert('Failed to unlink');
+}
+
+// ---------------------------------------------------------------------------
+// Notes editing
+// ---------------------------------------------------------------------------
+function editNotes(type) {
+    const titles = {pre: 'Edit Pre-Site Survey Notes', post: 'Edit Post-Install Notes'};
+    const values = {
+        pre: document.getElementById('pre-survey-display').textContent.trim(),
+        post: document.getElementById('post-install-display').textContent.trim(),
+    };
+    document.getElementById('notes-modal-title').textContent = titles[type];
+    document.getElementById('notes-type').value = type;
+    document.getElementById('notes-textarea').value = values[type];
+    document.getElementById('notes-error').textContent = '';
+    document.getElementById('notes-modal').classList.add('open');
+}
+
+async function saveNotes() {
+    const type = document.getElementById('notes-type').value;
+    const value = document.getElementById('notes-textarea').value;
+    const field = type === 'pre' ? 'pre_site_survey' : 'post_install_notes';
+    try {
+        const resp = await fetch(`${BP}/api/orders/${ORDER_ID}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({[field]: value}),
+        });
+        if (resp.ok) location.reload();
+        else {
+            const d = await resp.json();
+            document.getElementById('notes-error').textContent = d.error || 'Failed';
+        }
+    } catch(e) { document.getElementById('notes-error').textContent = e.message; }
+}
+
+// ---------------------------------------------------------------------------
+// Live SKU availability refresh
+// ---------------------------------------------------------------------------
+async function refreshAvailability() {
+    try {
+        const resp = await fetch(`${BP}/api/orders/${ORDER_ID}/availability`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const tbody = document.getElementById('avail-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = data.availability.map(row => {
+            const statusHtml = row.status === 'ok'
+                ? '<span class="badge badge-success">✓ Sufficient</span>'
+                : row.status === 'partial'
+                    ? `<span class="badge badge-warning">⚠ Partial (${row.available}/${row.qty})</span>`
+                    : '<span class="badge badge-danger">✗ None available</span>';
+            const sourceLabel = row.source === 'stock' ? 'From stock' : row.source === 'oem' ? 'OEM order' : 'TBD';
+            return `<tr>
+                <td style="font-weight:500; white-space:nowrap;">${row.model}</td>
+                <td>${row.qty}</td>
+                <td style="color:var(--text-muted);font-size:0.85rem;">${sourceLabel}</td>
+                <td>${row.available}</td>
+                <td>${statusHtml}</td>
+            </tr>`;
+        }).join('');
+    } catch(e) { /* ignore */ }
+}
+
+function openEditModal() {
+    // Navigate to orders list with edit intent — for simplicity redirect to orders page
+    // A full edit modal can be added in a follow-up iteration
+    alert('To edit order details including SKU requirements, use the Update Status button for status changes, or contact an administrator for full edits via the API.');
+}
+</script>
+
+<style>
+@media (max-width: 640px) {
+    .notes-grid { grid-template-columns: 1fr !important; }
+}
+</style>
+{% endblock %}

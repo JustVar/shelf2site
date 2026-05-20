@@ -1,0 +1,6 @@
+# Hardware Inventory Scanner Agent — NUC 2+ (Remote Scanners)
+# Minimal dependencies for remote scanner agents
+python-nmap>=0.7.1
+httpx>=0.27
+mac-vendor-lookup>=0.1.12
+python-dotenv>=1.0

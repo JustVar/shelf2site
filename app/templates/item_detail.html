@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+{% block title %}{{ item.item_name or 'Item' }} - Asset Tracker{% endblock %}
+
+{% block content %}
+{% from 'partials/icons.html' import icon %}
+
+<!-- Header -->
+<div class="dtl-header">
+  <div class="dtl-header-left">
+    <a href="{{ base_path }}/inventory/" class="dtl-back" title="Back to Inventory">← Inventory</a>
+    <h1 class="dtl-title">{{ item.item_name or 'Unnamed Item' }}</h1>
+    <div class="dtl-badges">
+      <span class="inv-cat-pill" style="background:{{ color }}22;color:{{ color }}">{{ category_display }}</span>
+      {% set s = item.item_status|string|lower|replace(' ','')|replace('-','') if item.item_status else 'unassigned' %}
+      <span class="inv-status inv-status--{{ s }}">{{ item.item_status or 'Unassigned' }}</span>
+    </div>
+  </div>
+  <div class="dtl-header-right">
+    {% if user.is_editor_or_above %}
+      {% if edit_mode %}
+      <a href="{{ base_path }}/items/{{ item.id }}" class="inv-btn">Cancel</a>
+      {% else %}
+      <a href="{{ base_path }}/items/{{ item.id }}?edit=1" class="dtl-edit-btn">Edit</a>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- Lock indicator — shown when another user is viewing/editing this item.
+     ID format must match locks.js: resource_key with ':' replaced by '-'. -->
+<div id="lock-indicator-items-{{ item.id }}" class="lock-indicator" style="display:none"></div>
+
+{% if error %}
+<div class="itk-error">{{ error }}</div>
+{% endif %}
+
+{% if edit_mode %}
+<!-- ═══════════ EDIT MODE ═══════════ -->
+<form method="post" action="{{ base_path }}/items/{{ item.id }}" class="itk-form">
+
+  <div class="itk-section">
+    <div class="itk-section-title">Basic Information</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="item_name">Item Name</label>
+        <input type="text" name="item_name" id="item_name" class="itk-input" value="{{ item.item_name or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_manufacturer">Manufacturer</label>
+        <input type="text" name="item_manufacturer" id="item_manufacturer" class="itk-input" value="{{ item.item_manufacturer or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_model">Model</label>
+        <input type="text" name="item_model" id="item_model" class="itk-input" value="{{ item.item_model or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_sn">Serial Number</label>
+        <input type="text" name="item_sn" id="item_sn" class="itk-input" value="{{ item.item_sn or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_category">Category</label>
+        <select name="item_category" id="item_category" class="itk-input">
+          <option value="">Select category...</option>
+          {% for cat in categories %}
+          <option value="{{ cat.value }}" {% if item.item_category|string == cat.value %}selected{% endif %}>{{ cat.display }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_status">Status</label>
+        <select name="item_status" id="item_status" class="itk-input">
+          <option value="">Select status...</option>
+          {% for s in statuses %}
+          <option value="{{ s }}" {% if item.item_status|string == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Location & Ownership</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="location_id">Location</label>
+        <select name="location_id" id="location_id" class="itk-input">
+          <option value="">Select location...</option>
+          {% for loc in locations %}
+          <option value="{{ loc.id }}" {% if item.location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="department_or_owner">Department / Owner</label>
+        <input type="text" name="department_or_owner" id="department_or_owner" class="itk-input" value="{{ item.department_or_owner or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Identifiers & Part Numbers</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="item_mac_address_1">MAC Address 1</label>
+        <input type="text" name="item_mac_address_1" id="item_mac_address_1" class="itk-input" value="{{ (item.item_mac_address_1 | upper) if item.item_mac_address_1 else '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_mac_address_2">MAC Address 2</label>
+        <input type="text" name="item_mac_address_2" id="item_mac_address_2" class="itk-input" value="{{ (item.item_mac_address_2 | upper) if item.item_mac_address_2 else '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_storage_size_gb">Storage Size (GB)</label>
+        <input type="text" name="item_storage_size_gb" id="item_storage_size_gb" class="itk-input" value="{{ item.item_storage_size_gb or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="appliance_uuid">Appliance UUID</label>
+        <input type="text" name="appliance_uuid" id="appliance_uuid" class="itk-input" value="{{ item.appliance_uuid or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="brand_sku">Company SKU</label>
+        <input type="text" name="brand_sku" id="brand_sku" class="itk-input" value="{{ item.brand_sku or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="brand_pn">Company Part Number</label>
+        <input type="text" name="brand_pn" id="brand_pn" class="itk-input" value="{{ item.brand_pn or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="item_associated_brand_pn">Associated Part Number</label>
+        <input type="text" name="item_associated_brand_pn" id="item_associated_brand_pn" class="itk-input" value="{{ item.item_associated_brand_pn or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Vendor</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="item_vendor">Vendor Name</label>
+        <input type="text" name="item_vendor" id="item_vendor" class="itk-input" value="{{ item.item_vendor or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="vendor_id">Vendor ID</label>
+        <input type="text" name="vendor_id" id="vendor_id" class="itk-input" value="{{ item.vendor_id or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="date_purchased">Date Purchased</label>
+        <input type="date" name="date_purchased" id="date_purchased" class="itk-input" value="{{ item.date_purchased.isoformat() if item.date_purchased else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Deployment Details</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="intended_purpose">Intended Purpose</label>
+        <input type="text" name="intended_purpose" id="intended_purpose" class="itk-input" value="{{ item.intended_purpose or '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="dispatched_date">Dispatched Date</label>
+        <input type="date" name="dispatched_date" id="dispatched_date" class="itk-input" value="{{ item.dispatched_date.isoformat() if item.dispatched_date else '' }}">
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="tracking_number">Tracking Number</label>
+        <input type="text" name="tracking_number" id="tracking_number" class="itk-input" value="{{ item.tracking_number or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Notes</div>
+    <div class="itk-field" style="max-width:100%">
+      <textarea name="notes" id="notes" class="itk-input itk-textarea" rows="3">{{ item.notes or '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="itk-actions">
+    <a href="{{ base_path }}/items/{{ item.id }}" class="inv-btn">Cancel</a>
+    <button type="submit" class="itk-submit">Save Changes</button>
+  </div>
+</form>
+
+{% else %}
+<!-- ═══════════ READ MODE ═══════════ -->
+<div class="dtl-content">
+
+  <!-- Details -->
+  <div class="dtl-section">
+    <div class="dtl-section-title">Details</div>
+    <div class="dtl-grid">
+      <div class="dtl-field">
+        <div class="dtl-label">Item Name</div>
+        <div class="dtl-value">{{ item.item_name or '—' }}</div>
+      </div>
+      <div class="dtl-field">
+        <div class="dtl-label">Category</div>
+        <div class="dtl-value">
+          <span class="inv-cat-pill" style="background:{{ color }}22;color:{{ color }}">{{ category_display }}</span>
+        </div>
+      </div>
+      <div class="dtl-field">
+        <div class="dtl-label">Manufacturer</div>
+        <div class="dtl-value">{{ item.item_manufacturer or '—' }}</div>
+      </div>
+      <div class="dtl-field">
+        <div class="dtl-label">Model</div>
+        <div class="dtl-value">{{ item.item_model or '—' }}</div>
+      </div>
+      <div class="dtl-field">
+        <div class="dtl-label">Serial Number</div>
+        <div class="dtl-value dtl-mono">{{ item.item_sn or '—' }}</div>
+      </div>
+      <div class="dtl-field">
+        <div class="dtl-label">Status</div>
+        <div class="dtl-value">
+          {% set s = item.item_status|string|lower|replace(' ','')|replace('-','') if item.item_status else 'unassigned' %}
+          <span class="inv-status inv-status--{{ s }}">{{ item.item_status or 'Unassigned' }}</span>
+        </div>
+      </div>
+      <div class="dtl-field">
+        <div class="dtl-label">Location</div>
+        <div class="dtl-value">{{ location_name }}</div>
+      </div>
+      <div class="dtl-field">
+        <div class="dtl-label">Department / Owner</div>
+        <div class="dtl-value">{{ item.department_or_owner or '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Identifiers -->
+  {% set has_ids = item.item_mac_address_1 or item.item_mac_address_2 or item.appliance_uuid or item.item_storage_size_gb or item.brand_sku or item.brand_pn or item.item_associated_brand_pn %}
+  {% if has_ids %}
+  <div class="dtl-section">
+    <div class="dtl-section-title">Identifiers & Part Numbers</div>
+    <div class="dtl-grid">
+      {% if item.item_mac_address_1 %}
+      <div class="dtl-field">
+        <div class="dtl-label">MAC Address 1</div>
+        <div class="dtl-value dtl-mono">{{ item.item_mac_address_1 | upper }}</div>
+      </div>
+      {% endif %}
+      {% if item.item_mac_address_2 %}
+      <div class="dtl-field">
+        <div class="dtl-label">MAC Address 2</div>
+        <div class="dtl-value dtl-mono">{{ item.item_mac_address_2 | upper }}</div>
+      </div>
+      {% endif %}
+      {% if item.item_storage_size_gb %}
+      <div class="dtl-field">
+        <div class="dtl-label">Storage Size</div>
+        <div class="dtl-value">{{ item.item_storage_size_gb }} GB</div>
+      </div>
+      {% endif %}
+      {% if item.appliance_uuid %}
+      <div class="dtl-field" style="grid-column:1/-1">
+        <div class="dtl-label">Appliance UUID</div>
+        <div class="dtl-value dtl-mono" style="font-size:11px">{{ item.appliance_uuid }}</div>
+      </div>
+      {% endif %}
+      {% if item.brand_sku %}
+      <div class="dtl-field">
+        <div class="dtl-label">Company SKU</div>
+        <div class="dtl-value dtl-mono">{{ item.brand_sku }}</div>
+      </div>
+      {% endif %}
+      {% if item.brand_pn %}
+      <div class="dtl-field">
+        <div class="dtl-label">Company PN</div>
+        <div class="dtl-value dtl-mono">{{ item.brand_pn }}</div>
+      </div>
+      {% endif %}
+      {% if item.item_associated_brand_pn %}
+      <div class="dtl-field">
+        <div class="dtl-label">Associated PN</div>
+        <div class="dtl-value dtl-mono">{{ item.item_associated_brand_pn }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Vendor & Deployment -->
+  {% set has_vendor = item.item_vendor or item.vendor_id or item.date_purchased or item.intended_purpose or item.dispatched_date or item.tracking_number %}
+  {% if has_vendor %}
+  <div class="dtl-section">
+    <div class="dtl-section-title">Vendor & Deployment</div>
+    <div class="dtl-grid">
+      {% if item.item_vendor %}
+      <div class="dtl-field">
+        <div class="dtl-label">Vendor</div>
+        <div class="dtl-value">{{ item.item_vendor }}</div>
+      </div>
+      {% endif %}
+      {% if item.vendor_id %}
+      <div class="dtl-field">
+        <div class="dtl-label">Vendor ID</div>
+        <div class="dtl-value">{{ item.vendor_id }}</div>
+      </div>
+      {% endif %}
+      {% if item.date_purchased %}
+      <div class="dtl-field">
+        <div class="dtl-label">Date Purchased</div>
+        <div class="dtl-value">{{ item.date_purchased.strftime('%b %d, %Y') }}</div>
+      </div>
+      {% endif %}
+      {% if item.intended_purpose %}
+      <div class="dtl-field">
+        <div class="dtl-label">Intended Purpose</div>
+        <div class="dtl-value">{{ item.intended_purpose }}</div>
+      </div>
+      {% endif %}
+      {% if item.dispatched_date %}
+      <div class="dtl-field">
+        <div class="dtl-label">Dispatched</div>
+        <div class="dtl-value">{{ item.dispatched_date.strftime('%b %d, %Y') }}</div>
+      </div>
+      {% endif %}
+      {% if item.tracking_number %}
+      <div class="dtl-field">
+        <div class="dtl-label">Tracking Number</div>
+        <div class="dtl-value">{{ item.tracking_number }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Notes -->
+  {% if item.notes %}
+  <div class="dtl-section">
+    <div class="dtl-section-title">Notes</div>
+    <div class="dtl-value" style="font-size:13px;line-height:1.6;white-space:pre-wrap">{{ item.notes }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Receipts -->
+  <div class="dtl-section">
+    <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Receipts</span>
+      {% if user.is_editor_or_above %}
+      <button type="button" class="inv-btn" style="font-size:11px;padding:4px 10px" onclick="toggleAddReceipt()">+ Add Receipt</button>
+      {% endif %}
+    </div>
+
+    <!-- Add receipt form (hidden by default) -->
+    {% if user.is_editor_or_above %}
+    <form method="post" action="{{ base_path }}/items/{{ item.id }}/receipt" enctype="multipart/form-data" id="add-receipt-form" style="display:none;margin-bottom:1rem">
+      <div class="itk-grid" style="margin-bottom:0.5rem">
+        <div class="itk-field">
+          <label class="itk-label" for="receipt_file">Receipt File</label>
+          <input type="file" name="receipt_file" id="receipt_file" class="itk-input itk-file-input" accept=".jpg,.jpeg,.png,.heic,.pdf,.eml,.msg,.html">
+          <div class="itk-hint">JPG, PNG, HEIC, PDF, EML, MSG, HTML</div>
+        </div>
+        <div class="itk-field">
+          <label class="itk-label" for="record_type">Record Type</label>
+          <select name="record_type" id="record_type" class="itk-input">
+            <option value="receipt">Receipt</option>
+            <option value="invoice">Invoice</option>
+            <option value="quote">Quote</option>
+            <option value="packing_slip">Packing Slip</option>
+          </select>
+        </div>
+        <div class="itk-field">
+          <label class="itk-label" for="purchase_order">Purchase Order #</label>
+          <input type="text" name="purchase_order" id="purchase_order" class="itk-input" placeholder="PO number">
+        </div>
+      </div>
+      <div class="itk-field" style="margin-bottom:0.75rem">
+        <label class="itk-label" for="receipt_notes">Notes</label>
+        <textarea name="receipt_notes" id="receipt_notes" class="itk-input itk-textarea" rows="2" placeholder="Notes about this receipt..."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="inv-btn" onclick="toggleAddReceipt()">Cancel</button>
+        <button type="submit" class="itk-submit" style="padding:6px 16px;font-size:12px">Upload Receipt</button>
+      </div>
+    </form>
+    {% endif %}
+
+    {% if receipts %}
+    <div class="dtl-receipt-list">
+      {% for r in receipts %}
+      <div class="dtl-receipt-row">
+        <div class="dtl-receipt-icon">{{ icon('receive', size=14) }}</div>
+        <div class="dtl-receipt-info">
+          <div class="dtl-receipt-name">
+            {% if r.original_filename %}
+              {{ r.original_filename }}
+            {% else %}
+              {{ r.record_type | title }} — {{ r.transaction_date.strftime('%b %d, %Y') if r.transaction_date else '—' }}
+            {% endif %}
+          </div>
+          <div class="dtl-receipt-meta">
+            {{ r.record_type | replace('_', ' ') | title }}
+            {% if r.purchase_order and r.purchase_order != '—' %} · PO: {{ r.purchase_order }}{% endif %}
+            · Added by {{ r.created_by }} on {{ r.created_at.strftime('%b %d, %Y') if r.created_at else '—' }}
+          </div>
+        </div>
+        {% if r.file_path %}
+        <a href="{{ base_path }}/api/receipts/{{ r.id }}/download" class="inv-btn" style="font-size:11px;padding:4px 10px" title="Download">Download</a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dtl-empty">No receipts attached to this item.</div>
+    {% endif %}
+  </div>
+
+  <!-- Component History -->
+  <div class="dtl-section">
+    <div class="dtl-section-title">Component History</div>
+    {% if components %}
+    <div class="dtl-table-wrap">
+      <table class="dtl-table">
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Slot</th>
+            <th>Date</th>
+            <th>Performed By</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in components %}
+          <tr>
+            <td><span class="dtl-action-pill dtl-action--{{ c.action.value if c.action else 'unknown' }}">{{ c.action.value | title if c.action else '—' }}</span></td>
+            <td>{{ c.slot_label or '—' }}</td>
+            <td>{{ c.action_date.strftime('%b %d, %Y') if c.action_date else '—' }}</td>
+            <td>{{ c.performed_by or '—' }}</td>
+            <td>{{ c.notes or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dtl-empty">No component history for this item.</div>
+    {% endif %}
+  </div>
+
+  <!-- Maintenance Log -->
+  <div class="dtl-section">
+    <div class="dtl-section-title">Maintenance Log</div>
+    {% if maintenance %}
+    <div class="dtl-table-wrap">
+      <table class="dtl-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Date</th>
+            <th>Performed By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in maintenance %}
+          <tr>
+            <td>{{ m.entry_type | replace('_', ' ') | title }}</td>
+            <td>{{ m.description }}</td>
+            <td>{{ m.maintenance_date.strftime('%b %d, %Y') if m.maintenance_date else '—' }}</td>
+            <td>{{ m.performed_by or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dtl-empty">No maintenance records for this item.</div>
+    {% endif %}
+  </div>
+
+  <!-- Footer meta -->
+  <div style="font-size:11px;color:var(--sx-gray);padding:0.5rem 0 2rem">
+    Created: {{ item.created_at.strftime('%b %d, %Y') if item.created_at else '—' }}
+    · Last updated: {{ item.last_updated.strftime('%b %d, %Y') if item.last_updated else '—' }}
+    · ID: {{ item.id }}
+  </div>
+
+</div>
+{% endif %}
+
+<script>
+function toggleAddReceipt() {
+  var form = document.getElementById("add-receipt-form");
+  if (form.style.display === "none") {
+    form.style.display = "block";
+  } else {
+    form.style.display = "none";
+  }
+}
+
+// ── Lock integration ──
+// Acquire lock on edit load; release on save, cancel, or tab close.
+// Wrapped in DOMContentLoaded because _lockManager is initialized in base.html
+// AFTER this content block renders (content ~line 205, locks.js init ~line 477).
+document.addEventListener('DOMContentLoaded', function() {
+  var resourceKey = 'items:{{ item.id }}';
+  var editMode = {{ edit_mode|tojson }};
+  var existingLock = {{ existing_lock|tojson }};
+
+  if (!window._lockManager) return;
+
+  // If someone else already holds the lock when this page loads, show the
+  // indicator immediately. locks.js only reacts to future SSE events, so
+  // this server-provided snapshot fills the initial-render gap.
+  if (existingLock && existingLock.user_id !== {{ user.id }}) {
+    window._lockManager._showLockIndicator(
+      resourceKey,
+      existingLock.display_name || 'another user',
+      existingLock.level || 'viewing'
+    );
+  }
+
+  if (!editMode) return;
+
+  window._lockManager.acquire(resourceKey);
+
+  var editForm = document.querySelector('form[action*="/items/{{ item.id }}"]');
+  if (editForm) {
+    editForm.addEventListener('submit', function() {
+      window._lockManager.release(resourceKey);
+    });
+  }
+
+  var cancelLinks = document.querySelectorAll('a.inv-btn[href$="/items/{{ item.id }}"]');
+  for (var i = 0; i < cancelLinks.length; i++) {
+    cancelLinks[i].addEventListener('click', function() {
+      window._lockManager.release(resourceKey);
+    });
+  }
+});
+</script>
+{% endblock %}

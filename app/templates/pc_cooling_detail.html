@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block content %}
+<a href="{{ base_path }}/inventory/?select=pc_cooling" class="eb-back-link">
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+  Back to Inventory
+</a>
+<div class="eb-header">
+  <div class="eb-header-left">
+    <h1 class="eb-title">{{ item.model or item.manufacturer or "PC Cooling #" ~ item.id }}</h1>
+    <div class="eb-badges">
+      <span class="eb-badge eb-badge--status eb-status--{{ item.status | lower | replace(' ', '-') if item.status else 'unknown' }}">{{ item.status or "Unknown" }}</span>
+      {% if item.cooling_type %}<span class="eb-badge eb-badge--neutral">{{ item.cooling_type }}</span>{% endif %}
+      {% if current_location %}<span class="eb-badge eb-badge--deploy">Installed</span>{% else %}<span class="eb-badge eb-badge--neutral">Uninstalled</span>{% endif %}
+    </div>
+  </div>
+  <div class="eb-header-right">
+    {% if user.is_editor_or_above %}
+    <button class="eb-btn-edit" onclick="GlobalEditModal.open('pc_cooling', {{ item.id }}, { onSuccess: function() { window.location.reload(); } })">Edit Details</button>
+    {% endif %}
+  </div>
+</div>
+{% if missing_fields %}
+<div class="eb-alert eb-alert--warning"><strong>Incomplete Record</strong> — Missing: {{ missing_fields | join(', ') }}</div>
+{% endif %}
+<div class="eb-detail-grid">
+  <div class="eb-panel">
+    <div class="eb-panel-header">Identity</div>
+    <div class="eb-field-list">
+      <div class="eb-field"><span class="eb-field-label">Manufacturer</span><span class="eb-field-value">{{ item.manufacturer or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Model</span><span class="eb-field-value">{{ item.model or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Serial</span><span class="eb-field-value eb-mono">{{ item.serial or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Cooling Type</span><span class="eb-field-value">{{ item.cooling_type or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Speed</span><span class="eb-field-value">{{ item.speed_rpm or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Status</span><span class="eb-field-value">{{ item.status or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Location</span><span class="eb-field-value">{{ item.location or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Associated Device Serial</span><span class="eb-field-value eb-mono">{{ item.associated_device_serial or "—" }}</span></div>
+      <div class="eb-field"><span class="eb-field-label">Last Updated</span><span class="eb-field-value">{{ item.last_updated.strftime('%b %d, %Y') if item.last_updated else "—" }}</span></div>
+    </div>
+  </div>
+  <div class="eb-panel">
+    <div class="eb-panel-header">Current Location</div>
+    <div class="eb-field-list">
+      {% if current_location %}
+      <div class="eb-field"><span class="eb-field-label">Installed In</span><span class="eb-field-value"><a href="{{ current_location.url }}" class="eb-row-link">{{ current_location.display_name }}</a></span></div>
+      <div class="eb-field"><span class="eb-field-label">Device Type</span><span class="eb-field-value">{{ current_location.parent_table | replace('_', ' ') | title }}</span></div>
+      {% if current_location.slot_label %}<div class="eb-field"><span class="eb-field-label">Slot</span><span class="eb-field-value eb-mono">{{ current_location.slot_label }}</span></div>{% endif %}
+      {% if current_location.installed_date %}<div class="eb-field"><span class="eb-field-label">Installed</span><span class="eb-field-value">{{ current_location.installed_date.strftime('%b %d, %Y') }}</span></div>{% endif %}
+      {% else %}
+      <div class="eb-field"><span class="eb-field-value" style="color:var(--sx-gray-dim)">Not currently installed in any device.</span></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% if item.incomplete_reason %}
+<div class="eb-panel eb-panel--full">
+  <div class="eb-panel-header">Incomplete Reason</div>
+  <p class="eb-notes-text eb-notes-text--warn">{{ item.incomplete_reason }}</p>
+</div>
+{% endif %}
+{% if installation_history %}
+<div class="eb-panel eb-panel--full">
+  <div class="eb-panel-header">Installation History</div>
+  <div class="eb-field-list">
+    {% for entry in installation_history %}
+    <div class="eb-field" style="flex-direction:row;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--sx-border-soft)">
+      <span class="eb-field-value">{% if entry.url %}<a href="{{ entry.url }}" class="eb-row-link">{{ entry.display_name }}</a>{% else %}{{ entry.display_name }}{% endif %}</span>
+      <span class="eb-field-label" style="text-align:right">{{ entry.link.installed_date.strftime('%b %d, %Y') if entry.link.installed_date else "—" }}{% if entry.link.removed_date %} → {{ entry.link.removed_date.strftime('%b %d, %Y') }}{% else %} <span style="color:var(--sx-green)">current</span>{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
