@@ -51,6 +51,7 @@ from ..auth import (
 from ..config import settings
 from ..database import get_db
 from ..models import User
+from app import csrf
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -101,6 +102,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
         }, status_code=401)
 
     login_user(request, user)
+    csrf.rotate_token(request)
     log_event(
         db, "user_login",
         request=request,
@@ -206,16 +208,23 @@ async def change_password_submit(
     })
 
 
-@router.get("/logout")
-def logout(request: Request, db: Session = Depends(get_db)):
-    """Clear session and redirect to login."""
+@router.post("/logout")
+def logout(
+    request: Request,
+    db: Session = Depends(get_db),
+    _csrf: str = Depends(csrf.require_csrf),
+):
+    """Clear session and redirect to login. CSRF-protected POST."""
     user_id = get_session_user_id(request)
     if user_id:
-        log_event(
-            db, "user_logout",
-            request=request,
-            user_id=user_id,
-            details="User logged out",
-        )
+        log_event(db, "user_logout", request=request, user_id=user_id, details="User logged out")
     logout_user(request)
-    return RedirectResponse(f"{BP}/login", status_code=302)
+    return RedirectResponse(f"{BP}/login", status_code=303)
+
+
+@router.get("/logout")
+def logout_get(request: Request):
+    """Benign GET fallback for stale bookmarks/links. Does NOT log out."""
+    user_id = get_session_user_id(request)
+    target = f"{BP}/dashboard" if user_id else f"{BP}/login"
+    return RedirectResponse(target, status_code=302)

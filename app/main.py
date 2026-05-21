@@ -14,6 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .config import settings
 from .sidebar_cache import get_sidebar_counts
 from .database import create_all_tables
+from app import csrf
 from .routes import (
     access_control_detail, admin, api, auth_routes, bulk, camera_detail,
     components, computer_detail, contact_admin, cpu_detail, creds, dashboard,
@@ -224,6 +225,10 @@ async def auth_redirect_middleware(request: Request, call_next):
     user_id = request.session.get("session_user_id")
     if user_id is None and rel not in ("/", "/login"):
         return RedirectResponse(f"{BP}/login", status_code=302)
+
+    # Issue a CSRF token for any authenticated session (covers live sessions too).
+    if user_id:
+        csrf.ensure_token(request)
 
     # Force password change redirect: only allow /change-password and /logout
     if user_id and request.session.get("must_change_password"):

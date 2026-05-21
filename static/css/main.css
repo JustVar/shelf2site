@@ -4500,3 +4500,12 @@ body.sx-nav-collapsed .sx-nav__subgroup-content .sx-nav__link {
   color: var(--sx-white);
   font-weight: 500;
 }
+
+.sx-nav__footer-form { display: contents; }
+.sx-nav__footer-form > .sx-nav__footer-btn {
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    text-align: inherit;
+}
