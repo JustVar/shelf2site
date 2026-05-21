@@ -2015,95 +2015,39 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     {
         "id": "asset_triage_tour",
-        "name": "Asset Triage",
+        "name": "Asset Triage Tour",
+        "description": "How to find and fix inventory items that are missing role-required fields.",
         "page_pattern": "/triage",
-        "description": "A walkthrough of the Asset Triage page — how to find and fix devices with missing or incomplete data.",
-        "required_access": "is_editor_or_above",
         "enabled": True,
+        "required_access": "is_editor_or_above",
         "group": "inventory",
         "steps": [
             {
-                "target": ".sx-page__header",
                 "title": "What Is Asset Triage?",
-                "description": (
-                    "Asset Triage shows every device that has one or more required fields missing. "
-                    "Use this page to find and fix incomplete records before they cause issues in "
-                    "fulfillment or reporting."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
+                "description": "This page surfaces inventory items that are missing role-required fields. Fix them here and they are ready to deploy.",
+                "target": ".page-header",
             },
             {
-                "target": ".sx-quality-summary",
-                "title": "Missing Field Chips",
-                "description": (
-                    "Each chip here shows a field name and the number of devices missing that field. "
-                    "This gives you a quick overview of where the gaps are across the entire inventory."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
+                "title": "Per-Role Gap Counts",
+                "description": "Each tab represents a role. The badge on the tab is the number of items missing fields for that role. Switch tabs to focus on one role at a time.",
+                "target": ".trg-tabs",
             },
             {
-                "target": "#triage-filters",
-                "title": "Filters",
-                "description": (
-                    "Use these dropdowns to narrow the triage list by category or deployment type. "
-                    "The count updates as you filter so you always know how many devices match."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
+                "title": "Sort and Pagination",
+                "description": "Sort by oldest, gap count, or name. Per page controls how many rows you see at once.",
+                "target": ".trg-controls",
             },
             {
-                "target": "#filter-category",
-                "title": "Filter by Category",
-                "description": (
-                    "Select a device category here — for example Edge Boxes or Cameras — to see "
-                    "only triage items for that category."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
-            },
-            {
-                "target": "#filter-deployment",
-                "title": "Filter by Deployment Type",
-                "description": (
-                    "Filter by deployment type to focus on customer-deployed devices, lab units, "
-                    "or demo boxes separately."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
-            },
-            {
-                "target": ".sx-table",
-                "title": "The Triage Table",
-                "description": (
-                    "Each row is a device with at least one missing required field. The Missing "
-                    "Fields column shows exactly which fields need to be filled in. Rows are sorted "
-                    "so the most incomplete devices appear first."
-                ),
-                "position": "top",
-                "highlight_padding": 8,
-            },
-            {
-                "target": ".sx-table__row",
-                "title": "Clicking a Row",
-                "description": (
-                    "Click anywhere on a row to open the edit modal for that device. This is the "
-                    "fastest way to jump straight into fixing a record."
-                ),
-                "position": "right",
-                "highlight_padding": 8,
+                "title": "The Gap Table",
+                "description": "Each row is an item that needs attention. The chip on the right side of each row shows how many fields are still missing.",
+                "target": ".trg-table",
+                "wait_for": ".trg-row",
                 "optional": True,
             },
             {
-                "target": ".sx-action-btn",
-                "title": "Edit Button",
-                "description": (
-                    "The edit button in the Actions column does the same thing as clicking the "
-                    "row — it opens the edit modal for that device. Use whichever feels more natural."
-                ),
-                "position": "left",
-                "highlight_padding": 8,
+                "title": "Edit an Item",
+                "description": "Click any row to open the edit drawer and fill in the missing fields. Or click the chevron on the left to expand a quick preview without leaving the page.",
+                "target": ".trg-row",
                 "optional": True,
             },
         ],
