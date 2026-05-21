@@ -1055,10 +1055,7 @@
 
         // Close SSE on page unload to free server worker immediately
         window.addEventListener('beforeunload', function() {
-            if (_sseConnection) {
-                _sseConnection.close();
-                _sseConnection = null;
-            }
+            if (window._sseManager) window._sseManager.disconnect();
         });
     })();
     </script>
