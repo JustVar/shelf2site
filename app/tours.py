@@ -1408,13 +1408,13 @@ TOURS: list[dict] = [
         "id": "admin_users_tour",
         "name": "User Management",
         "page_pattern": "/admin/users",
-        "description": "Create accounts, assign roles and teams, and configure granular per-user permissions",
+        "description": "Create accounts, assign roles and departments, and configure granular per-user permissions",
         "required_access": "has_user_management",
-        "enabled": False,
+        "enabled": True,
         "group": "admin",
         "steps": [
             {
-                "target": "#add-user-form",
+                "target": "#users-add-btn",
                 "title": "Create a User",
                 "description": (
                     "Fill in username, display name, temporary password, and role, "
@@ -1426,35 +1426,32 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "target": ".department-badge",
-                "title": "Team Assignment",
+                "target": ".user-card__dept",
+                "title": "Department Assignment",
                 "description": (
-                    "Each user belongs to a team (Hardware, QA, Support, etc.). "
-                    "Teams are permission templates — users inherit the team's "
-                    "default permissions. Click the badge to change assignment."
+                    "Each user is assigned to a department (Hardware, QA, Support, etc.). "
+                    "Departments serve as permission templates — users inherit the department's "
+                    "defaults. The dept label on each user card shows the current assignment. "
+                    "Click any user card now to open the drawer — the next step covers what's inside."
                 ),
                 "position": "top",
                 "highlight_padding": 6,
                 "optional": True,
             },
             {
-                "target": ".perm-cell",
-                "title": "Permission Grid",
+                "target": ".ud-perm-row",
+                "title": "Permission Toggles",
                 "description": (
-                    "14 permission flags per user, organized into groups: "
-                    "Domain Admin, Page Access, System, and Provisioning. "
-                    "Each cell cycles through three states: "
-                    "<strong>Inherit</strong> (team default) → "
-                    "<strong>ON</strong> (force enable) → "
-                    "<strong>OFF</strong> (force disable). "
-                    "Hover any cell to see the resolved value and its source."
+                    "Inside the user drawer, 15 permission toggles are organized into groups: "
+                    "Domain Admin, Page Access, System, and Provisioning. Each toggle is ON or OFF "
+                    "per user. Department defaults apply when a user's toggle hasn't been explicitly set."
                 ),
                 "position": "top",
                 "highlight_padding": 4,
                 "optional": True,
             },
             {
-                "target": ".role-badge",
+                "target": "[class*=\"user-card__tag--role-\"]",
                 "title": "Roles & Actions",
                 "description": (
                     "The role badge shows each user's base role (Admin, Editor, "
@@ -1818,13 +1815,13 @@ TOURS: list[dict] = [
         "id": "concept_roles_permissions_tour",
         "name": "How Do Roles & Permissions Work?",
         "page_pattern": "/dashboard",
-        "description": "Explains the role hierarchy, what each role can do, and how team permissions layer on top",
+        "description": "Explains the role hierarchy, what each role can do, and how department permissions layer on top",
         "required_access": None,
-        "enabled": False,
+        "enabled": True,
         "group": "onboarding",
         "steps": [
             {
-                "target": ".sidebar-user",
+                "target": ".sx-nav__user-role",
                 "title": "Your Role",
                 "description": (
                     "Every user has a <strong>base role</strong> shown in the sidebar. "
@@ -1840,13 +1837,13 @@ TOURS: list[dict] = [
             },
             {
                 "target": "nav",
-                "title": "Teams as Templates",
+                "title": "Departments as Templates",
                 "description": (
-                    "Users belong to <strong>teams</strong> (Hardware, QA, Support, etc.). "
-                    "Each team has a default set of permissions. "
-                    "When you're added to a team, you automatically inherit those defaults — "
+                    "Users belong to departments (Hardware, QA, Support, etc.). "
+                    "Each department has a default set of permissions. "
+                    "When you're added to a department, you automatically inherit those defaults — "
                     "no manual setup required. "
-                    "Admins manage team defaults under Admin → Teams."
+                    "Admins manage department defaults under Admin → People → Departments."
                 ),
                 "position": "right",
                 "highlight_padding": 4,
@@ -1856,14 +1853,11 @@ TOURS: list[dict] = [
                 "target": "nav",
                 "title": "Per-User Overrides",
                 "description": (
-                    "Team permissions are a starting point. "
-                    "Admins can override individual permissions for any user — "
-                    "forcing a flag <strong>ON</strong> (even if the team has it off) "
-                    "or <strong>OFF</strong> (even if the team has it on). "
-                    "If a permission shows <strong>Inherit</strong>, "
-                    "it follows the team setting. "
-                    "This three-state system (Inherit / ON / OFF) means "
-                    "no user needs to be moved to a different team just for one exception."
+                    "Department permissions are a starting point. "
+                    "Admins can override individual permissions per user. "
+                    "Each permission is effectively in one of three states: "
+                    "Inherit (follow the department default), ON (force grant), or OFF (force block). "
+                    "No user needs to be moved to a different department just for one exception."
                 ),
                 "position": "right",
                 "highlight_padding": 4,
@@ -1874,46 +1868,48 @@ TOURS: list[dict] = [
 
     # --- Team Management Tour ---
     {
-        "id": "team_management_tour",
-        "name": "Team Management",
-        "page_pattern": "/admin/teams",
-        "description": "Manage teams as permission templates for RBAC — assign users to teams and configure default permissions",
+        "id": "department_management_tour",
+        "name": "Department Management",
+        "page_pattern": "/admin/departments",
+        "description": "Manage departments as permission templates. Set defaults that flow to all assigned users.",
         "required_access": "has_user_management",
-        "enabled": False,
+        "enabled": True,
         "group": "admin",
         "steps": [
             {
-                "target": "#add-department-form",
-                "title": "Create a Team",
+                "target": "#depts-add-btn",
+                "title": "Create a Department",
                 "description": (
-                    "Teams serve as permission templates. When a user is assigned "
-                    "to a team, they inherit that team's default permissions. "
-                    "Create teams for each department or role group."
+                    "Click here to create a new department. Give it a name and description, "
+                    "then set its default permissions. Users assigned to this department will "
+                    "inherit these defaults."
                 ),
                 "position": "bottom",
                 "highlight_padding": 8,
             },
             {
-                "target": ".table-section",
-                "title": "Team Permissions",
+                "target": ".dept-card__heat",
+                "title": "Department Permissions",
                 "description": (
-                    "Each team has 14 permission checkboxes. Toggle them ON/OFF "
-                    "to set the default permissions that team members inherit. "
-                    "Changes take effect immediately for all members."
+                    "Each department card shows a heatmap of its 14 permission defaults — green "
+                    "means granted, gray means blocked. It's an at-a-glance summary; change the "
+                    "actual values from the drawer."
                 ),
                 "position": "top",
                 "highlight_padding": 4,
+                "optional": True,
             },
             {
-                "target": ".table-section",
-                "title": "Team Members",
+                "target": ".dept-card__meta",
+                "title": "Department Members",
                 "description": (
-                    "View and manage team membership. Assign users to teams from "
-                    "the Users page, or remove them here. Users can override "
-                    "team permissions individually (three-state: inherit / ON / OFF)."
+                    "Each card shows a member count for that department. Click any card to open "
+                    "the management drawer, where you can edit the name, description, and toggle "
+                    "each permission default."
                 ),
                 "position": "bottom",
                 "highlight_padding": 4,
+                "optional": True,
             },
         ],
     },
@@ -1961,13 +1957,13 @@ TOURS: list[dict] = [
         "id": "inventory_tour",
         "name": "Inventory",
         "page_pattern": "/inventory",
-        "description": "A walkthrough of the Inventory page — tiles, alerts, search, filters, the device table, and quick view.",
+        "description": "A walkthrough of the Inventory page \u2014 tiles, search, the device table, and quick view.",
         "required_access": None,
         "enabled": True,
         "group": "inventory",
         "steps": [
             {
-                "target": "#tile-grid",
+                "target": ".inv-tiles",
                 "title": "Summary Tiles",
                 "description": (
                     "These tiles show a live count of every device category in the system. "
@@ -1978,30 +1974,7 @@ TOURS: list[dict] = [
                 "highlight_padding": 8,
             },
             {
-                "target": ".alert-banner",
-                "title": "Alerts & Flags",
-                "description": (
-                    "Alert banners appear here when something needs attention — incomplete records, "
-                    "pending review items, expiring warranties, or overdue provisioning. Each banner "
-                    "links directly to the relevant page."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
-                "optional": True,
-            },
-            {
-                "target": "#add-device-btn",
-                "title": "Adding Devices",
-                "description": (
-                    "Use this button to manually add a new device to the inventory. You will be "
-                    "prompted to select a category and fill in the required fields."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
-                "optional": True,
-            },
-            {
-                "target": "#table-search",
+                "target": "#inv-search-input",
                 "title": "Search",
                 "description": (
                     "Type here to search across all visible devices by name, serial number, "
@@ -2011,29 +1984,7 @@ TOURS: list[dict] = [
                 "highlight_padding": 8,
             },
             {
-                "target": "#filter-toggle",
-                "title": "Filters",
-                "description": (
-                    "Click here to open the filters panel. You can filter devices by status, "
-                    "location, vendor, and completeness. Multiple filters can be combined."
-                ),
-                "position": "top",
-                "highlight_padding": 8,
-            },
-            {
-                "target": "#filters-panel",
-                "title": "Advanced Filters",
-                "description": (
-                    "Use these dropdowns and sliders to narrow down the device list. The completeness "
-                    "slider lets you find devices with missing required fields. Hit Apply to update "
-                    "the table."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
-                "optional": True,
-            },
-            {
-                "target": "#table-content",
+                "target": "#inv-tbody",
                 "title": "Device Table",
                 "description": (
                     "All devices matching your current filters are listed here. Each row shows the "
@@ -2043,11 +1994,11 @@ TOURS: list[dict] = [
                 ),
                 "position": "bottom",
                 "highlight_padding": 8,
-                "wait_for": ".sx-table__row",
+                "wait_for": "#inv-tbody tr",
                 "wait_prompt": "Click any category tile above to load devices into the table, then the tour will continue automatically.",
             },
             {
-                "target": ".qv-modal",
+                "target": ".qv-panel",
                 "title": "Quick View",
                 "description": (
                     "This panel shows a read-only summary of the selected device. Use the Edit "
@@ -2202,3 +2153,111 @@ def get_all_tours() -> list[dict]:
         }
         for t in TOURS if t.get("enabled", True)
     ]
+
+
+def lint_tour_selectors(tour_id=None):
+    """
+    Check that every tour-step target selector exists somewhere in the codebase.
+    Useful after renames/refactors to catch stale selectors.
+
+    Scans:
+      - <app_dir>/templates/  (*.html)
+      - <repo_root>/static/js/  (*.js)
+      - <repo_root>/static/css/  (*.css)
+
+    Where <app_dir> is this file's parent and <repo_root> is one level up.
+
+    Skips:
+      - .bak.* files
+      - Pure tag selectors like 'nav' or 'body' (no meaningful token to grep)
+
+    Args:
+      tour_id (str, optional): If given, lint only that one tour.
+                               Otherwise lint every tour in TOURS.
+
+    Returns:
+      None. Prints a report.
+    """
+    import re
+    from pathlib import Path
+
+    # 1. Resolve directories relative to this file.
+    app_dir = Path(__file__).resolve().parent
+    repo_root = app_dir.parent
+    scan_dirs = [
+        app_dir / "templates",
+        repo_root / "static" / "js",
+        repo_root / "static" / "css",
+    ]
+
+    # 2. Build the search corpus.
+    extensions = {".html", ".js", ".css"}
+    corpus_parts = []
+    files_scanned = 0
+    for d in scan_dirs:
+        if not d.exists():
+            print(f"  [warn] scan dir not found: {d}")
+            continue
+        for f in d.rglob("*"):
+            if not f.is_file():
+                continue
+            if f.suffix not in extensions:
+                continue
+            if ".bak." in f.name:
+                continue
+            try:
+                corpus_parts.append(f.read_text(errors="ignore"))
+                files_scanned += 1
+            except Exception:
+                pass
+    corpus = "\n".join(corpus_parts)
+
+    # 3. Extract searchable tokens from a CSS selector.
+    def extract_tokens(selector):
+        ids = re.findall(r"#([\w-]+)", selector)
+        classes = re.findall(r"\.([\w-]+)", selector)
+        attrs = re.findall(r'\[[^\]]*"([^"]+)"\]', selector)
+        return ids + classes + attrs
+
+    # 4. Walk tours.
+    tours_to_check = [t for t in TOURS if tour_id is None or t["id"] == tour_id]
+    if tour_id is not None and not tours_to_check:
+        print(f"No tour with id={tour_id!r} found.")
+        return
+
+    found_count = 0
+    missing = []
+    skipped = []
+
+    for tour in tours_to_check:
+        for step_idx, step in enumerate(tour.get("steps", []), start=1):
+            for field in ("target", "wait_for"):
+                selector = step.get(field)
+                if not selector:
+                    continue
+                tokens = extract_tokens(selector)
+                if not tokens:
+                    skipped.append((tour["id"], step_idx, field, selector))
+                    continue
+                for tok in tokens:
+                    if tok in corpus:
+                        found_count += 1
+                    else:
+                        missing.append((tour["id"], step_idx, field, selector, tok))
+
+    # 5. Print report.
+    print("Tour selector lint report")
+    print("=" * 25)
+    print(f"Files scanned: {files_scanned}")
+    print(f"Tours linted: {len(tours_to_check)}")
+    print(f"Selector tokens found: {found_count}")
+    print(f"Skipped (too generic): {len(skipped)}")
+    for tid, sidx, fld, sel in skipped:
+        print(f"  - {tid} step {sidx} {fld}: {sel!r}")
+    print(f"Missing: {len(missing)}")
+    for tid, sidx, fld, sel, tok in missing:
+        print(f"  - {tid} step {sidx} {fld}: {sel!r} -> token {tok!r} NOT FOUND")
+    if missing:
+        print("\nROT DETECTED. Update the tour selectors or the templates.")
+    else:
+        print("\nNo rot detected.")

@@ -285,7 +285,7 @@ class TourEngine {
 
         this._waitRetries = 0;
         this.currentStep = stepIndex;
-        if (typeof closeQuickView === 'function' && step.target !== '.qv-modal') closeQuickView();
+        if (typeof closeQuickView === 'function' && step.target !== '.qv-panel') closeQuickView();
 
         // Remove previous highlight
         const prev = document.querySelector('.tour-highlight-target');
@@ -529,13 +529,26 @@ class TourEngine {
         let pos = position || 'bottom';
         let { top, left } = calcPos(pos);
 
-        // If clamping caused overlap, try the opposite side
+        // If clamping caused overlap, try alternates in order:
+        //   1. opposite side of the same axis
+        //   2. perpendicular sides (the two remaining sides)
         if (overlaps(top, left)) {
-            const flipped = calcPos(flipMap[pos] || 'bottom');
-            if (!overlaps(flipped.top, flipped.left)) {
-                top = flipped.top;
-                left = flipped.left;
+            // Build attempt order: opposite first, then the two perpendiculars
+            const perpendiculars = (pos === 'top' || pos === 'bottom')
+                ? ['left', 'right']
+                : ['top', 'bottom'];
+            const attempts = [flipMap[pos], ...perpendiculars];
+
+            for (const altPos of attempts) {
+                const alt = calcPos(altPos);
+                if (!overlaps(alt.top, alt.left)) {
+                    top = alt.top;
+                    left = alt.left;
+                    break;
+                }
             }
+            // If every alternate still overlaps, keep the clamped primary —
+            // user can still drag/scroll, and this matches the prior fallback.
         }
 
         this.tooltip.style.top = top + 'px';
