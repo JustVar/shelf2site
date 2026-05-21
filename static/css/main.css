@@ -1931,6 +1931,12 @@ thead th:nth-child(1) {
     animation: tour-fadein 0.2s ease;
 }
 
+.tour-tooltip--centered {
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+}
+
 @keyframes tour-fadein {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }

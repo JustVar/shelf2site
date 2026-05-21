@@ -1836,7 +1836,7 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "target": "nav",
+                "center": True,
                 "title": "Departments as Templates",
                 "description": (
                     "Users belong to departments (Hardware, QA, Support, etc.). "
@@ -1845,12 +1845,11 @@ TOURS: list[dict] = [
                     "no manual setup required. "
                     "Admins manage department defaults under Admin → People → Departments."
                 ),
-                "position": "right",
                 "highlight_padding": 4,
                 "optional": True,
             },
             {
-                "target": "nav",
+                "center": True,
                 "title": "Per-User Overrides",
                 "description": (
                     "Department permissions are a starting point. "
@@ -1859,7 +1858,6 @@ TOURS: list[dict] = [
                     "Inherit (follow the department default), ON (force grant), or OFF (force block). "
                     "No user needs to be moved to a different department just for one exception."
                 ),
-                "position": "right",
                 "highlight_padding": 4,
                 "optional": True,
             },

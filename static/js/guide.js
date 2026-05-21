@@ -232,6 +232,25 @@ class TourEngine {
         if (stepIndex < 0 || stepIndex >= steps.length) return;
 
         const step = steps[stepIndex];
+
+        // Centered conceptual step: no target, no highlight, tooltip in viewport center.
+        if (step.center) {
+            this._waitRetries = 0;
+            this.currentStep = stepIndex;
+            const prev = document.querySelector('.tour-highlight-target');
+            if (prev) prev.classList.remove('tour-highlight-target');
+            if (this.overlay) {
+                this.overlay.style.clipPath = '';
+                this.overlay.style.pointerEvents = '';
+            }
+            this._renderTooltip(step, stepIndex);
+            if (this.tooltip) {
+                this.tooltip.classList.add('tour-tooltip--centered');
+                this.tooltip.style.display = 'block';
+            }
+            return;
+        }
+
         const waitSelector = step.wait_for || step.target;
         const _foundEl = document.querySelector(waitSelector);
         const _isVisible = _foundEl &&
@@ -475,6 +494,7 @@ class TourEngine {
      */
     _positionTooltip(targetEl, position) {
         if (!this.tooltip) return;
+        this.tooltip.classList.remove('tour-tooltip--centered');
 
         // Temporarily make visible offscreen to measure
         this.tooltip.style.visibility = 'hidden';
