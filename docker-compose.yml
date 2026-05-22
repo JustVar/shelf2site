@@ -36,6 +36,7 @@ services:
       - /opt/asset_tracker/static:/app/static
       - /opt/asset_tracker/app:/app/app
       - /opt/asset_tracker/migrations:/app/migrations
+      - /opt/asset_tracker/scripts:/app/scripts
     ports:
       - "127.0.0.1:8081:8081"
     networks:

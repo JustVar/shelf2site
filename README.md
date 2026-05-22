@@ -128,6 +128,47 @@ asset-tracker/
   data/                    Spreadsheet import data
 ```
 
+## Scripts
+
+Operational and setup scripts live in `scripts/`. They run inside the app
+container, which has the database connection (`DATABASE_URL`) and app
+dependencies available:
+
+```
+docker compose exec app python scripts/<name>.py
+```
+
+### Setup (run once on a fresh install)
+
+- `create_admin_user.py` — create the initial admin account
+- `seed_oui_allowlist.py` — seed the OUI allowlist
+- `seed_nas_devices.py` — seed the four QNAP NAS devices
+
+### Imports
+
+These read source files from `scripts/` (CSVs and XLSX) and write to the database. They are **not destructive in the schema sense**, but most of them **delete and re-create rows in their target tables on every run**, so an interrupted import can leave the DB in a partial state. Always run with `--dry-run` first if the script supports it.
+
+- `import_part_numbers.py` — upsert part numbers from XLSX
+- `import_edge_boxes.py` — ⚠️ deletes existing edge-box rows before importing
+- `import_all_categories.py` — ⚠️ deletes rows across multiple categories before importing
+- `import_spreadsheet.py` — legacy full import
+- `import_spreadsheet_v2.py` — current full import (supports `--dry-run` and `--validate`)
+- `link_custom_builds.py` — creates custom-build Computer records
+
+### Maintenance
+
+- `backfill_completeness.py` — backfill completeness scores
+- `recalculate_completeness.py` — recompute completeness scores (ORM-based)
+- `fix_camera_manufacturers.py` — fill camera manufacturers by MAC prefix
+- `add_financial_permission.py` — one-off migration: add the financial permission column
+- `add_show_on_map_field.py` — one-off migration: add the show-on-map field
+
+### 🔴 Destructive
+
+These can cause data loss. Read the script source before running. Do **not** run against the production database without a fresh DB backup.
+
+- `reset_inventory_safe.py` — drops inventory tables (preserves users, audit log, and credentials)
+
 ## Scanner Modes
 
 - **Local** (`SCANNER_MODE=local`): Runs a background scan loop, writes directly to the database
