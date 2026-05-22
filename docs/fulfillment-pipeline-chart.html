@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fulfillment Pipeline — Status Chart</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232733;
+    --border: #2e3346;
+    --text: #e1e4ed;
+    --text-muted: #8b90a0;
+    --accent-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --accent-green: #22c55e;
+    --accent-amber: #f59e0b;
+    --accent-rose: #f43f5e;
+    --accent-cyan: #06b6d4;
+    --accent-orange: #f97316;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 2rem;
+  }
+
+  /* ── Section Headers ── */
+  .section {
+    margin-bottom: 2.5rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .section-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-blue);
+  }
+
+  .section-badge.deploy {
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--accent-purple);
+  }
+
+  .section-badge.oem {
+    background: rgba(249, 115, 22, 0.15);
+    color: var(--accent-orange);
+  }
+
+  /* ── Pipeline Row ── */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .stage-group {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    position: relative;
+  }
+
+  .stage-group + .stage-group::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10%;
+    height: 80%;
+    width: 2px;
+    background: var(--border);
+  }
+
+  /* ── Status Column (parent) ── */
+  .status-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+  }
+
+  .status-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px 6px 0 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* ── Micro-stage chips ── */
+  .micro-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0.4rem 0.35rem;
+    background: var(--surface);
+    border-radius: 0 0 6px 6px;
+    flex: 1;
+  }
+
+  .micro-stage {
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    background: var(--surface2);
+    text-align: center;
+    white-space: nowrap;
+    border-left: 3px solid transparent;
+    transition: transform 0.15s;
+  }
+
+  .micro-stage:hover {
+    transform: translateX(2px);
+  }
+
+  .micro-stage.bypass {
+    background: rgba(34, 197, 94, 0.12);
+    border-left-color: var(--accent-green) !important;
+    color: var(--accent-green);
+    font-style: italic;
+    font-size: 0.65rem;
+    letter-spacing: 0.02em;
+  }
+
+  .bypass-divider {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 0.15rem 0;
+    opacity: 0.6;
+  }
+
+  /* ── Arrows between groups ── */
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 1rem;
+  }
+
+  .arrow svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ── Color Themes ── */
+  /* In-House */
+  .theme-new .status-label       { background: rgba(139, 144, 160, 0.18); color: var(--text-muted); }
+  .theme-new .micro-stage        { border-left-color: var(--text-muted); }
+
+  .theme-sourcing .status-label  { background: rgba(245, 158, 11, 0.18); color: var(--accent-amber); }
+  .theme-sourcing .micro-stage   { border-left-color: var(--accent-amber); }
+
+  .theme-building .status-label  { background: rgba(59, 130, 246, 0.18); color: var(--accent-blue); }
+  .theme-building .micro-stage   { border-left-color: var(--accent-blue); }
+
+  .theme-testing .status-label   { background: rgba(6, 182, 212, 0.18); color: var(--accent-cyan); }
+  .theme-testing .micro-stage    { border-left-color: var(--accent-cyan); }
+
+  .theme-shipped .status-label   { background: rgba(139, 92, 246, 0.18); color: var(--accent-purple); }
+  .theme-shipped .micro-stage    { border-left-color: var(--accent-purple); }
+
+  /* Deployment */
+  .theme-scheduled .status-label  { background: rgba(245, 158, 11, 0.18); color: var(--accent-amber); }
+  .theme-scheduled .micro-stage   { border-left-color: var(--accent-amber); }
+
+  .theme-in_transit .status-label { background: rgba(139, 92, 246, 0.18); color: var(--accent-purple); }
+  .theme-in_transit .micro-stage  { border-left-color: var(--accent-purple); }
+
+  .theme-on_site .status-label    { background: rgba(59, 130, 246, 0.18); color: var(--accent-blue); }
+  .theme-on_site .micro-stage     { border-left-color: var(--accent-blue); }
+
+  .theme-installing .status-label { background: rgba(6, 182, 212, 0.18); color: var(--accent-cyan); }
+  .theme-installing .micro-stage  { border-left-color: var(--accent-cyan); }
+
+  .theme-complete .status-label   { background: rgba(34, 197, 94, 0.18); color: var(--accent-green); }
+  .theme-complete .micro-stage    { border-left-color: var(--accent-green); }
+
+  /* OEM */
+  .theme-oem .status-label       { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); }
+  .theme-oem .micro-stage        { border-left-color: var(--accent-orange); }
+
+  .theme-cancelled .status-label { background: rgba(244, 63, 94, 0.18); color: var(--accent-rose); }
+  .theme-cancelled .micro-stage  { border-left-color: var(--accent-rose); }
+
+  /* ── Top-Level Flow ── */
+  .top-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .flow-chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 5px;
+    white-space: nowrap;
+  }
+
+  .flow-arrow {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 0 0.25rem;
+  }
+
+  .flow-chip.muted   { background: rgba(139,144,160,0.15); color: var(--text-muted); }
+  .flow-chip.amber   { background: rgba(245,158,11,0.15);  color: var(--accent-amber); }
+  .flow-chip.blue    { background: rgba(59,130,246,0.15);   color: var(--accent-blue); }
+  .flow-chip.cyan    { background: rgba(6,182,212,0.15);    color: var(--accent-cyan); }
+  .flow-chip.purple  { background: rgba(139,92,246,0.15);   color: var(--accent-purple); }
+  .flow-chip.green   { background: rgba(34,197,94,0.15);    color: var(--accent-green); }
+  .flow-chip.orange  { background: rgba(249,115,22,0.15);   color: var(--accent-orange); }
+  .flow-chip.rose    { background: rgba(244,63,94,0.15);    color: var(--accent-rose); }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.75rem 0 0.5rem;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .pipeline { flex-wrap: wrap; }
+    .status-col { min-width: 100px; }
+    body { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Fulfillment Pipeline</h1>
+<p class="subtitle">Status flow for in-house provisioning, OEM purchase orders, and deployment</p>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- SECTION 1: IN-HOUSE PROVISIONING                    -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <h2>In-House Provisioning</h2>
+    <span class="section-badge">Active Build</span>
+  </div>
+
+  <div class="pipeline">
+    <!-- New -->
+    <div class="status-col theme-new">
+      <div class="status-label">New</div>
+      <div class="micro-stages">
+        <div class="micro-stage">PO In</div>
+        <div class="micro-stage">Scoped</div>
+        <div class="micro-stage">Sourced</div>
+        <div class="micro-stage">Ready</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- Sourcing -->
+    <div class="status-col theme-sourcing">
+      <div class="status-label">Sourcing</div>
+      <div class="micro-stages">
+        <div class="micro-stage bypass">From Stock</div>
+        <div class="bypass-divider">— or —</div>
+        <div class="micro-stage">Order</div>
+        <div class="micro-stage">Tracking</div>
+        <div class="micro-stage">Deliver</div>
+        <div class="micro-stage">Received</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- Building -->
+    <div class="status-col theme-building">
+      <div class="status-label">Building</div>
+      <div class="micro-stages">
+        <div class="micro-stage">Staged</div>
+        <div class="micro-stage">Building</div>
+        <div class="micro-stage">Reg'd</div>
+        <div class="micro-stage">Licensed</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- Testing -->
+    <div class="status-col theme-testing">
+      <div class="status-label">Testing</div>
+      <div class="micro-stages">
+        <div class="micro-stage">HW Check</div>
+        <div class="micro-stage">SW Ver</div>
+        <div class="micro-stage">PVA/Evt</div>
+        <div class="micro-stage">Cert'd</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- Shipped -->
+    <div class="status-col theme-shipped">
+      <div class="status-label">Shipped</div>
+      <div class="micro-stages">
+        <div class="micro-stage">Packed</div>
+        <div class="micro-stage">Labeled</div>
+        <div class="micro-stage">Pickup</div>
+        <div class="micro-stage">Transit</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- SECTION 3: DEPLOYMENT PIPELINE                      -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <h2>Deployment Pipeline</h2>
+    <span class="section-badge deploy">Post-Ship</span>
+  </div>
+
+  <div class="pipeline">
+    <!-- Scheduled -->
+    <div class="status-col theme-scheduled">
+      <div class="status-label">Scheduled</div>
+      <div class="micro-stages">
+        <div class="micro-stage">Confirm</div>
+        <div class="micro-stage">SE Asgn</div>
+        <div class="micro-stage">Site Rdy</div>
+        <div class="micro-stage">Parts</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- In Transit -->
+    <div class="status-col theme-in_transit">
+      <div class="status-label">In Transit</div>
+      <div class="micro-stages">
+        <div class="micro-stage">Packed</div>
+        <div class="micro-stage">Shipped</div>
+        <div class="micro-stage">Transit</div>
+        <div class="micro-stage">Deliv'd</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- On Site -->
+    <div class="status-col theme-on_site">
+      <div class="status-label">On Site</div>
+      <div class="micro-stages">
+        <div class="micro-stage">Arrived</div>
+        <div class="micro-stage">Unpack</div>
+        <div class="micro-stage">Cabled</div>
+        <div class="micro-stage">Power On</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- Installing -->
+    <div class="status-col theme-installing">
+      <div class="status-label">Installing</div>
+      <div class="micro-stages">
+        <div class="micro-stage">HW Inst</div>
+        <div class="micro-stage">Config</div>
+        <div class="micro-stage">Cameras</div>
+        <div class="micro-stage">Testing</div>
+      </div>
+    </div>
+
+    <div class="arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M10 4l4 4-4 4"/></svg></div>
+
+    <!-- Complete -->
+    <div class="status-col theme-complete">
+      <div class="status-label">Complete</div>
+      <div class="micro-stages">
+        <div class="micro-stage">Verified</div>
+        <div class="micro-stage">Sign-off</div>
+        <div class="micro-stage">Docs</div>
+        <div class="micro-stage">Closed</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- LEGEND                                              -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--text-muted)"></div> New / Intake</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-amber)"></div> Sourcing / Scheduling</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-blue)"></div> Building / On Site</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-cyan)"></div> Testing / Installing</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-purple)"></div> Shipping / Transit</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:var(--accent-green)"></div> Complete / Delivered</div>
+<div class="legend-item"><div class="legend-swatch" style="background:var(--accent-rose)"></div> Cancelled</div>
+</div>
+
+</body>
+</html>

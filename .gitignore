@@ -38,3 +38,9 @@ data/
 data_backup/
 scripts/*.xlsx
 scripts/*.csv
+
+# Dev screenshots at repo root (not part of the docs/ assets)
+/*.png
+
+# Generated docs artifacts
+docs/*.xlsx
