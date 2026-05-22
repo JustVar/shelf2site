@@ -910,6 +910,12 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Fulfillment — comprehensive tour (provisioning viewers+)
     # ------------------------------------------------------------------
+    # NOTE: orders_tour is intentionally not repaired here.
+    # Fulfillment and deployment pages are scheduled for a full revamp;
+    # the tour will be rewritten holistically at that time. Current rot
+    # (.arch-toggle is gone; replaced by .arch-head in the live DOM)
+    # is left as-is so the revamp owns the rewrite end-to-end.
+    # enabled=False protects users from launching the stale tour.
     {
         "id": "orders_tour",
         "name": "Fulfillment",
@@ -1710,7 +1716,7 @@ TOURS: list[dict] = [
         "group": "onboarding",
         "steps": [
             {
-                "target": "#dashboard-summary",
+                "center": True,
                 "title": "Where Is the Data?",
                 "description": (
                     "All inventory data lives in a <strong>PostgreSQL database</strong> "
@@ -1718,12 +1724,10 @@ TOURS: list[dict] = [
                     "Nothing is stored in the cloud — the app runs entirely on-site. "
                     "The database file is on the server's SSD, separate from the app code."
                 ),
-                "position": "right",
-                "highlight_padding": 8,
                 "optional": True,
             },
             {
-                "target": "#dashboard-summary",
+                "center": True,
                 "title": "How Is It Backed Up?",
                 "description": (
                     "A Backup QA/Hardware Server runs as a warm standby. "
@@ -1731,12 +1735,10 @@ TOURS: list[dict] = [
                     "are synced to the Backup QA/Hardware Server automatically. "
                     "If the primary server goes down, the backup can take over in about 15 minutes."
                 ),
-                "position": "right",
-                "highlight_padding": 8,
                 "optional": True,
             },
             {
-                "target": "nav",
+                "center": True,
                 "title": "How Does Data Get In?",
                 "description": (
                     "Data enters the system three ways: "
@@ -1744,8 +1746,6 @@ TOURS: list[dict] = [
                     "<strong>(2) Network Scanner</strong> — the scanner discovers devices on the lab network and queues them for review. "
                     "<strong>(3) Spreadsheet Import</strong> — an Excel master inventory file can be uploaded under Admin → Spreadsheet Sync to bulk-load or update records."
                 ),
-                "position": "right",
-                "highlight_padding": 4,
                 "optional": True,
             },
         ],
@@ -1764,7 +1764,7 @@ TOURS: list[dict] = [
         "group": "onboarding",
         "steps": [
             {
-                "target": "#dashboard-summary",
+                "center": True,
                 "title": "Step 1 — The Scanner",
                 "description": (
                     "A network scanner runs on the NUC and sweeps the lab network "
@@ -1773,12 +1773,10 @@ TOURS: list[dict] = [
                     "The NUC is connected to two networks: "
                     "office WiFi and the Hardware/QA lab via ethernet."
                 ),
-                "position": "right",
-                "highlight_padding": 8,
                 "optional": True,
             },
             {
-                "target": "#dashboard-summary",
+                "center": True,
                 "title": "Step 2 — OUI Matching",
                 "description": (
                     "Each MAC address has a 3-byte prefix called an OUI that identifies "
@@ -1787,12 +1785,10 @@ TOURS: list[dict] = [
                     "to auto-categorize the device — for example, an Axis MAC becomes a "
                     "<strong>Camera</strong> candidate."
                 ),
-                "position": "right",
-                "highlight_padding": 8,
                 "optional": True,
             },
             {
-                "target": "nav",
+                "center": True,
                 "title": "Step 3 — Review Queue",
                 "description": (
                     "Discovered devices land in the <strong>Review Queue</strong> "
@@ -1801,8 +1797,6 @@ TOURS: list[dict] = [
                     "Approved devices are added to the main inventory. "
                     "Dismissed entries are removed from the queue without being added."
                 ),
-                "position": "right",
-                "highlight_padding": 4,
                 "optional": True,
             },
         ],

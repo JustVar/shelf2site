@@ -1935,11 +1935,17 @@ thead th:nth-child(1) {
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%);
+    animation-name: tour-fadein-centered;
 }
 
 @keyframes tour-fadein {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tour-fadein-centered {
+    from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)); }
+    to   { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 .tour-tooltip-header {
