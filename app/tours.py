@@ -30,85 +30,29 @@ TOURS: list[dict] = [
     {
         "id": "dashboard_tour",
         "name": "Dashboard Overview",
+        "description": "A quick orientation to the dashboard overview page.",
         "page_pattern": "/dashboard",
-        "description": "Learn how the main dashboard works",
-        "required_access": None,
         "enabled": False,
-        "group": "inventory",
+        "required_access": None,
+        "group": "onboarding",
         "steps": [
             {
-                "target": "#dashboard-summary",
-                "title": "Summary Cards",
-                "description": (
-                    "These cards show key metrics at a glance: total devices, "
-                    "active/online count, items needing attention, and data "
-                    "completeness. They load automatically when you open the dashboard."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
-                "wait_for": "#dashboard-summary",
-            },
-            {
-                "target": "#tile-grid",
-                "title": "Category Tiles",
-                "description": (
-                    "Click any tile to filter the device table below. You can "
-                    "select multiple categories at once, or click "
-                    "<strong>Total Devices</strong> to see everything. "
-                    "Active tiles are highlighted with a border."
-                ),
-                "position": "bottom",
-                "highlight_padding": 6,
-            },
-            {
-                "target": ".alert-banner",
-                "title": "Alert Banners",
-                "description": (
-                    "Alert banners appear when there are items requiring attention, "
-                    "such as expiring warranties, overdue trials, or devices with "
-                    "incomplete data. Click the links to jump to the relevant page."
-                ),
-                "position": "bottom",
-                "highlight_padding": 4,
+                "title": "What This Page Shows",
+                "description": "The dashboard is a read-only overview of the inventory. It surfaces the most useful numbers and recent activity in one place, so you can see at a glance what's deployed, what's pending, and what needs attention.",
+                "center": True,
                 "optional": True,
             },
             {
-                "target": "#table-search",
-                "title": "Search & Filters",
-                "description": (
-                    "Type here to search all devices instantly. Use the "
-                    "<strong>Filters</strong> button to narrow by completeness, "
-                    "status, location, or vendor. Results update in real time."
-                ),
-                "position": "bottom",
-                "highlight_padding": 6,
-            },
-            {
-                "target": "#filter-toggle",
-                "title": "Advanced Filters",
-                "description": (
-                    "Click to expand advanced filters. You can filter by data "
-                    "completeness percentage, device status, physical location, "
-                    "and vendor. Combine filters with the search box for "
-                    "precise results."
-                ),
-                "position": "bottom",
-                "highlight_padding": 4,
+                "title": "How to Read It",
+                "description": "The hero strip at the top shows your top-line counts: total items plus how many are deployed, ready to deploy, or pending. Below that, status panels break the totals down by device category, and the recent activity feed shows what changed lately.",
+                "center": True,
                 "optional": True,
             },
             {
-                "target": "#table-content",
-                "title": "Device Table",
-                "description": (
-                    "Devices appear here when you select a category tile or "
-                    "enter a search. Click the <strong>Edit</strong> button on "
-                    "any row to modify a device. Inside the edit modal, expand "
-                    "<strong>Device Lifecycle</strong> to see a full history: "
-                    "provisioning, warranties, trials, site assignments, and "
-                    "disposal records — all in one place."
-                ),
-                "position": "top",
-                "highlight_padding": 4,
+                "title": "Taking Action",
+                "description": "The dashboard doesn't edit anything itself. Use Quick Actions for the most common operations (add an item, check in/out, triage), or jump to the Inventory page to manage devices in detail. The search bar at the top accepts a keyboard shortcut — press / from anywhere to jump.",
+                "center": True,
+                "optional": True,
             },
         ],
     },
