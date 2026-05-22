@@ -237,8 +237,10 @@ class TourEngine {
         if (step.center) {
             this._waitRetries = 0;
             this.currentStep = stepIndex;
-            const prev = document.querySelector('.tour-highlight-target');
-            if (prev) prev.classList.remove('tour-highlight-target');
+            // Clear any stale highlights (race protection — querySelectorAll catches siblings)
+            document.querySelectorAll('.tour-highlight-target').forEach(el => {
+                el.classList.remove('tour-highlight-target');
+            });
             if (this.overlay) {
                 this.overlay.style.clipPath = '';
                 this.overlay.style.pointerEvents = '';
@@ -306,9 +308,10 @@ class TourEngine {
         this.currentStep = stepIndex;
         if (typeof closeQuickView === 'function' && step.target !== '.qv-panel') closeQuickView();
 
-        // Remove previous highlight
-        const prev = document.querySelector('.tour-highlight-target');
-        if (prev) prev.classList.remove('tour-highlight-target');
+        // Remove previous highlight(s) — querySelectorAll catches stale siblings
+        document.querySelectorAll('.tour-highlight-target').forEach(el => {
+            el.classList.remove('tour-highlight-target');
+        });
 
         // Draw cutout immediately so fixed elements (bulk bar etc.) are never covered
         this._updateOverlay(targetEl, step.highlight_padding || 8);
