@@ -2035,109 +2035,232 @@ def get_all_tours() -> list[dict]:
     ]
 
 
+def _resolve_tour_template(tour):
+    """Resolve the page template name for a tour.
+
+    Priority: explicit tour['template'], else derive from page_pattern
+    (strip leading slash, last path segment + '.html'), else None.
+    '/inventory' -> 'inventory.html', '/admin/users' -> 'users.html'.
+    """
+    explicit = tour.get("template")
+    if explicit:
+        return explicit
+    pattern = tour.get("page_pattern")
+    if pattern:
+        seg = pattern.strip("/").split("/")[-1]
+        if seg:
+            return seg + ".html"
+    return None
+
+
+def _collect_included_partials(template_path, templates_dir, seen=None):
+    """Recursively collect {% include "..." %} partial paths (relative to templates_dir).
+
+    Returns a set. Uses `seen` to guard against circular includes.
+    """
+    import re
+    from pathlib import Path
+    if seen is None:
+        seen = set()
+    full = Path(templates_dir) / template_path
+    if not full.is_file():
+        return seen
+    try:
+        text = full.read_text(errors="ignore")
+    except Exception:
+        return seen
+    for inc in re.findall(r"{%\s*include\s+[\"']([^\"']+)[\"']", text):
+        if inc not in seen:
+            seen.add(inc)
+            _collect_included_partials(inc, templates_dir, seen)
+    return seen
+
+
+def _build_scoped_corpus(tour, templates_dir, static_js_dir):
+    """Build a page-scoped search corpus for one tour.
+
+    Corpus = page template + base.html + transitively included partials
+    + all static/js/*.js. CSS is intentionally excluded.
+
+    Returns (corpus_string, None) on success, or (None, reason) when no
+    scoped corpus can be built (caller falls back to corpus-wide).
+    """
+    from pathlib import Path
+    tmpl = _resolve_tour_template(tour)
+    if not tmpl:
+        return (None, "no page_pattern or template; will fall back to corpus-wide")
+    page = Path(templates_dir) / tmpl
+    if not page.is_file():
+        return (None, f"resolved template '{tmpl}' not found; add explicit 'template:' field to this tour")
+
+    parts = [page.read_text(errors="ignore")]
+
+    base = Path(templates_dir) / "base.html"
+    if base.is_file():
+        parts.append(base.read_text(errors="ignore"))
+
+    partials = set()
+    _collect_included_partials(tmpl, templates_dir, partials)
+    _collect_included_partials("base.html", templates_dir, partials)
+    for p in partials:
+        pf = Path(templates_dir) / p
+        if pf.is_file():
+            try:
+                parts.append(pf.read_text(errors="ignore"))
+            except Exception:
+                pass
+
+    js_dir = Path(static_js_dir)
+    if js_dir.exists():
+        for f in js_dir.rglob("*.js"):
+            if ".bak." in f.name:
+                continue
+            try:
+                parts.append(f.read_text(errors="ignore"))
+            except Exception:
+                pass
+
+    return ("\n".join(parts), None)
+
+
 def lint_tour_selectors(tour_id=None):
     """
-    Check that every tour-step target selector exists somewhere in the codebase.
-    Useful after renames/refactors to catch stale selectors.
+    Check that every tour-step target selector exists on the tour's own page.
 
-    Scans:
-      - <app_dir>/templates/  (*.html)
-      - <repo_root>/static/js/  (*.js)
-      - <repo_root>/static/css/  (*.css)
-
-    Where <app_dir> is this file's parent and <repo_root> is one level up.
+    Page-scoped: each tour's selectors are checked against a corpus built from
+    its page template + base.html + transitively included partials + all
+    static/js/*.js. Falls back to a corpus-wide scan for a tour only when no
+    template can be resolved (no page_pattern/template, or resolved file
+    missing) -- reported as a warning.
 
     Skips:
-      - .bak.* files
-      - Pure tag selectors like 'nav' or 'body' (no meaningful token to grep)
-
-    Args:
-      tour_id (str, optional): If given, lint only that one tour.
-                               Otherwise lint every tour in TOURS.
-
-    Returns:
-      None. Prints a report.
+      - centered steps (center=True): no target
+      - steps with lint_skip=True (require a non-empty lint_skip_reason)
+      - pure tag selectors (nav, body): no token to grep
     """
     import re
     from pathlib import Path
 
-    # 1. Resolve directories relative to this file.
     app_dir = Path(__file__).resolve().parent
     repo_root = app_dir.parent
-    scan_dirs = [
-        app_dir / "templates",
-        repo_root / "static" / "js",
-        repo_root / "static" / "css",
-    ]
+    templates_dir = app_dir / "templates"
+    static_js_dir = repo_root / "static" / "js"
+    static_css_dir = repo_root / "static" / "css"
 
-    # 2. Build the search corpus.
-    extensions = {".html", ".js", ".css"}
-    corpus_parts = []
-    files_scanned = 0
-    for d in scan_dirs:
-        if not d.exists():
-            print(f"  [warn] scan dir not found: {d}")
-            continue
-        for f in d.rglob("*"):
-            if not f.is_file():
-                continue
-            if f.suffix not in extensions:
-                continue
-            if ".bak." in f.name:
-                continue
-            try:
-                corpus_parts.append(f.read_text(errors="ignore"))
-                files_scanned += 1
-            except Exception:
-                pass
-    corpus = "\n".join(corpus_parts)
-
-    # 3. Extract searchable tokens from a CSS selector.
     def extract_tokens(selector):
         ids = re.findall(r"#([\w-]+)", selector)
         classes = re.findall(r"\.([\w-]+)", selector)
         attrs = re.findall(r'\[[^\]]*"([^"]+)"\]', selector)
         return ids + classes + attrs
 
-    # 4. Walk tours.
+    _fallback = {}
+    def fallback_corpus():
+        if "c" not in _fallback:
+            parts = []
+            for d, exts in ((templates_dir, {".html"}),
+                            (static_js_dir, {".js"}),
+                            (static_css_dir, {".css"})):
+                if not d.exists():
+                    continue
+                for f in d.rglob("*"):
+                    if f.is_file() and f.suffix in exts and ".bak." not in f.name:
+                        try:
+                            parts.append(f.read_text(errors="ignore"))
+                        except Exception:
+                            pass
+            _fallback["c"] = "\n".join(parts)
+        return _fallback["c"]
+
     tours_to_check = [t for t in TOURS if tour_id is None or t["id"] == tour_id]
     if tour_id is not None and not tours_to_check:
         print(f"No tour with id={tour_id!r} found.")
         return
 
     found_count = 0
-    missing = []
-    skipped = []
+    missing = []            # (tid, idx, field, selector, token)
+    skipped_generic = []    # (tid, idx, field, selector)
+    skipped_lint = []       # (tid, idx, reason)
+    validation_errors = []  # str
+    steps_checked = 0
+    per_tour = []           # (tid, scope_label, found_n, missing_n)
 
     for tour in tours_to_check:
-        for step_idx, step in enumerate(tour.get("steps", []), start=1):
+        tid = tour["id"]
+        corpus, reason = _build_scoped_corpus(tour, templates_dir, static_js_dir)
+        if corpus is None:
+            scope_label = f"corpus-wide fallback: {reason}"
+            active_corpus = fallback_corpus()
+        else:
+            scope_label = _resolve_tour_template(tour)
+            active_corpus = corpus
+
+        t_found = 0
+        t_missing = 0
+        for idx, step in enumerate(tour.get("steps", []), start=1):
+            steps_checked += 1
+            if step.get("center"):
+                continue
+            if step.get("lint_skip") is True:
+                r = step.get("lint_skip_reason")
+                if not isinstance(r, str) or not r.strip():
+                    validation_errors.append(
+                        f"Tour '{tid}' step {idx}: lint_skip=True requires non-empty lint_skip_reason string"
+                    )
+                else:
+                    skipped_lint.append((tid, idx, r))
+                continue
             for field in ("target", "wait_for"):
                 selector = step.get(field)
                 if not selector:
                     continue
                 tokens = extract_tokens(selector)
                 if not tokens:
-                    skipped.append((tour["id"], step_idx, field, selector))
+                    skipped_generic.append((tid, idx, field, selector))
                     continue
                 for tok in tokens:
-                    if tok in corpus:
+                    if tok in active_corpus:
                         found_count += 1
+                        t_found += 1
                     else:
-                        missing.append((tour["id"], step_idx, field, selector, tok))
+                        missing.append((tid, idx, field, selector, tok))
+                        t_missing += 1
+        per_tour.append((tid, scope_label, t_found, t_missing))
 
-    # 5. Print report.
-    print("Tour selector lint report")
-    print("=" * 25)
-    print(f"Files scanned: {files_scanned}")
-    print(f"Tours linted: {len(tours_to_check)}")
-    print(f"Selector tokens found: {found_count}")
-    print(f"Skipped (too generic): {len(skipped)}")
-    for tid, sidx, fld, sel in skipped:
-        print(f"  - {tid} step {sidx} {fld}: {sel!r}")
-    print(f"Missing: {len(missing)}")
-    for tid, sidx, fld, sel, tok in missing:
-        print(f"  - {tid} step {sidx} {fld}: {sel!r} -> token {tok!r} NOT FOUND")
+    # ---- Report ----
+    print("Tour selector lint report (page-scoped)")
+    print("=" * 40)
+    print(f"Tours scanned: {len(tours_to_check)}  |  Steps checked: {steps_checked}")
+
+    if validation_errors:
+        print("\n!!! VALIDATION ERRORS (CRITICAL) -- must fix !!!")
+        for e in validation_errors:
+            print(f"  X  {e}")
+
+    print(f"\n>>> Skipped (lint_skip): {len(skipped_lint)} steps <<<")
+    for tid, idx, r in skipped_lint:
+        print(f"  - {tid} step {idx}: {r}")
+
+    print("\nPer-tour results:")
+    for tid, scope_label, t_found, t_missing in per_tour:
+        flag = "" if t_missing == 0 else f"   <-- {t_missing} MISSING"
+        print(f"  {tid}  [{scope_label}]  found={t_found} missing={t_missing}{flag}")
+
     if missing:
-        print("\nROT DETECTED. Update the tour selectors or the templates.")
+        print("\nMissing tokens:")
+        for tid, idx, fld, sel, tok in missing:
+            print(f"  - {tid} step {idx} {fld}: {sel!r} -> token {tok!r} NOT FOUND")
+
+    # Pure-tag selectors are skipped silently: count only, no per-item noise.
+    if skipped_generic:
+        print(f"\nSkipped (generic tag selectors, silent): {len(skipped_generic)}")
+
+    print("\nSummary:")
+    print(f"  found={found_count}  missing={len(missing)}  "
+          f"skipped_lint={len(skipped_lint)}  skipped_generic={len(skipped_generic)}  "
+          f"validation_errors={len(validation_errors)}")
+    if validation_errors:
+        print("  RESULT: VALIDATION ERRORS -- fix lint_skip_reason(s).")
+    elif missing:
+        print("  RESULT: ROT DETECTED.")
     else:
-        print("\nNo rot detected.")
+        print("  RESULT: clean.")
