@@ -748,10 +748,21 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Audit Log (admin/domain admin or can_view_audit_log)
     # ------------------------------------------------------------------
+    # NOTE: audit_log_tour is intentionally not repaired here.
+    # The original page_pattern (/audit-log) pointed at a JSON API
+    # endpoint, not the actual admin audit page. Fixed to /admin/audit
+    # so the lint reports against the real page. All 4 step targets
+    # (.page-header, .filters-bar, .audit-table, .pagination) are
+    # stale vs the redesigned admin_audit.html and need rewriting
+    # holistically against the current DOM - deferred to a future
+    # audit-page tour-rewrite track. The 4 missing tokens in lint
+    # output are expected and serve as a standing reminder.
+    # enabled=False protects users from launching the stale tour.
     {
         "id": "audit_log_tour",
         "name": "Audit Log",
-        "page_pattern": "/audit-log",
+        "page_pattern": "/admin/audit",
+        "template": "admin_audit.html",
         "description": "Review change history with filters and exports",
         "required_access": "has_audit_access",
         "enabled": False,
