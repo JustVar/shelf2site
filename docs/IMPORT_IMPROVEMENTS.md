@@ -2,7 +2,7 @@
 
 ## Overview
 
-The enhanced import script (`import_spreadsheet_v2.py`) adds three major improvements over the original:
+The enhanced import script (`import_spreadsheet_v2.py`) adds three major improvements over the original. (For category-specific imports, see also `import_all_categories.py`, `import_edge_boxes.py`, and `import_part_numbers.py` in `scripts/`.)
 
 1. **Validation/Preview Mode** - See what would change without modifying the database
 2. **Incremental Updates** - Update existing devices instead of requiring empty tables
@@ -15,9 +15,9 @@ The enhanced import script (`import_spreadsheet_v2.py`) adds three major improve
 Preview what the import would do without making any database changes:
 
 ```bash
-python scripts/import_spreadsheet_v2.py --dry-run
+docker compose exec app python scripts/import_spreadsheet_v2.py --dry-run
 # OR
-python scripts/import_spreadsheet_v2.py --validate
+docker compose exec app python scripts/import_spreadsheet_v2.py --validate
 ```
 
 **Output Example:**
@@ -61,7 +61,6 @@ The new script automatically:
 - Works with existing data
 - Updates changed fields on existing devices
 - Adds only new devices
-- Preserves manual edits (by checking `last_updated` timestamps)
 
 ### 3. Detailed Error Handling
 
@@ -118,7 +117,7 @@ Detailed summary shows exactly what happened:
 
 ```bash
 # Import with updates to existing devices
-python scripts/import_spreadsheet_v2.py
+docker compose exec app python scripts/import_spreadsheet_v2.py
 
 # The script will:
 # - Update existing devices by serial number
@@ -131,12 +130,12 @@ python scripts/import_spreadsheet_v2.py
 
 ```bash
 # Step 1: Preview changes
-python scripts/import_spreadsheet_v2.py --dry-run
+docker compose exec app python scripts/import_spreadsheet_v2.py --dry-run
 
 # Review the output - check for errors
 
 # Step 2: If everything looks good, run actual import
-python scripts/import_spreadsheet_v2.py
+docker compose exec app python scripts/import_spreadsheet_v2.py
 ```
 
 ### Handling Errors
@@ -258,35 +257,16 @@ def import_trade_show_boxes_incremental(wb, session, ctx: ImportContext) -> Impo
 
 ```bash
 # 1. Backup database first
-pg_dump hardware_inventory > backup_$(date +%Y%m%d).sql
+pg_dump asset_tracker > backup_$(date +%Y%m%d).sql
 
 # 2. Test dry-run mode
-python scripts/import_spreadsheet_v2.py --dry-run
+docker compose exec app python scripts/import_spreadsheet_v2.py --dry-run
 
 # 3. If validation passes, run actual import
-python scripts/import_spreadsheet_v2.py
+docker compose exec app python scripts/import_spreadsheet_v2.py
 
 # 4. Verify changes in dashboard
-open http://localhost:8081/assettracker/
-```
-
-### Test on NUC
-
-```bash
-# SSH into NUC
-ssh 192.0.2.174
-
-# Navigate to asset tracker
-cd /opt/hardware_inventory
-
-# Activate venv
-source venv/bin/activate
-
-# Test validation
-python scripts/import_spreadsheet_v2.py --dry-run
-
-# If good, run import
-python scripts/import_spreadsheet_v2.py
+open http://localhost:8100/assettracker/
 ```
 
 ## Roadmap
@@ -335,5 +315,5 @@ python scripts/import_spreadsheet_v2.py
 **Next Steps:**
 1. Complete remaining 13 table migrations
 2. Test with full spreadsheet on dev environment
-3. Deploy to NUC for production use
+3. Deploy to apphost for production use
 4. Consider automated scheduled imports

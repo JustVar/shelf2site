@@ -2,7 +2,7 @@
 
 Privacy-first hardware inventory tracker with network auto-discovery, encrypted credentials vault, and HTMX dashboard.
 
-**Stack:** FastAPI + PostgreSQL + nmap + SQLAlchemy + HTMX + Jinja2
+**Stack:** FastAPI + PostgreSQL + nmap + SQLAlchemy + HTMX + Jinja2, deployed via Docker Compose (gunicorn + uvicorn workers, nginx front)
 
 ## Features
 
@@ -14,7 +14,7 @@ Privacy-first hardware inventory tracker with network auto-discovery, encrypted 
 - **Role-based access** — Admin, Editor, and Viewer roles with bcrypt password hashing
 - **Audit logging** — Full JSONB audit trail for all changes
 - **Real-time updates** — Server-sent events (SSE) for live dashboard updates
-- **Multi-NUC scanning** — Local scanner (NUC 1) + remote agents (NUC 2+) via API
+- **Distributed scanning** — Local scanner + optional remote agents via API
 
 ## RBAC Verification (MANDATORY)
 
@@ -69,37 +69,35 @@ Test with three user types:
 
 ## Prerequisites
 
-- Python 3.10+
-- PostgreSQL 14+
+- Python 3.12+
+- PostgreSQL 16+
 - nmap (for network scanning)
 
 ## Quick Start
 
+Prerequisites: Docker and Docker Compose installed.
+
 ```bash
-# 1. Clone and install
+# 1. Clone the repo
 git clone https://github.com/employer-org/asset-tracker.git
 cd asset-tracker
-pip install -r requirements.txt
 
 # 2. Configure
 cp .env.template .env
-# Edit .env with your database credentials and generate encryption keys
+# Edit .env: set DATABASE_URL, encryption keys, and any integration credentials.
 
-# 3. Create PostgreSQL database
-createdb hardware_inventory
+# 3. Bring up the stack
+docker compose up -d
 
-# 4. Run the app (tables are created automatically on first start)
-uvicorn app.main:app --host 0.0.0.0 --port 8081
+# 4. First-time setup (run inside the app container)
+docker compose exec app python scripts/create_admin_user.py
+docker compose exec app python scripts/seed_oui_allowlist.py
 
-# 5. Create initial admin user
-python scripts/create_admin_user.py
-
-# 6. Seed OUI allowlist (known manufacturer MAC prefixes)
-python scripts/seed_oui_allowlist.py
-
-# 7. (Optional) Import data from Excel spreadsheet
-python scripts/import_spreadsheet.py
+# 5. (Optional) Seed initial inventory from an Excel spreadsheet
+docker compose exec app python scripts/import_spreadsheet.py
 ```
+
+Open the app at `http://<host>:8100/assettracker/`.
 
 ## Project Structure
 
@@ -113,13 +111,13 @@ asset-tracker/
     auth.py                Authentication + role checks
     credentials.py         Fernet encryption for vault
     audit.py               Audit log events
-    routes/                11 route modules
+    routes/                Route handlers
     templates/             Jinja2 HTML + HTMX templates
   scanner/                 Network discovery pipeline
     network_scanner.py     nmap subnet scanner
     oui_lookup.py          MAC vendor lookup
     discovery_pipeline.py  OUI filtering + pending queue
-    scanner_agent.py       Remote agent (NUC 2+)
+    scanner_agent.py       Remote agent for distributed scanning
   scripts/                 Setup and initialization
     create_admin_user.py   Create initial users
     seed_oui_allowlist.py  Seed known OUI prefixes
