@@ -92,7 +92,7 @@ def reset_inventory_tables():
     from app.models import (
         AccessControl, Camera, Computer, EdgeBox, GPU,
         MobileDevice, Monitor, NetworkEquipment, NASDevice, OfficeEquipment,
-        PartNumber, Phone, Printer, TradeShowBox, Webcam,
+        PartNumber, Phone, Printer, Webcam,
     )
     from app.database import Base
 
