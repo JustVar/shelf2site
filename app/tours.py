@@ -32,7 +32,7 @@ TOURS: list[dict] = [
         "name": "Dashboard Overview",
         "description": "A quick orientation to the dashboard overview page.",
         "page_pattern": "/dashboard",
-        "enabled": False,
+        "enabled": True,
         "required_access": None,
         "group": "onboarding",
         "steps": [
@@ -1678,7 +1678,7 @@ TOURS: list[dict] = [
         "page_pattern": "/dashboard",
         "description": "Explains how and where all inventory data is saved, backed up, and who can change it",
         "required_access": None,
-        "enabled": False,
+        "enabled": True,
         "group": "onboarding",
         "steps": [
             {
@@ -1726,7 +1726,7 @@ TOURS: list[dict] = [
         "page_pattern": "/dashboard",
         "description": "Explains how the network scanner finds devices and gets them into inventory",
         "required_access": "is_editor_or_above",
-        "enabled": False,
+        "enabled": True,
         "group": "onboarding",
         "steps": [
             {
