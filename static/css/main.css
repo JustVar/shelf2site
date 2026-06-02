@@ -1226,6 +1226,19 @@ thead th:nth-child(1) {
     display: flex;
 }
 
+/* Tour catalog modal: cap height to viewport and scroll the list internally
+   (mirrors the mobile .modal max-height/overflow pattern, scoped to this modal
+   so the shared .modal base used by 14 other modals is untouched). */
+#tour-help-modal .modal {
+    max-height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
+}
+#tour-help-modal #tour-help-list {
+    overflow-y: auto;
+    min-height: 0;
+}
+
 .modal {
     background: var(--card-bg);
     border: 1px solid var(--border);

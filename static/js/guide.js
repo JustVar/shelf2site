@@ -316,17 +316,30 @@ class TourEngine {
         // Draw cutout immediately so fixed elements (bulk bar etc.) are never covered
         this._updateOverlay(targetEl, step.highlight_padding || 8);
 
-        // Scroll target into view
+        // Scroll target into view, then reposition once scrolling actually finishes.
+        // A fixed timeout races smooth-scroll (positions against a still-moving
+        // target), so we wait for the scrollend event, with a fallback timeout
+        // for the case where the target is already in view and no scroll occurs.
         targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-        // Delay for scroll, then reposition tooltip and highlight
-        setTimeout(() => {
+        let done = false;
+        const finishStep = () => {
+            if (done) return;
+            done = true;
+            window.removeEventListener('scrollend', finishStep, true);
+            clearTimeout(fallbackTimer);
             targetEl.classList.add('tour-highlight-target');
             this._updateOverlay(targetEl, step.highlight_padding || 8);
             this._renderTooltip(step, stepIndex);
             this._positionTooltip(targetEl, step.position || 'bottom');
             if (this.overlay) this.overlay.style.pointerEvents = '';
-        }, 300);
+        };
+
+        // scrollend fires when scrolling fully stops (Chrome 114+).
+        window.addEventListener('scrollend', finishStep, true);
+        // Fallback: if the element is already in view, no scroll happens and
+        // scrollend never fires — so position anyway after a short delay.
+        const fallbackTimer = setTimeout(finishStep, 400);
     }
 
     _showWaitPrompt(step, stepIndex) {
