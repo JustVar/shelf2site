@@ -770,6 +770,8 @@ TOURS: list[dict] = [
         "steps": [
             {
                 "target": ".page-header",
+                "deferred": True,
+                "deferred_reason": "Deferred per commit 2965087 — .page-header pending audit-page rewrite track.",
                 "title": "Audit Log",
                 "description": (
                     "The audit log records every create, update, and delete "
@@ -782,6 +784,8 @@ TOURS: list[dict] = [
             },
             {
                 "target": ".filters-bar",
+                "deferred": True,
+                "deferred_reason": "Deferred per commit 2965087 — .filters-bar pending audit-page rewrite track.",
                 "title": "Filters",
                 "description": (
                     "Filter the log by search text, device category, action type "
@@ -794,6 +798,8 @@ TOURS: list[dict] = [
             },
             {
                 "target": ".audit-table",
+                "deferred": True,
+                "deferred_reason": "Deferred per commit 2965087 — .audit-table pending audit-page rewrite track.",
                 "title": "Log Entries",
                 "description": (
                     "Each row shows who made a change, when, what action was "
@@ -806,6 +812,8 @@ TOURS: list[dict] = [
             },
             {
                 "target": ".pagination",
+                "deferred": True,
+                "deferred_reason": "Deferred per commit 2965087 — .pagination pending audit-page rewrite track.",
                 "title": "Pagination & Export",
                 "description": (
                     "Navigate through pages of results or export the filtered "
@@ -1042,6 +1050,8 @@ TOURS: list[dict] = [
             # ── Archived section ───────────────────────────────────
             {
                 "target": ".arch-toggle",
+                "deferred": True,
+                "deferred_reason": "Deferred per commit 6bdd22a — .arch-toggle restoration pending fulfillment/deployment revamp track.",
                 "title": "Archived Orders",
                 "description": (
                     "Click to expand/collapse completed orders. "
