@@ -2160,7 +2160,12 @@ def lint_tour_selectors(tour_id=None):
     Skips:
       - centered steps (center=True): no target
       - steps with lint_skip=True (require a non-empty lint_skip_reason)
+      - steps with deferred=True (require a non-empty deferred_reason;
+        documented stale selectors awaiting a future rewrite track)
       - pure tag selectors (nav, body): no token to grep
+
+    Returns:
+      0 if clean, 1 if rot detected, 2 if validation errors.
     """
     import re
     from pathlib import Path
@@ -2198,12 +2203,13 @@ def lint_tour_selectors(tour_id=None):
     tours_to_check = [t for t in TOURS if tour_id is None or t["id"] == tour_id]
     if tour_id is not None and not tours_to_check:
         print(f"No tour with id={tour_id!r} found.")
-        return
+        return 2
 
     found_count = 0
     missing = []            # (tid, idx, field, selector, token)
     skipped_generic = []    # (tid, idx, field, selector)
     skipped_lint = []       # (tid, idx, reason)
+    skipped_deferred = []   # (tid, idx, reason)
     validation_errors = []  # str
     steps_checked = 0
     per_tour = []           # (tid, scope_label, found_n, missing_n)
@@ -2224,6 +2230,11 @@ def lint_tour_selectors(tour_id=None):
             steps_checked += 1
             if step.get("center"):
                 continue
+            if step.get("lint_skip") is True and step.get("deferred") is True:
+                validation_errors.append(
+                    f"Tour '{tid}' step {idx}: lint_skip=True and deferred=True are mutually exclusive"
+                )
+                continue
             if step.get("lint_skip") is True:
                 r = step.get("lint_skip_reason")
                 if not isinstance(r, str) or not r.strip():
@@ -2232,6 +2243,15 @@ def lint_tour_selectors(tour_id=None):
                     )
                 else:
                     skipped_lint.append((tid, idx, r))
+                continue
+            if step.get("deferred") is True:
+                r = step.get("deferred_reason")
+                if not isinstance(r, str) or not r.strip():
+                    validation_errors.append(
+                        f"Tour '{tid}' step {idx}: deferred=True requires non-empty deferred_reason string"
+                    )
+                else:
+                    skipped_deferred.append((tid, idx, r))
                 continue
             for field in ("target", "wait_for"):
                 selector = step.get(field)
@@ -2264,6 +2284,10 @@ def lint_tour_selectors(tour_id=None):
     for tid, idx, r in skipped_lint:
         print(f"  - {tid} step {idx}: {r}")
 
+    print(f"\n>>> Deferred: {len(skipped_deferred)} steps <<<")
+    for tid, idx, r in skipped_deferred:
+        print(f"  - {tid} step {idx}: {r}")
+
     print("\nPer-tour results:")
     for tid, scope_label, t_found, t_missing in per_tour:
         flag = "" if t_missing == 0 else f"   <-- {t_missing} MISSING"
@@ -2280,11 +2304,14 @@ def lint_tour_selectors(tour_id=None):
 
     print("\nSummary:")
     print(f"  found={found_count}  missing={len(missing)}  "
-          f"skipped_lint={len(skipped_lint)}  skipped_generic={len(skipped_generic)}  "
-          f"validation_errors={len(validation_errors)}")
+          f"skipped_lint={len(skipped_lint)}  skipped_deferred={len(skipped_deferred)}  "
+          f"skipped_generic={len(skipped_generic)}  validation_errors={len(validation_errors)}")
     if validation_errors:
-        print("  RESULT: VALIDATION ERRORS -- fix lint_skip_reason(s).")
+        print("  RESULT: VALIDATION ERRORS -- fix lint_skip_reason(s)/deferred_reason(s).")
+        return 2
     elif missing:
         print("  RESULT: ROT DETECTED.")
+        return 1
     else:
         print("  RESULT: clean.")
+        return 0
