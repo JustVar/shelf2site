@@ -98,7 +98,7 @@ TOURS: list[dict] = [
                 "description": (
                     "Matching devices appear here grouped by category. Each row "
                     "shows the device name, serial number, status, and category. "
-                    "Click any row to go to that device's edit page."
+                    "Use the Edit button on a row to open that device's edit panel."
                 ),
                 "position": "top",
                 "highlight_padding": 6,
