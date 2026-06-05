@@ -329,6 +329,7 @@ class TourEngine {
             window.removeEventListener('scrollend', finishStep, true);
             clearTimeout(fallbackTimer);
             targetEl.classList.add('tour-highlight-target');
+            this._scrollHorizontalIntoView(targetEl);
             this._updateOverlay(targetEl, step.highlight_padding || 8);
             this._renderTooltip(step, stepIndex);
             this._positionTooltip(targetEl, step.position || 'bottom');
@@ -443,6 +444,26 @@ class TourEngine {
             (x + w) + 'px ' + (y + h) + 'px, ' +
             (x + w) + 'px ' + y + 'px, ' +
             x + 'px ' + y + 'px)';
+    }
+
+    _scrollHorizontalIntoView(targetEl) {
+        // scrollIntoView's block:'nearest' does not reliably scroll nested
+        // horizontal containers, so far-right targets (e.g. wide table cells)
+        // stay off-screen. Find the nearest horizontally-scrollable ancestor
+        // and scroll it so the target is centered within it.
+        let el = targetEl.parentElement;
+        while (el && el !== document.body) {
+            const ox = getComputedStyle(el).overflowX;
+            if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 2) {
+                const wrapRect = el.getBoundingClientRect();
+                const tgtRect = targetEl.getBoundingClientRect();
+                const targetOffset = (tgtRect.left - wrapRect.left) + el.scrollLeft;
+                const desired = targetOffset - (el.clientWidth / 2) + (tgtRect.width / 2);
+                el.scrollTo({ left: Math.max(0, desired), behavior: 'auto' });
+                break; // only the nearest horizontal scroller needs adjusting
+            }
+            el = el.parentElement;
+        }
     }
 
     /* ------------------------------------------------------------------ */
