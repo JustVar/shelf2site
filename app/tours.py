@@ -65,7 +65,7 @@ TOURS: list[dict] = [
         "name": "Global Search",
         "page_pattern": "/search",
         "description": "Search across all device categories at once",
-        "enabled": False,
+        "enabled": True,
         "group": "inventory",
         "required_access": None,
         "steps": [
@@ -118,7 +118,7 @@ TOURS: list[dict] = [
         "template": "support.html",
         "description": "Review and approve discovered network devices",
         "required_access": "is_editor_or_above",
-        "enabled": False,
+        "enabled": True,
         "group": "inventory",
         "steps": [
             {
