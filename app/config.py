@@ -11,10 +11,12 @@ load_dotenv(_env_path)
 
 class Settings:
     # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql://inventory_user:password@localhost:5432/hardware_inventory",
-    )
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not set. Define it in the .env file "
+            "(see .env.template) before starting the app."
+        )
 
     # Credentials vault
     CREDENTIAL_ENCRYPTION_KEY: str = os.getenv("CREDENTIAL_ENCRYPTION_KEY", "")
@@ -32,7 +34,7 @@ class Settings:
         for s in os.getenv("SCAN_SUBNETS", "192.0.2.0/24").split(",")
     ]
     SCAN_INTERVAL_SECONDS: int = int(os.getenv("SCAN_INTERVAL_SECONDS", "120"))
-    SCANNER_ID: str = os.getenv("SCANNER_ID", "lab-nuc")
+    SCANNER_ID: str = os.getenv("SCANNER_ID", "default")
 
     # Remote agent
     CENTRAL_API_URL: str = os.getenv("CENTRAL_API_URL", "")
