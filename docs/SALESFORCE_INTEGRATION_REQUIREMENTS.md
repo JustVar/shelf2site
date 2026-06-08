@@ -13,7 +13,7 @@ and device inventory. We want to connect it to Salesforce so the two systems sta
 without manual data entry in both places.
 
 We plan to use **OAuth 2.0 Client Credentials flow** (server-to-server, no user login required)
-so the NUC server can talk to Salesforce directly and securely. This avoids hardcoding any
+so the app server can talk to Salesforce directly and securely. This avoids hardcoding any
 user's credentials and is the right pattern for background sync jobs.
 
 ---
@@ -26,14 +26,14 @@ Please create a **Connected App** in Salesforce with the following settings:
 
 - **OAuth Flows enabled:** Client Credentials (OAuth 2.0)
 - **Scopes required:** `api`, `refresh_token` (or `full` if easier)
-- **IP relaxation:** Relax IP restrictions (the NUC's IP may change if the lab network changes)
+- **IP relaxation:** Relax IP restrictions (the server's IP may change if the lab network changes)
 
 Once created, please share:
 
 | Item | Example |
 |---|---|
 | Consumer Key (Client ID) | `3MVG9...` |
-| Consumer Secret (Client Secret) | (send securely — we'll put it in `.env` on the NUC) |
+| Consumer Secret (Client Secret) | (send securely — we'll put it in `.env` on the server) |
 | Salesforce instance URL | `https://example.my.salesforce.com` |
 | API version to target | e.g. `v59.0` |
 

@@ -287,7 +287,7 @@ db.commit()
 
 1. **Write and run Migration 024** (`device_components` table)
    - Follow existing migration pattern in `migrations/` directory
-   - Push to both remotes and pull on NUC before running
+   - Push to both remotes and pull on the server before running
 
 2. **Add `DeviceComponent` model to `app/models.py`**
    - Include `is_active` property

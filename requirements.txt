@@ -1,4 +1,4 @@
-# Hardware Inventory & Tracker System — NUC 1 (Central Hub)
+# Asset Tracker System — Central Hub
 fastapi>=0.115.0
 starlette>=0.52.0,<1.0.0  # 1.0.0 has Jinja2 template cache bug (unhashable dict globals)
 uvicorn[standard]>=0.34.0

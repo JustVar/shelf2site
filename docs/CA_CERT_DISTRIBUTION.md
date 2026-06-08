@@ -1,5 +1,10 @@
 # LAN Certificate — Installation Guide
 
+> **Note:** HTTPS is not yet enabled on apphost — the app currently
+> serves over HTTP at http://192.0.2.10:8100/assettracker/. This guide
+> applies once HTTPS (LAN CA) is set up; the https:// URLs below are
+> the intended endpoints for that future state.
+
 ## Message to send to team members
 
 ---
@@ -14,7 +19,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 
 **Why it's needed:** The app runs on HTTPS (encrypted), which is required for it to be installable as an app on your desktop or phone. The certificate is what makes that encryption work.
 
-**The URL after setup:** `https://192.0.2.174/assettracker/`
+**The URL after setup:** `https://192.0.2.10/assettracker/`
 
 ---
 
@@ -48,7 +53,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
    **"The import was successful"** — click OK
 
 3. **Fully quit Chrome** — close ALL Chrome windows, then check the system tray (bottom-right corner) for a Chrome icon and right-click → Exit. Chrome must be completely closed, not just the tab.
-4. Reopen Chrome and go to `https://192.0.2.174/assettracker/` — you should see a **lock icon (🔒)** to the left of the address bar and no warning page. Chrome no longer shows a green padlock — the gray lock icon means the connection is secure and trusted.
+4. Reopen Chrome and go to `https://192.0.2.10/assettracker/` — you should see a **lock icon (🔒)** to the left of the address bar and no warning page. Chrome no longer shows a green padlock — the gray lock icon means the connection is secure and trusted.
 
    > **Still seeing a warning page?** Open a new Chrome tab, go to `chrome://certificate-manager/` → Trusted Root Certification Authorities tab → search for **Company**. If it's not listed, repeat the import steps above.
 
@@ -61,7 +66,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 3. Expand **Trust** → set **"When using this certificate"** to **Always Trust**
 4. Close the window and enter your Mac password when prompted
 5. Restart Chrome
-6. Go to `https://192.0.2.174/assettracker/` — lock icon (🔒) in the address bar, no warning
+6. Go to `https://192.0.2.10/assettracker/` — lock icon (🔒) in the address bar, no warning
 
 ---
 
@@ -75,7 +80,7 @@ Both Safari and Chrome on iOS use the same system certificate store, so one inst
 4. Tap the **LAN CA** profile → tap **Install** → enter your passcode → **Install** again
 5. Go to **Settings → General → About → Certificate Trust Settings**
 6. Find **LAN CA** and toggle it **ON**
-7. Open Safari or Chrome and go to `https://192.0.2.174/assettracker/`
+7. Open Safari or Chrome and go to `https://192.0.2.10/assettracker/`
 
 ---
 

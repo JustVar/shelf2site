@@ -16,7 +16,7 @@
 - ✅ Configuration via `.env` (ZENDESK_SUBDOMAIN, ZENDESK_EMAIL, ZENDESK_API_TOKEN)
 
 **What's Missing:**
-- ❌ Credentials on NUC (needs user to provide)
+- ❌ Credentials on the server (needs user to provide)
 - ❌ Write operations (create/update tickets)
 - ❌ Custom field extraction/mapping
 - ❌ Integration with provisioning workflow
@@ -183,7 +183,7 @@ When edge box provisioning stages change (Staged → Configured → Registered �
 ## Recommended Implementation Sequence
 
 ### Phase 1: Foundation (Do This First)
-1. **Add Zendesk credentials to NUC** — user provides subdomain/email/token
+1. **Add Zendesk credentials to the server** — user provides subdomain/email/token
 2. **Test admin page** — verify connection, browse orgs/tickets/fields
 3. **Understand your ticket structure** — what custom fields exist? How are deployments tracked?
 
