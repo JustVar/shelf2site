@@ -81,8 +81,6 @@ Application code should never read raw `can_*` columns directly — always go th
 1. Add route file in `app/routes/`
 2. Add template in `app/templates/`
 3. **Update tours in `app/tours.py`** for the relevant page
-4. **Update `tests/CLAUDE_WEB_TESTING_GUIDE.md`** with test instructions
-5. Add E2E tests as a new section in `tests/test_e2e_api.py`
 
 ### Migrations
 - Sequential numbering: `001_`, `002_`, ... (next: `046_`)
@@ -134,8 +132,7 @@ Application code should never read raw `can_*` columns directly — always go th
 - Open TODO: multi-viewer awareness (single-holder for now).
 
 ## Known TODOs / hygiene
-- **Scanner removal:** the network-discovery scanner (`run_local_scanner_loop`, `scanner/network_scanner.py`, `discovery_pipeline.py`, `/scan`, `/api/discover`, SCAN_* config) is slated for removal. Must preserve `scanner/oui_lookup.py` (OUI Reference page) and `scanner/ocr_processor.py` (receiving photo-OCR), plus `pending_devices`/Review Queue (also fed by intake + Intune).
-
+- **Test harness rebuild:** the previous E2E/smoke suite (tests/) targeted the retired NUC host (sudo psql on hardware_inventory, /opt/hardware_inventory paths, 192.0.2.174) and was removed. Rebuild against the apphost/Docker stack: add pytest to the image and write HTTP-based tests against http://192.0.2.10:8100/assettracker (or a container-internal URL).
 - Drop the empty host `asset_tracker` DB on apphost: `sudo -u postgres dropdb asset_tracker` (when convenient — safe, the data is empty)
 - SSE listener reconnect logic in `app/routes/sse.py` (reconnect to Postgres after restart instead of requiring app restart)
 - Downgrade SSE per-event INFO logs to DEBUG once stable
