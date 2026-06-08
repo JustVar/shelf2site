@@ -4,8 +4,8 @@ Creates intune_sync_log to track manual and scheduled sync runs.
 The intune_device_id, intune_compliance, and intune_last_checkin columns
 already exist on the computers table from prior setup.
 
-Run on NUC:
-    cd /opt/hardware_inventory
+Run on the server:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/015_add_intune_sync.py
 """

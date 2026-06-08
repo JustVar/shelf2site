@@ -6,8 +6,8 @@ Enables filtering, conversion, and clear visual differentiation in the UI.
 New field:
 - sku_version: VARCHAR(16) - "legacy" or "2026"
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/007_add_sku_version.py
 """

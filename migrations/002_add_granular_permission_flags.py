@@ -9,8 +9,8 @@ Adds 7 new boolean columns for fine-grained RBAC control:
 - can_access_disposal: Disposal & EOL page
 - can_access_credentials: Credentials vault
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/002_add_granular_permission_flags.py
 """

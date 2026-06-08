@@ -1,7 +1,7 @@
 """Migration: Add procurement tracking fields to all inventory tables.
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/001_add_procurement_fields.py
 """

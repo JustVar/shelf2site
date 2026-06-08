@@ -7,8 +7,8 @@ Adds:
 All existing users except justin_admin get must_change_password=TRUE so they
 are prompted to set their own password on next login.
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/009_add_must_change_password.py
 """

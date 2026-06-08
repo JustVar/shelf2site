@@ -9,8 +9,8 @@ Subscription model:
 - resource_type/resource_id NULL = global subscription to all events of event_type
 - UNIQUE constraint prevents duplicate subscriptions
 
-Run on NUC:
-    cd /opt/hardware_inventory
+Run on the server:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/014_add_slack_subscriptions.py
 """

@@ -4,8 +4,8 @@ Creates a standalone vendor profile table that soft-links to existing
 vendor string fields across all inventory tables. No FK changes needed —
 matching is done by name at query time.
 
-Run on NUC:
-    cd /opt/hardware_inventory
+Run on the server:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/013_add_vendor_profiles.py
 """

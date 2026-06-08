@@ -3,8 +3,8 @@
 Tracks which guided tours each user has completed or dismissed.
 Server-side progress so it survives browser cache clears.
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/004_add_user_tour_progress.py
 """

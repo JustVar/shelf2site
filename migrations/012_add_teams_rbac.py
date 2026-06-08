@@ -12,8 +12,8 @@ Three-state permissions:
 - True = force ON (user override)
 - False = force OFF (user override)
 
-Run on NUC:
-    cd /opt/hardware_inventory
+Run on the server:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/012_add_teams_rbac.py
 """

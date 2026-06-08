@@ -3,8 +3,8 @@
 Tracks pre-deployment provisioning workflow stages for devices.
 Uses JSONB for flexible stage tracking (customizable per device).
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/003_add_device_provisioning.py
 """

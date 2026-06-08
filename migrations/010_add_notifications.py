@@ -1,7 +1,7 @@
 """Migration: Create notifications table for in-app + Slack notification system.
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/010_add_notifications.py
 """

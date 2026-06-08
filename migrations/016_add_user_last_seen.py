@@ -5,8 +5,8 @@ per 2 minutes) by get_current_user. Used by the maintenance announcement page
 to show which users are currently active so admins can decide whether it is safe
 to restart without warning anyone.
 
-Run on NUC:
-    cd /opt/hardware_inventory
+Run on the server:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/016_add_user_last_seen.py
 """

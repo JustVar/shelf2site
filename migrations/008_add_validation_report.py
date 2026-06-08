@@ -9,8 +9,8 @@ New fields:
 - validation_result: Overall result (PASS, FAIL, WARN)
 - validation_date: When the validation was run
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/008_add_validation_report.py
 """

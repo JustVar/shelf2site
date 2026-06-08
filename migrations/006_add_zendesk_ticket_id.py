@@ -7,8 +7,8 @@ customer information and track deployment requests from ticket to deployment.
 New field:
 - zendesk_ticket_id: Integer ticket ID from Zendesk (nullable)
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/006_add_zendesk_ticket_id.py
 """

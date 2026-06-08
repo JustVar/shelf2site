@@ -11,8 +11,8 @@ New columns on device_warranties:
 - loaner_contact: VARCHAR(128)    (person responsible for the loaner)
 - loaner_agreement: VARCHAR(128)  (internal agreement/ticket number)
 
-Run on NUC:
-    cd /opt/hardware_inventory
+Run on the server:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/011_add_warranty_scope.py
 """

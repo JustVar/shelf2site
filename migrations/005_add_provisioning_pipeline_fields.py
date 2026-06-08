@@ -9,8 +9,8 @@ New fields:
 - location_note: Current location or disposition notes
 - deployment_bucket: Business pipeline stage (customer_po, confirmed_pilot, in_progress, certified, in_inventory)
 
-Run this migration on the NUC with:
-    cd /opt/hardware_inventory
+Run this migration on the server with:
+    cd /opt/asset_tracker
     source venv/bin/activate
     python migrations/005_add_provisioning_pipeline_fields.py
 """
