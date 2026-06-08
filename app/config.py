@@ -27,19 +27,6 @@ class Settings:
         "CHANGE-ME-generate-with-python-c-import-secrets-secrets-token-hex-32",
     )
 
-    # Scanner
-    SCANNER_MODE: str = os.getenv("SCANNER_MODE", "local")  # "local" or "remote"
-    SCAN_SUBNETS: list[str] = [
-        s.strip()
-        for s in os.getenv("SCAN_SUBNETS", "192.0.2.0/24").split(",")
-    ]
-    SCAN_INTERVAL_SECONDS: int = int(os.getenv("SCAN_INTERVAL_SECONDS", "120"))
-    SCANNER_ID: str = os.getenv("SCANNER_ID", "default")
-
-    # Remote agent
-    CENTRAL_API_URL: str = os.getenv("CENTRAL_API_URL", "")
-    SCANNER_API_KEY: str = os.getenv("SCANNER_API_KEY", "")
-
     # Root path prefix (for reverse proxy sub-path deployment, e.g. "/inventory")
     ROOT_PATH: str = os.getenv("ROOT_PATH", "")
 

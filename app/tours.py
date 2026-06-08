@@ -1769,67 +1769,6 @@ TOURS: list[dict] = [
     },
 
     # ------------------------------------------------------------------
-    # Concept: How does network discovery work?
-    # ------------------------------------------------------------------
-    # NOTE: concept_network_scanner_tour is intentionally disabled here.
-    # The network scanner (auto-discovery via nmap that fed the Review Queue)
-    # is no longer running - inventory inflow is now manual (spreadsheet sync
-    # plus direct entry by the hardware engineer). This onboarding tour
-    # describes an active discovery pipeline that no longer exists, so its
-    # step 1 premise ("a scanner runs and sweeps the network") is no longer
-    # true. Steps 2-3 (OUI matching, Review Queue) still describe live pages.
-    # Re-enable only if network auto-discovery is restored; otherwise this
-    # tour should be rewritten or retired once the scanner's fate is decided.
-    # enabled=False protects users from learning a defunct workflow.
-    {
-        "id": "concept_network_scanner_tour",
-        "name": "How Does Network Discovery Work?",
-        "page_pattern": "/dashboard",
-        "description": "Explains how the network scanner finds devices and gets them into inventory",
-        "required_access": "is_editor_or_above",
-        "enabled": False,
-        "group": "onboarding",
-        "steps": [
-            {
-                "center": True,
-                "title": "Step 1 — The Scanner",
-                "description": (
-                    "A network scanner runs on the NUC and sweeps the lab network "
-                    "using <strong>nmap</strong> (roughly every 5 minutes). "
-                    "It identifies active devices by IP address and MAC address. "
-                    "The NUC is connected to two networks: "
-                    "office WiFi and the Hardware/QA lab via ethernet."
-                ),
-                "optional": True,
-            },
-            {
-                "center": True,
-                "title": "Step 2 — OUI Matching",
-                "description": (
-                    "Each MAC address has a 3-byte prefix called an OUI that identifies "
-                    "the hardware manufacturer (e.g. <code>AABBCC</code> = Axis Communications). "
-                    "The app looks up the OUI in its reference database (Admin → OUI Reference) "
-                    "to auto-categorize the device — for example, an Axis MAC becomes a "
-                    "<strong>Camera</strong> candidate."
-                ),
-                "optional": True,
-            },
-            {
-                "center": True,
-                "title": "Step 3 — Review Queue",
-                "description": (
-                    "Discovered devices land in the <strong>Review Queue</strong> "
-                    "(Admin → Review Queue). An editor or admin reviews each entry: "
-                    "confirm the category, fill in serial number and location, and approve. "
-                    "Approved devices are added to the main inventory. "
-                    "Dismissed entries are removed from the queue without being added."
-                ),
-                "optional": True,
-            },
-        ],
-    },
-
-    # ------------------------------------------------------------------
     # Concept: How do roles and permissions work?
     # ------------------------------------------------------------------
     {

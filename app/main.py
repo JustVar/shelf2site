@@ -18,7 +18,7 @@ from app import csrf
 from .routes import (
     access_control_detail, admin, api, auth_routes, bulk, camera_detail,
     components, computer_detail, contact_admin, cpu_detail, creds, dashboard,
-    discover, disposal, edge_box_detail, error_routes, fulfillment,
+    disposal, edge_box_detail, error_routes, fulfillment,
     gpu_detail, hard_drive_detail,
     intake, intune_routes, inventory, item_detail,
     lifecycle, locks,
@@ -28,7 +28,7 @@ from .routes import (
     pc_accessory_detail, pc_cooling_detail,
     pending, phone_detail, printer_detail, procurement, provisioning,
     psu_detail, ram_module_detail, receiving,
-    scan, search, sites, slack_bot_routes, sse, support, tours, trials,
+    search, sites, slack_bot_routes, sse, support, tours, trials,
     ups_detail, vendors, warranty, webcam_detail, zendesk_routes,
 )
 
@@ -55,7 +55,7 @@ BP = settings.ROOT_PATH.rstrip("/")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: create tables, start scanner on startup."""
+    """Application lifespan: create tables on startup."""
     create_all_tables()
 
     # Size the thread pool for the expected concurrent user count.
@@ -64,10 +64,7 @@ async def lifespan(app: FastAPI):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=40, thread_name_prefix="at-worker")
     loop.set_default_executor(executor)
 
-    scanner_task = None
-    if settings.SCANNER_MODE == "local":
-        from scanner.discovery_pipeline import run_local_scanner_loop
-        scanner_task = asyncio.create_task(run_local_scanner_loop())
+
 
     # Start lock cleanup background task
     from .locks import start_lock_cleanup
@@ -89,17 +86,10 @@ async def lifespan(app: FastAPI):
 
     executor.shutdown(wait=False)
 
-    if scanner_task:
-        scanner_task.cancel()
-        try:
-            await scanner_task
-        except asyncio.CancelledError:
-            pass
-
 
 app = FastAPI(
     title="Asset Tracker",
-    description="Hardware inventory tracker with privacy-first network auto-discovery",
+    description="Hardware asset tracker for Company",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -208,12 +198,12 @@ async def sidebar_counts_middleware(request: Request, call_next):
 async def auth_redirect_middleware(request: Request, call_next):
     """Redirect to login for unauthenticated browser requests.
 
-    Exceptions: /login, /api/discover (scanner), /static, /events/stream
+    Exceptions: /login, /static, /events/stream
     """
     path = request.url.path
     # Strip ROOT_PATH prefix so checks work for both direct and proxied requests
     rel = path[len(BP):] if path.startswith(BP) else path
-    public_prefixes = ("/login", "/api/discover", "/static", "/events/stream")
+    public_prefixes = ("/login", "/static", "/events/stream")
     if any(rel.startswith(p) for p in public_prefixes):
         return await call_next(request)
 
@@ -359,9 +349,7 @@ app.include_router(map_route.router, prefix="/map")
 app.include_router(api.router, prefix="/api")
 app.include_router(components.router)
 app.include_router(creds.router, prefix="/api/credentials")
-app.include_router(discover.router, prefix="/api")
 app.include_router(pending.router, prefix="/api")
-app.include_router(scan.router, prefix="/api")
 app.include_router(admin.router)
 app.include_router(receiving.router)
 app.include_router(warranty.router)
