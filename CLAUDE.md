@@ -1,4 +1,4 @@
-> **Note (2026-05-04):** This file is in transition. The new `## Deployment`, `## Architecture`, and `## Known TODOs` sections at the top describe the current rebuilt app at `/opt/asset_tracker/` on apphost. The legacy sections below (`## Overview`, `## Stack`, `## Project Structure`, `## Migrations`, `## Tests`) describe the OLD `hardware_inventory` app on the original NUC and should be considered historical until rewritten. Don't trust legacy section facts without verification.
+> **Note:** This file describes the current rebuilt app at `/opt/asset_tracker/` on apphost (Docker Compose, `asset_tracker` DB). Earlier NUC/`hardware_inventory` deployment notes have been removed; the legacy `hardware_inventory` DB still exists on the host as a read-only backup reference (see the Database port section).
 
 ## Deployment
 
@@ -14,7 +14,7 @@
 ### Storage layout (apphost)
 
 - **Root filesystem:** `/dev/mapper/ubuntu--vg-ubuntu--lv` mounted at `/`, 466 GB total, ~22% used (2026-05-04)
-- **`/data` is NOT a separate mount** — just a directory on root. Differs from CLAUDE.md's documented primary NUC at 192.0.2.174 (which has a 916 GB HDD at `/data`).
+- **`/data` is NOT a separate mount** — just a directory on root.
 - **Bind mounts (host → container):**
   - `/data/asset-tracker/postgres` → `/var/lib/postgresql/data` (pg cluster — survives `docker compose down`)
   - `/data/asset-tracker/photos` → `/app/data/photos`
@@ -71,47 +71,11 @@ Application code should never read raw `can_*` columns directly — always go th
 
 ---
 
-# Asset Tracker — CLAUDE.md
+## Stack & Conventions
 
-## Overview
-Hardware asset inventory system for Company. FastAPI + Jinja2 + HTMX. Deployed on NUC at `http://192.0.2.174/assettracker/`.
-
-## Stack
-- **Backend:** FastAPI, PostgreSQL (DB: `hardware_inventory`, user: `inventory_user`)
-- **Frontend:** Jinja2 templates + HTMX (no JS frameworks)
-- **Auth:** Session-based, role-based (admin, editor, procurement, viewer, sites_manager)
-- **Deployment:** systemd (`hardware.asset.tracker.service`), nginx reverse proxy, `ROOT_PATH=/assettracker`
-
-## Project Structure
-```
-app/
-├── main.py              # FastAPI app, startup, middleware
-├── models.py            # SQLAlchemy models
-├── database.py          # DB engine, session
-├── auth.py              # Auth, RBAC decorators (require_sites_manager, etc.)
-├── config.py            # Settings from .env
-├── tours.py             # Guided tour definitions (UPDATE when adding features)
-├── routes/              # ~59 route files (one per feature/detail page)
-│   ├── dashboard.py     # Main dashboard
-│   ├── fulfillment.py   # Unified fulfillment Kanban
-│   ├── provisioning.py  # Provisioning pipeline
-│   ├── orders.py        # Customer orders
-│   └── *_detail.py      # Per-device-type detail pages
-├── templates/           # Jinja2 HTML templates
-├── notifications.py     # Slack bot, email, SSE notifications
-├── zendesk.py           # Zendesk async API client
-├── locks.py             # In-memory edit locking + SSE
-└── validation.py        # Input validation
-migrations/              # Sequential numbered (001-044), run on NUC venv
-static/                  # CSS, JS, images (at repo root, NOT app/static/)
-tests/
-├── test_e2e_api.py      # Main E2E test file (~709 tests, 31 sections)
-├── test_smoke.py        # Smoke tests
-├── CLAUDE_WEB_TESTING_GUIDE.md  # MANDATORY: update after adding features/tests
-└── CLAUDE_WEB_SESSION_STRATEGY.md
-```
-
-## Key Conventions
+- **Backend:** FastAPI + Jinja2 + HTMX (no JS frameworks). PostgreSQL (DB `asset_tracker`, user `asset_tracker_user`).
+- **Auth:** Starlette SessionMiddleware (signed cookie); session stores user_id, username, role, must_change_password. Roles are a 3-tier hierarchy (9 roles) — see "RBAC / Admin pages" below for the full model.
+- **Deployment:** Docker Compose on apphost — `app` (gunicorn, 6 uvicorn workers, bind :8081) + `db` (postgres:16). Host nginx fronts :8100 → container :8081. `ROOT_PATH=/assettracker` (URL prefix). No systemd; no in-container nginx.
 
 ### Adding Features
 1. Add route file in `app/routes/`
@@ -121,42 +85,21 @@ tests/
 5. Add E2E tests as a new section in `tests/test_e2e_api.py`
 
 ### Migrations
-- Sequential numbering: `001_`, `002_`, ..., `044_` (next: `045_`)
-- Run on NUC: `ssh nuc` then `/opt/hardware_inventory/venv/bin/python3 migrations/NNN_*.py`
-- Always add a migration for schema changes — never modify the DB directly
-
-### Tests
-- `test_e2e_api.py` is a **standalone script** (not pytest) — run with `python tests/test_e2e_api.py`
-- Uses `requests` library, organized in 31 numbered sections
-- Creates/cleans up test users per run (`test_admin_e2e`)
-- `test_smoke.py` (27 tests) is a quick standalone check (~10 seconds)
-- Tests hit the real API (no mocks) — use `hardware_inventory` DB
-- **Test isolation:** completely separate from QA Ops and Playwright tests
-- Env vars: `BASE_URL` (default: `http://192.0.2.174/assettracker`), `E2E_ADMIN_USER`, `E2E_ADMIN_PASS`
+- Sequential numbering: `001_`, `002_`, ... (next: `046_`)
+- Run inside the container: `docker compose exec app python migrations/NNN_*.py`
+- Always add a migration for schema changes — never modify the DB directly.
 
 ### Static Files
-- Located at repo root `static/` — NOT `app/static/`
-- CSS variables for dark/light theme in `static/css/main.css`
-
-### RBAC
-- Roles: admin (reese/rowan), editor (chris/nico), editor+sites (parker), procurement (morgan), viewer (grant)
-- Decorators: `require_admin`, `require_editor`, `require_sites_manager`, `require_procurement`
-- `TABLES_REQUIRING_SITES_ADMIN` controls review queue filtering
+- Located at repo root `static/` (bind-mounted to `/app/static` in the container) — NOT `app/static/`.
+- CSS variables for dark/light theme in `static/css/main.css`.
 
 ### Tours (app/tours.py)
-- 26 tour definitions, 2 currently enabled (`inventory_tour`, `asset_triage_tour`)
-- Each tour: id, name, page_pattern, required_access, steps (CSS selectors + descriptions)
-- Tour engine: `static/js/guide.js` — overlay cutout, tooltip positioning, wait_for polling
-- Z-index stack: overlay=1100, highlight=1150, QV overlay=1160, tooltip=1200, toast=1300
-- See `docs/tour-dev-guide.md` for patterns and gotchas
-
-### Scanner Pipeline
-- `scanner/` directory: nmap wrapper, OUI lookup, pending device queue
-- Modes: `local` (NUC scans itself) or `remote` (agents POST to `/api/discover`)
-- Pending devices: discovered → approved (moves to inventory) or dismissed
+- 28 tour definitions, 23 currently enabled.
+- Each tour: id, name, page_pattern, steps (target selector + title + description). Engine in `static/js/guide.js`.
+- See `docs/tour-dev-guide.md` for patterns and gotchas.
 
 ### Design Philosophy
-"Grandma usable" — every page must be self-explanatory. Guided tours, clear labels, no tribal knowledge required. See workspace CLAUDE.md for full details.
+"Grandma usable" — every page must be self-explanatory. Guided tours, clear labels, no tribal knowledge required.
 
 ---
 
@@ -191,6 +134,7 @@ tests/
 - Open TODO: multi-viewer awareness (single-holder for now).
 
 ## Known TODOs / hygiene
+- **Scanner removal:** the network-discovery scanner (`run_local_scanner_loop`, `scanner/network_scanner.py`, `discovery_pipeline.py`, `/scan`, `/api/discover`, SCAN_* config) is slated for removal. Must preserve `scanner/oui_lookup.py` (OUI Reference page) and `scanner/ocr_processor.py` (receiving photo-OCR), plus `pending_devices`/Review Queue (also fed by intake + Intune).
 
 - Drop the empty host `asset_tracker` DB on apphost: `sudo -u postgres dropdb asset_tracker` (when convenient — safe, the data is empty)
 - SSE listener reconnect logic in `app/routes/sse.py` (reconnect to Postgres after restart instead of requiring app restart)
@@ -200,7 +144,6 @@ tests/
 - Multi-viewer lock awareness, when Users page is built
 - Receipt download endpoint `/api/receipts/{id}/download` — link exists on item detail, returns 404 (implement as part of Finance page work)
 - Mobile barcode-scan flow at `/scan` — explicitly deferred from main app, not yet started
-- (Broader) the legacy `## Overview / ## Stack / ## Project Structure / ## Migrations / ## Tests` sections of this CLAUDE.md describe the *old* hardware_inventory app on 192.0.2.174 — pending full rewrite to match the rebuilt /opt/asset_tracker stack
 - U2/U3 (Users + Departments UI rebuild) — sweep deferred renames per [docs/U2_U3_RENAME_FOLLOWUPS.md](docs/U2_U3_RENAME_FOLLOWUPS.md). U1 (2026-05-04) renamed the DB table only; cosmetic file/route/identifier renames are listed there.
 
 
