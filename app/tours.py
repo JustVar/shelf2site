@@ -190,7 +190,7 @@ TOURS: list[dict] = [
         "name": "Warranty & RMA",
         "page_pattern": "/warranty",
         "description": "Understand warranty tracking, internal loaners, and RMA workflows",
-        "enabled": False,
+        "enabled": True,
         "group": "operations",
         "required_access": None,
         "steps": [
@@ -267,7 +267,7 @@ TOURS: list[dict] = [
         "page_pattern": "/sites",
         "description": "Manage physical locations and device assignments",
         "required_access": None,
-        "enabled": False,
+        "enabled": True,
         "group": "operations",
         "steps": [
             {
@@ -330,7 +330,7 @@ TOURS: list[dict] = [
         "page_pattern": "/trials",
         "description": "Track vendor trials and evaluation workflows",
         "required_access": None,
-        "enabled": False,
+        "enabled": True,
         "group": "procurement",
         "steps": [
             {
@@ -394,7 +394,7 @@ TOURS: list[dict] = [
         "template": "provisioning.html",
         "description": "Track edge box deployments for pilots and customer sales with pipeline board, grid, and table views",
         "required_access": "has_provisioning_view",
-        "enabled": False,
+        "enabled": True,
         "group": "fulfillment",
         "steps": [
             {
@@ -490,7 +490,7 @@ TOURS: list[dict] = [
         "template": "provisioning_detail.html",
         "description": "Deep dive into a single edge box provisioning record",
         "required_access": "has_provisioning_view",
-        "enabled": False,
+        "enabled": True,
         "group": "fulfillment",
         "steps": [
             {
@@ -589,7 +589,7 @@ TOURS: list[dict] = [
         "page_pattern": "/disposal",
         "description": "Track device dispositions, sanitization, and certificates",
         "required_access": "has_disposal_access",
-        "enabled": False,
+        "enabled": True,
         "group": "operations",
         "steps": [
             {
@@ -647,6 +647,18 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Receive & Scan (editor+ or can_access_receiving)
     # ------------------------------------------------------------------
+    # NOTE: receive_tour is intentionally left disabled here.
+    # The tour is verified accurate against the current /receive UI - all
+    # 7 step targets resolve and content matches the rendered page. It is
+    # deferred not for rot but because the receiving workflow has never
+    # been exercised with real data; enabling a guided walkthrough of an
+    # unproven intake path risks misleading users if the flow behaves
+    # unexpectedly once in real use. Three wizard steps (#step-details,
+    # #step-photo, #step-submit) render progressively and are display:none
+    # until a device is scanned - the engine's hidden-optional-target
+    # behavior was not confirmed live. Re-enable once the receive flow is
+    # in real use and the tour is walked end-to-end.
+    # enabled=False protects users from launching the unproven tour.
     {
         "id": "receive_tour",
         "name": "Receive & Scan",
@@ -833,7 +845,7 @@ TOURS: list[dict] = [
         "page_pattern": "/vendors",
         "description": "Keep all your vendor contacts, OEM notes, and procurement analytics in one place",
         "required_access": "is_editor_or_above",
-        "enabled": False,
+        "enabled": True,
         "group": "procurement",
         "steps": [
             {
@@ -1168,6 +1180,17 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Order Detail (provisioning viewers+)
     # ------------------------------------------------------------------
+    # NOTE: order_detail_tour is intentionally left disabled here.
+    # Two reasons. (1) The customer-orders workflow has never been exercised
+    # with real data (customer_orders is empty); enabling a guided tour of an
+    # unproven path risks misleading users. (2) This tour is in the
+    # fulfillment group, which is scheduled for the same full revamp that
+    # already defers orders_tour - the detail tour should be rewritten
+    # holistically alongside that work rather than enabled piecemeal now.
+    # The tour's 5 step targets are believed accurate against the current
+    # order_detail.html but were not browser-verified live (no order to load).
+    # Re-enable as part of the fulfillment revamp once /orders is in real use.
+    # enabled=False protects users from launching the unproven tour.
     {
         "id": "order_detail_tour",
         "name": "Order Detail",
@@ -1256,7 +1279,7 @@ TOURS: list[dict] = [
         "template": "vendor_detail_profile.html",
         "description": "Contact card, quality score, procurement analytics, and device history for a single vendor",
         "required_access": "is_editor_or_above",
-        "enabled": False,
+        "enabled": True,
         "group": "procurement",
         "steps": [
             {
@@ -1323,7 +1346,7 @@ TOURS: list[dict] = [
         "template": "admin_procurement.html",
         "description": "High-level spend analysis, vendor performance scores, and purchase history",
         "required_access": "has_financial_access",
-        "enabled": False,
+        "enabled": True,
         "group": "procurement",
         "steps": [
             {
@@ -1339,7 +1362,7 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "target": ".table-section",
+                "target": "#proc-cost-vendor",
                 "title": "Cost by Vendor & Category",
                 "description": (
                     "Ranked tables showing which vendors and categories account "
@@ -1351,7 +1374,7 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "target": ".table-section",
+                "target": "#proc-vendor-performance",
                 "title": "Vendor Performance",
                 "description": (
                     "Quality scores (0–100) auto-calculated from warranty claim "
@@ -1363,7 +1386,7 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "target": ".table-section",
+                "target": "#proc-recent-purchases",
                 "title": "Recent Purchases",
                 "description": (
                     "The most recent procurement records across all categories. "
@@ -1446,6 +1469,26 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Intune Sync (system admin)
     # ------------------------------------------------------------------
+    # NOTE: admin_intune_tour is intentionally left disabled here.
+    # Three issues, all needing resolution before enabling:
+    # (1) The Intune integration is not configured (Tenant/Client/Secret
+    #     creds are all Missing), so the "Test Connection" and "Sync Now"
+    #     buttons that step 3 describes do not render on the page at all -
+    #     the tour would walk users to controls that do not exist yet.
+    # (2) Selector mis-targeting: step 2 ("Sync History") uses a bare
+    #     .table-section and resolves to the FIRST such div ("Credentials
+    #     Not Configured"), not Sync History; step 3 ("Test & Sync") uses a
+    #     bare "button" and grabs the first <button> on the page (a nav/icon
+    #     button), not the intended action buttons. Both need id-based
+    #     targets like the procurement_tour fix.
+    # (3) Stale content: step 1 text references ".env on the NUC" - legacy
+    #     wording from the pre-Docker NUC deployment (apphost is the host
+    #     now). NOTE: admin_intune.html ITSELF also carries the same stale
+    #     "NUC"/"Chris" wording - a separate template-content fix owed
+    #     outside tour triage.
+    # Re-enable once Intune is configured and the tour is rewritten/retargeted
+    # against the live, connected page.
+    # enabled=False protects users from launching the broken tour.
     {
         "id": "admin_intune_tour",
         "name": "Intune Device Sync",
@@ -1510,7 +1553,7 @@ TOURS: list[dict] = [
         "template": "admin_zendesk.html",
         "description": "Configure and test the Zendesk connection for ticket linking on provisioning records",
         "required_access": "has_system_admin",
-        "enabled": False,
+        "enabled": True,
         "group": "admin",
         "steps": [
             {
@@ -1520,7 +1563,7 @@ TOURS: list[dict] = [
                     "Shows whether the Zendesk subdomain, email, and API token "
                     "are configured and working. Click <strong>Test Connection</strong> "
                     "to verify live connectivity. Credentials live in "
-                    "<code>.env</code> on the NUC."
+                    "<code>.env</code> on the server."
                 ),
                 "position": "bottom",
                 "highlight_padding": 8,
@@ -1565,7 +1608,7 @@ TOURS: list[dict] = [
         "template": "admin_spreadsheet_sync.html",
         "description": "Upload the Excel master inventory file to preview and apply bulk device updates",
         "required_access": "has_system_admin",
-        "enabled": False,
+        "enabled": True,
         "group": "admin",
         "steps": [
             {
@@ -1633,7 +1676,7 @@ TOURS: list[dict] = [
         "template": "admin_oui.html",
         "description": "Hardware manufacturer registry used by the network scanner to identify and categorize discovered devices",
         "required_access": "is_editor_or_above",
-        "enabled": False,
+        "enabled": True,
         "group": "admin",
         "steps": [
             {
@@ -1892,7 +1935,7 @@ TOURS: list[dict] = [
         "template": "admin_errors.html",
         "description": "Monitor frontend and backend errors captured automatically",
         "required_access": "has_system_admin",
-        "enabled": False,
+        "enabled": True,
         "group": "admin",
         "steps": [
             {
