@@ -1481,11 +1481,9 @@ TOURS: list[dict] = [
     #     bare "button" and grabs the first <button> on the page (a nav/icon
     #     button), not the intended action buttons. Both need id-based
     #     targets like the procurement_tour fix.
-    # (3) Stale content: step 1 text references ".env on the NUC" - legacy
-    #     wording from the pre-Docker NUC deployment (apphost is the host
-    #     now). NOTE: admin_intune.html ITSELF also carries the same stale
-    #     "NUC"/"Chris" wording - a separate template-content fix owed
-    #     outside tour triage.
+    # (3) The tour step-1 text was corrected ("on the server"), but
+    #     admin_intune.html ITSELF still carries stale "NUC"/"Chris"
+    #     wording - a separate template-content fix tracked separately.
     # Re-enable once Intune is configured and the tour is rewritten/retargeted
     # against the live, connected page.
     # enabled=False protects users from launching the broken tour.
@@ -1506,7 +1504,7 @@ TOURS: list[dict] = [
                     "Four cards show whether the required Azure credentials are "
                     "configured: Tenant ID, Client ID, Client Secret, and Auto-Sync "
                     "mode. All four must be green before syncing. "
-                    "Add credentials to the <code>.env</code> file on the NUC."
+                    "Add credentials to the <code>.env</code> file on the server."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -1773,13 +1771,23 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Concept: How does network discovery work?
     # ------------------------------------------------------------------
+    # NOTE: concept_network_scanner_tour is intentionally disabled here.
+    # The network scanner (auto-discovery via nmap that fed the Review Queue)
+    # is no longer running - inventory inflow is now manual (spreadsheet sync
+    # plus direct entry by the hardware engineer). This onboarding tour
+    # describes an active discovery pipeline that no longer exists, so its
+    # step 1 premise ("a scanner runs and sweeps the network") is no longer
+    # true. Steps 2-3 (OUI matching, Review Queue) still describe live pages.
+    # Re-enable only if network auto-discovery is restored; otherwise this
+    # tour should be rewritten or retired once the scanner's fate is decided.
+    # enabled=False protects users from learning a defunct workflow.
     {
         "id": "concept_network_scanner_tour",
         "name": "How Does Network Discovery Work?",
         "page_pattern": "/dashboard",
         "description": "Explains how the network scanner finds devices and gets them into inventory",
         "required_access": "is_editor_or_above",
-        "enabled": True,
+        "enabled": False,
         "group": "onboarding",
         "steps": [
             {
