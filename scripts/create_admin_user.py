@@ -3,7 +3,7 @@
 Run once during setup:
     python -m scripts.create_admin_user
 
-Or from the hardware_inventory directory:
+Or from the asset_tracker directory:
     python scripts/create_admin_user.py
 """
 
