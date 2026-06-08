@@ -117,7 +117,6 @@ asset-tracker/
     network_scanner.py     nmap subnet scanner
     oui_lookup.py          MAC vendor lookup
     discovery_pipeline.py  OUI filtering + pending queue
-    scanner_agent.py       Remote agent for distributed scanning
   scripts/                 Setup and initialization
     create_admin_user.py   Create initial users
     seed_oui_allowlist.py  Seed known OUI prefixes
