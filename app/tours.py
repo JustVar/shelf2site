@@ -116,7 +116,7 @@ TOURS: list[dict] = [
         "name": "Review Queue",
         "page_pattern": "/review",
         "template": "support.html",
-        "description": "Review and approve discovered network devices",
+        "description": "Review and approve pending devices waiting to be added to inventory",
         "required_access": "is_editor_or_above",
         "enabled": True,
         "group": "inventory",
@@ -147,9 +147,9 @@ TOURS: list[dict] = [
                 "target": "#review-table",
                 "title": "Device Table",
                 "description": (
-                    "Each row shows a discovered device with its MAC address, "
-                    "IP, hostname, manufacturer, and which inventory category "
-                    "was suggested by the OUI database."
+                    "Each row shows a pending device with its MAC address, "
+                    "manufacturer (if known), and the inventory category "
+                    "suggested by the OUI database."
                 ),
                 "position": "top",
                 "highlight_padding": 6,
@@ -1672,7 +1672,7 @@ TOURS: list[dict] = [
         "name": "OUI Reference",
         "page_pattern": "/admin/oui",
         "template": "admin_oui.html",
-        "description": "Hardware manufacturer registry used by the network scanner to identify and categorize discovered devices",
+        "description": "Hardware manufacturer registry used during pending-device approval to identify a MAC address's manufacturer and suggest a category",
         "required_access": "is_editor_or_above",
         "enabled": True,
         "group": "admin",
@@ -1683,8 +1683,8 @@ TOURS: list[dict] = [
                 "description": (
                     "Three summary numbers: total registered manufacturers, "
                     "total OUI prefixes tracked, and how many inventory devices "
-                    "were matched to an OUI. The network scanner uses this "
-                    "database to identify discovered devices by MAC address."
+                    "were matched to an OUI. When a pending device is approved, "
+                    "the OUI lookup uses this database to identify its manufacturer from the MAC address."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -1697,8 +1697,8 @@ TOURS: list[dict] = [
                     "Each row is a hardware manufacturer. Click to expand and "
                     "see individual OUI prefixes (the first 3 bytes of a MAC address) "
                     "and which inventory category each prefix maps to. "
-                    "Discovered devices matching these prefixes are auto-categorized "
-                    "in the review queue."
+                    "When a pending device with a matching prefix is approved, "
+                    "the OUI mapping auto-categorizes it into the right inventory table."
                 ),
                 "position": "top",
                 "highlight_padding": 4,
@@ -1758,10 +1758,9 @@ TOURS: list[dict] = [
                 "center": True,
                 "title": "How Does Data Get In?",
                 "description": (
-                    "Data enters the system three ways: "
+                    "Data enters the system two ways: "
                     "<strong>(1) Manually</strong> — team members add or edit devices directly in the app. "
-                    "<strong>(2) Network Scanner</strong> — the scanner discovers devices on the lab network and queues them for review. "
-                    "<strong>(3) Spreadsheet Import</strong> — an Excel master inventory file can be uploaded under Admin → Spreadsheet Sync to bulk-load or update records."
+                    "<strong>(2) Spreadsheet Import</strong> — an Excel master inventory file can be uploaded under Admin → Spreadsheet Sync to bulk-load or update records."
                 ),
                 "optional": True,
             },
