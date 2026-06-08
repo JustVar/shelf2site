@@ -43,6 +43,9 @@ class Settings:
     # Root path prefix (for reverse proxy sub-path deployment, e.g. "/inventory")
     ROOT_PATH: str = os.getenv("ROOT_PATH", "")
 
+    # Base URL the app is reached at (used to build absolute links in notifications)
+    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://192.0.2.10:8100/assettracker")
+
     # Set True when serving behind HTTPS (Cloudflare Tunnel, cloud VM).
     # Marks session cookie as Secure — browsers will NOT send it over plain HTTP.
     # Keep False for LAN-only HTTP deployment and for E2E tests.
