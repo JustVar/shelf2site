@@ -82,10 +82,10 @@
     </div>
     {% else %}
     <p style="font-size: 0.85rem; color: var(--text-muted);">
-        To enable Slack DMs, add <code>SLACK_BOT_TOKEN=xoxb-...</code> to the <code>.env</code> file on the NUC and restart the service.
+        To enable Slack DMs, add <code>SLACK_BOT_TOKEN=xoxb-...</code> to the <code>.env</code> file on the server and restart the service.
     </p>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; margin-top: 0.75rem;">
-        <div style="color: var(--text-muted); margin-bottom: 0.5rem;"># Add to /opt/hardware_inventory/.env</div>
+        <div style="color: var(--text-muted); margin-bottom: 0.5rem;"># Add to /opt/asset_tracker/.env</div>
         <div>SLACK_BOT_TOKEN=xoxb-your-token-here</div>
         <div style="color: var(--text-muted); margin-top: 0.5rem;"># Optional: test channel for E2E runs</div>
         <div>SLACK_TEST_WEBHOOK_URL=https://hooks.slack.com/services/...</div>
@@ -113,10 +113,10 @@
     </div>
     {% else %}
     <p style="font-size: 0.85rem; color: var(--text-muted);">
-        To enable email notifications, add SMTP settings to the <code>.env</code> file on the NUC and restart the service.
+        To enable email notifications, add SMTP settings to the <code>.env</code> file on the server and restart the service.
     </p>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; margin-top: 0.75rem;">
-        <div style="color: var(--text-muted); margin-bottom: 0.5rem;"># Add to /opt/hardware_inventory/.env</div>
+        <div style="color: var(--text-muted); margin-bottom: 0.5rem;"># Add to /opt/asset_tracker/.env</div>
         <div>SMTP_HOST=smtp.office365.com</div>
         <div>SMTP_PORT=587</div>
         <div>SMTP_USER=notifications@example.com</div>
