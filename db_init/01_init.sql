@@ -141,7 +141,6 @@ CREATE TABLE IF NOT EXISTS item_schema.items (
     item_associated_brand_pn  VARCHAR(512),                        -- Parent device/component PN
     vendor_id                   INTEGER,                             -- FK to vendor_profiles (future)
     item_vendor                 VARCHAR(1024),
-    cog                         NUMERIC(10,2),                       -- USD — Cost of Goods
     date_purchased              DATE,
     intended_purpose            VARCHAR(1024),
     dispatched_date             DATE,
@@ -189,7 +188,6 @@ CREATE INDEX IF NOT EXISTS idx_component_history_parent ON item_schema.component
 -- RECEIPTS (revised — per transaction, not per item)
 -- One receipt covers one purchase transaction which may include multiple items
 -- Tax tracked separately from COG per Morgan's requirement
--- COG on items table = pre-tax unit cost only
 --
 -- FUTURE: Add tax_rates lookup table keyed by state to auto-fill tax_rate
 --         and remove manual entry error risk as transaction volume grows

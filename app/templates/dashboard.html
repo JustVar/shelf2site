@@ -168,23 +168,6 @@
       </a>
     </div>
 
-    <!-- COG by Category (financial users only) -->
-    {% if user.has_financial_access and cog_by_category %}
-    <div class="db-panel">
-      <div class="db-panel-title">COG by category</div>
-      {% for item in cog_by_category %}
-      <div class="db-row">
-        <div class="db-row-l">{{ item.category }}</div>
-        <div class="db-row-n">${{ "{:,.0f}".format(item.total) }}</div>
-      </div>
-      {% endfor %}
-      <div class="db-divider"></div>
-      <div class="db-row">
-        <div class="db-row-l" style="font-weight:600">Total</div>
-        <div class="db-row-n">${{ "{:,.0f}".format(cog_total) }}</div>
-      </div>
-    </div>
-    {% endif %}
 
   </div>
 </div>

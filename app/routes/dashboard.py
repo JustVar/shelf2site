@@ -114,7 +114,6 @@ def dashboard(
     deployed = {cat: deployed_count(cat) for cat in PRODUCT_CATEGORIES}
     ready = {cat: ready_count(cat) for cat in PRODUCT_CATEGORIES}
 
-    # --- COG (financial users only) ---
     # --- Status panels (Pending, Unassigned, Un-deployable per product) ---
     def status_counts(category):
         rows = (
