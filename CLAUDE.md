@@ -142,6 +142,10 @@ Application code should never read raw `can_*` columns directly — always go th
 - Receipt download endpoint `/api/receipts/{id}/download` — link exists on item detail, returns 404 (implement as part of Finance page work)
 - Mobile barcode-scan flow at `/scan` — explicitly deferred from main app, not yet started
 - U2/U3 (Users + Departments UI rebuild) — sweep deferred renames per [docs/U2_U3_RENAME_FOLLOWUPS.md](docs/U2_U3_RENAME_FOLLOWUPS.md). U1 (2026-05-04) renamed the DB table only; cosmetic file/route/identifier renames are listed there.
+- **Route migration `public.* → item_schema`:** the unification's unfinished half. Dashboard already queries `item_schema.items` (canary); the other ~49 routes (inventory detail pages, intake, search, triage) still read `public.*` per-category tables. Casey imports into `item_schema`, so imported data is invisible in the app until read-paths repoint. Prerequisite for the new schema to go live.
+- **`part_numbers` canonical resolution:** live app reads `public.part_numbers` (48 rows); `item_schema.part_numbers` (85 rows) is the intended truth. Resolves as part of the route migration above. Related: the `brand_sku` datalist TODO.
+- **Cosmetic sweep (low priority):** (a) page `<title>` inconsistency — some "… - Asset Tracker", some "… - Hardware Asset Tracker"; (b) triage category badge casing renders `Gpu`/`Camera C2C` vs Inventory's `GPU`/`Camera 2 Cloud`; (c) OUI Reference page copy still says entries are added "approved from the scanner" — scanner removed, reword.
+- **Casey DB access (done 2026-06-10):** `casey` role created on live cluster, `item_schema`-scoped (DML + CREATE), isolated from `public.*`. External login pending Casey's own verification.
 
 
 ## RBAC / Admin pages (post U4, 2026-05-18)
