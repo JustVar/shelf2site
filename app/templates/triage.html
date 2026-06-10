@@ -124,7 +124,7 @@
             {% if cat_str %}
             {% set color = category_colors.get(cat_str, '#888888') %}
             <span class="inv-cat-pill" style="background:{{ color }}22;color:{{ color }}">
-              {{ cat_str.replace('_', ' ').title() }}
+              {{ category_display(cat_str) }}
             </span>
             {% else %}
             <span style="color:var(--sx-gray)">—</span>

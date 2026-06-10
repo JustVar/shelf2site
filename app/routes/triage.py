@@ -267,6 +267,7 @@ def triage_page(
         "total_items": total_items,
         "total_pages": total_pages,
         "category_colors": CATEGORY_COLORS,
+        "category_display": category_display,
         "locations_for_bulk": _get_locations(db),
         "statuses_for_bulk": STATUSES,
     })
