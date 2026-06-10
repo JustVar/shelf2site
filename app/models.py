@@ -101,16 +101,6 @@ class GPU(InventoryMixin, Base):
 # ---------------------------------------------------------------------------
 # 4. Part Numbers (reference table)
 # ---------------------------------------------------------------------------
-class PartNumber(InventoryMixin, Base):
-    __tablename__ = "part_numbers"
-
-    part_number = Column(String(64), nullable=True, unique=True)
-    vendor = Column(String(255), nullable=True)
-    form_factor = Column(String(64), nullable=True)
-    service_type = Column(String(128), nullable=True)
-    last_updated = Column(DateTime, nullable=True)
-
-    REQUIRED_FIELDS = ["part_number", "vendor"]
 
 
 # ---------------------------------------------------------------------------
@@ -1509,7 +1499,6 @@ class HardDrive(Base):
 TABLE_MODELS = {
     "edge_boxes": EdgeBox,
     "gpus": GPU,
-    "part_numbers": PartNumber,
     "monitors": Monitor,
     "computers": Computer,
     "phones": Phone,
@@ -1560,7 +1549,6 @@ def compute_completeness(instance) -> float:
 TABLE_DISPLAY_NAMES = {
     "edge_boxes": "Edge Boxes",
     "gpus": "GPUs",
-    "part_numbers": "Part Numbers",
     "monitors": "Monitors",
     "computers": "Computers",
     "phones": "Phones",
@@ -1620,10 +1608,6 @@ def get_display_name(instance) -> str:
     # GPU uses model
     if table == "gpus":
         return getattr(instance, "model", None) or "-"
-
-    # Part numbers
-    if table == "part_numbers":
-        return getattr(instance, "part_number", None) or "-"
 
     # Computers: prefer device_name, fall back to device
     if table == "computers":

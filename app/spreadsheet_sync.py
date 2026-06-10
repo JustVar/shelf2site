@@ -107,8 +107,6 @@ def _map_sheet_to_table(sheet_name: str) -> Optional[str]:
         "gpus": "gpus",
         "gpu": "gpus",
         "graphics cards": "gpus",
-        "part numbers": "part_numbers",
-        "parts": "part_numbers",
         "monitors": "monitors",
         "monitor": "monitors",
         "computers": "computers",
