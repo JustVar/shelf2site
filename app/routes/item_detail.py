@@ -27,6 +27,7 @@ from .intake import (
     _get_locations, _get_categories, _normalize_mac,
     _clean_str, _safe_float, _safe_int, _safe_date,
 )
+from ..item_fields import attributes_for
 
 _log = logging.getLogger(__name__)
 
@@ -128,6 +129,7 @@ def item_detail_page(
         "statuses": STATUSES,
         "color": CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         "category_display": category_display(item.item_category) if item.item_category else "\u2014",
+        "attribute_fields": attributes_for(item.item_category),
         "receipts": receipts,
         "components": components,
         "maintenance": maintenance,
@@ -219,6 +221,7 @@ async def item_update(
             "statuses": STATUSES,
             "color": CATEGORY_COLORS.get(str(item.item_category), "#888888"),
             "category_display": category_display(item.item_category) if item.item_category else "\u2014",
+            "attribute_fields": attributes_for(item.item_category),
             "receipts": receipts,
             "components": components,
             "maintenance": maintenance,

@@ -1727,6 +1727,7 @@ class Item(Base):
     notes                      = Column(Text, nullable=True)
     created_at                 = Column(Date, server_default=func.current_date())
     last_updated               = Column(Date, server_default=func.current_date(), onupdate=func.current_date())
+    attributes                 = Column(JSONB, nullable=True)
 
     # Role-based required fields for triage
     REQUIRED_FIELDS_HARDWARE = [

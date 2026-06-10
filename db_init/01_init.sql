@@ -147,7 +147,8 @@ CREATE TABLE IF NOT EXISTS item_schema.items (
     tracking_number             VARCHAR(512),
     notes                       TEXT,
     created_at                  DATE             DEFAULT CURRENT_DATE,
-    last_updated                DATE             DEFAULT CURRENT_DATE
+    last_updated                DATE             DEFAULT CURRENT_DATE,
+    attributes                  JSONB
 );
 
 -- Indexes for common query patterns

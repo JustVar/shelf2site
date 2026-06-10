@@ -228,6 +228,22 @@
     </div>
   </div>
 
+  <!-- Category-specific attributes (from items.attributes JSONB) -->
+  {% if attribute_fields %}
+  {% set attrs = item.attributes or {} %}
+  <div class="dtl-section">
+    <div class="dtl-section-title">{{ category_display }} Specifications</div>
+    <div class="dtl-grid">
+      {% for key, label in attribute_fields %}
+      <div class="dtl-field">
+        <div class="dtl-label">{{ label }}</div>
+        <div class="dtl-value">{{ attrs.get(key) if attrs.get(key) not in (None, '') else '—' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Identifiers -->
   {% set has_ids = item.item_mac_address_1 or item.item_mac_address_2 or item.appliance_uuid or item.item_storage_size_gb or item.brand_sku or item.brand_pn or item.item_associated_brand_pn %}
   {% if has_ids %}
