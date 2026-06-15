@@ -175,29 +175,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// BP available globally from base.html
 
-// Press / to focus search
-document.addEventListener('keydown', e => {
-  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-    e.preventDefault();
-    document.getElementById('db-search-input').focus();
-  }
-});
-
-// Keyboard shortcuts for quick actions
-document.addEventListener('keydown', e => {
-  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-  const map = { 'n': '/intake', 'o': '/checkout', 'i': '/checkin', 't': '/triage', 'm': '/intake?mode=import' };
-  if (map[e.key.toLowerCase()]) window.location.href = BP + map[e.key.toLowerCase()];
-});
-
-// Search on enter
-document.getElementById('db-search-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.value.trim()) {
-    window.location.href = BP + '/search?q=' + encodeURIComponent(e.target.value.trim());
-  }
-});
-</script>
 {% endblock %}
