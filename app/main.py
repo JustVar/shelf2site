@@ -16,20 +16,16 @@ from .sidebar_cache import get_sidebar_counts
 from .database import create_all_tables
 from app import csrf
 from .routes import (
-    access_control_detail, admin, api, auth_routes, bulk, camera_detail, checkout,
-    components, computer_detail, contact_admin, cpu_detail, creds, dashboard,
-    disposal, edge_box_detail, error_routes, fulfillment,
-    gpu_detail, hard_drive_detail,
+    admin, api, auth_routes, bulk,
+    checkout, components, contact_admin, creds,
+    dashboard, disposal, error_routes, fulfillment,
     intake, intune_routes, inventory, item_detail,
-    lifecycle, locks,
-    maintenance_routes, map as map_route, mobile_device_detail, monitor_detail,
-    motherboard_detail, nas_drives, network_equipment_detail, nuc_detail,
-    notification_routes, office_equipment_detail, orders,
-    pc_accessory_detail, pc_cooling_detail,
-    pending, phone_detail, printer_detail, procurement, provisioning,
-    psu_detail, ram_module_detail, receiving,
-    search, sites, slack_bot_routes, sse, support, tours, trials,
-    ups_detail, vendors, warranty, webcam_detail, zendesk_routes,
+    lifecycle, locks, maintenance_routes, map as map_route,
+    nas_drives, notification_routes, orders, pending,
+    procurement, provisioning, receiving, search,
+    sites, slack_bot_routes, sse, support,
+    tours, trials, vendors, warranty,
+    zendesk_routes,
 )
 
 # ── Logging: surface INFO-level messages from app.* modules to stdout ────────
@@ -324,27 +320,6 @@ app.include_router(checkout.router)
 app.include_router(item_detail.router)
 from .routes.triage import router as triage_router
 app.include_router(triage_router)
-app.include_router(edge_box_detail.router)
-app.include_router(nuc_detail.router)
-app.include_router(computer_detail.router)
-app.include_router(gpu_detail.router)
-app.include_router(hard_drive_detail.router)
-app.include_router(ram_module_detail.router)
-app.include_router(cpu_detail.router)
-app.include_router(psu_detail.router)
-app.include_router(motherboard_detail.router)
-app.include_router(pc_cooling_detail.router)
-app.include_router(pc_accessory_detail.router)
-app.include_router(camera_detail.router)
-app.include_router(access_control_detail.router)
-app.include_router(monitor_detail.router)
-app.include_router(phone_detail.router)
-app.include_router(mobile_device_detail.router)
-app.include_router(network_equipment_detail.router)
-app.include_router(webcam_detail.router)
-app.include_router(printer_detail.router)
-app.include_router(office_equipment_detail.router)
-app.include_router(ups_detail.router)
 app.include_router(support.router)
 app.include_router(map_route.router, prefix="/map")
 app.include_router(api.router, prefix="/api")
