@@ -1,20 +1,17 @@
-"""Global search — search across all 16 device categories simultaneously."""
+"""Global search — query the unified item_schema.items table; results grouped by category."""
 
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import or_, String, Text
+from sqlalchemy import or_, Text, cast
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import (
-    TABLE_MODELS, TABLE_DISPLAY_NAMES,
-    get_display_name, get_serial, get_status, get_mac,
-)
-from .dashboard import CATEGORY_COLORS
+from ..models import Item, ItemLocation
+from .dashboard import CATEGORY_COLORS, category_display
 _COLOR_FALLBACK = "#888888"
 
 router = APIRouter()
@@ -60,47 +57,49 @@ def search_results_partial(
     all_results = []
     category_counts = {}
 
-    for table_name, model in TABLE_MODELS.items():
-        # Build ilike filters for all String and Text columns
-        string_cols = [
-            c for c in model.__table__.columns
-            if isinstance(c.type, (String, Text))
-        ]
-        filters = [c.ilike(search_term) for c in string_cols]
-        if not filters:
-            continue
+    # Single query against the unified item_schema.items table.
+    # Explicit allowlist of searchable columns; cast each to text so the
+    # ILIKE works regardless of native column type (enum, macaddr, etc.).
+    SEARCH_COLS = [
+        "item_name", "item_sn", "item_model", "item_manufacturer",
+        "item_category", "item_status", "item_vendor",
+        "brand_sku", "brand_pn", "item_associated_brand_pn",
+        "item_mac_address_1", "item_mac_address_2",
+        "appliance_uuid", "department_or_owner",
+    ]
+    filters = [
+        cast(getattr(Item, name), Text).ilike(search_term)
+        for name in SEARCH_COLS
+    ]
+    matches = db.query(Item).filter(or_(*filters)).all()
 
-        matches = db.query(model).filter(or_(*filters)).all()
+    # Pre-fetch location names in one query
+    loc_map = {l.id: l.nickname for l in db.query(ItemLocation).all()}
 
-        if not matches:
-            continue
-
-        color = CATEGORY_COLORS.get(
-            table_name,
-            _COLOR_FALLBACK
-        )
-        display_name = TABLE_DISPLAY_NAMES.get(table_name, table_name)
-        category_counts[table_name] = {
-            "count": len(matches),
-            "display_name": display_name,
-            "color": color,
-        }
-
-        for item in matches:
-            all_results.append({
-                "table_name": table_name,
-                "category": display_name,
+    for item in matches:
+        cat = str(item.item_category) if item.item_category else None
+        display_name = category_display(cat) if cat else "-"
+        color = CATEGORY_COLORS.get(cat, _COLOR_FALLBACK)
+        key = cat or "unknown"
+        if key not in category_counts:
+            category_counts[key] = {
+                "count": 0,
+                "display_name": display_name,
                 "color": color,
-                "id": item.id,
-                "name": get_display_name(item),
-                "serial": get_serial(item),
-                "status": get_status(item),
-                "mac_address": get_mac(item),
-                "location": getattr(item, "location", None)
-                            or getattr(item, "site_name", None)
-                            or "-",
-                "completeness": item.data_completeness or 0.0,
-            })
+            }
+        category_counts[key]["count"] += 1
+
+        all_results.append({
+            "table_name": key,
+            "category": display_name,
+            "color": color,
+            "id": item.id,
+            "name": item.item_name or "-",
+            "serial": item.item_sn or "-",
+            "status": item.item_status,
+            "mac_address": item.item_mac_address_1 or item.item_mac_address_2 or "-",
+            "location": loc_map.get(item.location_id, "-"),
+        })
 
     total = len(all_results)
     all_results = all_results[:limit]
