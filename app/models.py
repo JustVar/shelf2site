@@ -1662,7 +1662,7 @@ item_categories_enum = SAEnum(
     'mobile_device', 'monitor', 'network', 'office_equipment', 'pc_accessories',
     'camera_c2c', 'cloud_box',
     name='item_categories',
-    schema='item_schema'
+    schema='public'
 )
 
 item_statuses_enum = SAEnum(
@@ -1670,13 +1670,13 @@ item_statuses_enum = SAEnum(
     'Decommissioned', 'Unassigned',
     'Checked Out',
     name='item_statuses',
-    schema='item_schema'
+    schema='public'
 )
 
 component_actions_enum = SAEnum(
     'installed', 'uninstalled', 'moved',
     name='component_actions',
-    schema='item_schema'
+    schema='public'
 )
 
 

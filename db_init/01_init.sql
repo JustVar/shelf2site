@@ -10,7 +10,7 @@ CREATE SCHEMA IF NOT EXISTS item_schema;
 -- ENUMS
 -- =============================================================================
 
-CREATE TYPE item_categories AS ENUM (
+CREATE TYPE public.item_categories AS ENUM (
     'access_control',
     'camera',
     'computer',
@@ -36,7 +36,7 @@ CREATE TYPE item_categories AS ENUM (
     'cloud_box'
 );
 
-CREATE TYPE item_statuses AS ENUM (
+CREATE TYPE public.item_statuses AS ENUM (
     'Deployed',
     'Ready to Deploy',
     'Pending',
@@ -165,7 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_items_vendor      ON item_schema.items (vendor_id
 -- Tracks install / uninstall / move events for components
 -- =============================================================================
 
-CREATE TYPE component_actions AS ENUM (
+CREATE TYPE public.component_actions AS ENUM (
     'installed',
     'uninstalled',
     'moved'
@@ -287,7 +287,7 @@ CREATE TABLE IF NOT EXISTS item_schema.checkouts (
     checked_out_to_name     VARCHAR(255),
     checkout_date           DATE NOT NULL DEFAULT CURRENT_DATE,
     checkin_date            DATE,
-    prior_status            item_schema.item_statuses,
+    prior_status            public.item_statuses,
     checked_out_by          VARCHAR(100),
     notes                   TEXT,
     created_at              DATE DEFAULT CURRENT_DATE
