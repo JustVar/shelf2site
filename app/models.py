@@ -1845,3 +1845,22 @@ class ItemComponentHistory(Base):
 
     item        = relationship('Item', foreign_keys=[item_id])
     parent_item = relationship('Item', foreign_keys=[parent_item_id])
+
+
+class ItemCheckout(Base):
+    __tablename__ = 'checkouts'
+    __table_args__ = {'schema': 'item_schema'}
+
+    id                     = Column(Integer, primary_key=True, autoincrement=True)
+    item_id                = Column(Integer, ForeignKey('item_schema.items.id'), nullable=False)
+    checked_out_to_user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    checked_out_to_name    = Column(String(255), nullable=True)
+    checkout_date          = Column(Date, server_default=func.current_date(), nullable=False)
+    checkin_date           = Column(Date, nullable=True)
+    prior_status           = Column(item_statuses_enum, nullable=True)
+    checked_out_by         = Column(String(100), nullable=True)
+    notes                  = Column(Text, nullable=True)
+    created_at             = Column(Date, server_default=func.current_date())
+
+    item                = relationship('Item', foreign_keys=[item_id])
+    checked_out_to_user = relationship('User', foreign_keys=[checked_out_to_user_id])

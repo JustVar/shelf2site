@@ -42,7 +42,8 @@ CREATE TYPE item_statuses AS ENUM (
     'Pending',
     'Un-deployable',
     'Decommissioned',
-    'Unassigned'
+    'Unassigned',
+    'Checked Out'
 );
 
 -- =============================================================================
@@ -274,6 +275,26 @@ CREATE TABLE IF NOT EXISTS item_schema.intake_photos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_intake_photos_item ON item_schema.intake_photos (item_id);
+
+-- =============================================================================
+-- CHECKOUTS (custody / lending tracking — separate from deployment lifecycle)
+-- One open (un-returned) checkout per item; closed rows form the history.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS item_schema.checkouts (
+    id                      SERIAL PRIMARY KEY,
+    item_id                 INTEGER NOT NULL REFERENCES item_schema.items(id),
+    checked_out_to_user_id  INTEGER REFERENCES public.users(id),
+    checked_out_to_name     VARCHAR(255),
+    checkout_date           DATE NOT NULL DEFAULT CURRENT_DATE,
+    checkin_date            DATE,
+    prior_status            item_schema.item_statuses,
+    checked_out_by          VARCHAR(100),
+    notes                   TEXT,
+    created_at              DATE DEFAULT CURRENT_DATE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS checkouts_one_open_per_item
+    ON item_schema.checkouts (item_id) WHERE checkin_date IS NULL;
+CREATE INDEX IF NOT EXISTS idx_checkouts_item ON item_schema.checkouts (item_id);
 
 -- =============================================================================
 -- END OF SCHEMA
