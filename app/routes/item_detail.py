@@ -17,7 +17,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    Item, ItemLocation, ItemReceipt, ReceiptItem,
+    Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
     ItemComponentHistory, ItemMaintenanceLog,
 )
 from ..locks import get_lock
@@ -88,6 +88,29 @@ def _get_maintenance_log(db, item_id):
     return rows
 
 
+def _get_item_checkouts(db, item_id):
+    """Full custody history for an item, newest first, recipient resolved."""
+    rows = (
+        db.query(ItemCheckout, User)
+        .outerjoin(User, User.id == ItemCheckout.checked_out_to_user_id)
+        .filter(ItemCheckout.item_id == item_id)
+        .order_by(ItemCheckout.checkout_date.desc(), ItemCheckout.id.desc())
+        .all()
+    )
+    out = []
+    for co, u in rows:
+        out.append({
+            "checkout_date": co.checkout_date,
+            "checkin_date": co.checkin_date,
+            "prior_status": co.prior_status,
+            "checked_out_by": co.checked_out_by,
+            "recipient": (u.display_name if u else None) or co.checked_out_to_name or "—",
+            "is_open": co.checkin_date is None,
+            "notes": co.notes,
+        })
+    return out
+
+
 @router.get("/items/{item_id}", response_class=HTMLResponse)
 def item_detail_page(
     request: Request,
@@ -118,6 +141,7 @@ def item_detail_page(
     receipts = _get_item_receipts(db, item_id)
     components = _get_component_history(db, item_id)
     maintenance = _get_maintenance_log(db, item_id)
+    checkouts = _get_item_checkouts(db, item_id)
 
     return templates.TemplateResponse("item_detail.html", {
         "request": request,
@@ -133,6 +157,8 @@ def item_detail_page(
         "receipts": receipts,
         "components": components,
         "maintenance": maintenance,
+        "checkouts": checkouts,
+        "is_checked_out": item.item_status == "Checked Out",
         "edit_mode": edit == "1",
         "existing_lock": existing_lock,
     })
@@ -211,6 +237,7 @@ async def item_update(
         receipts = _get_item_receipts(db, item_id)
         components = _get_component_history(db, item_id)
         maintenance = _get_maintenance_log(db, item_id)
+        checkouts = _get_item_checkouts(db, item_id)
         return templates.TemplateResponse("item_detail.html", {
             "request": request,
             "user": user,
@@ -225,6 +252,8 @@ async def item_update(
             "receipts": receipts,
             "components": components,
             "maintenance": maintenance,
+            "checkouts": checkouts,
+            "is_checked_out": item.item_status == "Checked Out",
             "edit_mode": True,
             "existing_lock": None,
             "error": " | ".join(errors),

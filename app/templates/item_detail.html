@@ -487,6 +487,46 @@
     {% endif %}
   </div>
 
+  <!-- Check-out History -->
+  <div class="dtl-section">
+    <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Check-out History</span>
+      {% if is_checked_out %}
+      <span class="inv-status inv-status--checkedout">CURRENTLY CHECKED OUT</span>
+      {% endif %}
+    </div>
+    {% if checkouts %}
+    <div class="dtl-table-wrap">
+      <table class="dtl-table">
+        <thead>
+          <tr>
+            <th>Recipient</th>
+            <th>Checked Out</th>
+            <th>Returned</th>
+            <th>Prior Status</th>
+            <th>By</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for co in checkouts %}
+          <tr>
+            <td>{{ co.recipient }}</td>
+            <td>{{ co.checkout_date.strftime('%b %d, %Y') if co.checkout_date else '—' }}</td>
+            <td>{% if co.is_open %}<em>Open</em>{% else %}{{ co.checkin_date.strftime('%b %d, %Y') }}{% endif %}</td>
+            <td>{{ co.prior_status or '—' }}</td>
+            <td>{{ co.checked_out_by or '—' }}</td>
+            <td>{{ co.notes or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dtl-empty">No check-out history for this item.</div>
+    {% endif %}
+  </div>
+
   <!-- Footer meta -->
   <div style="font-size:11px;color:var(--sx-gray);padding:0.5rem 0 2rem">
     Created: {{ item.created_at.strftime('%b %d, %Y') if item.created_at else '—' }}
