@@ -145,9 +145,6 @@ Application code should never read raw `can_*` columns directly — always go th
 - **Route migration `public.* → item_schema`:** the unification's unfinished half. Dashboard already queries `item_schema.items` (canary); the other ~49 routes (inventory detail pages, intake, search, triage) still read `public.*` per-category tables. Casey imports into `item_schema`, so imported data is invisible in the app until read-paths repoint. Prerequisite for the new schema to go live. (G1 shipped this session: attributes JSONB + unified detail page; G2-G4 remain.)
 - **Casey DB access (done 2026-06-10):** `casey` role created on live cluster, `item_schema`-scoped (DML + CREATE), isolated from `public.*`. External login pending Casey's own verification.
 
-
-- **Orphan enums cleanup:** `item_schema.item_statuses` and `item_schema.item_categories` exist but are unused — the live `item_schema.items` columns are typed against `public.item_statuses` / `public.item_categories`. `ALTER TYPE item_schema.*` silently misses the real type (bit us during checkout). Drop the two orphan enums and make the `db_init` enum declarations explicitly `public.`-qualified.
-- **Checkout C3:** per-item check-out history panel on `/items/{id}` + a "currently checked out / to whom / since when" indicator. (C1 schema + C2 routes/forms shipped this session; the item-detail history surface is the remaining slice.)
 - **Attribute + checkout editing via forms:** the unified detail page shows per-category `attributes` read-only; check-out recipient/notes are set only on the checkout form. Form-based editing of `items.attributes` is deferred (data enters via Casey's import); revisit with the intake-form work.
 ## RBAC / Admin pages (post U4, 2026-05-18)
 
