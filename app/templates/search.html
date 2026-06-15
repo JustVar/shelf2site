@@ -97,16 +97,5 @@
             _searchSpinner.style.display = 'none';
         }
     }
-
-    // ── Edit via Global Edit Modal ─────────────────────────────
-    function openSearchDrawer(tableName, deviceId) {
-        GlobalEditModal.open(tableName, deviceId, {
-            onSuccess: function() {
-                // Re-run the current search to refresh results
-                const q = _searchInput.value.trim();
-                if (q.length >= 2) doSearch(q);
-            }
-        });
-    }
 </script>
 {% endblock %}
