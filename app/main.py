@@ -16,7 +16,7 @@ from .sidebar_cache import get_sidebar_counts
 from .database import create_all_tables
 from app import csrf
 from .routes import (
-    access_control_detail, admin, api, auth_routes, bulk, camera_detail,
+    access_control_detail, admin, api, auth_routes, bulk, camera_detail, checkout,
     components, computer_detail, contact_admin, cpu_detail, creds, dashboard,
     disposal, edge_box_detail, error_routes, fulfillment,
     gpu_detail, hard_drive_detail,
@@ -320,6 +320,7 @@ app.include_router(auth_routes.router)
 app.include_router(dashboard.router)
 app.include_router(inventory.router)
 app.include_router(intake.router)
+app.include_router(checkout.router)
 app.include_router(item_detail.router)
 from .routes.triage import router as triage_router
 app.include_router(triage_router)

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Check In - Asset Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0">Check In an Item</h1>
+  <a href="{{ base_path }}/dashboard" class="inv-btn">← Back to Dashboard</a>
+</div>
+
+{% if not open_checkouts %}
+<div class="itk-section"><div class="itk-hint">No items are currently checked out.</div></div>
+{% else %}
+<form method="post" action="{{ base_path }}/checkin" class="itk-form">
+  <div class="itk-section">
+    <div class="itk-section-title">Currently checked out ({{ open_checkouts|length }})</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="checkout_id">Item to return</label>
+        <select name="checkout_id" id="checkout_id" class="itk-input" required>
+          <option value="">— Select an item to check in —</option>
+          {% for row in open_checkouts %}
+          <option value="{{ row.checkout.id }}">{{ row.item.item_name or ('Item #' ~ row.item.id) if row.item else 'Item #' ~ row.checkout.item_id }} — out to {{ row.recipient }} (since {{ row.checkout.checkout_date }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Return notes (optional)</div>
+    <div class="itk-field">
+      <textarea name="notes" class="itk-input itk-textarea" rows="3" placeholder="Damage? Missing accessories? Any context for the return?"></textarea>
+      <div class="itk-hint">Appended to existing checkout notes; not destructive.</div>
+    </div>
+  </div>
+
+  <div class="itk-actions">
+    <a href="{{ base_path }}/dashboard" class="inv-btn">Cancel</a>
+    <button type="submit" class="itk-submit">Check In</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

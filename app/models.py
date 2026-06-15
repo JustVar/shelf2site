@@ -1668,6 +1668,7 @@ item_categories_enum = SAEnum(
 item_statuses_enum = SAEnum(
     'Deployed', 'Ready to Deploy', 'Pending', 'Un-deployable',
     'Decommissioned', 'Unassigned',
+    'Checked Out',
     name='item_statuses',
     schema='item_schema'
 )

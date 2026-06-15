@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Check Out - Asset Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0">Check Out an Item</h1>
+  <a href="{{ base_path }}/dashboard" class="inv-btn">← Back to Dashboard</a>
+</div>
+
+<form method="post" action="{{ base_path }}/checkout" class="itk-form">
+  <div class="itk-section">
+    <div class="itk-section-title">Which item?</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="item_id">Item</label>
+        <select name="item_id" id="item_id" class="itk-input" required>
+          <option value="">— Select an item —</option>
+          {% for it in eligible_items %}
+          <option value="{{ it.id }}">{{ it.item_name or 'Unnamed' }} — {{ it.item_sn or 'no serial' }} ({{ it.item_status or 'Unassigned' }})</option>
+          {% endfor %}
+        </select>
+        <div class="itk-hint">Items already checked out aren't shown.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Check out to</div>
+    <div class="itk-grid">
+      <div class="itk-field">
+        <label class="itk-label" for="checked_out_to_user_id">User</label>
+        <select name="checked_out_to_user_id" id="checked_out_to_user_id" class="itk-input">
+          <option value="">— Pick a user, or leave blank if external —</option>
+          {% for u in users_for_picker %}
+          <option value="{{ u.id }}">{{ u.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="itk-field">
+        <label class="itk-label" for="checked_out_to_name">…or a name (external)</label>
+        <input type="text" name="checked_out_to_name" id="checked_out_to_name" class="itk-input" placeholder="External person / project / customer">
+        <div class="itk-hint">Use this for someone not in the user list. Provide a user or a name.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="itk-section">
+    <div class="itk-section-title">Notes</div>
+    <div class="itk-field">
+      <textarea name="notes" class="itk-input itk-textarea" rows="3" placeholder="Anything to record about this checkout?"></textarea>
+    </div>
+  </div>
+
+  <div class="itk-actions">
+    <a href="{{ base_path }}/dashboard" class="inv-btn">Cancel</a>
+    <button type="submit" class="itk-submit">Check Out</button>
+  </div>
+</form>
+{% endblock %}
