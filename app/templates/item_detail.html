@@ -496,31 +496,26 @@
       {% endif %}
     </div>
     {% if checkouts %}
-    <div class="dtl-table-wrap">
-      <table class="dtl-table">
-        <thead>
-          <tr>
-            <th>Recipient</th>
-            <th>Checked Out</th>
-            <th>Returned</th>
-            <th>Prior Status</th>
-            <th>By</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for co in checkouts %}
-          <tr>
-            <td>{{ co.recipient }}</td>
-            <td>{{ co.checkout_date.strftime('%b %d, %Y') if co.checkout_date else '—' }}</td>
-            <td>{% if co.is_open %}<em>Open</em>{% else %}{{ co.checkin_date.strftime('%b %d, %Y') }}{% endif %}</td>
-            <td>{{ co.prior_status or '—' }}</td>
-            <td>{{ co.checked_out_by or '—' }}</td>
-            <td>{{ co.notes or '—' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="dtl-history">
+      {% for co in checkouts %}
+        {% if not co.is_open %}
+        <div class="history-item checkin">
+          <div class="history-header">
+            <strong>Checked in</strong>
+            <span class="badge badge-success">Returned {{ co.checkin_date.strftime('%b %d, %Y') }}</span>
+          </div>
+          <div>Returned by {{ co.recipient }}{% if co.prior_status %} · restored to {{ co.prior_status }}{% endif %}</div>
+        </div>
+        {% endif %}
+        <div class="history-item checkout">
+          <div class="history-header">
+            <strong>Checked out</strong>
+            {% if co.is_open %}<span class="badge badge-warning">Out — not yet returned</span>{% endif %}
+          </div>
+          <div>{{ co.checkout_date.strftime('%b %d, %Y') if co.checkout_date else '—' }} · to {{ co.recipient }}{% if co.checked_out_by %} · by {{ co.checked_out_by }}{% endif %}</div>
+          {% if co.notes %}<div style="font-size:12px;color:var(--sx-gray);margin-top:0.3rem">{{ co.notes }}</div>{% endif %}
+        </div>
+      {% endfor %}
     </div>
     {% else %}
     <div class="dtl-empty">No check-out history for this item.</div>

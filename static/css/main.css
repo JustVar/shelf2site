@@ -1357,6 +1357,8 @@ thead th:nth-child(1) {
 .history-item.create::before { background: var(--success); }
 .history-item.update::before { background: var(--info); }
 .history-item.delete::before { background: var(--danger); }
+.history-item.checkout::before { background: #FFB020; }
+.history-item.checkin::before { background: var(--success); }
 
 .history-header {
     display: flex;
