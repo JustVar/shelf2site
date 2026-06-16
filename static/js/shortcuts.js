@@ -22,7 +22,6 @@
     o: "/checkout",
     i: "/checkin",
     t: "/triage",
-    m: "/intake?mode=import",
   };
 
   document.addEventListener("keydown", function (e) {

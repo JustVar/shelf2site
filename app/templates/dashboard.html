@@ -161,11 +161,12 @@
         <span class="db-action-text">Triage</span>
         <span class="db-action-key">T</span>
       </a>
-      <a href="{{ base_path }}/intake?mode=import" class="db-action">
+      {% if user.has_system_admin %}
+      <a href="{{ base_path }}/admin/spreadsheet-sync" class="db-action">
         <div class="db-action-icon" style="background:rgba(124,77,255,.12);color:#7C4DFF">↑</div>
-        <span class="db-action-text">Import</span>
-        <span class="db-action-key">M</span>
+        <span class="db-action-text">Import spreadsheet</span>
       </a>
+      {% endif %}
     </div>
 
 
