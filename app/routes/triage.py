@@ -27,7 +27,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item
+from ..models import Item, ItemPartNumber
 from .dashboard import CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, _clean_str, _safe_int, _safe_float, _safe_date,
@@ -100,7 +100,7 @@ FIELD_LABELS = {
 
 FIELD_TYPES = {
     "item_name": "text", "item_manufacturer": "text", "item_model": "text",
-    "item_sn": "text", "department_or_owner": "text", "brand_sku": "text",
+    "item_sn": "text", "department_or_owner": "text", "brand_sku": "sku_select",
     "brand_pn": "text", "appliance_uuid": "text", "intended_purpose": "text",
     "tracking_number": "text",
     "item_mac_address_1": "mac", "item_mac_address_2": "mac",
@@ -325,6 +325,10 @@ def triage_fix_panel(
         ctx["categories"] = [
             {"value": c, "display": category_display(c)} for c in ALL_CATEGORIES
         ]
+    elif field_type == "sku_select":
+        ctx["part_numbers"] = (
+            db.query(ItemPartNumber).order_by(ItemPartNumber.brand_sku).all()
+        )
 
     return templates.TemplateResponse("partials/triage_fix_panel.html", ctx)
 
@@ -387,15 +391,12 @@ async def triage_fix_save(
             status_code=400,
         )
 
-    # TODO(triage-ui): brand_sku should render as a <datalist> or <select>
-    # sourced from item_schema.part_numbers, matching how intake should ideally
-    # handle it. Currently accepts free text and validates on save; on failure
-    # we return an error and the user has to retry.
+    # brand_sku renders as a <select> of part_numbers (field_type sku_select),
+    # so the UI only offers valid SKUs; this save-time check is the backstop.
     # brand_pn and item_associated_brand_pn are NOT FK-constrained — they're
     # plain String columns with no corresponding column in part_numbers, so
     # validation against the PN table would be nonsensical.
     if field_name == "brand_sku" and new_value:
-        from ..models import ItemPartNumber
         exists = db.query(ItemPartNumber.id).filter(
             ItemPartNumber.brand_sku == new_value
         ).first()

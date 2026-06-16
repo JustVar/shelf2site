@@ -40,6 +40,13 @@
       <option value="{{ cat.value }}" {% if current_value == cat.value %}selected{% endif %}>{{ cat.display }}</option>
       {% endfor %}
     </select>
+  {% elif field_type == "sku_select" %}
+    <select name="value" class="itk-input" autofocus>
+      <option value="">— Select Company SKU —</option>
+      {% for pn in part_numbers %}
+      <option value="{{ pn.brand_sku }}" {% if current_value == pn.brand_sku %}selected{% endif %}>{{ pn.brand_sku }} — {{ pn.sku_description }}</option>
+      {% endfor %}
+    </select>
   {% else %}
     <input type="text" name="value" class="itk-input" value="{{ current_value }}" autofocus>
   {% endif %}
