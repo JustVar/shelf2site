@@ -17,7 +17,7 @@ from .database import create_all_tables
 from app import csrf
 from .routes import (
     admin, api, auth_routes, bulk,
-    checkout, components, contact_admin, creds,
+    checkout, contact_admin, creds,
     dashboard, disposal, error_routes, fulfillment,
     intake, intune_routes, inventory, item_detail,
     lifecycle, locks, maintenance_routes, map as map_route,
@@ -323,7 +323,6 @@ app.include_router(triage_router)
 app.include_router(support.router)
 app.include_router(map_route.router, prefix="/map")
 app.include_router(api.router, prefix="/api")
-app.include_router(components.router)
 app.include_router(creds.router, prefix="/api/credentials")
 app.include_router(pending.router, prefix="/api")
 app.include_router(admin.router)
