@@ -16,7 +16,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
@@ -198,3 +198,148 @@ def do_checkin(
     )
     target = f"{BP}/items/{co.item_id}" if item else f"{BP}/checkin"
     return RedirectResponse(f"{target}?toast=Checked+in", status_code=303)
+
+
+def _broadcast_custody(db, user, source):
+    """Invalidate sidebar counts + publish triage SSE, mirroring the inventory
+    bulk handler. Custody flips item_status but 'Checked Out' is a valid status,
+    so gap counts rarely move; we broadcast for cross-surface consistency."""
+    from ..sidebar_cache import invalidate_sidebar_counts
+    from .sse import publish_event
+    from .triage import TRIAGE_ROLES, _count_role_gaps, get_triage_total_count
+    invalidate_sidebar_counts()
+    role_counts = {k: _count_role_gaps(db, k) for k in TRIAGE_ROLES.keys()}
+    publish_event("triage_gap_changed", {
+        "item_id": None,
+        "field_name": "item_status",
+        "user_id": user.id,
+        "role_counts": role_counts,
+        "total_items_with_gaps": get_triage_total_count(db),
+    })
+
+
+@router.post("/checkout/bulk")
+async def do_bulk_checkout(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Check out many items to one shared recipient. Skips items already out."""
+    if not user.is_editor_or_above:
+        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+
+    form = await request.form()
+    item_ids = [int(i) for i in form.getlist("item_ids")]
+    checked_out_to_user_id = (form.get("checked_out_to_user_id") or "").strip()
+    checked_out_to_name = (form.get("checked_out_to_name") or "").strip()
+    notes = (form.get("notes") or "").strip()
+
+    if not item_ids:
+        return JSONResponse({"success": False, "error": "No items selected"}, status_code=400)
+
+    uid = int(checked_out_to_user_id) if checked_out_to_user_id else None
+    name = checked_out_to_name or None
+    if uid is None and name is None:
+        return JSONResponse({"success": False, "error": "Pick a recipient"}, status_code=400)
+
+    items = db.query(Item).filter(Item.id.in_(item_ids)).all()
+    updated, skipped_ids = 0, []
+    new_checkouts = []
+    for item in items:
+        if item.item_status == "Checked Out":
+            skipped_ids.append(item.id)
+            continue
+        co = ItemCheckout(
+            item_id=item.id,
+            checked_out_to_user_id=uid,
+            checked_out_to_name=name,
+            prior_status=item.item_status,
+            checked_out_by=user.display_name,
+            notes=notes or None,
+        )
+        item.item_status = "Checked Out"
+        db.add(co)
+        new_checkouts.append((item.id, co))
+        updated += 1
+    # items found in neither query (bad ids) are silently skipped
+    found_ids = {i.id for i in items}
+    skipped_ids += [iid for iid in item_ids if iid not in found_ids]
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+    for item_id, co in new_checkouts:
+        db.refresh(co)
+        log_event(
+            db, "item_checkout", request=request, user_id=user.id,
+            target_table="checkouts", target_id=co.id, action="create",
+            details=f"Bulk checked out item #{item_id} to {name or 'user#' + str(uid)}",
+        )
+    _broadcast_custody(db, user, "checkout_bulk")
+    return JSONResponse({
+        "success": True,
+        "updated_count": updated,
+        "skipped_count": len(skipped_ids),
+        "skipped_ids": skipped_ids,
+    })
+
+
+@router.post("/checkin/bulk")
+async def do_bulk_checkin(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Check in many items: close each open checkout, restore prior_status.
+    Skips items with no open checkout."""
+    if not user.is_editor_or_above:
+        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+
+    form = await request.form()
+    item_ids = [int(i) for i in form.getlist("item_ids")]
+    notes = (form.get("notes") or "").strip()
+
+    if not item_ids:
+        return JSONResponse({"success": False, "error": "No items selected"}, status_code=400)
+
+    open_rows = (
+        db.query(ItemCheckout)
+        .filter(ItemCheckout.item_id.in_(item_ids), ItemCheckout.checkin_date.is_(None))
+        .all()
+    )
+    closed = []
+    seen = set()
+    for co in open_rows:
+        item = db.query(Item).filter(Item.id == co.item_id).first()
+        co.checkin_date = date.today()
+        if notes:
+            co.notes = (co.notes + "\n" if co.notes else "") + notes
+        if item:
+            item.item_status = co.prior_status or "Unassigned"
+        closed.append((co.item_id, co.id))
+        seen.add(co.item_id)
+
+    skipped_ids = [iid for iid in item_ids if iid not in seen]
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+    for item_id, co_id in closed:
+        log_event(
+            db, "item_checkin", request=request, user_id=user.id,
+            target_table="checkouts", target_id=co_id, action="update",
+            details=f"Bulk checked in item #{item_id}",
+        )
+    _broadcast_custody(db, user, "checkin_bulk")
+    return JSONResponse({
+        "success": True,
+        "updated_count": len(closed),
+        "skipped_count": len(skipped_ids),
+        "skipped_ids": skipped_ids,
+    })
