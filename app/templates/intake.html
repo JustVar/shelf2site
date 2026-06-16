@@ -98,7 +98,10 @@
       </div>
       <div class="itk-field">
         <label class="itk-label" for="brand_sku">Company SKU</label>
-        <input type="text" name="brand_sku" id="brand_sku" class="itk-input" placeholder="e.g. SKU-CAM-001">
+        <input type="text" name="brand_sku" id="brand_sku" class="itk-input" list="brand-sku-list" placeholder="e.g. SKU-CAM-001" autocomplete="off">
+        <datalist id="brand-sku-list">
+        {% for pn in part_numbers %}<option value="{{ pn.brand_sku }}">{{ pn.sku_description }}</option>{% endfor %}
+        </datalist>
       </div>
       <div class="itk-field">
         <label class="itk-label" for="brand_pn">Company Part Number</label>

@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem
+from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber
 from .dashboard import ALL_CATEGORIES, category_display
 
 router = APIRouter(tags=["intake"])
@@ -105,6 +105,10 @@ def _normalize_mac(value: str | None) -> str | None:
     return ":".join(raw[i:i+2] for i in range(0, 12, 2))
 
 
+def _get_part_numbers(db):
+    return db.query(ItemPartNumber).order_by(ItemPartNumber.brand_sku).all()
+
+
 @router.get("/intake", response_class=HTMLResponse)
 def intake_page(
     request: Request,
@@ -118,6 +122,7 @@ def intake_page(
 
     locations = _get_locations(db)
     categories = _get_categories()
+    part_numbers = _get_part_numbers(db)
 
     return templates.TemplateResponse("intake.html", {
         "request": request,
@@ -125,6 +130,7 @@ def intake_page(
         "locations": locations,
         "categories": categories,
         "statuses": STATUSES,
+        "part_numbers": part_numbers,
     })
 
 
@@ -195,6 +201,7 @@ async def intake_submit(
             "locations": locations,
             "categories": categories,
             "statuses": STATUSES,
+            "part_numbers": _get_part_numbers(db),
             "error": " | ".join(errors),
         })
 
@@ -280,6 +287,7 @@ async def intake_submit(
             "locations": locations,
             "categories": categories,
             "statuses": STATUSES,
+            "part_numbers": _get_part_numbers(db),
             "error": f"Failed to save: {e}",
         }, status_code=500)
 
