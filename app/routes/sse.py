@@ -78,7 +78,7 @@ def _on_notify(connection, pid, channel, payload: str) -> None:
 
     # TODO: downgrade this log to DEBUG once SSE pubsub is proven stable in
     # production. Currently INFO for visibility during rollout.
-    logger.info("SSE LISTEN received event type=%s queues=%d", event_type, len(_event_queues))
+    logger.debug("SSE LISTEN received event type=%s queues=%d", event_type, len(_event_queues))
 
     for q in _event_queues:
         try:
@@ -137,7 +137,7 @@ def publish_event(event_type: str, data: dict) -> None:
 
     # TODO: downgrade this log to DEBUG once SSE pubsub is proven stable in
     # production. Currently INFO for visibility during rollout.
-    logger.info("SSE NOTIFY sending type=%s size=%d", event_type, payload_bytes)
+    logger.debug("SSE NOTIFY sending type=%s size=%d", event_type, payload_bytes)
 
     if _main_loop is None:
         logger.warning("SSE publish skipped: main event loop not captured yet (startup not complete)")
