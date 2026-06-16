@@ -26,8 +26,8 @@
 
 - **Inside the docker network:** app talks to `db:5432` — unchanged, never edit this.
 - **From the host:** `psql -h localhost -p 5433 -U asset_tracker_user asset_tracker`
-- **Reason for the remap (2026-05-04):** apphost's host postgres is `active + enabled` and grabs `5432` on every boot. It holds two non-default databases:
-  - `asset_tracker` — empty stub, owner `asset_tracker_user`. Flagged for cleanup (`sudo -u postgres dropdb asset_tracker`), not yet dropped.
+- **Reason for the remap (2026-05-04):** apphost's host postgres is `active + enabled` and grabs `5432` on every boot. It holds one non-default database (a second, `asset_tracker`, was dropped 2026-06-16 - see below):
+  - `asset_tracker` (host pg) — DROPPED 2026-06-16. Was NOT an empty stub as previously noted: a frozen pre-Docker snapshot, ~16K rows (mostly 13,773 audit_log rows, last write 2026-03-27). Disposable because the tool is being pushed out fresh; archived before drop to `/data/asset-tracker/backups/host_asset_tracker_2026-06-16.sql.gz`. NOTE: this is the HOST pg `asset_tracker` only - the live app uses the separate CONTAINER pg cluster, untouched.
   - `hardware_inventory` — legacy DB from the old NUC, 52 tables in `public`. Left untouched, useful as backup reference.
 - **Pre-remap compose backup:** `/opt/asset_tracker/docker-compose.yml.bak.<timestamp>` if rollback ever needed.
 
@@ -133,7 +133,6 @@ Application code should never read raw `can_*` columns directly — always go th
 
 ## Known TODOs / hygiene
 - **Test harness rebuild:** the previous E2E/smoke suite (tests/) targeted the retired NUC host (sudo psql on hardware_inventory, /opt/hardware_inventory paths, 192.0.2.174) and was removed. Rebuild against the apphost/Docker stack: add pytest to the image and write HTTP-based tests against http://192.0.2.10:8100/assettracker (or a container-internal URL).
-- Drop the empty host `asset_tracker` DB on apphost: `sudo -u postgres dropdb asset_tracker` (when convenient — safe, the data is empty)
 - SSE listener reconnect logic in `app/routes/sse.py` (reconnect to Postgres after restart instead of requiring app restart)
 - Vendors table + dropdown — currently free-text input on intake + triage
 - `brand_sku` should render as `<datalist>` / `<select>` sourced from `item_schema.part_numbers`, both on intake and triage
