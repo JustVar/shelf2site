@@ -65,6 +65,8 @@
         <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('status')">Set status</button>
         <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('department')">Set department / owner</button>
         <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('export')">Export to CSV</button>
+        <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('checkout')">Check out</button>
+        <button type="button" class="inv-bulk-menu-item" onclick="invBulkPickAction('checkin')">Check in</button>
       </div>
     </div>
     <div id="inv-bulk-apply-row" class="inv-bulk-apply-row" style="display:none">
@@ -72,6 +74,11 @@
       <div id="inv-bulk-value-wrap">
         <select id="inv-bulk-value-select" class="inv-select" style="display:none"></select>
         <input type="text" id="inv-bulk-value-text" class="inv-input" placeholder="Department / owner" style="display:none">
+        <div id="inv-bulk-custody" style="display:none; gap:0.4rem; align-items:center; flex-wrap:wrap">
+          <select id="inv-bulk-co-user" class="inv-select"></select>
+          <input type="text" id="inv-bulk-co-name" class="inv-input" placeholder="or free-text name" style="max-width:160px">
+          <input type="text" id="inv-bulk-co-notes" class="inv-input" placeholder="Notes (optional)" style="max-width:200px">
+        </div>
       </div>
       <button type="button" id="inv-bulk-apply" class="inv-bulk-apply" onclick="invApplyBulk()" disabled>Apply</button>
       <button type="button" class="inv-bulk-cancel-action" onclick="invBulkCancelAction()" aria-label="Cancel action">×</button>
@@ -181,6 +188,7 @@
 // Bulk-action lookups, serialized server-side to avoid a round-trip.
 var INV_LOCATIONS = {{ locations | tojson }};
 var INV_STATUSES = {{ statuses | tojson }};
+var INV_USERS = {{ users | tojson }};
 </script>
 
 <script>
@@ -240,6 +248,8 @@ var INV_BULK_ACTION_LABELS = {
   status: 'Set status',
   department: 'Set department / owner',
   export: 'Export to CSV',
+  checkout: 'Check out',
+  checkin: 'Check in',
 };
 var invBulkCurrentAction = null;
 
@@ -315,6 +325,8 @@ function invBulkPickAction(action) {
   sel.style.display = 'none';
   txt.style.display = 'none';
   sel.innerHTML = '';
+  var custodyRow = document.getElementById('inv-bulk-custody');
+  if (custodyRow) custodyRow.style.display = 'none';
 
   if (action === 'location') {
     sel.style.display = '';
@@ -343,6 +355,33 @@ function invBulkPickAction(action) {
     txt.value = '';
   } else if (action === 'export') {
     wrap.style.display = 'none';
+  } else if (action === 'checkout' || action === 'checkin') {
+    var cust = document.getElementById('inv-bulk-custody');
+    cust.style.display = 'flex';
+    var coUser = document.getElementById('inv-bulk-co-user');
+    var coName = document.getElementById('inv-bulk-co-name');
+    var coNotes = document.getElementById('inv-bulk-co-notes');
+    coUser.innerHTML = '';
+    coNotes.value = '';
+    if (action === 'checkout') {
+      var optBlank = document.createElement('option');
+      optBlank.value = ''; optBlank.textContent = '— Select user —';
+      coUser.appendChild(optBlank);
+      for (var u = 0; u < INV_USERS.length; u++) {
+        var ou = document.createElement('option');
+        ou.value = INV_USERS[u].id;
+        ou.textContent = INV_USERS[u].display_name;
+        coUser.appendChild(ou);
+      }
+      coUser.style.display = '';
+      coName.style.display = '';
+      coName.value = '';
+    } else {
+      coUser.style.display = 'none';
+      coName.style.display = 'none';
+    }
+    coUser.onchange = invUpdateBulkBar;
+    coName.oninput = invUpdateBulkBar;
   }
 
   sel.onchange = invUpdateBulkBar;
@@ -366,6 +405,14 @@ function invBulkCancelAction() {
   var txt = document.getElementById('inv-bulk-value-text');
   if (sel) sel.value = '';
   if (txt) txt.value = '';
+  var custCancel = document.getElementById('inv-bulk-custody');
+  if (custCancel) custCancel.style.display = 'none';
+  var coU = document.getElementById('inv-bulk-co-user');
+  var coN = document.getElementById('inv-bulk-co-name');
+  var coNot = document.getElementById('inv-bulk-co-notes');
+  if (coU) coU.value = '';
+  if (coN) coN.value = '';
+  if (coNot) coNot.value = '';
   invUpdateBulkBar();
 }
 
@@ -387,6 +434,12 @@ function invUpdateBulkBar() {
 function invBulkValueReady(action) {
   if (!action) return false;
   if (action === 'export') return true;
+  if (action === 'checkin') return true;
+  if (action === 'checkout') {
+    var cu = document.getElementById('inv-bulk-co-user');
+    var cn = document.getElementById('inv-bulk-co-name');
+    return !!(cu && cu.value) || !!(cn && cn.value.trim());
+  }
   if (action === 'department') {
     var txt = document.getElementById('inv-bulk-value-text');
     return !!(txt && txt.value.trim());
@@ -402,6 +455,11 @@ function invApplyBulk() {
 
   if (action === 'export') {
     invExportCsv(ids);
+    return;
+  }
+
+  if (action === 'checkout' || action === 'checkin') {
+    invApplyCustody(action, ids);
     return;
   }
 
@@ -435,6 +493,47 @@ function invApplyBulk() {
       var msg = 'Updated ' + result.updated_count + ' item(s)';
       if (result.skipped_count > 0) {
         msg += ' · ' + result.skipped_count + ' skipped (locked by other users)';
+      }
+      if (window.SxToast) window.SxToast.success(msg);
+      window.location.reload();
+    })
+    .catch(function() {
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Apply';
+      if (window.SxToast) window.SxToast.error('Network error');
+    });
+}
+
+function invApplyCustody(action, ids) {
+  var uid = document.getElementById('inv-bulk-co-user').value;
+  var name = document.getElementById('inv-bulk-co-name').value.trim();
+  var notes = document.getElementById('inv-bulk-co-notes').value.trim();
+  var verb = (action === 'checkout') ? 'Check out' : 'Check in';
+  if (!confirm(verb + ' ' + ids.length + ' item(s)?')) return;
+  var applyBtn = document.getElementById('inv-bulk-apply');
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Applying…';
+  var fd = new FormData();
+  for (var i = 0; i < ids.length; i++) fd.append('item_ids', ids[i]);
+  if (action === 'checkout') {
+    if (uid) fd.append('checked_out_to_user_id', uid);
+    if (name) fd.append('checked_out_to_name', name);
+  }
+  if (notes) fd.append('notes', notes);
+  var url = BP + (action === 'checkout' ? '/checkout/bulk' : '/checkin/bulk');
+  fetch(url, { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Apply';
+      if (!result.success) {
+        if (window.SxToast) window.SxToast.error(result.error || (verb + ' failed'));
+        return;
+      }
+      var skipReason = (action === 'checkout') ? 'already checked out' : 'no open checkout';
+      var msg = verb + ' done: ' + result.updated_count + ' item(s)';
+      if (result.skipped_count > 0) {
+        msg += ' · ' + result.skipped_count + ' skipped (' + skipReason + ')';
       }
       if (window.SxToast) window.SxToast.success(msg);
       window.location.reload();

@@ -12,6 +12,7 @@ from ..models import Item, ItemLocation
 from .dashboard import CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
 from .intake import _get_locations as _get_locations_active, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
 from .dashboard import category_display as _cat_display
+from .checkout import _active_users
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 templates = Jinja2Templates(
@@ -158,6 +159,7 @@ def inventory_page(
         "q":            q,
         "page":         "inventory",
         "category_colors": CATEGORY_COLORS,
+        "users":        [{"id": u.id, "display_name": u.display_name} for u in _active_users(db)],
     })
 
 
