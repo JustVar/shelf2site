@@ -44,6 +44,9 @@ _publish_conn: Optional[asyncpg.Connection] = None
 _publish_lock: Optional[asyncio.Lock] = None
 # Main event loop captured at startup — lets sync callers schedule async NOTIFYs.
 _main_loop: Optional[asyncio.AbstractEventLoop] = None
+# Listener reconnect supervisor task + shutdown signal.
+_listen_supervisor_task: Optional[asyncio.Task] = None
+_shutdown_event: Optional[asyncio.Event] = None
 
 
 def _asyncpg_dsn() -> str:
@@ -60,9 +63,60 @@ def _asyncpg_dsn() -> str:
     return url
 
 
-# TODO: add reconnect logic for the listener connection — if Postgres
-# restarts, this worker will stop receiving events until the worker is
-# restarted. Lower priority while concurrent user count is small.
+async def _open_listener() -> None:
+    """Open the listener connection and register the NOTIFY callback.
+
+    Used by both startup and the reconnect supervisor. Sets the module-level
+    _listen_conn global.
+    """
+    global _listen_conn
+    _listen_conn = await asyncpg.connect(_asyncpg_dsn())
+    await _listen_conn.add_listener(PG_CHANNEL, _on_notify)
+
+
+async def _listener_supervisor() -> None:
+    """Keep the listener connection alive across Postgres restarts.
+
+    Polls the connection state every few seconds; if it has dropped (e.g.
+    Postgres restarted or a network blip), reconnects with exponential
+    backoff and re-registers the LISTEN callback.
+
+    NOTE: this restores the event channel, but events that were NOTIFYed
+    while the connection was down are NOT replayed — Postgres NOTIFY is
+    fire-and-forget, so any events during the outage window are lost. SSE
+    clients resume receiving NEW events after reconnect.
+    """
+    backoff = 1.0
+    backoff_max = 30.0
+    while _shutdown_event is not None and not _shutdown_event.is_set():
+        try:
+            await asyncio.wait_for(_shutdown_event.wait(), timeout=2.0)
+            break  # shutdown signalled
+        except asyncio.TimeoutError:
+            pass  # normal: 2s poll interval elapsed
+
+        if _listen_conn is not None and not _listen_conn.is_closed():
+            backoff = 1.0  # healthy, reset backoff
+            continue
+
+        # Connection is gone — attempt reconnect with backoff.
+        logger.warning("SSE listener connection lost; reconnecting in %.1fs", backoff)
+        try:
+            if _shutdown_event.is_set():
+                break
+            await asyncio.wait_for(_shutdown_event.wait(), timeout=backoff)
+            break  # shutdown signalled during backoff
+        except asyncio.TimeoutError:
+            pass
+        try:
+            await _open_listener()
+            logger.info("SSE listener reconnected")
+            backoff = 1.0
+        except Exception as exc:
+            logger.error("SSE listener reconnect failed: %s", exc)
+            backoff = min(backoff * 2, backoff_max)
+
+
 def _on_notify(connection, pid, channel, payload: str) -> None:
     """asyncpg LISTEN callback. Runs on the listener connection's event loop.
 
@@ -157,9 +211,11 @@ def get_sse_client_count() -> int:
 async def start_sse_pubsub() -> None:
     """Open the LISTEN and NOTIFY connections. Call from FastAPI lifespan startup."""
     global _listen_conn, _publish_conn, _publish_lock, _main_loop
+    global _listen_supervisor_task, _shutdown_event
 
     _main_loop = asyncio.get_running_loop()
     _publish_lock = asyncio.Lock()
+    _shutdown_event = asyncio.Event()
     dsn = _asyncpg_dsn()
 
     _safe_dsn = dsn
@@ -172,17 +228,28 @@ async def start_sse_pubsub() -> None:
 
     logger.info("SSE pubsub starting: channel=%s dsn=%s", PG_CHANNEL, _safe_dsn)
 
-    _listen_conn = await asyncpg.connect(dsn)
-    await _listen_conn.add_listener(PG_CHANNEL, _on_notify)
+    await _open_listener()
     _publish_conn = await asyncpg.connect(dsn)
+
+    _listen_supervisor_task = asyncio.create_task(_listener_supervisor())
 
     logger.info("SSE pubsub ready (listener + publisher connections open)")
 
 
 async def stop_sse_pubsub() -> None:
     """Close LISTEN and NOTIFY connections. Call from FastAPI lifespan shutdown."""
-    global _listen_conn, _publish_conn
+    global _listen_conn, _publish_conn, _listen_supervisor_task
     logger.info("SSE pubsub shutting down")
+
+    if _shutdown_event is not None:
+        _shutdown_event.set()
+    if _listen_supervisor_task is not None:
+        _listen_supervisor_task.cancel()
+        try:
+            await _listen_supervisor_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        _listen_supervisor_task = None
 
     if _listen_conn is not None:
         try:

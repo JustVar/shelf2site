@@ -116,7 +116,6 @@ Application code should never read raw `can_*` columns directly — always go th
 - Listener + publisher asyncpg connections per gunicorn worker.
 - 7500-byte payload limit; oversize messages dropped with WARNING log.
 - Lifecycle managed via FastAPI lifespan in `main.py` — `start_sse_pubsub()` / `stop_sse_pubsub()`.
-- Open TODO: listener reconnect when Postgres restarts (workers lose events until app restart).
 
 ### Sidebar count cache (`app/sidebar_cache.py`)
 
@@ -133,9 +132,8 @@ Application code should never read raw `can_*` columns directly — always go th
 
 ## Known TODOs / hygiene
 - **Test harness rebuild:** the previous E2E/smoke suite (tests/) targeted the retired NUC host (sudo psql on hardware_inventory, /opt/hardware_inventory paths, 192.0.2.174) and was removed. Rebuild against the apphost/Docker stack: add pytest to the image and write HTTP-based tests against http://192.0.2.10:8100/assettracker (or a container-internal URL).
-- SSE listener reconnect logic in `app/routes/sse.py` (reconnect to Postgres after restart instead of requiring app restart)
 - Vendors table + dropdown — currently free-text input on intake + triage
-- `brand_sku` should render as `<datalist>` / `<select>` sourced from `item_schema.part_numbers`, both on intake and triage
+- **brand_sku managed vocabulary (B1 shipped; B2/B3 DEFERRED to Fulfillment):** Part Numbers admin CRUD (5414fe1), intake datalist (Phase 1), triage strict select (Phase 2) all shipped. The strict-select sweep across intake/item_detail/quick_view + shared macro (B2/B3) is DEFERRED: managed SKUs apply only to sellable categories (Edge Box, Camera 2 Cloud, Cloud Box); internal hardware uses serial number, not SKU. Per-category SKU filtering and the full cross-category SKU list are pending the Fulfillment phase. quick_view was prototyped as a flat select then reverted (would contradict the category model). Resume with the real catalog once Fulfillment defines the rules.
 - Multi-viewer lock awareness, when Users page is built
 - Mobile barcode-scan flow at `/scan` — explicitly deferred from main app, not yet started
 - U2/U3 (Users + Departments UI rebuild) — sweep deferred renames per [docs/U2_U3_RENAME_FOLLOWUPS.md](docs/U2_U3_RENAME_FOLLOWUPS.md). U1 (2026-05-04) renamed the DB table only; cosmetic file/route/identifier renames are listed there.
