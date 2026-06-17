@@ -225,6 +225,14 @@
             <span class="sx-nav__label">OUI reference</span>
           </a>
           {% endif %}
+          {% if user.is_editor_or_above %}
+          <a href="{{ base_path }}/admin/part-numbers"
+             class="sx-nav__link {% if '/admin/part-numbers' in request.url.path %}sx-nav__link--active{% endif %}"
+             data-label="Part Numbers">
+            {{ icon('network', size=14) }}
+            <span class="sx-nav__label">Part Numbers</span>
+          </a>
+          {% endif %}
           {% if user.has_financial_access %}
           <a href="{{ base_path }}/admin/procurement"
              class="sx-nav__link {% if '/admin/procurement' in request.url.path %}sx-nav__link--active{% endif %}"

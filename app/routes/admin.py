@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
@@ -20,7 +20,9 @@ from ..database import get_db
 from ..models import (
     AuditLog, OUIAllowlist, TABLE_DISPLAY_NAMES, Department, User as UserModel,
     USER_PERMISSION_COLUMNS, DEPARTMENT_PERMISSION_COLUMNS,
+    ItemPartNumber, Item,
 )
+from .dashboard import ALL_CATEGORIES, category_display
 from ..spreadsheet_sync import parse_excel, compare_with_database, apply_changes
 
 router = APIRouter()
@@ -281,6 +283,146 @@ def delete_oui_entry(
         details=f"Deleted OUI {oui_prefix}",
     )
 
+    return JSONResponse(content={"status": "deleted"})
+
+
+# ---------------------------------------------------------------------------
+# Part Numbers (Company SKU catalog)
+# ---------------------------------------------------------------------------
+
+@router.get("/admin/part-numbers", response_class=HTMLResponse)
+def part_numbers_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_editor),
+):
+    """SKU catalog. Viewable by editors+, editable by system admins."""
+    rows = (
+        db.query(ItemPartNumber)
+        .order_by(ItemPartNumber.item_category, ItemPartNumber.brand_sku)
+        .all()
+    )
+    # usage count per SKU (plain string match on item.brand_sku)
+    usage = {}
+    for sku, cnt in (
+        db.query(Item.brand_sku, func.count(Item.id))
+        .filter(Item.brand_sku.isnot(None))
+        .group_by(Item.brand_sku)
+        .all()
+    ):
+        usage[sku] = cnt
+    pn_rows = [{"pn": r, "usage": usage.get(r.brand_sku, 0)} for r in rows]
+    categories = [{"value": c, "display": category_display(c)} for c in ALL_CATEGORIES]
+    return templates.TemplateResponse("admin_part_numbers.html", {
+        "request": request,
+        "user": user,
+        "pn_rows": pn_rows,
+        "categories": categories,
+        "total_skus": len(rows),
+        "total_in_use": sum(1 for r in pn_rows if r["usage"] > 0),
+    })
+
+
+@router.post("/admin/part-numbers/add")
+async def add_part_number(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_system_admin),
+):
+    """Create a new SKU."""
+    form = await request.form()
+    sku = (form.get("brand_sku") or "").strip()
+    desc = (form.get("sku_description") or "").strip()
+    category = (form.get("item_category") or "").strip()
+    is_legacy = form.get("is_legacy") == "on"
+    is_customer_pn = form.get("is_customer_pn") == "on"
+    notes = (form.get("notes") or "").strip()
+
+    if not sku:
+        return JSONResponse(status_code=400, content={"error": "Company SKU is required"})
+    if db.query(ItemPartNumber).filter(ItemPartNumber.brand_sku == sku).first():
+        return JSONResponse(status_code=409, content={"error": f"SKU '{sku}' already exists"})
+
+    pn = ItemPartNumber(
+        brand_sku=sku,
+        sku_description=desc or None,
+        item_category=category or None,
+        is_legacy=is_legacy,
+        is_customer_pn=is_customer_pn,
+        notes=notes or None,
+        created_by=user.username,
+    )
+    db.add(pn)
+    db.commit()
+    log_event(
+        db, "part_number_added", request=request, user_id=user.id,
+        target_table="part_numbers", target_id=pn.id, action="create",
+        new_values={"brand_sku": sku, "item_category": category},
+        details=f"Added SKU {sku}",
+    )
+    return JSONResponse(content={"status": "added", "id": pn.id})
+
+
+@router.post("/admin/part-numbers/{pn_id}/edit")
+async def edit_part_number(
+    pn_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_system_admin),
+):
+    """Edit a SKU's description/category/flags/notes. The brand_sku value
+    itself is NOT editable (it is the catalog key; items reference it by string)."""
+    pn = db.query(ItemPartNumber).filter(ItemPartNumber.id == pn_id).first()
+    if not pn:
+        return JSONResponse(status_code=404, content={"error": "Not found"})
+
+    form = await request.form()
+    old = {"sku_description": pn.sku_description, "item_category": str(pn.item_category),
+           "is_legacy": pn.is_legacy, "is_customer_pn": pn.is_customer_pn}
+
+    pn.sku_description = (form.get("sku_description") or "").strip() or None
+    category = (form.get("item_category") or "").strip()
+    pn.item_category = category or None
+    pn.is_legacy = form.get("is_legacy") == "on"
+    pn.is_customer_pn = form.get("is_customer_pn") == "on"
+    pn.notes = (form.get("notes") or "").strip() or None
+    db.commit()
+    log_event(
+        db, "part_number_updated", request=request, user_id=user.id,
+        target_table="part_numbers", target_id=pn.id, action="update",
+        old_values=old, details=f"Updated SKU {pn.brand_sku}",
+    )
+    return JSONResponse(content={"status": "updated"})
+
+
+@router.delete("/admin/part-numbers/{pn_id}")
+def delete_part_number(
+    pn_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_system_admin),
+):
+    """Delete a SKU - HARD-BLOCKED if any item references it (plain string match,
+    no DB FK), to prevent orphaning item.brand_sku values."""
+    pn = db.query(ItemPartNumber).filter(ItemPartNumber.id == pn_id).first()
+    if not pn:
+        return JSONResponse(status_code=404, content={"error": "Not found"})
+
+    ref_count = db.query(Item).filter(Item.brand_sku == pn.brand_sku).count()
+    if ref_count > 0:
+        return JSONResponse(status_code=409, content={
+            "error": f"Cannot delete: {ref_count} item(s) use SKU '{pn.brand_sku}'. "
+                     f"Reassign those items first."
+        })
+
+    sku = pn.brand_sku
+    db.delete(pn)
+    db.commit()
+    log_event(
+        db, "part_number_removed", request=request, user_id=user.id,
+        target_table="part_numbers", target_id=pn_id, action="delete",
+        details=f"Deleted SKU {sku}",
+    )
     return JSONResponse(content={"status": "deleted"})
 
 

@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Part Numbers - Asset Tracker{% endblock %}
+
+{% block content %}
+<h1>Part Numbers</h1>
+<p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+    The Company SKU catalog. SKUs defined here are the managed vocabulary that
+    intake and triage pick from. Editors can view; system admins can add, edit,
+    and remove entries. A SKU cannot be deleted while items still reference it.
+</p>
+
+<!-- Summary Cards -->
+<div class="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ total_skus }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Total SKUs</div>
+    </div>
+    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 700; color: var(--success);">{{ total_in_use }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">In Use</div>
+    </div>
+</div>
+
+<!-- Admin: Add New SKU -->
+{% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+<div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; margin-bottom: 2rem;">
+    <h3 style="margin-bottom: 0.8rem;">Add Part Number</h3>
+    <form id="add-pn-form" class="form-inline" onsubmit="addPN(event)" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>Company SKU</label>
+            <input type="text" id="pn-sku" name="brand_sku"
+                   placeholder="e.g. PVA-25-30R5" required style="width: 160px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>Description</label>
+            <input type="text" id="pn-desc" name="sku_description"
+                   placeholder="e.g. 25 Channel, 30 days, Raid5" style="width: 260px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label>Category</label>
+            <select id="pn-category" name="item_category" style="width: 160px;">
+                <option value="">-- Select --</option>
+                {% for cat in categories %}
+                <option value="{{ cat.value }}">{{ cat.display }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                <input type="checkbox" id="pn-legacy" name="is_legacy" style="width: auto;"> Legacy
+            </label>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                <input type="checkbox" id="pn-customer" name="is_customer_pn" style="width: auto;"> Customer PN
+            </label>
+        </div>
+        <button type="submit" class="btn btn-success">Add</button>
+    </form>
+    <div id="add-pn-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+</div>
+{% endif %}
+
+<!-- Grouped SKU table -->
+<div class="table-section">
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 2rem;"></th>
+                    <th>Category</th>
+                    <th>SKU</th>
+                    <th>Description</th>
+                    <th>Flags</th>
+                    <th>In Use</th>
+                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if pn_rows %}
+                {% set ns = namespace(current=None, gidx=0) %}
+                {% for row in pn_rows %}
+                {% set cat = row.pn.item_category or 'uncategorized' %}
+                {% if cat != ns.current %}
+                    {% set ns.current = cat %}
+                    {% set ns.gidx = ns.gidx + 1 %}
+                <tr class="vendor-group-header" onclick="toggleGroup('pngrp-{{ ns.gidx }}')" style="cursor: pointer; background: var(--card-bg);">
+                    <td style="text-align: center;">
+                        <span class="expand-arrow" id="arrow-pngrp-{{ ns.gidx }}" style="display: inline-block; transition: transform 0.2s; font-size: 0.7rem; color: var(--text-muted);">&#9654;</span>
+                    </td>
+                    <td style="font-weight: 600;" colspan="2">{{ (cat).replace('_', ' ').title() }}</td>
+                    <td colspan="{% if user.role in ('justin_admin', 'system_admin', 'admin') %}4{% else %}3{% endif %}" style="color: var(--text-muted); font-size: 0.85rem;"></td>
+                </tr>
+                {% endif %}
+                <tr class="pn-detail-row pngrp-{{ ns.gidx }}" id="pn-row-{{ row.pn.id }}" style="display: none;">
+                    <td></td>
+                    <td></td>
+                    <td>
+                        <span style="font-family: monospace; font-weight: 600; font-size: 0.9rem; background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">{{ row.pn.brand_sku }}</span>
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 0.9rem;">{{ row.pn.sku_description or '' }}</td>
+                    <td>
+                        {% if row.pn.is_legacy %}<span class="badge" style="background: var(--border); color: var(--text); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; margin-right: 4px;">Legacy</span>{% endif %}
+                        {% if row.pn.is_customer_pn %}<span class="badge" style="background: var(--info, #3b82f6); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;">Customer</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if row.usage > 0 %}
+                        <span style="color: var(--success); font-weight: 600;">{{ row.usage }}</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">0</span>
+                        {% endif %}
+                    </td>
+                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    <td style="white-space: nowrap;">
+                        <button class="btn btn-primary btn-sm"
+                                onclick="event.stopPropagation(); editPN({{ row.pn.id }}, {{ row.pn.sku_description|tojson|forceescape }}, {{ (row.pn.item_category or '')|tojson|forceescape }}, {{ row.pn.is_legacy|tojson }}, {{ row.pn.is_customer_pn|tojson }}, {{ row.pn.notes|tojson|forceescape }})">
+                            Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm"
+                                onclick="event.stopPropagation(); deletePN({{ row.pn.id }}, '{{ row.pn.brand_sku }}')">
+                            Delete
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="{% if user.role in ('justin_admin', 'system_admin', 'admin') %}7{% else %}6{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No part numbers yet. {% if user.role in ('justin_admin', 'system_admin', 'admin') %}Add one above, or import via the spreadsheet sync.{% else %}They are managed by system admins.{% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="pn-edit-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:1.5rem; width:440px; max-width:90vw;">
+        <h3 style="margin-bottom:1rem;">Edit Part Number</h3>
+        <input type="hidden" id="pn-edit-id">
+        <div class="form-group">
+            <label>SKU (not editable)</label>
+            <input type="text" id="pn-edit-sku" style="width:100%; opacity:0.6;" disabled>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="pn-edit-desc" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Category</label>
+            <select id="pn-edit-category" style="width:100%;">
+                <option value="">-- Select --</option>
+                {% for cat in categories %}
+                <option value="{{ cat.value }}">{{ cat.display }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="display:flex; gap:1.5rem;">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+                <input type="checkbox" id="pn-edit-legacy" style="width:auto;"> Legacy
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+                <input type="checkbox" id="pn-edit-customer" style="width:auto;"> Customer PN
+            </label>
+        </div>
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea id="pn-edit-notes" style="width:100%; min-height:60px;"></textarea>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="closePNEditModal()">Cancel</button>
+            <button class="btn btn-success" onclick="savePNEdit()">Save</button>
+        </div>
+        <div id="pn-edit-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>// BP available globally from base.html</script>
+<script src="{{ base_path }}/static/js/admin-part-numbers.js?v=20260616a"></script>
+{% endblock %}
