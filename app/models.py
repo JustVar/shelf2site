@@ -1868,3 +1868,40 @@ class ItemCheckout(Base):
 
     item                = relationship('Item', foreign_keys=[item_id])
     checked_out_to_user = relationship('User', foreign_keys=[checked_out_to_user_id])
+
+
+class BuildCertification(Base):
+    __tablename__ = "build_certification"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_provisioning_id = Column(
+        Integer, ForeignKey("device_provisioning.id", ondelete="CASCADE"), nullable=False
+    )
+    device_uuid = Column(String(64), nullable=True)
+    hardware_validation = Column(JSONB, nullable=True)
+    appliance_version = Column(String(64), nullable=True)
+    license_counts = Column(JSONB, nullable=True)
+    qa_checklist = Column(JSONB, nullable=True)
+    certified_by = Column(String(128), nullable=True)
+    co_certified_by = Column(String(128), nullable=True)
+    checklist_file_path = Column(String(512), nullable=True)
+    certified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class InstallCertification(Base):
+    __tablename__ = "install_certification"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_provisioning_id = Column(
+        Integer, ForeignKey("device_provisioning.id", ondelete="CASCADE"), nullable=False
+    )
+    completed_by_type = Column(String(16), nullable=True)  # internal | partner
+    site_designation = Column(String(256), nullable=True)
+    engineer = Column(String(128), nullable=True)
+    handoff_date = Column(Date, nullable=True)
+    site_checklist = Column(JSONB, nullable=True)
+    deployment_summary = Column(Text, nullable=True)
+    checklist_file_path = Column(String(512), nullable=True)
+    certified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
