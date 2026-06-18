@@ -993,6 +993,7 @@ class DeviceProvisioning(Base):
     site_id = Column(Integer, ForeignKey("sites.id"), nullable=True)
 
     current_stage = Column(String(32), nullable=False, default="po_in")
+    fulfillment_type = Column(String(32), nullable=True)  # build | prebuilt_software | prebuilt_finished; NULL = not in fulfillment
     stages = Column(JSONB, nullable=False)
 
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -1054,6 +1055,7 @@ class CustomerOrder(Base):
     order_number = Column(String(32), unique=True, nullable=False)  # AT-2001, AT-2002, …
     salesforce_order_id = Column(String(64), nullable=True)
     salesforce_opp_id = Column(String(64), nullable=True)
+    po_number = Column(String(64), unique=True, nullable=True)  # Salesforce customer PO; app-level gate for pipeline entry
     customer_name = Column(String(256), nullable=False)
     customer_account = Column(String(256), nullable=True)
     sales_engineer = Column(String(128), nullable=True)
@@ -1061,6 +1063,7 @@ class CustomerOrder(Base):
     deployment_type = Column(String(32), default="direct")  # direct | via_integrator | via_distributor
     integrator_name = Column(String(256), nullable=True)
     distributor_name = Column(String(256), nullable=True)
+    default_fulfillment_type = Column(String(32), nullable=True)  # build | prebuilt_software | prebuilt_finished; pre-fills device rows
     due_date = Column(Date, nullable=True)
     status = Column(String(32), default="new")  # new | sourcing | building | testing | shipped | delivered | installed
     sku_requirements = Column(JSONB, default=list)  # [{model, qty, source: stock|oem|tbd}]
