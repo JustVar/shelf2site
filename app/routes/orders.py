@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func as sqlfunc
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
@@ -192,10 +193,16 @@ async def create_order(
         is_sensitive=bool(body.get("is_sensitive", False)),
         contract_value=_to_dec(body.get("contract_value")),
         hardware_cost=_to_dec(body.get("hardware_cost")),
+        po_number=(body.get("po_number") or "").strip() or None,
+        default_fulfillment_type=(body.get("default_fulfillment_type") or "").strip() or None,
         created_by=user.id,
     )
     db.add(order)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return JSONResponse(status_code=400, content={"error": "That PO number is already used by another order"})
     db.refresh(order)
 
     log_event(db, "order_created", request=request, user_id=user.id,
@@ -221,6 +228,7 @@ async def update_order(
         "salesforce_order_id", "salesforce_opp_id", "customer_name", "customer_account",
         "sales_engineer", "deployment_type", "integrator_name", "distributor_name",
         "status", "notes", "pre_site_survey", "post_install_notes",
+        "po_number", "default_fulfillment_type",
     ]
     for field in str_fields:
         if field in body:
@@ -247,7 +255,11 @@ async def update_order(
         except (TypeError, ValueError):
             pass
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return JSONResponse(status_code=400, content={"error": "That PO number is already used by another order"})
     log_event(db, "order_updated", request=request, user_id=user.id,
               target_table="customer_orders", target_id=order_id, action="update",
               details=f"Updated order {order.order_number}")
