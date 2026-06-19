@@ -141,6 +141,12 @@ def order_detail(
                 device_label = get_display_name(device)
         prov_enriched.append({"record": p, "device_label": device_label})
 
+    se_names = sorted(
+        n[0] for n in db.query(CustomerOrder.sales_engineer)
+        .filter(CustomerOrder.sales_engineer.isnot(None), CustomerOrder.sales_engineer != "")
+        .distinct().all()
+    )
+
     return templates.TemplateResponse("order_detail.html", {
         "request": request,
         "user": user,
@@ -150,6 +156,7 @@ def order_detail(
         "oem_pos": order.oem_pos,
         "ORDER_STATUSES": CustomerOrder.ORDER_STATUSES,
         "STATUS_COLORS": CustomerOrder.STATUS_COLORS,
+        "se_names": se_names,
     })
 
 

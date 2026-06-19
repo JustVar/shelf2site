@@ -288,6 +288,103 @@
 
 <!-- Status update modal -->
 {% if user.has_provisioning_manage %}
+<!-- Edit order modal -->
+<div id="edit-order-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:560px;">
+        <div class="modal-header">
+            <h2>Edit Order</h2>
+            <button class="modal-close" onclick="document.getElementById('edit-order-modal').classList.remove('open')">✕</button>
+        </div>
+        <div class="form-group" style="margin-top:0.75rem;">
+            <label>Customer Name *</label>
+            <input type="text" id="edit-customer-name" class="form-control" value="{{ order.customer_name or '' }}">
+        </div>
+        <div class="form-group">
+            <label>Customer Account</label>
+            <input type="text" id="edit-customer-account" class="form-control" value="{{ order.customer_account or '' }}">
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+            <div class="form-group" style="flex:1;">
+                <label>Salesforce Order ID</label>
+                <input type="text" id="edit-sf-order-id" class="form-control" value="{{ order.salesforce_order_id or '' }}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Salesforce Opp ID</label>
+                <input type="text" id="edit-sf-opp-id" class="form-control" value="{{ order.salesforce_opp_id or '' }}">
+            </div>
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+            <div class="form-group" style="flex:1;">
+                <label>Sales Engineer</label>
+                <input type="text" id="edit-sales-engineer" class="form-control" list="se-names" value="{{ order.sales_engineer or '' }}">
+                <datalist id="se-names">
+                    {% for se in se_names %}<option value="{{ se }}"></option>{% endfor %}
+                </datalist>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Due Date</label>
+                <input type="date" id="edit-due-date" class="form-control" value="{{ order.due_date or '' }}">
+            </div>
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+            <div class="form-group" style="flex:1;">
+                <label>Deployment Type</label>
+                <select id="edit-deployment-type" class="form-control">
+                    <option value="direct"{% if order.deployment_type == 'direct' %} selected{% endif %}>Direct</option>
+                    <option value="via_integrator"{% if order.deployment_type == 'via_integrator' %} selected{% endif %}>Via Integrator</option>
+                    <option value="via_distributor"{% if order.deployment_type == 'via_distributor' %} selected{% endif %}>Via Distributor</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Status</label>
+                <select id="edit-status" class="form-control">
+                    {% for key, label in ORDER_STATUSES.items() %}
+                    <option value="{{ key }}"{% if key == order.status %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+            <div class="form-group" style="flex:1;">
+                <label>Integrator Name</label>
+                <input type="text" id="edit-integrator-name" class="form-control" value="{{ order.integrator_name or '' }}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Distributor Name</label>
+                <input type="text" id="edit-distributor-name" class="form-control" value="{{ order.distributor_name or '' }}">
+            </div>
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+            <div class="form-group" style="flex:1;">
+                <label>Customer PO</label>
+                <input type="text" id="edit-po-number" class="form-control" value="{{ order.po_number or '' }}" placeholder="Salesforce PO #">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Default Fulfillment Type</label>
+                <select id="edit-default-fulfillment-type" class="form-control">
+                    <option value=""{% if not order.default_fulfillment_type %} selected{% endif %}>None</option>
+                    <option value="build"{% if order.default_fulfillment_type == 'build' %} selected{% endif %}>Build</option>
+                    <option value="prebuilt_software"{% if order.default_fulfillment_type == 'prebuilt_software' %} selected{% endif %}>Prebuilt Software</option>
+                    <option value="prebuilt_finished"{% if order.default_fulfillment_type == 'prebuilt_finished' %} selected{% endif %}>Prebuilt Finished</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea id="edit-notes" class="form-control" rows="3">{{ order.notes or '' }}</textarea>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+            <input type="checkbox" id="edit-sensitive"{% if order.is_sensitive %} checked{% endif %}>
+            <label for="edit-sensitive" style="margin:0;">Mark as sensitive (hide from most users)</label>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="document.getElementById('edit-order-modal').classList.remove('open')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveEditOrder()">Save</button>
+        </div>
+        <div id="edit-order-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
+    </div>
+</div>
+
 <div id="status-modal" class="modal-overlay">
     <div class="modal-box" style="max-width:380px;">
         <div class="modal-header">
@@ -612,8 +709,43 @@ async function refreshAvailability() {
 
 function openEditModal() {
     // Navigate to orders list with edit intent — for simplicity redirect to orders page
-    // A full edit modal can be added in a follow-up iteration
-    alert('To edit order details including SKU requirements, use the Update Status button for status changes, or contact an administrator for full edits via the API.');
+    document.getElementById('edit-order-modal').classList.add('open');
+}
+
+async function saveEditOrder() {
+    const $ = id => document.getElementById(id);
+    const body = {
+        customer_name: $('edit-customer-name').value.trim(),
+        customer_account: $('edit-customer-account').value.trim() || null,
+        salesforce_order_id: $('edit-sf-order-id').value.trim() || null,
+        salesforce_opp_id: $('edit-sf-opp-id').value.trim() || null,
+        sales_engineer: $('edit-sales-engineer').value.trim() || null,
+        due_date: $('edit-due-date').value || null,
+        deployment_type: $('edit-deployment-type').value,
+        integrator_name: $('edit-integrator-name').value.trim() || null,
+        distributor_name: $('edit-distributor-name').value.trim() || null,
+        status: $('edit-status').value,
+        po_number: $('edit-po-number').value.trim() || null,
+        default_fulfillment_type: $('edit-default-fulfillment-type').value || null,
+        notes: $('edit-notes').value.trim() || null,
+        is_sensitive: $('edit-sensitive').checked,
+    };
+    if (!body.customer_name) {
+        $('edit-order-error').textContent = 'Customer name is required';
+        return;
+    }
+    try {
+        const resp = await fetch(`${BP}/api/orders/${ORDER_ID}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        if (resp.ok) location.reload();
+        else {
+            const d = await resp.json();
+            $('edit-order-error').textContent = d.error || 'Failed to save';
+        }
+    } catch(e) { $('edit-order-error').textContent = e.message; }
 }
 </script>
 
