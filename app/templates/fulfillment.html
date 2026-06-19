@@ -1385,6 +1385,21 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     </select>
                 </div>
             </div>
+            <div class="sp-field-row">
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Customer PO</label>
+                    <input type="text" class="sp-field-input" name="po_number" placeholder="Salesforce PO #">
+                </div>
+                <div class="sp-field-group">
+                    <label class="sp-field-lbl">Default Fulfillment Type</label>
+                    <select class="sp-field-input" name="default_fulfillment_type">
+                        <option value="">None</option>
+                        <option value="build">Build</option>
+                        <option value="prebuilt_software">Prebuilt Software</option>
+                        <option value="prebuilt_finished">Prebuilt Finished</option>
+                    </select>
+                </div>
+            </div>
             <div class="sp-field-group">
                 <label class="sp-field-lbl">Notes</label>
                 <textarea class="sp-field-input" name="notes" rows="3" placeholder="Deployment context, special requirements..."></textarea>
@@ -1772,7 +1787,7 @@ async function submitNewOrder(e) {
         if (resp.ok && data.id) {
             window.location.href = `${BP}/orders/${data.id}`;
         } else {
-            alert(data.detail || 'Failed to create order');
+            alert(data.error || data.detail || 'Failed to create order');
             btn.disabled = false;
             btn.textContent = 'Create Order';
         }
