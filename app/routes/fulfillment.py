@@ -93,6 +93,8 @@ def _build_order_card(order: CustomerOrder, prov_count: int) -> dict:
         "is_sensitive": order.is_sensitive,
         "sales_engineer": order.sales_engineer,
         "deployment_type": order.deployment_type,
+        "po_number": order.po_number,
+        "default_fulfillment_type": order.default_fulfillment_type,
         "integrator_name": order.integrator_name or None,
         "distributor_name": order.distributor_name or None,
         # ── Shipping fields (migration 021) ──
@@ -197,6 +199,7 @@ def fulfillment_page(
             DeviceProvisioning.validation_result,
             DeviceProvisioning.is_complete,
             DeviceProvisioning.current_stage,
+            DeviceProvisioning.fulfillment_type,
             EdgeBox.serial,
             EdgeBox.part_number,
             User.display_name,
@@ -224,6 +227,7 @@ def fulfillment_page(
             "validation_result": row.validation_result,
             "is_complete": row.is_complete,
             "current_stage": row.current_stage,
+            "fulfillment_type": row.fulfillment_type,
         })
 
     # OEM purchase orders — all, linked and unlinked

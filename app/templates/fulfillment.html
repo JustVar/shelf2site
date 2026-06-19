@@ -583,6 +583,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                  onclick="openCardPanel(this)">
                 <div class="o-top">
                     <span class="o-id">{{ card.order_number }}</span>
+                    {% if card.po_number %}<span class="o-chip" style="font-size:9px;" title="Customer PO (Salesforce)">Cust PO {{ card.po_number }}</span>{% endif %}
                     <div style="display:flex; align-items:center; gap:4px;">
                         {% if card.is_sensitive and can_see_sensitive %}
                         <span class="badge-sensitive">Sensitive</span>
