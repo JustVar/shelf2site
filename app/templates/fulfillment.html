@@ -1681,36 +1681,9 @@ const CURRENT_USER = '{{ current_user_name | e }}';
 const LOGGED_IN = '{{ current_user_name | lower | replace(" ", "_") }}';
 const ORDER_DEVICES = {{ order_devices | tojson }};
 
-const STAGE_GROUPS = {
-    "new":        ["po_in", "scoped", "sourced", "ready"],
-    "sourcing":   ["ordered", "tracking", "deliver", "received"],
-    "building":   ["staged", "building", "registered", "licensed"],
-    "testing":    ["hw_check", "sw_version", "pva_events", "certified"],
-    "shipped":    ["packed", "labeled", "pickup", "transit"],
-    "scheduled":  ["dep_confirmed", "dep_se_assigned", "dep_site_ready", "dep_parts_staged"],
-    "in_transit": ["dep_packed", "dep_shipped", "dep_in_transit", "dep_delivered"],
-    "on_site":    ["dep_arrived", "dep_unpacked", "dep_cabled", "dep_powered_on"],
-    "installing": ["dep_hw_install", "dep_configured", "dep_cameras_up", "dep_testing"],
-    "complete":   ["dep_verified", "dep_signoff", "dep_docs_sent", "dep_closed"],
-};
+const STAGE_GROUPS = {{ stage_groups | tojson }};
 
-const STAGE_LABELS = {
-    "po_in": "PO In", "scoped": "Scoped", "sourced": "Sourced", "ready": "Ready",
-    "ordered": "Order", "tracking": "Tracking", "deliver": "Deliver", "received": "Received",
-    "staged": "Staged", "building": "Building", "registered": "Reg'd", "licensed": "Licensed",
-    "hw_check": "HW Check", "sw_version": "SW Ver", "pva_events": "PVA/Evt", "certified": "Cert'd",
-    "packed": "Packed", "labeled": "Labeled", "pickup": "Pickup", "transit": "Transit",
-    "dep_confirmed": "Confirm", "dep_se_assigned": "SE Asgn",
-    "dep_site_ready": "Site Rdy", "dep_parts_staged": "Parts",
-    "dep_packed": "Packed", "dep_shipped": "Shipped",
-    "dep_in_transit": "Transit", "dep_delivered": "Deliv'd",
-    "dep_arrived": "Arrived", "dep_unpacked": "Unpack",
-    "dep_cabled": "Cabled", "dep_powered_on": "Power On",
-    "dep_hw_install": "HW Inst", "dep_configured": "Config",
-    "dep_cameras_up": "Cameras", "dep_testing": "Testing",
-    "dep_verified": "Verified", "dep_signoff": "Sign-off",
-    "dep_docs_sent": "Docs", "dep_closed": "Closed",
-};
+const STAGE_LABELS = {{ stage_labels | tojson }};
 
 function getStageGroup(stageName) {
     for (const [group, stages] of Object.entries(STAGE_GROUPS)) {
