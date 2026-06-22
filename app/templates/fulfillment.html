@@ -112,6 +112,7 @@
 /* ── Kanban grid ─────────────────────────────────────────────────── */
 .kanban-grid { display: grid; gap: 10px; }
 .kanban-grid.grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kanban-grid.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .k-col { background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: 10px; padding-top: 8px; overflow: hidden; display: flex; flex-direction: column; transition: opacity .25s, filter .25s; }
 .k-col.dimmed { opacity: .18; filter: saturate(0); pointer-events: none; }
 .k-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 140px; }
@@ -548,194 +549,46 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     </div>
 </div>
 
-<!-- ── ACTIVE PIPELINE FILTER BAR ────────────────────────────────── -->
-<div class="pipe-filter-bar" id="pfb-active">
-    <div class="pfb-header"><span class="pfb-title">Active Pipeline</span></div>
-    <div class="pfb-stages">
-        {% for status in active_statuses %}
-        <div class="pfb-stage" id="pfb-{{ status }}" onclick="filterPipe('{{ status }}')">
-            <div class="pfb-dot" style="background:{{ col_dots[status] }};border-color:{{ col_dots[status] }};"></div>
-            <span class="pfb-lbl">{{ col_labels[status] }}</span>
-            <span class="pfb-num">{{ columns[status] | length }}</span>
+<!-- BUILDING BOARD: order x SKU groups (Queued / In Progress / Ready for Handoff) -->
+<div class="kanban-grid grid-3" id="kanban-ih">
+    {% set _btabs = [("queued", "Queued", "var(--text-muted)"), ("in_progress", "In Progress", "var(--accent-blue)"), ("ready_for_handoff", "Ready for Handoff", "var(--fl-green)")] %}
+    {% for tkey, tlabel, tcolor in _btabs %}
+    {% set tgroups = fulfillment_groups | selectattr("tab", "equalto", tkey) | list %}
+    <div class="k-col" id="col-{{ tkey }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px 6px;border-bottom:1px solid var(--border);">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:{{ tcolor }};">{{ tlabel }}</span>
+            <span class="pfb-num">{{ tgroups | length }}</span>
         </div>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- ── KANBAN: 5 columns ─────────────────────────────────────────── -->
-<div class="kanban-grid grid-5" id="kanban-ih">
-    {% for status in active_statuses %}
-    {% set cards = columns[status] %}
-    <div class="k-col" id="col-{{ status }}">
-        <div class="k-body" ondragover="onOrderDragOver(event)" ondragleave="onOrderDragLeave(event)" ondrop="onOrderDrop(event, '{{ status }}')">
-            {% for card in cards %}
-            <div class="o-card"{% if user.has_provisioning_manage %} draggable="true" ondragstart="onOrderDragStart(event)" ondragend="onOrderDragEnd(event)"{% endif %}
-                 style="--urg:{% if card.urgency == 'overdue' %}var(--fl-red){% elif card.urgency in ('critical', 'soon') %}var(--fl-amber){% else %}var(--accent-blue){% endif %};"
-                 data-id="{{ card.id }}" data-num="{{ card.order_number }}" data-name="{{ card.customer_name | e }}" data-status="{{ status }}"
-                 data-devices="{{ order_devices.get(card.id, []) | tojson | e }}"
-                 data-ship-method="{{ card.ship_method or 'carrier' }}"
-                 data-carrier="{{ card.carrier or '' }}"
-                 data-tracking="{{ card.tracking_number or '' }}"
-                 data-recipient="{{ card.recipient_name or '' }}"
-                 data-shipped-date="{{ card.shipped_date.isoformat() if card.shipped_date else '' }}"
-                 data-delivered-date="{{ card.delivered_date.isoformat() if card.delivered_date else '' }}"
-                 data-shipping-address="{{ card.shipping_address or '' }}"
-                 onclick="openCardPanel(this)">
+        <div class="k-body">
+            {% for g in tgroups %}
+            <div class="o-card"
+                 style="--urg:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency == "overdue" %}var(--fl-red){% elif g.urgency in ("critical", "soon") %}var(--fl-amber){% else %}var(--accent-blue){% endif %};"
+                 data-num="{{ g.order_number }}" data-name="{{ g.customer_name | e }}"
+                 data-search="{{ g.order_number }} {{ g.customer_name | e }} {{ g.sku }} {{ g.sales_engineer or "" }}"
+                 onclick="window.location.href=&#39;{{ base_path }}/orders/{{ g.order_id }}&#39;">
                 <div class="o-top">
-                    <span class="o-id">{{ card.order_number }}</span>
-                    {% if card.po_number %}<span class="o-chip" style="font-size:9px;" title="Customer PO (Salesforce)">Cust PO {{ card.po_number }}</span>{% endif %}
-                    <div style="display:flex; align-items:center; gap:4px;">
-                        {% if card.is_sensitive and can_see_sensitive %}
-                        <span class="badge-sensitive">Sensitive</span>
-                        {% endif %}
-                        {% if card.urgency == 'overdue' %}
-                        <span class="badge b-red">Overdue</span>
-                        {% elif card.urgency in ('critical', 'soon') %}
-                        <span class="badge b-amber">Due Soon</span>
-                        {% endif %}
-                        {% if card.deployment_type and card.deployment_type != 'direct' %}
-                        <div class="o-type-toggle">
-                            <span class="o-type-opt" onclick="event.stopPropagation();setOrderType(this)">Direct</span>
-                            <span class="o-type-opt active" onclick="event.stopPropagation();setOrderType(this)">{{ card.deployment_type | replace('_', ' ') | title }}</span>
-                        </div>
-                        {% elif card.deployment_type == 'direct' %}
-                        <div class="o-type-toggle">
-                            <span class="o-type-opt active" onclick="event.stopPropagation();setOrderType(this)">Direct</span>
-                            <span class="o-type-opt" onclick="event.stopPropagation();setOrderType(this)">Integrator</span>
-                        </div>
-                        {% endif %}
+                    <span class="o-id">{{ g.order_number }}</span>
+                    <span class="o-chip" style="font-size:9px;">{{ g.sku }}</span>
+                    <div style="display:flex;align-items:center;gap:4px;margin-left:auto;">
+                        {% if g.is_sensitive and can_see_sensitive %}<span class="badge-sensitive">Sensitive</span>{% endif %}
+                        {% if g.urgency == "overdue" %}<span class="badge b-red">Overdue</span>
+                        {% elif g.urgency in ("critical", "soon") %}<span class="badge b-amber">Due Soon</span>{% endif %}
                     </div>
-                    {% if card.deployment_type == 'via_integrator' and card.integrator_name %}
-                    <span class="o-chip" style="font-size:9px;">via {{ card.integrator_name }}</span>
-                    {% elif card.deployment_type == 'via_distributor' and card.distributor_name %}
-                    <span class="o-chip" style="font-size:9px;">via {{ card.distributor_name }}</span>
-                    {% endif %}
                 </div>
-                <div class="o-name">{{ card.customer_name }}</div>
+                <div class="o-name">{{ g.customer_name }}</div>
                 <div class="o-owner">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <span>{{ card.sales_engineer or 'Unassigned' }}</span>
+                    <span>{{ g.sales_engineer or "Unassigned" }}</span>
                 </div>
                 <div class="o-meta">
-                    {% if card.due_date %}
-                    <span class="o-chip{% if card.urgency == 'overdue' %} urg{% elif card.urgency in ('critical', 'soon') %} warn{% endif %}">
-                        {% if card.days_until_due is not none %}
-                            {% if card.days_until_due < 0 %}{{ (card.days_until_due * -1) }}d overdue
-                            {% elif card.days_until_due == 0 %}Due today
-                            {% elif card.days_until_due == 1 %}Due tomorrow
-                            {% else %}Due {{ card.days_until_due }}d
-                            {% endif %}
-                        {% else %}{{ card.due_date.strftime('%b %d') }}
-                        {% endif %}
-                    </span>
-                    {% endif %}
-                    {% if card.sku_requirements %}
-                    {% set first_sku = card.sku_requirements[0] %}
-                    <span class="o-chip">{{ first_sku.get('qty', '?') }}&times; {{ first_sku.get('sku', 'TBD') }}</span>
-                    {% endif %}
-                </div>
-                <div class="mini-steps" id="ms-{{ card.id }}"></div>
-                <div class="o-actions">
-                    {% if user.has_financial_access and card.contract_value %}
-                    <span class="badge b-green" style="margin-right:auto;">${{ "{:,.0f}".format(card.contract_value) }}</span>
-                    {% endif %}
-                    {% if user.has_provisioning_manage %}
-                    <button class="o-btn" onclick="event.stopPropagation();openOemModal('{{ card.id }}', '{{ card.order_number }}')">+ OEM PO</button>
-                    {% endif %}
-                    {% if status == 'shipped' %}
-                    <button class="o-btn" onclick="event.stopPropagation();openDeployModal('{{ card.id }}', '{{ card.order_number }}')">
-                        Schedule Deployment
-                    </button>
-                    {% endif %}
-                    <button class="o-btn" onclick="event.stopPropagation();openCardPanel(this.closest('.o-card'))">
-                        {% if status == 'new' %}Assign ›{% else %}View ›{% endif %}
-                    </button>
+                    {% if g.source == "devices" %}<span class="o-chip">{{ g.device_count }} box{{ "es" if g.device_count != 1 else "" }}</span>
+                    {% else %}<span class="o-chip">{{ g.intended_qty }} intended</span>{% endif %}
+                    {% if g.stage_label %}<span class="o-chip">{{ g.stage_label }}</span>{% endif %}
+                    {% if g.due_date %}<span class="o-chip{% if g.urgency == "overdue" %} urg{% elif g.urgency in ("critical", "soon") %} warn{% endif %}">Due {{ g.due_date.strftime("%b %d") }}</span>{% endif %}
                 </div>
             </div>
-            {% else %}
-            {# ── Mock sample cards (shown when column is empty) ── #}
-            {% if status == 'new' %}
-            <div class="o-card mock-card" style="--urg:var(--accent-blue);">
-                <div class="o-top"><span class="o-id">AT-0000</span></div>
-                <div class="o-name">Acme Corp</div>
-                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Jane Doe</span></div>
-                <div class="o-meta"><span class="o-chip">Due 14d</span><span class="o-chip">5&times; EDGE-4</span></div>
-                <div class="mini-steps">
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">PO In</div></div>
-                    <div class="ms-line ms-done"></div>
-                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Scoped</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Sourced</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Ready</div></div>
-                </div>
-            </div>
-            {% elif status == 'sourcing' %}
-            <div class="o-card mock-card" style="--urg:var(--fl-amber);">
-                <div class="o-top"><span class="o-id">AT-0001</span></div>
-                <div class="o-name">Beta Industries</div>
-                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>John Smith</span></div>
-                <div class="o-meta"><span class="o-chip warn">Due 5d</span><span class="o-chip">3&times; EDGE-8</span></div>
-                <div class="mini-steps">
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Ordered</div></div>
-                    <div class="ms-line ms-done"></div>
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Tracking</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Deliver</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Received</div></div>
-                </div>
-            </div>
-            {% elif status == 'building' %}
-            <div class="o-card mock-card" style="--urg:var(--accent-blue);">
-                <div class="o-top"><span class="o-id">AT-0002</span></div>
-                <div class="o-name">Gamma Health</div>
-                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Sarah Lee</span></div>
-                <div class="o-meta"><span class="o-chip">Due 21d</span><span class="o-chip">10&times; EDGE-4</span></div>
-                <div class="mini-steps">
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Staged</div></div>
-                    <div class="ms-line ms-done"></div>
-                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Building</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Regist.</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Licensed</div></div>
-                </div>
-            </div>
-            {% elif status == 'testing' %}
-            <div class="o-card mock-card" style="--urg:var(--fl-purple);">
-                <div class="o-top"><span class="o-id">AT-0003</span></div>
-                <div class="o-name">Delta Security</div>
-                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Mike Chen</span></div>
-                <div class="o-meta"><span class="o-chip">Due 10d</span><span class="o-chip">2&times; PVA-16</span></div>
-                <div class="mini-steps">
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">HW Chk</div></div>
-                    <div class="ms-line ms-done"></div>
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">SW Ver</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">PVA Evt</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step"><div class="ms-dot"></div><div class="ms-lbl">Cert'd</div></div>
-                </div>
-            </div>
-            {% elif status == 'shipped' %}
-            <div class="o-card mock-card" style="--urg:var(--fl-orange);">
-                <div class="o-top"><span class="o-id">AT-0004</span></div>
-                <div class="o-name">Epsilon Schools</div>
-                <div class="o-owner"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Alex Kim</span></div>
-                <div class="o-meta"><span class="o-chip">Shipped Mar 1</span><span class="o-chip">8&times; EDGE-4</span></div>
-                <div class="mini-steps">
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Packed</div></div>
-                    <div class="ms-line ms-done"></div>
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Labeled</div></div>
-                    <div class="ms-line ms-done"></div>
-                    <div class="ms-step ms-done"><div class="ms-dot"></div><div class="ms-lbl">Pickup</div></div>
-                    <div class="ms-line"></div>
-                    <div class="ms-step ms-now"><div class="ms-dot"></div><div class="ms-lbl">Transit</div></div>
-                </div>
-            </div>
-            {% endif %}
             {% endfor %}
+            {% if tgroups | length == 0 %}<div class="k-empty">No groups</div>{% endif %}
         </div>
     </div>
     {% endfor %}
