@@ -231,6 +231,7 @@ async def update_order(
         return JSONResponse(status_code=404, content={"error": "Order not found"})
 
     body = await request.json()
+    old_status = order.status
     str_fields = [
         "salesforce_order_id", "salesforce_opp_id", "customer_name", "customer_account",
         "sales_engineer", "deployment_type", "integrator_name", "distributor_name",
@@ -261,6 +262,10 @@ async def update_order(
             order.hardware_cost = float(v) if v not in (None, "", 0, "0") else None
         except (TypeError, ValueError):
             pass
+
+    if old_status == "new" and order.status != "new" and not order.po_number:
+        db.rollback()
+        return JSONResponse(status_code=400, content={"error": "Add a Customer PO before advancing this order past Approved PO"})
 
     try:
         db.commit()
