@@ -435,6 +435,8 @@ async def link_order(
         order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
         if not order:
             return JSONResponse(status_code=404, content={"error": "Order not found"})
+        if not order.po_number:
+            return JSONResponse(status_code=400, content={"error": f"Order {order.order_number} has no Customer PO - add one before linking devices"})
         prov.customer_order_id = order_id
         detail = f"Linked provisioning #{prov_id} to order {order.order_number}"
     else:

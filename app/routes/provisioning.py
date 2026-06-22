@@ -417,8 +417,11 @@ async def create_provisioning(
     customer_order_id = body.get("customer_order_id") or None
     if customer_order_id:
         customer_order_id = int(customer_order_id)
-        if not db.query(CustomerOrder).filter(CustomerOrder.id == customer_order_id).first():
+        order = db.query(CustomerOrder).filter(CustomerOrder.id == customer_order_id).first()
+        if not order:
             return JSONResponse(status_code=404, content={"error": "Customer order not found"})
+        if not order.po_number:
+            return JSONResponse(status_code=400, content={"error": f"Order {order.order_number} has no Customer PO - add one before assigning devices"})
 
     # Enforce edge_boxes only
     if device_table != "edge_boxes":
@@ -1349,6 +1352,8 @@ async def bulk_assign_order(
         order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
         if not order:
             return JSONResponse(status_code=404, content={"error": "Order not found"})
+        if not order.po_number:
+            return JSONResponse(status_code=400, content={"error": f"Order {order.order_number} has no Customer PO - add one before assigning devices"})
 
     records = (
         db.query(DeviceProvisioning)
