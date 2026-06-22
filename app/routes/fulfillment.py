@@ -24,7 +24,7 @@ from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
     OEMPurchaseOrder, Site, User, TABLE_MODELS,
-    STAGE_GROUPS, STAGE_LABELS,
+    STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
 )
 from ..sku_conversion import is_legacy_sku, is_2026_sku
 
@@ -59,6 +59,63 @@ class DeploymentCreate(BaseModel):
     integrator_name: Optional[str] = None
     integrator_contact: Optional[str] = None
     notes: Optional[str] = None
+
+
+# Building-board grouping (S1). Group key = (order x SKU). Group stage = the
+# LEAST-ADVANCED linked device, so a lagging unit holds the whole group back.
+# Tab rollup: Queued (no linked devices, card from sku_requirements intent) /
+# Ready for Handoff (every linked device build-cert complete) / In Progress.
+GROUP_TO_BUILD_LABEL = {
+    "new": "Drafting", "sourcing": "Sourcing", "building": "Assembly", "testing": "Testing",
+}
+
+
+def build_fulfillment_groups(orders, order_devices):
+    """orders: list of CustomerOrder ORM rows. order_devices: {order_id: [device dict]}
+    each carrying part_number, current_stage, build_cert_complete. Returns Building cards."""
+    groups = []
+    for o in orders:
+        devs = order_devices.get(o.id, [])
+        by_sku = {}
+        for d in devs:
+            sku = (d.get("part_number") or "").strip() or "Unspecified"
+            by_sku.setdefault(sku, []).append(d)
+
+        for sku, gdevs in by_sku.items():
+            laggard = min(gdevs, key=lambda d: STAGE_INDEX.get(d.get("current_stage"), -1))
+            lag_group = STAGE_TO_GROUP.get(laggard.get("current_stage"))
+            all_cert = all(d.get("build_cert_complete") for d in gdevs)
+            if all_cert:
+                tab, stage_label = "ready_for_handoff", "Sign-off"
+            else:
+                tab = "in_progress"
+                stage_label = GROUP_TO_BUILD_LABEL.get(lag_group, lag_group)
+            groups.append({
+                "order_id": o.id, "order_number": o.order_number,
+                "customer_name": o.customer_name, "sku": sku,
+                "device_count": len(gdevs), "tab": tab, "stage_label": stage_label,
+                "source": "devices",
+            })
+
+        for req in (o.sku_requirements or []):
+            sku = (req.get("sku") or "").strip() or "Unspecified"
+            if sku in by_sku:
+                continue
+            groups.append({
+                "order_id": o.id, "order_number": o.order_number,
+                "customer_name": o.customer_name, "sku": sku,
+                "device_count": 0, "intended_qty": int(req.get("qty") or 0),
+                "tab": "queued", "stage_label": None, "source": "intent",
+            })
+
+        if not devs and not (o.sku_requirements or []):
+            groups.append({
+                "order_id": o.id, "order_number": o.order_number,
+                "customer_name": o.customer_name, "sku": "Unspecified",
+                "device_count": 0, "intended_qty": 0,
+                "tab": "queued", "stage_label": None, "source": "empty",
+            })
+    return groups
 
 
 def _build_order_card(order: CustomerOrder, prov_count: int) -> dict:
@@ -200,6 +257,7 @@ def fulfillment_page(
             DeviceProvisioning.is_complete,
             DeviceProvisioning.current_stage,
             DeviceProvisioning.fulfillment_type,
+            DeviceProvisioning.stages,
             EdgeBox.serial,
             EdgeBox.part_number,
             User.display_name,
@@ -228,6 +286,10 @@ def fulfillment_page(
             "is_complete": row.is_complete,
             "current_stage": row.current_stage,
             "fulfillment_type": row.fulfillment_type,
+            "build_cert_complete": any(
+                s.get("name") == "certified" and s.get("completed")
+                for s in (row.stages or [])
+            ),
         })
 
     # OEM purchase orders — all, linked and unlinked
@@ -323,6 +385,9 @@ def fulfillment_page(
     # Build card dicts
     cards = [_build_order_card(o, prov_counts.get(o.id, 0)) for o in orders]
 
+    # S1: order x SKU grouped cards for the Building board (least-advanced rollup)
+    fulfillment_groups = build_fulfillment_groups(orders, order_devices)
+
     # Group by status
     columns: dict[str, list] = {s: [] for s in ACTIVE_STATUSES + ARCHIVED_STATUSES}
     for card in cards:
@@ -369,6 +434,7 @@ def fulfillment_page(
         "unlinked_prov": unlinked_prov,
         "can_see_sensitive": can_see_sensitive,
         "order_devices": order_devices,
+        "fulfillment_groups": fulfillment_groups,
         "team_members": team_members,
         "edge_box_counts": edge_box_counts,
         "current_user_name": user.display_name,

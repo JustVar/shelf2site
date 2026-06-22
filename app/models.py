@@ -984,6 +984,14 @@ STAGE_LABELS = {
 }
 
 
+# Derived lookups over the stage taxonomy (single source: STAGE_GROUPS and
+# DEFAULT_PROVISIONING_STAGES above). Route modules import these instead of
+# re-deriving the taxonomy, so it cannot drift again.
+STAGE_ORDER = [s["name"] for s in DEFAULT_PROVISIONING_STAGES]
+STAGE_INDEX = {name: i for i, name in enumerate(STAGE_ORDER)}
+STAGE_TO_GROUP = {sub: grp for grp, subs in STAGE_GROUPS.items() for sub in subs}
+
+
 class DeviceProvisioning(Base):
     __tablename__ = "device_provisioning"
 
