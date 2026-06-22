@@ -61,6 +61,21 @@ class DeploymentCreate(BaseModel):
     notes: Optional[str] = None
 
 
+def _order_urgency(due_date) -> str:
+    """Map a due date to an urgency bucket. Single source of the thresholds,
+    shared by the order cards and the Building-board groups."""
+    if not due_date:
+        return "normal"
+    days = (due_date - date.today()).days
+    if days < 0:
+        return "overdue"
+    if days <= 3:
+        return "critical"
+    if days <= 7:
+        return "soon"
+    return "normal"
+
+
 # Building-board grouping (S1). Group key = (order x SKU). Group stage = the
 # LEAST-ADVANCED linked device, so a lagging unit holds the whole group back.
 # Tab rollup: Queued (no linked devices, card from sku_requirements intent) /
@@ -75,6 +90,12 @@ def build_fulfillment_groups(orders, order_devices):
     each carrying part_number, current_stage, build_cert_complete. Returns Building cards."""
     groups = []
     for o in orders:
+        o_meta = {
+            "sales_engineer": o.sales_engineer,
+            "due_date": o.due_date,
+            "urgency": _order_urgency(o.due_date),
+            "is_sensitive": o.is_sensitive,
+        }
         devs = order_devices.get(o.id, [])
         by_sku = {}
         for d in devs:
@@ -91,6 +112,7 @@ def build_fulfillment_groups(orders, order_devices):
                 tab = "in_progress"
                 stage_label = GROUP_TO_BUILD_LABEL.get(lag_group, lag_group)
             groups.append({
+                **o_meta,
                 "order_id": o.id, "order_number": o.order_number,
                 "customer_name": o.customer_name, "sku": sku,
                 "device_count": len(gdevs), "tab": tab, "stage_label": stage_label,
@@ -102,6 +124,7 @@ def build_fulfillment_groups(orders, order_devices):
             if sku in by_sku:
                 continue
             groups.append({
+                **o_meta,
                 "order_id": o.id, "order_number": o.order_number,
                 "customer_name": o.customer_name, "sku": sku,
                 "device_count": 0, "intended_qty": int(req.get("qty") or 0),
@@ -110,6 +133,7 @@ def build_fulfillment_groups(orders, order_devices):
 
         if not devs and not (o.sku_requirements or []):
             groups.append({
+                **o_meta,
                 "order_id": o.id, "order_number": o.order_number,
                 "customer_name": o.customer_name, "sku": "Unspecified",
                 "device_count": 0, "intended_qty": 0,
@@ -120,17 +144,8 @@ def build_fulfillment_groups(orders, order_devices):
 
 def _build_order_card(order: CustomerOrder, prov_count: int) -> dict:
     """Return a lightweight dict for rendering a Kanban card."""
-    today = date.today()
-    urgency = "normal"
-    days_until_due = None
-    if order.due_date:
-        days_until_due = (order.due_date - today).days
-        if days_until_due < 0:
-            urgency = "overdue"
-        elif days_until_due <= 3:
-            urgency = "critical"
-        elif days_until_due <= 7:
-            urgency = "soon"
+    days_until_due = (order.due_date - date.today()).days if order.due_date else None
+    urgency = _order_urgency(order.due_date)
 
     total_sku_qty = sum(int(r.get("qty") or 0) for r in (order.sku_requirements or []))
 
