@@ -85,6 +85,44 @@ GROUP_TO_BUILD_LABEL = {
 }
 
 
+
+# 5-stage Building tracker buckets (display label -> substage names).
+# Testing excludes the certified step; Sign-off is certified alone.
+BUILD_TRACKER = [
+    ("Drafting",  ["po_in", "scoped", "sourced", "ready"]),
+    ("Sourcing",  ["ordered", "tracking", "deliver", "received"]),
+    ("Assembly",  ["staged", "building", "registered", "licensed"]),
+    ("Testing",   ["hw_check", "sw_version", "pva_events"]),
+    ("Sign-off",  ["certified"]),
+]
+
+
+def _build_stage_states(gdevs):
+    """Per-group rollup of the 5 Building tracker stages to done/current/future,
+    derived from each device current_stage (contiguous-completion model)."""
+    states = []
+    idxs = [STAGE_INDEX.get(d.get("current_stage"), -1) for d in gdevs] or [-1]
+    for label, subs in BUILD_TRACKER:
+        first = min(STAGE_INDEX[n] for n in subs)
+        last = max(STAGE_INDEX[n] for n in subs)
+        if label == "Sign-off":
+            if all(d.get("build_cert_complete") for d in gdevs):
+                st = "done"
+            elif max(idxs) < first:
+                st = "future"
+            else:
+                st = "current"
+        else:
+            if min(idxs) > last:
+                st = "done"
+            elif max(idxs) < first:
+                st = "future"
+            else:
+                st = "current"
+        states.append({"label": label, "state": st})
+    return states
+
+
 def build_fulfillment_groups(orders, order_devices):
     """orders: list of CustomerOrder ORM rows. order_devices: {order_id: [device dict]}
     each carrying part_number, current_stage, build_cert_complete. Returns Building cards."""
@@ -116,6 +154,7 @@ def build_fulfillment_groups(orders, order_devices):
                 "order_id": o.id, "order_number": o.order_number,
                 "customer_name": o.customer_name, "sku": sku,
                 "device_count": len(gdevs), "tab": tab, "stage_label": stage_label,
+                "stage_states": _build_stage_states(gdevs),
                 "source": "devices",
             })
 
