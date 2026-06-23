@@ -123,6 +123,27 @@ def _build_stage_states(gdevs):
     return states
 
 
+
+_SE_PALETTE = ["#3b82f6", "#a855f7", "#f97316", "#10b981", "#f43f5e", "#f59e0b"]
+
+
+def _se_color(name):
+    """Deterministic per-name color from a fixed 6-color palette."""
+    if not name:
+        return "var(--text-muted)"
+    return _SE_PALETTE[sum(ord(c) for c in name) % len(_SE_PALETTE)]
+
+
+def _se_initials(name):
+    """Up to two initials from a name, or ? when unassigned."""
+    if not name:
+        return "?"
+    parts = name.split()
+    if len(parts) >= 2:
+        return (parts[0][0] + parts[1][0]).upper()
+    return name[:2].upper()
+
+
 def build_fulfillment_groups(orders, order_devices):
     """orders: list of CustomerOrder ORM rows. order_devices: {order_id: [device dict]}
     each carrying part_number, current_stage, build_cert_complete. Returns Building cards."""
@@ -130,6 +151,8 @@ def build_fulfillment_groups(orders, order_devices):
     for o in orders:
         o_meta = {
             "sales_engineer": o.sales_engineer,
+            "se_color": _se_color(o.sales_engineer),
+            "se_initials": _se_initials(o.sales_engineer),
             "due_date": o.due_date,
             "urgency": _order_urgency(o.due_date),
             "is_sensitive": o.is_sensitive,
