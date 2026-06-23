@@ -613,7 +613,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 <div class="bld-tabs" id="bld-tabs">
     {% for tkey, tlabel, tcolor in _btabs %}
     {% set tgroups = fulfillment_groups | selectattr("tab", "equalto", tkey) | list %}
-    <button class="bld-tab" data-tab="{{ tkey }}" onclick="switchTab('{{ tkey }}')">
+    <button class="bld-tab" data-tab="{{ tkey }}" onclick="switchBldTab('{{ tkey }}')">
         <span class="bld-tab-lbl">{{ tlabel }}</span>
         <span class="bld-tab-count" data-tab-count="{{ tkey }}">({{ tgroups | length }})</span>
     </button>
@@ -2222,7 +2222,7 @@ function recomputeVisibility() {
         e.style.display = (e.dataset.emptyTab === activeTab && !(counts[activeTab] > 0)) ? '' : 'none';
     });
 }
-function switchTab(key) {
+function switchBldTab(key) {
     activeTab = key;
     document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
         b.classList.toggle('active', b.dataset.tab === key);
@@ -2856,7 +2856,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     var _tabOrder = ['queued', 'in_progress', 'ready_for_handoff'];
     var _first = _tabOrder.find(function(t) { return document.querySelector('#kanban-ih .o-card[data-tab="' + t + '"]'); }) || _tabOrder[0];
-    switchTab(_first);
+    switchBldTab(_first);
 });
 </script>
 {% endblock %}
