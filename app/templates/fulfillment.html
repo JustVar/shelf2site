@@ -7,7 +7,17 @@
 <style>
 /* ── Fulfillment page — scoped custom properties ─────────────────── */
 .fulfillment-page {
-  --fl-green: #22c55e; --fl-green-dim: rgba(34,197,94,.12);
+  /* S2c: emerald/slate scoped override (base vars the page actually uses) */
+  --card-bg: #232a44;
+  --sidebar-bg: #1a202c;
+  --border: #2d3748;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent-blue: #10b981;
+  --accent-blue-l: #6ee7b7;
+  --accent-blue-dim: rgba(16,185,129,.15);
+  /* --fl-* status palette; green stays distinct from the emerald accent */
+  --fl-green: #22c55e; --fl-green-dim: rgba(34,197,94,.15);
   --fl-amber: #f59e0b; --fl-amber-dim: rgba(245,158,11,.12);
   --fl-red: #ef4444; --fl-red-dim: rgba(239,68,68,.12);
   --fl-purple: #a855f7; --fl-orange: #f97316;
@@ -17,11 +27,20 @@
   display: flex; flex-direction: column; gap: 1rem;
 }
 [data-theme="light"] .fulfillment-page {
+  --card-bg: #ffffff;
+  --sidebar-bg: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent-blue: #059669;
+  --accent-blue-l: #10b981;
+  --accent-blue-dim: rgba(16,185,129,.08);
+  --fl-green: #22c55e; --fl-green-dim: rgba(34,197,94,.10);
+  --fl-amber: #d97706; --fl-amber-dim: rgba(217,119,6,.10);
+  --fl-red: #dc2626; --fl-red-dim: rgba(220,38,38,.10);
+  --fl-purple: #9333ea; --fl-orange: #ea580c;
   --fl-card2: #f1f5f9;
-  --fl-border2: #d1d5db;
-  --fl-green-dim: rgba(34,197,94,.08);
-  --fl-amber-dim: rgba(245,158,11,.08);
-  --fl-red-dim: rgba(239,68,68,.08);
+  --fl-border2: #cbd5e1;
 }
 .fulfillment-page .t3 { color: var(--text-muted); opacity: 0.6; }
 
