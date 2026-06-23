@@ -151,7 +151,7 @@
 .mock-card::after, .mock-order::after { content: 'MOCK'; position: absolute; top: 32px; right: 8px; font-size: 10px; font-weight: 900; letter-spacing: .12em; color: rgba(239,68,68,.45); border: 1.5px solid rgba(239,68,68,.35); padding: 2px 8px; border-radius: 3px; z-index: 2; text-transform: uppercase; transform: rotate(-12deg); }
 
 /* ── Search hide ────────────────────────────────────────────────── */
-.search-hide { display: none !important; }
+.o-hidden { display: none !important; }
 
 /* ── Export button ──────────────────────────────────────────────── */
 .fl-export-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s; }
@@ -483,6 +483,14 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .oc-ic { width: 8px; height: 8px; display: inline-block; flex-shrink: 0; }
 .oc-cert-btn { display: block; width: 100%; margin-top: 12px; padding: 8px; border-radius: 6px; background: var(--cert-emerald); color: #053b2c; border: none; font-size: 10px; font-weight: 700; text-align: center; cursor: pointer; font-family: inherit; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .oc-cert-btn:hover { opacity: .9; }
+/* ── S5c: Building board tabs ── */
+.bld-tabs { display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--border); padding: 0 8px; margin-bottom: 16px; }
+.bld-tab { background: none; border: none; padding: 12px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); border-bottom: 3px solid transparent; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 7px; transition: color .15s, border-color .15s; }
+.bld-tab:hover { color: var(--text); }
+.bld-tab.active { color: var(--text); border-bottom-color: var(--text); }
+.bld-tab-count { font-size: 11px; font-weight: 700; opacity: .7; }
+.bld-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-content: start; }
+.bld-empty { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 120px; color: var(--text-muted); font-size: 12px; opacity: .6; }
 </style>
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
@@ -600,66 +608,69 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     </div>
 </div>
 
-<!-- BUILDING BOARD: order x SKU groups (Queued / In Progress / Ready for Handoff) -->
-<div class="kanban-grid grid-3" id="kanban-ih">
-    {% set _btabs = [("queued", "Queued", "var(--text-muted)"), ("in_progress", "In Progress", "var(--accent-blue)"), ("ready_for_handoff", "Ready for Handoff", "var(--fl-green)")] %}
+<!-- BUILDING BOARD: tabbed (Queued / In Progress / Ready for Handoff), one shared card row -->
+{% set _btabs = [("queued", "Queued", "var(--text-muted)"), ("in_progress", "In Progress", "var(--accent-blue)"), ("ready_for_handoff", "Ready for Handoff", "var(--fl-green)")] %}
+<div class="bld-tabs" id="bld-tabs">
     {% for tkey, tlabel, tcolor in _btabs %}
     {% set tgroups = fulfillment_groups | selectattr("tab", "equalto", tkey) | list %}
-    <div class="k-col" id="col-{{ tkey }}">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px 6px;border-bottom:1px solid var(--border);">
-            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:{{ tcolor }};">{{ tlabel }}</span>
-            <span class="pfb-num">{{ tgroups | length }}</span>
-        </div>
-        <div class="k-body">
-            {% for g in tgroups %}
-            <div class="o-card"
-                 {% if g.tab != "queued" %}data-tint="{% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}"{% endif %}
-                 style="--urg:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency == "overdue" %}var(--fl-red){% elif g.urgency in ("critical", "soon") %}var(--fl-amber){% else %}var(--accent-blue){% endif %};"
-                 data-num="{{ g.order_number }}" data-name="{{ g.customer_name | e }}"
-                 data-search="{{ g.order_number }} {{ g.customer_name | e }} {{ g.sku }} {{ g.sales_engineer or "" }}"
-                 onclick="window.location.href=&#39;{{ base_path }}/orders/{{ g.order_id }}&#39;">
-                {% if g.tab != "queued" %}<span class="o-dot" style="background:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency in ("overdue", "critical") %}var(--fl-orange){% else %}var(--accent-blue){% endif %};"></span>{% endif %}
-                <div class="oc-head">
-                    <div class="oc-head-l">
-                        <span class="o-sku">{{ g.sku }}</span>
-                        <div class="o-name">{{ g.customer_name }}</div>
-                    </div>
-                    <div class="oc-head-r">
-                        <span class="o-avatar" style="background:{{ g.se_color }};" title="{{ g.sales_engineer or "Unassigned" }}">{{ g.se_initials }}</span>
-                    </div>
-                </div>
-                <div class="o-owner"><span>{{ g.sales_engineer or "Unassigned" }}</span></div>
-                <div class="oc-meta">
-                    <span class="o-id">{{ g.order_number }}</span>
-                    {% if g.due_date %}<span class="oc-date">Due {{ g.due_date.strftime("%b %d") }}</span>{% endif %}
-                    {% if g.tab != "queued" %}<span class="o-pill {% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}">{% if g.tab == "ready_for_handoff" %}Ready{% elif g.urgency in ("overdue", "critical") %}High Priority{% else %}Normal{% endif %}</span>{% endif %}
-                    {% if g.is_sensitive and can_see_sensitive %}<span class="badge-sensitive">Sensitive</span>{% endif %}
-                </div>
-                {% if g.stage_states %}
-                <div class="oc-track-lbl">Stage Persistence</div>
-                <div class="oc-track">
-                    {% for st in g.stage_states %}
-                    <span class="oc-stage {{ st.state }}">
-                        {% if st.state == "done" %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
-                        {% elif st.state == "current" %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
-                        {% else %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>{% endif %}
-                        {{ st.label }}
-                    </span>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="oc-meta">
-                    <span class="o-chip">{{ g.intended_qty }} intended</span>
-                </div>
-                {% endif %}
-                {% if g.tab == "ready_for_handoff" %}
-                <button class="oc-cert-btn" onclick="event.stopPropagation();">Build Certification &amp; Close</button>
-                {% endif %}
+    <button class="bld-tab" data-tab="{{ tkey }}" onclick="switchTab('{{ tkey }}')">
+        <span class="bld-tab-lbl">{{ tlabel }}</span>
+        <span class="bld-tab-count" data-tab-count="{{ tkey }}">({{ tgroups | length }})</span>
+    </button>
+    {% endfor %}
+</div>
+<div class="bld-grid" id="kanban-ih">
+    {% for tkey, tlabel, tcolor in _btabs %}
+    {% set tgroups = fulfillment_groups | selectattr("tab", "equalto", tkey) | list %}
+    {% for g in tgroups %}
+    <div class="o-card" data-tab="{{ g.tab }}"
+         {% if g.tab != "queued" %}data-tint="{% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}"{% endif %}
+         style="--urg:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency == "overdue" %}var(--fl-red){% elif g.urgency in ("critical", "soon") %}var(--fl-amber){% else %}var(--accent-blue){% endif %};"
+         data-num="{{ g.order_number }}" data-name="{{ g.customer_name | e }}"
+         data-search="{{ g.order_number }} {{ g.customer_name | e }} {{ g.sku }} {{ g.sales_engineer or "" }}"
+         onclick="window.location.href=&#39;{{ base_path }}/orders/{{ g.order_id }}&#39;">
+        {% if g.tab != "queued" %}<span class="o-dot" style="background:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency in ("overdue", "critical") %}var(--fl-orange){% else %}var(--accent-blue){% endif %};"></span>{% endif %}
+        <div class="oc-head">
+            <div class="oc-head-l">
+                <span class="o-sku">{{ g.sku }}</span>
+                <div class="o-name">{{ g.customer_name }}</div>
             </div>
-            {% endfor %}
-            {% if tgroups | length == 0 %}<div class="k-empty">No groups</div>{% endif %}
+            <div class="oc-head-r">
+                <span class="o-avatar" style="background:{{ g.se_color }};" title="{{ g.sales_engineer or "Unassigned" }}">{{ g.se_initials }}</span>
+            </div>
         </div>
+        <div class="o-owner"><span>{{ g.sales_engineer or "Unassigned" }}</span></div>
+        <div class="oc-meta">
+            <span class="o-id">{{ g.order_number }}</span>
+            {% if g.due_date %}<span class="oc-date">Due {{ g.due_date.strftime("%b %d") }}</span>{% endif %}
+            {% if g.tab != "queued" %}<span class="o-pill {% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}">{% if g.tab == "ready_for_handoff" %}Ready{% elif g.urgency in ("overdue", "critical") %}High Priority{% else %}Normal{% endif %}</span>{% endif %}
+            {% if g.is_sensitive and can_see_sensitive %}<span class="badge-sensitive">Sensitive</span>{% endif %}
+        </div>
+        {% if g.stage_states %}
+        <div class="oc-track-lbl">Stage Persistence</div>
+        <div class="oc-track">
+            {% for st in g.stage_states %}
+            <span class="oc-stage {{ st.state }}">
+                {% if st.state == "done" %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+                {% elif st.state == "current" %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+                {% else %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>{% endif %}
+                {{ st.label }}
+            </span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="oc-meta">
+            <span class="o-chip">{{ g.intended_qty }} intended</span>
+        </div>
+        {% endif %}
+        {% if g.tab == "ready_for_handoff" %}
+        <button class="oc-cert-btn" onclick="event.stopPropagation();">Build Certification &amp; Close</button>
+        {% endif %}
     </div>
+    {% endfor %}
+    {% endfor %}
+    {% for tkey, tlabel, tcolor in _btabs %}
+    <div class="bld-empty" data-empty-tab="{{ tkey }}" style="display:none;">No orders in this stage</div>
     {% endfor %}
 </div>
 
@@ -2181,24 +2192,51 @@ function jumpToCard(colId) {
 }
 
 /* ── Search ────────────────────────────────────────────────────────── */
-function searchOrders(val) {
-    var q = val.trim().toLowerCase();
-    document.getElementById('cb-search-clear').style.display = q ? '' : 'none';
+let activeTab = null;
+function recomputeVisibility() {
+    var q = (document.getElementById('cb-search').value || '').trim().toLowerCase();
     var board = currentMode === 'oem' ? '#board-oem' : '#board-inhouse';
+    var counts = {};
     document.querySelectorAll(board + ' .o-card').forEach(function(card) {
-        if (!q) { card.classList.remove('search-hide'); return; }
-        /* Mock cards have no real data — hide them during any search */
-        if (card.classList.contains('mock-card')) { card.classList.add('search-hide'); return; }
-        var haystack = (card.dataset.search || '') + ' ' +
-                       (card.dataset.num || '') + ' ' +
-                       (card.dataset.name || '');
-        card.classList.toggle('search-hide', haystack.toLowerCase().indexOf(q) === -1);
+        var matches = true;
+        if (q) {
+            matches = !card.classList.contains('mock-card') &&
+                ((card.dataset.search || '') + ' ' + (card.dataset.num || '') + ' ' + (card.dataset.name || ''))
+                    .toLowerCase().indexOf(q) !== -1;
+        }
+        if (matches && coverageSelected.size && card.closest('#kanban-ih')) {
+            var sp = card.querySelector('.o-owner span');
+            var k = (sp ? sp.textContent : '').trim().toLowerCase().replace(/\s+/g, '_');
+            matches = coverageSelected.has(k);
+        }
+        var cardTab = card.dataset.tab;
+        if (cardTab && matches) counts[cardTab] = (counts[cardTab] || 0) + 1;
+        var inActiveTab = !cardTab || cardTab === activeTab;
+        card.classList.toggle('o-hidden', !(matches && inActiveTab));
     });
+    document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
+        var badge = b.querySelector('[data-tab-count]');
+        if (badge) badge.textContent = '(' + (counts[b.dataset.tab] || 0) + ')';
+    });
+    document.querySelectorAll('[data-empty-tab]').forEach(function(e) {
+        e.style.display = (e.dataset.emptyTab === activeTab && !(counts[activeTab] > 0)) ? '' : 'none';
+    });
+}
+function switchTab(key) {
+    activeTab = key;
+    document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tab === key);
+    });
+    recomputeVisibility();
+}
+function searchOrders(val) {
+    document.getElementById('cb-search-clear').style.display = val.trim() ? '' : 'none';
+    recomputeVisibility();
 }
 function clearSearch() {
     document.getElementById('cb-search').value = '';
     document.getElementById('cb-search-clear').style.display = 'none';
-    document.querySelectorAll('.search-hide').forEach(function(c) { c.classList.remove('search-hide'); });
+    recomputeVisibility();
 }
 
 /* ── Coverage multi-select ────────────────────────────────────────── */
@@ -2254,19 +2292,13 @@ function updateCoverageUI() {
 }
 
 function applyCoverageFilter() {
-    document.querySelectorAll('#kanban-ih .o-card').forEach(card => {
-        if (coverageSelected.size === 0) { card.style.display = ''; return; }
-        const ownerRow = card.querySelector('.o-owner span');
-        const ownerKey = (ownerRow?.textContent || '').trim().toLowerCase().replace(/\s+/g, '_');
-        const match = coverageSelected.has(ownerKey);
-        card.style.display = match ? '' : 'none';
-    });
+    recomputeVisibility();
 }
 
 function clearCoverage() {
     coverageSelected.clear();
     updateCoverageUI();
-    applyCoverageFilter();
+    recomputeVisibility();
 }
 
 /* ── OEM PO modal ────────────────────────────────────────────────── */
@@ -2822,6 +2854,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const num = card.dataset.num || '';
         if (/^AT-1\d{3}$/.test(num)) card.classList.add('mock-order');
     });
+    var _tabOrder = ['queued', 'in_progress', 'ready_for_handoff'];
+    var _first = _tabOrder.find(function(t) { return document.querySelector('#kanban-ih .o-card[data-tab="' + t + '"]'); }) || _tabOrder[0];
+    switchTab(_first);
 });
 </script>
 {% endblock %}
