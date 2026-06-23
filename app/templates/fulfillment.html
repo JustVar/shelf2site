@@ -361,7 +361,7 @@
 .ms-line { flex: 1; height: 1.5px; background: var(--fl-border2); min-width: 8px; max-width: 16px; align-self: flex-start; margin-top: 4px; transition: background .15s; }
 .ms-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; text-align: center; opacity: 0.55; }
 .ms-done .ms-dot { background: var(--fl-green); border-color: var(--fl-green); }
-.ms-done .ms-lbl { color: #4ade80; opacity: 0.75; }
+.ms-done .ms-lbl { color: var(--fl-green); opacity: 0.75; }
 .ms-line.ms-done { background: var(--fl-green); }
 .ms-now .ms-dot { background: var(--accent-blue); border-color: var(--accent-blue); box-shadow: 0 0 0 3px var(--accent-blue-dim); }
 .ms-now .ms-lbl { color: var(--accent-blue-l); opacity: 0.8; }
@@ -2579,46 +2579,6 @@ async function submitDeployment() {
 }
 
 /* ── Mini-steps: render from device data on page load ──────────────── */
-function renderMiniSteps() {
-    document.querySelectorAll('.o-card[data-id][data-status]:not(.mock-card)').forEach(cardEl => {
-        const orderId = cardEl.dataset.id;
-        const status = cardEl.dataset.status;
-        let devices = [];
-        try { devices = JSON.parse(cardEl.dataset.devices || '[]'); } catch(e) { /* bad JSON */ }
-        const stepsEl = document.getElementById('ms-' + orderId);
-        if (!stepsEl) return;
-
-        const substages = STAGE_GROUPS[status] || [];
-        if (substages.length === 0) { stepsEl.innerHTML = ''; return; }
-
-        let furthestIdx = 0;  // default: first step is "now" when no devices assigned
-        devices.forEach(dev => {
-            const idx = substages.indexOf(dev.current_stage);
-            if (idx > furthestIdx) furthestIdx = idx;
-        });
-
-        let html = '';
-        substages.forEach((stageName, idx) => {
-            const label = STAGE_LABELS[stageName] || stageName;
-            let cls = 'ms-step';
-            if (furthestIdx >= 0 && idx < furthestIdx) cls += ' ms-done';
-            else if (idx === furthestIdx) cls += ' ms-now';
-
-            html += '<div class="' + cls + '">' +
-                '<div class="ms-dot"></div>' +
-                '<div class="ms-lbl">' + label + '</div>' +
-                '</div>';
-
-            if (idx < substages.length - 1) {
-                const lineCls = (furthestIdx >= 0 && idx < furthestIdx)
-                    ? 'ms-line ms-done' : 'ms-line';
-                html += '<div class="' + lineCls + '"></div>';
-            }
-        });
-        stepsEl.innerHTML = html;
-    });
-}
-
 async function updateDeployStatus(depId, newStatus, selectEl) {
     try {
         var res = await fetch(BP + '/fulfillment/deployments/' + depId + '/status', {
@@ -2806,7 +2766,6 @@ function exportFulfillment() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    renderMiniSteps();
     renderDeployMiniSteps();
     // Mark test orders with MOCK stamp (order numbers AT-1xxx are manually created test data)
     document.querySelectorAll('.o-card[data-num]').forEach(card => {
