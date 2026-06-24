@@ -491,6 +491,9 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .bld-tab-count { font-size: 11px; font-weight: 700; opacity: .7; }
 .bld-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-content: start; }
 .bld-empty { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 120px; color: var(--text-muted); font-size: 12px; opacity: .6; }
+.bld-tab.has-hits .bld-tab-count { color: var(--fl-green); font-weight: 800; opacity: 1; }
+.bld-jump { background: none; border: 0; padding: 0; font: inherit; color: var(--fl-green); font-weight: 700; text-decoration: underline; cursor: pointer; }
+.bld-jump:hover { opacity: .75; }
 </style>
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
@@ -2214,12 +2217,33 @@ function recomputeVisibility() {
         var inActiveTab = !cardTab || cardTab === activeTab;
         card.classList.toggle('o-hidden', !(matches && inActiveTab));
     });
+    var searching = q.length > 0;
+    var tabLabels = {};
     document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
+        var t = b.dataset.tab;
+        var lbl = b.querySelector('.bld-tab-lbl');
+        tabLabels[t] = lbl ? lbl.textContent : t;
         var badge = b.querySelector('[data-tab-count]');
-        if (badge) badge.textContent = '(' + (counts[b.dataset.tab] || 0) + ')';
+        var n = counts[t] || 0;
+        if (badge) badge.textContent = '(' + n + ')';
+        b.classList.toggle('has-hits', searching && n > 0);
     });
     document.querySelectorAll('[data-empty-tab]').forEach(function(e) {
-        e.style.display = (e.dataset.emptyTab === activeTab && !(counts[activeTab] > 0)) ? '' : 'none';
+        var show = e.dataset.emptyTab === activeTab && !(counts[activeTab] > 0);
+        e.style.display = show ? '' : 'none';
+        if (!show) return;
+        if (searching) {
+            var others = [];
+            document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
+                var t = b.dataset.tab;
+                if (t === activeTab) return;
+                others.push('<button type="button" class="bld-jump" onclick="switchBldTab(&#39;' + t + '&#39;)">' +
+                    tabLabels[t] + '</button> (' + (counts[t] || 0) + ')');
+            });
+            e.innerHTML = '<span>0 matches here. ' + others.join(', ') + '</span>';
+        } else {
+            e.textContent = 'No orders in this stage';
+        }
     });
 }
 function switchBldTab(key) {
