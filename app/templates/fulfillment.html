@@ -462,7 +462,8 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .o-card[data-tint="high"]   { background: var(--tint-high-bg);   border-color: var(--tint-high-border); }
 .o-card[data-tint="normal"] { background: var(--tint-normal-bg); border-color: var(--tint-normal-border); }
 .o-card[data-tint="ready"]  { background: var(--tint-ready-bg);  border-color: var(--tint-ready-border); }
-.o-dot { position: absolute; top: 14px; right: 14px; width: 10px; height: 10px; border-radius: 50%; }
+.o-dot { position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--card-bg); }
+.oc-head-r { position: relative; }
 .oc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .oc-head-l { min-width: 0; }
 .o-sku { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); padding: 3px 8px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
@@ -635,7 +636,6 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
          data-num="{{ g.order_number }}" data-name="{{ g.customer_name | e }}"
          data-search="{{ g.order_number }} {{ g.customer_name | e }} {{ g.sku }} {{ g.sales_engineer or "" }}"
          onclick="window.location.href=&#39;{{ base_path }}/orders/{{ g.order_id }}&#39;">
-        {% if g.tab != "queued" %}<span class="o-dot" style="background:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency in ("overdue", "critical") %}var(--fl-orange){% else %}var(--accent-blue){% endif %};"></span>{% endif %}
         <div class="oc-head">
             <div class="oc-head-l">
                 <span class="o-sku">{{ g.sku }}</span>
@@ -643,6 +643,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             </div>
             <div class="oc-head-r">
                 <span class="o-avatar" style="background:{{ g.se_color }};" title="{{ g.sales_engineer or "Unassigned" }}">{{ g.se_initials }}</span>
+                {% if g.tab != "queued" %}<span class="o-dot" style="background:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency in ("overdue", "critical") %}var(--fl-orange){% else %}var(--accent-blue){% endif %};"></span>{% endif %}
             </div>
         </div>
         <div class="o-owner"><span>{{ g.sales_engineer or "Unassigned" }}</span></div>
