@@ -494,6 +494,8 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .bld-tab.has-hits .bld-tab-count { color: var(--fl-green); font-weight: 800; opacity: 1; }
 .bld-jump { background: none; border: 0; padding: 0; font: inherit; color: var(--fl-green); font-weight: 700; text-decoration: underline; cursor: pointer; }
 .bld-jump:hover { opacity: .75; }
+.o-stage-chip { display: none; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: -.01em; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; opacity: .85; line-height: 1.5; }
+#kanban-ih.flat .o-stage-chip { display: inline-flex; align-items: center; }
 </style>
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
@@ -576,6 +578,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             <input class="cb-search-input" id="cb-search" placeholder="Search orders, customers…" oninput="searchOrders(this.value)">
             <button class="cb-search-clear" id="cb-search-clear" onclick="clearSearch()" style="display:none;">&#x2715;</button>
         </div>
+        <button class="cb-tool-btn" id="btn-searchall" onclick="toggleSearchAll()" style="display:none;" title="Show matches from every stage"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Search all</button>
         <div class="cb-coverage-wrap">
             <button class="cb-tool-btn" id="btn-coverage" onclick="toggleCoverage()">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -644,6 +647,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         </div>
         <div class="o-owner"><span>{{ g.sales_engineer or "Unassigned" }}</span></div>
         <div class="oc-meta">
+            <span class="o-stage-chip" style="color:{{ tcolor }};">{{ tlabel }}</span>
             <span class="o-id">{{ g.order_number }}</span>
             {% if g.due_date %}<span class="oc-date">Due {{ g.due_date.strftime("%b %d") }}</span>{% endif %}
             {% if g.tab != "queued" %}<span class="o-pill {% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}">{% if g.tab == "ready_for_handoff" %}Ready{% elif g.urgency in ("overdue", "critical") %}High Priority{% else %}Normal{% endif %}</span>{% endif %}
@@ -2196,10 +2200,12 @@ function jumpToCard(colId) {
 
 /* ── Search ────────────────────────────────────────────────────────── */
 let activeTab = null;
+var flattenAll = false;
 function recomputeVisibility() {
     var q = (document.getElementById('cb-search').value || '').trim().toLowerCase();
     var board = currentMode === 'oem' ? '#board-oem' : '#board-inhouse';
     var counts = {};
+    var flatActive = (q.length > 0) && flattenAll;
     document.querySelectorAll(board + ' .o-card').forEach(function(card) {
         var matches = true;
         if (q) {
@@ -2214,10 +2220,18 @@ function recomputeVisibility() {
         }
         var cardTab = card.dataset.tab;
         if (cardTab && matches) counts[cardTab] = (counts[cardTab] || 0) + 1;
-        var inActiveTab = !cardTab || cardTab === activeTab;
+        var inActiveTab = !cardTab || cardTab === activeTab || flatActive;
         card.classList.toggle('o-hidden', !(matches && inActiveTab));
     });
     var searching = q.length > 0;
+    var _grid = document.getElementById('kanban-ih');
+    if (_grid) _grid.classList.toggle('flat', flatActive);
+    var _sab = document.getElementById('btn-searchall');
+    if (_sab) {
+        _sab.style.display = searching ? '' : 'none';
+        if (!searching) flattenAll = false;
+        _sab.classList.toggle('active', flattenAll && searching);
+    }
     var tabLabels = {};
     document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
         var t = b.dataset.tab;
@@ -2228,7 +2242,14 @@ function recomputeVisibility() {
         if (badge) badge.textContent = '(' + n + ')';
         b.classList.toggle('has-hits', searching && n > 0);
     });
+    var _totalHits = 0; for (var _ck in counts) _totalHits += counts[_ck];
     document.querySelectorAll('[data-empty-tab]').forEach(function(e) {
+        if (flatActive) {
+            var _showFlat = e.dataset.emptyTab === activeTab && _totalHits === 0;
+            e.style.display = _showFlat ? '' : 'none';
+            if (_showFlat) e.textContent = 'No matches found';
+            return;
+        }
         var show = e.dataset.emptyTab === activeTab && !(counts[activeTab] > 0);
         e.style.display = show ? '' : 'none';
         if (!show) return;
@@ -2247,10 +2268,17 @@ function recomputeVisibility() {
     });
 }
 function switchBldTab(key) {
+    flattenAll = false;
+    var _sab = document.getElementById('btn-searchall');
+    if (_sab) _sab.classList.remove('active');
     activeTab = key;
     document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
         b.classList.toggle('active', b.dataset.tab === key);
     });
+    recomputeVisibility();
+}
+function toggleSearchAll() {
+    flattenAll = !flattenAll;
     recomputeVisibility();
 }
 function searchOrders(val) {
