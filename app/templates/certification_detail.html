@@ -278,7 +278,7 @@
       {% if history %}
       <table class="certd-hist-table">
         <thead>
-          <tr><th>Reason</th><th>QA</th><th>Hardware</th><th>Cert status</th><th>By</th><th>When</th></tr>
+          <tr><th>Reason</th><th>QA</th><th>Hardware</th><th>Cert status</th><th>By</th><th>When</th><th>Report</th></tr>
         </thead>
         <tbody>
           {% for h in history %}
@@ -288,7 +288,7 @@
             <td><span class="certd-badge certd-badge--{{ h.hw_status }}">{{ h.hw_status }}</span></td>
             <td><span class="certd-badge certd-badge--{{ h.cert_status }}">{{ h.cert_status }}</span></td>
             <td>{{ h.certified_by }}</td>
-            <td>{{ h.certified_at }}</td>
+            <td>{{ h.certified_at }}</td><td>{% if h.cert_status in ['certified', 'failed'] %}<a href="{{ base_path }}/fulfillment/certifications/{{ h.id }}/report" target="_blank" rel="noopener">PDF</a>{% else %}-{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>

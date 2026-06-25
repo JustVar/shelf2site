@@ -8,6 +8,8 @@ Detail pages (/orders/{id}, /provisioning/{id}) remain unchanged.
 
 import io
 import uuid
+
+import fitz
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -1387,4 +1389,160 @@ def download_cert_file(
         path=str(path),
         filename=rec.original_name,
         media_type=rec.content_type or "application/octet-stream",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Build Certification - composite report PDF (F3/S6e)
+# ---------------------------------------------------------------------------
+
+_QA_LABELS = {
+    "hardware": "Hardware",
+    "pva_events": "PVA events",
+    "searches": "Searches",
+    "netplan": "Netplan",
+    "registration": "Registration",
+}
+
+
+def _build_cert_report_pdf(db, cert, eb):
+    """Build a self-contained composite cert report PDF (bytes).
+
+    Page 1+: structured summary from the cert row. Then this attempt's
+    uploaded files appended (PDF pages inserted; images rendered onto a
+    page). Each file embed is isolated: a failure becomes a placeholder
+    page, never breaks the report. Summary always generates.
+    """
+    doc = fitz.open()
+    page = doc.new_page()
+    margin = 56
+    y = margin
+    W = page.rect.width
+
+    def line(text, size=11, dy=18, bold=False, color=(0, 0, 0)):
+        nonlocal y, page
+        if y > page.rect.height - margin:
+            page = doc.new_page()
+            y = margin
+        font = "hebo" if bold else "helv"
+        page.insert_text((margin, y), text, fontsize=size, fontname=font, color=color)
+        y += dy
+
+    def gap(dy=10):
+        nonlocal y
+        y += dy
+
+    # header
+    status = (cert.cert_status or "pending").upper()
+    line("Build Certification Report", size=18, dy=28, bold=True)
+    line(f"Serial: {eb.serial or '-'}    Status: {status}", size=12, dy=22, bold=True)
+    gap()
+
+    # device
+    line("Device", size=13, dy=20, bold=True)
+    line(f"Serial: {eb.serial or '-'}")
+    line(f"UUID: {eb.uuid or '-'}")
+    line(f"SKU: {eb.part_number or '-'}")
+    line(f"Customer: {cert.customer_name or '-'}")
+    line(f"Order: {cert.order_number or '-'}")
+    gap()
+
+    # QA half
+    line("QA Sign-off", size=13, dy=20, bold=True)
+    qa = cert.qa_checklist or {}
+    for k in ["hardware", "pva_events", "searches", "netplan", "registration"]:
+        checked = bool((qa.get(k) or {}).get("checked"))
+        mark = "[x]" if checked else "[ ]"
+        line(f"  {mark} {_QA_LABELS.get(k, k)}")
+    line(f"QA status: {cert.qa_status or '-'}  by {cert.certified_by or '-'}"
+         f"  {cert.certified_at.isoformat(sep=' ', timespec='minutes') if cert.certified_at else '-'}")
+    gap()
+
+    # hardware half
+    line("Hardware Sign-off", size=13, dy=20, bold=True)
+    hv = cert.hardware_validation or {}
+    smart = (hv.get("smart_test") or {})
+    line(f"SMART result: {smart.get('result', '-')}")
+    line(f"HW status: {cert.hw_status or '-'}  by {cert.co_certified_by or '-'}"
+         f"  {cert.co_certified_at.isoformat(sep=' ', timespec='minutes') if cert.co_certified_at else '-'}")
+    gap()
+
+    # components
+    line("Components", size=13, dy=20, bold=True)
+    comps = hv.get("components") or []
+    if comps:
+        for c in comps:
+            ok = "OK" if c.get("ok") else "NOT OK"
+            line(f"  {c.get('type', '?').upper()}: {c.get('model', '-')}  [{ok}]")
+    else:
+        line("  (none recorded)")
+    gap()
+
+    # licenses
+    lc = cert.license_counts or {}
+    line("Licenses", size=13, dy=20, bold=True)
+    line(f"  Assigned: {lc.get('assigned', '-')}    Ordered: {lc.get('ordered', '-')}")
+    gap()
+
+    line(f"Reason: {cert.reason or '-'}    Generated from cert id {cert.id}", size=9, dy=14)
+
+    # --- append this attempt's files (per-file isolation) ---
+    files = (
+        db.query(BuildCertificationFile)
+        .filter(BuildCertificationFile.build_certification_id == cert.id)
+        .order_by(BuildCertificationFile.uploaded_at.asc())
+        .all()
+    )
+    for f in files:
+        fpath = Path(settings.CERT_UPLOAD_DIR) / (f.oem_serial or "unknown") / f.stored_name
+        try:
+            ctype = (f.content_type or "").lower()
+            if "pdf" in ctype and fpath.exists():
+                src = fitz.open(str(fpath))
+                doc.insert_pdf(src)
+                src.close()
+            elif ("png" in ctype or "jpeg" in ctype or "jpg" in ctype) and fpath.exists():
+                ipage = doc.new_page()
+                rect = ipage.rect + (margin, margin, -margin, -margin)
+                ipage.insert_image(rect, filename=str(fpath), keep_proportion=True)
+            else:
+                raise FileNotFoundError("missing or unsupported")
+        except Exception:
+            ph = doc.new_page()
+            ph.insert_text((margin, margin + 20),
+                           f"Could not embed file: {f.original_name}",
+                           fontsize=12, fontname="hebo", color=(0.8, 0, 0))
+
+    out = doc.tobytes()
+    doc.close()
+    return out
+
+
+@router.get("/fulfillment/certifications/{cert_id}/report")
+def cert_report(
+    cert_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Generate + serve a composite cert report PDF for one cert attempt."""
+    cert = db.query(BuildCertification).filter(BuildCertification.id == cert_id).first()
+    if not cert:
+        return JSONResponse(status_code=404, content={"detail": "Certification not found"})
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == cert.device_provisioning_id).first()
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first() if prov else None
+    if eb is None:
+        # fall back to a minimal eb-less render using the cert snapshot
+        class _EB:
+            serial = cert.oem_serial
+            uuid = cert.device_uuid
+            part_number = cert.sku
+        eb = _EB()
+
+    pdf_bytes = _build_cert_report_pdf(db, cert, eb)
+    fname = f"cert_{(cert.oem_serial or 'device')}_{cert.id}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{fname}"'},
     )
