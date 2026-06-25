@@ -33,6 +33,7 @@ services:
     volumes:
       - /data/asset-tracker/photos:/app/data/photos
       - /data/asset-tracker/receipts:/app/data/receipts
+      - /data/asset-tracker/cert-reports:/app/data/cert-reports
       - /opt/asset_tracker/static:/app/static
       - /opt/asset_tracker/app:/app/app
       - /opt/asset_tracker/migrations:/app/migrations

@@ -121,6 +121,13 @@
   .certd-result--certified { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
   .certd-result--failed { color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
 
+  .certd-file-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.84rem; }
+  .certd-file-row a { color: var(--cert-emerald, #10b981); text-decoration: none; }
+  .certd-file-row a:hover { text-decoration: underline; }
+  .certd-file-meta { color: var(--text-muted); font-size: 0.74rem; }
+  .certd-upload { margin-top: 0.9rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .certd-upload input[type=file] { font-size: 0.8rem; color: var(--text-muted); }
+
   .certd-hist-table { width: 100%; border-collapse: collapse; }
   .certd-hist-table th {
     text-align: left; font-size: 0.66rem; text-transform: uppercase;
@@ -243,6 +250,28 @@
 
       </div>
     {% endif %}
+
+    <div class="certd-panel certd-files-panel">
+      <div class="certd-panel__head">Report Files</div>
+      {% if cert_files %}
+        {% for f in cert_files %}
+        <div class="certd-file-row">
+          <a href="{{ base_path }}/fulfillment/certifications/files/{{ f.id }}">{{ f.original_name }}</a>
+          <span class="certd-file-meta">{{ f.size_kb }} KB &middot; {{ f.uploaded_by }} &middot; {{ f.uploaded_at }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="certd-hist-empty">No files uploaded.</div>
+      {% endif %}
+
+      {% if user and user.has_provisioning_manage and has_cert %}
+      <div class="certd-upload">
+        <input type="file" id="certd-file" accept=".pdf,.png,.jpg,.jpeg">
+        <button type="button" class="certd-submit" id="certd-upload-btn" onclick="certdUploadFile()">Upload</button>
+      </div>
+      <div class="certd-msg" id="certd-upload-msg"></div>
+      {% endif %}
+    </div>
 
     <div class="certd-panel">
       <div class="certd-panel__head">Certification History</div>
@@ -409,7 +438,38 @@
     if (f) f.style.display = '';
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
+  async function certdUploadFile() {
+    var input = document.getElementById('certd-file');
+    var btn = document.getElementById('certd-upload-btn');
+    var msg = document.getElementById('certd-upload-msg');
+    if (!input.files || !input.files.length) { msg.textContent = 'Choose a file first.'; msg.className = 'certd-msg err'; return; }
+
+    var fd = new FormData();
+    fd.append('file', input.files[0]);
+
+    btn.disabled = true;
+    msg.textContent = 'Uploading...'; msg.className = 'certd-msg';
+    try {
+      // NOTE: no Content-Type header - browser sets multipart boundary for FormData.
+      var resp = await fetch(window.BASE_PATH + '/fulfillment/certifications/' + CERTD_PROV_ID + '/files', {
+        method: 'POST',
+        body: fd
+      });
+      var data = await resp.json();
+      if (resp.ok && data.ok) {
+        msg.textContent = 'Uploaded. Reloading...'; msg.className = 'certd-msg ok';
+        setTimeout(function () { window.location.reload(); }, 600);
+      } else {
+        msg.textContent = data.detail || 'Upload failed.'; msg.className = 'certd-msg err';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.textContent = 'Network error: ' + e.message; msg.className = 'certd-msg err';
+      btn.disabled = false;
+    }
+  }
+
+    document.addEventListener('DOMContentLoaded', function () {
     var rows = document.getElementById('certd-comp-rows');
     if (rows && rows.children.length === 0) rows.appendChild(certdMakeRow());
     certdSyncCheckAll();

@@ -1906,6 +1906,22 @@ class BuildCertification(Base):
     sku             = Column(String(128), nullable=True)
 
 
+class BuildCertificationFile(Base):
+    __tablename__ = "build_certification_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    build_certification_id = Column(
+        Integer, ForeignKey("build_certification.id", ondelete="CASCADE"), nullable=False
+    )
+    oem_serial = Column(String(64), nullable=True)
+    original_name = Column(String(512), nullable=False)
+    stored_name = Column(String(512), nullable=False)
+    content_type = Column(String(128), nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    uploaded_by = Column(String(128), nullable=True)
+    uploaded_at = Column(DateTime, nullable=False, server_default=func.now())
+
+
 class InstallCertification(Base):
     __tablename__ = "install_certification"
 

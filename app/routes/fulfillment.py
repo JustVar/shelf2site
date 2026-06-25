@@ -7,12 +7,13 @@ Detail pages (/orders/{id}, /provisioning/{id}) remain unchanged.
 """
 
 import io
+import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import func as sqlfunc
@@ -24,7 +25,7 @@ from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
     OEMPurchaseOrder, Site, User, TABLE_MODELS,
-    BuildCertification,
+    BuildCertification, BuildCertificationFile,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
 )
 from ..sku_conversion import is_legacy_sku, is_2026_sku
@@ -1187,6 +1188,21 @@ def certification_detail(
     qa_signer = (open_cert.certified_by if (open_cert and open_cert.qa_status == "complete") else None)
     hw_signer = (open_cert.co_certified_by if (open_cert and open_cert.hw_status == "complete") else None)
 
+    # Files for this serial (lifetime lens, all attempts; newest first).
+    cert_files = []
+    if eb.serial:
+        for f in (db.query(BuildCertificationFile)
+                  .filter(BuildCertificationFile.oem_serial == eb.serial)
+                  .order_by(BuildCertificationFile.uploaded_at.desc()).all()):
+            cert_files.append({
+                "id": f.id,
+                "original_name": f.original_name,
+                "size_kb": round((f.size_bytes or 0) / 1024, 1),
+                "uploaded_by": f.uploaded_by or "-",
+                "uploaded_at": (f.uploaded_at.isoformat(sep=" ", timespec="minutes") if f.uploaded_at else "-"),
+            })
+    has_cert = bool(history_rows)
+
     # The 5 QA checks, in display order, with labels (labels live in code).
     qa_checks = [
         ("hardware", "Hardware"),
@@ -1210,6 +1226,8 @@ def certification_detail(
         "hw_signer": hw_signer,
         "qa_checks": qa_checks,
         "comp_types": comp_types,
+        "cert_files": cert_files,
+        "has_cert": has_cert,
     })
 
 
@@ -1263,3 +1281,110 @@ async def submit_cert_hw(
         "hw_status": cert.hw_status,
         "cert_status": cert.cert_status,
     }
+
+
+# ---------------------------------------------------------------------------
+# Build Certification - report file uploads (F3/S6d)
+# ---------------------------------------------------------------------------
+
+_CERT_FILE_TYPES = {
+    "application/pdf": ".pdf",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+}
+_CERT_FILE_EXTS = {".pdf", ".png", ".jpg", ".jpeg"}
+_CERT_FILE_MAX = 5 * 1024 * 1024  # 5 MB
+
+
+@router.post("/fulfillment/certifications/{prov_id}/files")
+async def upload_cert_file(
+    prov_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Attach a report file to the latest cert attempt for this device's serial.
+
+    Requires an existing cert row (400 if none). Files anchor to both the
+    cert row (CASCADE) and the serial (lifetime). Stored under CERT_UPLOAD_DIR
+    with a uuid name; dual type-check (content-type + extension); 5 MB cap.
+    """
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
+    if not eb:
+        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
+
+    # latest cert row for this serial (the attempt files attach to)
+    cert = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == eb.serial)
+        .order_by(BuildCertification.created_at.desc())
+        .first()
+    )
+    if cert is None:
+        return JSONResponse(status_code=400, content={
+            "detail": "Start a certification for this device before uploading files"
+        })
+
+    # validate type: content-type AND extension must both be allowed
+    ctype = (file.content_type or "").lower()
+    ext = Path(file.filename or "").suffix.lower()
+    if ctype not in _CERT_FILE_TYPES or ext not in _CERT_FILE_EXTS:
+        return JSONResponse(status_code=400, content={
+            "detail": "Allowed file types: PDF, PNG, JPG"
+        })
+
+    # read with size cap
+    content = await file.read()
+    if len(content) > _CERT_FILE_MAX:
+        return JSONResponse(status_code=413, content={"detail": "File exceeds 5 MB limit"})
+    if len(content) == 0:
+        return JSONResponse(status_code=400, content={"detail": "Empty file"})
+
+    # save under CERT_UPLOAD_DIR/<serial>/<uuid><ext>
+    safe_ext = _CERT_FILE_TYPES[ctype]  # canonical ext from content-type
+    serial_dir = Path(settings.CERT_UPLOAD_DIR) / (eb.serial or "unknown")
+    serial_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}{safe_ext}"
+    stored_path = serial_dir / stored_name
+    with open(stored_path, "wb") as fh:
+        fh.write(content)
+
+    rec = BuildCertificationFile(
+        build_certification_id=cert.id,
+        oem_serial=eb.serial,
+        original_name=(file.filename or stored_name),
+        stored_name=stored_name,
+        content_type=ctype,
+        size_bytes=len(content),
+        uploaded_by=user.display_name,
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+
+    return {"ok": True, "file_id": rec.id, "original_name": rec.original_name}
+
+
+@router.get("/fulfillment/certifications/files/{file_id}")
+def download_cert_file(
+    file_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Serve a cert report file by id (viewer-gated)."""
+    rec = db.query(BuildCertificationFile).filter(BuildCertificationFile.id == file_id).first()
+    if not rec:
+        return JSONResponse(status_code=404, content={"detail": "File not found"})
+    path = Path(settings.CERT_UPLOAD_DIR) / (rec.oem_serial or "unknown") / rec.stored_name
+    if not path.exists():
+        return JSONResponse(status_code=404, content={"detail": "File missing on disk"})
+    return FileResponse(
+        path=str(path),
+        filename=rec.original_name,
+        media_type=rec.content_type or "application/octet-stream",
+    )
