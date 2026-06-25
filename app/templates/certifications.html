@@ -69,6 +69,8 @@
   }
   .cert-table tr:hover td { background: rgba(255,255,255,0.025); }
   .cert-table__serial { font-family: var(--sx-font-mono, monospace); font-size: 0.8rem; }
+  .cert-serial-link { color: var(--cert-emerald, #10b981); text-decoration: none; }
+  .cert-serial-link:hover { text-decoration: underline; }
   .cert-table__stage { color: var(--text-muted); font-size: 0.78rem; }
 
   .cert-badge {
@@ -157,7 +159,7 @@
                       {% for d in devices %}
                       <tr class="cert-row"
                           data-search="{{ (d.serial ~ ' ' ~ d.order_number ~ ' ' ~ cust_key ~ ' ' ~ sku_key) | lower }}">
-                        <td class="cert-table__serial">{{ d.serial }}</td>
+                        <td class="cert-table__serial"><a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/{{ d.prov_id }}">{{ d.serial }}</a></td>
                         <td>{{ d.order_number }}</td>
                         <td class="cert-table__stage">{{ d.current_stage }}</td>
                         <td>

@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Certify {{ device.serial }} - Asset Tracker{% endblock %}
+
+{% block head %}
+<style>
+  .certd-page { padding: 1.25rem 1.5rem; max-width: 980px; }
+
+  .certd-back {
+    font-size: 0.8rem; color: var(--text-muted); text-decoration: none;
+    display: inline-block; margin-bottom: 0.75rem;
+  }
+  .certd-back:hover { color: var(--text); }
+
+  .certd-title { font-size: 1.4rem; font-weight: 700; color: var(--text); margin: 0 0 0.25rem 0; }
+  .certd-title__serial { font-family: var(--sx-font-mono, monospace); }
+  .certd-sub { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+
+  .certd-panel {
+    background: var(--sx-surface, var(--card-bg));
+    border: 1px solid var(--sx-border, var(--border));
+    border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 1.25rem;
+  }
+  .certd-panel__head {
+    font-size: 0.95rem; font-weight: 600; color: var(--text);
+    margin: 0 0 0.85rem 0;
+  }
+
+  .certd-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem 1.5rem;
+  }
+  .certd-field__label {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-muted); margin-bottom: 0.15rem;
+  }
+  .certd-field__value { font-size: 0.88rem; color: var(--text); }
+  .certd-field__value.mono { font-family: var(--sx-font-mono, monospace); font-size: 0.82rem; }
+
+  .certd-checks-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .certd-checkall {
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    font-size: 0.72rem; text-transform: none; letter-spacing: 0;
+    color: var(--cert-emerald, #10b981); padding: 0;
+  }
+  .certd-checkall:hover { text-decoration: underline; }
+
+  .certd-checks { display: flex; flex-direction: column; gap: 0.55rem; }
+  .certd-check {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.88rem; color: var(--text);
+  }
+  .certd-check input { accent-color: var(--cert-emerald, #10b981); width: 16px; height: 16px; cursor: pointer; }
+
+  .certd-comp-row {
+    display: grid; grid-template-columns: 130px 1fr 70px 36px;
+    gap: 0.6rem; align-items: center; margin-bottom: 0.5rem;
+  }
+  .certd-comp-row select,
+  .certd-comp-row input[type="text"] {
+    padding: 0.4rem 0.55rem; font-size: 0.83rem; font-family: inherit;
+    background: var(--card-bg); color: var(--text);
+    border: 1px solid var(--sx-border, var(--border)); border-radius: 6px;
+    outline: none;
+  }
+  .certd-comp-row select:focus,
+  .certd-comp-row input[type="text"]:focus { border-color: var(--cert-emerald, #10b981); }
+  .certd-comp-ok { display: flex; align-items: center; justify-content: center; }
+  .certd-comp-ok input { accent-color: var(--cert-emerald, #10b981); width: 16px; height: 16px; cursor: pointer; }
+  .certd-comp-del {
+    background: none; border: 1px solid var(--sx-border, var(--border));
+    color: var(--text-muted); border-radius: 6px; cursor: pointer;
+    font-size: 0.9rem; line-height: 1; padding: 0.35rem 0;
+  }
+  .certd-comp-del:hover { color: var(--fl-red, #ef4444); border-color: var(--fl-red, #ef4444); }
+  .certd-comp-head {
+    display: grid; grid-template-columns: 130px 1fr 70px 36px;
+    gap: 0.6rem; font-size: 0.66rem; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.4rem;
+  }
+  .certd-addbtn {
+    margin-top: 0.4rem; background: none; cursor: pointer;
+    border: 1px dashed var(--sx-border, var(--border)); color: var(--text-muted);
+    border-radius: 6px; padding: 0.4rem 0.8rem; font-size: 0.8rem; font-family: inherit;
+  }
+  .certd-addbtn:hover { color: var(--text); border-color: var(--text-muted); }
+
+  .certd-lic { display: flex; gap: 1.5rem; }
+  .certd-lic label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); display: block; margin-bottom: 0.2rem; }
+  .certd-lic input {
+    width: 90px; padding: 0.4rem 0.55rem; font-size: 0.85rem; font-family: inherit;
+    background: var(--card-bg); color: var(--text);
+    border: 1px solid var(--sx-border, var(--border)); border-radius: 6px; outline: none;
+  }
+  .certd-lic input:focus { border-color: var(--cert-emerald, #10b981); }
+
+  .certd-submit {
+    margin-top: 0.5rem; background: var(--cert-emerald, #10b981); color: #fff;
+    border: none; border-radius: 7px; padding: 0.55rem 1.3rem;
+    font-size: 0.88rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .certd-submit:hover { filter: brightness(1.08); }
+  .certd-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .certd-msg { margin-top: 0.75rem; font-size: 0.83rem; }
+  .certd-msg.err { color: var(--fl-red, #ef4444); }
+  .certd-msg.ok { color: var(--fl-green, #10b981); }
+
+  .certd-notice {
+    background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+    color: var(--fl-amber, #f59e0b); border-radius: 8px;
+    padding: 0.85rem 1rem; font-size: 0.86rem;
+  }
+
+  .certd-hist-table { width: 100%; border-collapse: collapse; }
+  .certd-hist-table th {
+    text-align: left; font-size: 0.66rem; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text-muted);
+    padding: 0.3rem 0.7rem 0.3rem 0; border-bottom: 1px solid var(--sx-border, var(--border));
+  }
+  .certd-hist-table td {
+    font-size: 0.82rem; color: var(--text);
+    padding: 0.45rem 0.7rem 0.45rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .certd-badge {
+    display: inline-block; padding: 0.1rem 0.5rem; font-size: 0.68rem;
+    font-weight: 600; border-radius: 9px; white-space: nowrap;
+  }
+  .certd-badge--pending { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); }
+  .certd-badge--certified { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.12); }
+  .certd-badge--failed { color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.12); }
+  .certd-badge--complete { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.12); }
+  .certd-hist-empty { font-size: 0.84rem; color: var(--text-muted); padding: 0.5rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fulfillment-page">
+  <div class="certd-page">
+
+    <a class="certd-back" href="{{ base_path }}/fulfillment/certifications">&larr; Back to certifications</a>
+
+    <h1 class="certd-title">Certify <span class="certd-title__serial">{{ device.serial }}</span></h1>
+    <div class="certd-sub">{{ device.customer_name }} &middot; {{ device.order_number }} &middot; {{ device.sku }}</div>
+
+    <div class="certd-panel">
+      <div class="certd-panel__head">Device Information</div>
+      <div class="certd-grid">
+        <div><div class="certd-field__label">Serial</div><div class="certd-field__value mono">{{ device.serial }}</div></div>
+        <div><div class="certd-field__label">UUID</div><div class="certd-field__value mono">{{ device.uuid }}</div></div>
+        <div><div class="certd-field__label">SKU</div><div class="certd-field__value">{{ device.sku }}</div></div>
+        <div><div class="certd-field__label">Customer</div><div class="certd-field__value">{{ device.customer_name }}</div></div>
+        <div><div class="certd-field__label">Order</div><div class="certd-field__value">{{ device.order_number }}</div></div>
+        <div><div class="certd-field__label">Due date</div><div class="certd-field__value">{{ device.due_date }}</div></div>
+        <div><div class="certd-field__label">Stage</div><div class="certd-field__value">{{ device.current_stage }}</div></div>
+      </div>
+    </div>
+
+    {% if user and user.has_provisioning_manage %}
+      {% if awaiting_hw %}
+        <div class="certd-panel">
+          <div class="certd-panel__head">QA Capture</div>
+          <div class="certd-notice">
+            QA already submitted for this serial. Awaiting hardware sign-off (SMART test) before this device can be certified.
+          </div>
+        </div>
+      {% else %}
+        <div class="certd-panel">
+          <div class="certd-panel__head">QA Capture (QA half)</div>
+
+          <div class="certd-checks-head">
+            <span class="certd-field__label" style="margin:0;">QA checklist</span>
+            <button type="button" class="certd-checkall" id="certd-checkall" onclick="certdToggleAll()">Check all</button>
+          </div>
+          <div class="certd-checks">
+            {% for key, label in qa_checks %}
+            <label class="certd-check">
+              <input type="checkbox" data-qa="{{ key }}" onchange="certdSyncCheckAll()"> {{ label }}
+            </label>
+            {% endfor %}
+          </div>
+
+          <div class="certd-field__label" style="margin:1.1rem 0 0.4rem 0;">Component inventory</div>
+          <div class="certd-comp-head">
+            <span>Type</span><span>Model</span><span>OK</span><span></span>
+          </div>
+          <div id="certd-comp-rows"></div>
+          <button type="button" class="certd-addbtn" onclick="certdAddRow()">+ Add component</button>
+
+          <div class="certd-field__label" style="margin:1.1rem 0 0.4rem 0;">License counts</div>
+          <div class="certd-lic">
+            <div><label>Assigned</label><input type="number" id="certd-lic-assigned" min="0" value="0"></div>
+            <div><label>Ordered</label><input type="number" id="certd-lic-ordered" min="0" value="0"></div>
+          </div>
+
+          <div>
+            <button type="button" class="certd-submit" id="certd-submit-btn" onclick="certdSubmit()">Submit QA</button>
+          </div>
+          <div class="certd-msg" id="certd-msg"></div>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    <div class="certd-panel">
+      <div class="certd-panel__head">Certification History</div>
+      {% if history %}
+      <table class="certd-hist-table">
+        <thead>
+          <tr><th>Reason</th><th>QA</th><th>Hardware</th><th>Cert status</th><th>By</th><th>When</th></tr>
+        </thead>
+        <tbody>
+          {% for h in history %}
+          <tr>
+            <td>{{ h.reason }}</td>
+            <td><span class="certd-badge certd-badge--{{ h.qa_status }}">{{ h.qa_status }}</span></td>
+            <td><span class="certd-badge certd-badge--{{ h.hw_status }}">{{ h.hw_status }}</span></td>
+            <td><span class="certd-badge certd-badge--{{ h.cert_status }}">{{ h.cert_status }}</span></td>
+            <td>{{ h.certified_by }}</td>
+            <td>{{ h.certified_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="certd-hist-empty">No certification attempts yet for this serial.</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+  var CERTD_PROV_ID = {{ device.prov_id }};
+  var CERTD_TYPES = {{ comp_types | tojson }};
+
+  function certdAllChecked() {
+    var boxes = document.querySelectorAll('input[data-qa]');
+    return boxes.length > 0 && Array.prototype.every.call(boxes, function (b) { return b.checked; });
+  }
+
+  function certdSyncCheckAll() {
+    var btn = document.getElementById('certd-checkall');
+    if (btn) btn.textContent = certdAllChecked() ? 'Uncheck all' : 'Check all';
+  }
+
+  function certdToggleAll() {
+    var target = !certdAllChecked();
+    document.querySelectorAll('input[data-qa]').forEach(function (b) { b.checked = target; });
+    certdSyncCheckAll();
+  }
+
+  function certdMakeRow() {
+    var row = document.createElement('div');
+    row.className = 'certd-comp-row';
+    var opts = CERTD_TYPES.map(function (t) {
+      return '<option value="' + t + '">' + t.toUpperCase() + '</option>';
+    }).join('');
+    row.innerHTML =
+      '<select class="certd-comp-type">' + opts + '</select>' +
+      '<input type="text" class="certd-comp-model" placeholder="Model (e.g. Intel i7-14700H)">' +
+      '<span class="certd-comp-ok"><input type="checkbox" class="certd-comp-okbox" checked></span>' +
+      '<button type="button" class="certd-comp-del" onclick="certdDelRow(this)">&times;</button>';
+    return row;
+  }
+
+  function certdAddRow() {
+    document.getElementById('certd-comp-rows').appendChild(certdMakeRow());
+  }
+
+  function certdDelRow(btn) {
+    var rows = document.getElementById('certd-comp-rows');
+    if (rows.children.length <= 1) return;
+    btn.closest('.certd-comp-row').remove();
+  }
+
+  function certdSetMsg(text, kind) {
+    var el = document.getElementById('certd-msg');
+    el.textContent = text;
+    el.className = 'certd-msg' + (kind ? ' ' + kind : '');
+  }
+
+  async function certdSubmit() {
+    var btn = document.getElementById('certd-submit-btn');
+
+    var qa = {};
+    document.querySelectorAll('input[data-qa]').forEach(function (cb) {
+      qa[cb.getAttribute('data-qa')] = cb.checked;
+    });
+
+    var components = [];
+    var bad = false;
+    document.querySelectorAll('#certd-comp-rows .certd-comp-row').forEach(function (r) {
+      var type = r.querySelector('.certd-comp-type').value;
+      var model = r.querySelector('.certd-comp-model').value.trim();
+      var ok = r.querySelector('.certd-comp-okbox').checked;
+      if (!model) bad = true;
+      components.push({ type: type, model: model, ok: ok });
+    });
+    if (components.length === 0) { certdSetMsg('Add at least one component.', 'err'); return; }
+    if (bad) { certdSetMsg('Every component needs a model.', 'err'); return; }
+
+    var assigned = parseInt(document.getElementById('certd-lic-assigned').value, 10);
+    var ordered = parseInt(document.getElementById('certd-lic-ordered').value, 10);
+    if (isNaN(assigned) || isNaN(ordered) || assigned < 0 || ordered < 0) {
+      certdSetMsg('License counts must be non-negative numbers.', 'err'); return;
+    }
+
+    btn.disabled = true;
+    certdSetMsg('Submitting...', '');
+
+    try {
+      var resp = await fetch(window.BASE_PATH + '/fulfillment/certifications/' + CERTD_PROV_ID + '/qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qa_checklist: qa,
+          components: components,
+          license_assigned: assigned,
+          license_ordered: ordered
+        })
+      });
+      var data = await resp.json();
+      if (resp.ok && data.ok) {
+        certdSetMsg('QA submitted. Reloading...', 'ok');
+        setTimeout(function () { window.location.reload(); }, 600);
+      } else {
+        certdSetMsg(data.detail || 'Submit failed.', 'err');
+        btn.disabled = false;
+      }
+    } catch (e) {
+      certdSetMsg('Network error: ' + e.message, 'err');
+      btn.disabled = false;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var rows = document.getElementById('certd-comp-rows');
+    if (rows && rows.children.length === 0) rows.appendChild(certdMakeRow());
+    certdSyncCheckAll();
+  });
+</script>
+{% endblock %}

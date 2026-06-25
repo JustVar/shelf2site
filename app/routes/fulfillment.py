@@ -62,6 +62,19 @@ class DeploymentCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class CertComponent(BaseModel):
+    type: str
+    model: str
+    ok: bool
+
+
+class CertQASubmit(BaseModel):
+    qa_checklist: dict          # 5 keys: hardware, pva_events, searches, netplan, registration -> bool
+    components: list            # list of CertComponent-shaped dicts, >= 1
+    license_assigned: int
+    license_ordered: int
+
+
 def _order_urgency(due_date) -> str:
     """Map a due date to an urgency bucket. Single source of the thresholds,
     shared by the order cards and the Building-board groups."""
@@ -913,4 +926,196 @@ def certifications_index(
         "user": user,
         "groups": sorted_groups,
         "total_devices": total_devices,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Build Certification - the QA half (F3/S6b), first write path
+# ---------------------------------------------------------------------------
+
+_QA_KEYS = {'hardware', 'pva_events', 'searches', 'netplan', 'registration'}
+_COMP_TYPES = {'cpu', 'gpu', 'ram', 'hdd', 'ssd'}
+
+
+@router.post("/fulfillment/certifications/{prov_id}/qa")
+async def submit_cert_qa(
+    prov_id: int,
+    payload: CertQASubmit,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Create a new build_certification row with the QA half.
+
+    Single-step: this POST CREATES the row (never updates). Sets qa_status
+    complete; hw_status and cert_status stay pending (the all-pass gate is
+    S6c). Append-only: a new attempt is always a new row.
+    """
+    # Resolve the provisioning row + its edge box + order.
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
+    if prov.device_table != "edge_boxes":
+        return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
+
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
+    if not eb:
+        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
+
+    co = None
+    if prov.customer_order_id:
+        co = db.query(CustomerOrder).filter(CustomerOrder.id == prov.customer_order_id).first()
+
+    # --- validation ---
+    if set(payload.qa_checklist.keys()) != _QA_KEYS:
+        return JSONResponse(status_code=400, content={
+            "detail": "qa_checklist must contain exactly: " + ", ".join(sorted(_QA_KEYS))
+        })
+    if not all(isinstance(v, bool) for v in payload.qa_checklist.values()):
+        return JSONResponse(status_code=400, content={"detail": "qa_checklist values must be true/false"})
+
+    if not payload.components:
+        return JSONResponse(status_code=400, content={"detail": "At least one component is required"})
+    norm_components = []
+    for c in payload.components:
+        ctype = (c.get("type") or "").strip().lower()
+        cmodel = (c.get("model") or "").strip()
+        cok = bool(c.get("ok"))
+        if ctype not in _COMP_TYPES:
+            return JSONResponse(status_code=400, content={
+                "detail": f"Invalid component type '{ctype}'; allowed: " + ", ".join(sorted(_COMP_TYPES))
+            })
+        if not cmodel:
+            return JSONResponse(status_code=400, content={"detail": "Component model cannot be empty"})
+        norm_components.append({"type": ctype, "model": cmodel, "ok": cok})
+
+    if payload.license_assigned < 0 or payload.license_ordered < 0:
+        return JSONResponse(status_code=400, content={"detail": "License counts must be >= 0"})
+
+    # --- soft-guard: block a duplicate QA-pending submit for this serial ---
+    # Look at the LATEST cert row for this serial; block only if it is
+    # qa_status complete AND cert_status pending (someone is mid-attempt).
+    latest = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == eb.serial)
+        .order_by(BuildCertification.created_at.desc())
+        .first()
+    )
+    if latest is not None and latest.qa_status == "complete" and latest.cert_status == "pending":
+        return JSONResponse(status_code=409, content={
+            "detail": "QA already submitted for this serial, awaiting hardware sign-off"
+        })
+
+    # --- construct + insert (route sets all status fields, not the payload) ---
+    cert = BuildCertification(
+        device_provisioning_id=prov_id,
+        oem_serial=eb.serial,
+        device_uuid=eb.uuid,
+        sku=eb.part_number,
+        customer_name=(co.customer_name if co else None),
+        order_number=(co.order_number if co else None),
+        qa_checklist={k: {"checked": bool(v)} for k, v in payload.qa_checklist.items()},
+        hardware_validation={"components": norm_components},
+        license_counts={"assigned": payload.license_assigned, "ordered": payload.license_ordered},
+        certified_by=user.display_name,
+        certified_at=datetime.utcnow(),
+        qa_status="complete",
+        hw_status="pending",
+        cert_status="pending",
+        reason="initial",
+    )
+    db.add(cert)
+    db.commit()
+    db.refresh(cert)
+
+    return {
+        "ok": True,
+        "cert_id": cert.id,
+        "qa_status": cert.qa_status,
+        "cert_status": cert.cert_status,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Build Certification - per-device detail view (F3/S6b), read
+# ---------------------------------------------------------------------------
+
+@router.get("/fulfillment/certifications/{prov_id}", response_class=HTMLResponse)
+def certification_detail(
+    prov_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Per-device cert detail: device context, QA capture form, and the
+    box's lifetime cert history (by serial). Route key is prov_id (the FK);
+    history is shown by oem_serial (display lens, append-only trail).
+    """
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    if not prov or prov.device_table != "edge_boxes":
+        return RedirectResponse(url=f"{BP}/fulfillment/certifications", status_code=302)
+
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
+    if not eb:
+        return RedirectResponse(url=f"{BP}/fulfillment/certifications", status_code=302)
+
+    co = None
+    if prov.customer_order_id:
+        co = db.query(CustomerOrder).filter(CustomerOrder.id == prov.customer_order_id).first()
+
+    device = {
+        "prov_id": prov.id,
+        "serial": eb.serial or "-",
+        "uuid": eb.uuid or "-",
+        "sku": eb.part_number or "-",
+        "customer_name": (co.customer_name if co else "-"),
+        "order_number": (co.order_number if co else "-"),
+        "due_date": (co.due_date.isoformat() if co and co.due_date else "-"),
+        "current_stage": prov.current_stage,
+    }
+
+    # Lifetime history for this box, by serial (display lens; newest first).
+    history_rows = []
+    if eb.serial:
+        history_rows = (
+            db.query(BuildCertification)
+            .filter(BuildCertification.oem_serial == eb.serial)
+            .order_by(BuildCertification.created_at.desc())
+            .all()
+        )
+    history = [{
+        "id": h.id,
+        "reason": h.reason,
+        "qa_status": h.qa_status,
+        "hw_status": h.hw_status,
+        "cert_status": h.cert_status,
+        "certified_by": h.certified_by or "-",
+        "certified_at": (h.certified_at.isoformat(sep=" ", timespec="minutes") if h.certified_at else "-"),
+    } for h in history_rows]
+
+    # Soft-guard state: is the latest row QA-done-but-pending (mid-attempt)?
+    awaiting_hw = bool(
+        history_rows
+        and history_rows[0].qa_status == "complete"
+        and history_rows[0].cert_status == "pending"
+    )
+
+    # The 5 QA checks, in display order, with labels (labels live in code).
+    qa_checks = [
+        ("hardware", "Hardware"),
+        ("pva_events", "PVA events"),
+        ("searches", "Searches"),
+        ("netplan", "Netplan"),
+        ("registration", "Registration"),
+    ]
+    comp_types = ["cpu", "gpu", "ram", "hdd", "ssd"]
+
+    return templates.TemplateResponse("certification_detail.html", {
+        "request": request,
+        "user": user,
+        "device": device,
+        "history": history,
+        "awaiting_hw": awaiting_hw,
+        "qa_checks": qa_checks,
+        "comp_types": comp_types,
     })

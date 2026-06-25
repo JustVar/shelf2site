@@ -7,7 +7,7 @@ built against.
 
 Implementation status:
 - S6a (051 migration: 9 columns + 3 indexes; read-only /fulfillment/certifications): DONE
-- S6b (per-device cert detail + QA capture, first write path): not started
+- S6b (per-device cert detail + QA capture, first write path): DONE
 - S6c (SMART + co-sign + all-pass gate): not started
 - S6d (report file uploads, build_certification_files child table): not started
 - S6e (composite cert report): not started
@@ -22,7 +22,7 @@ A per-device build certification system with an append-only audit trail keyed to
 - Grain: certification is per individual device, not per order x SKU group. The board button is an entry point to N per-device certifications.
 - Audit spine: the OEM serial number (from the box sticker, OEM-issued for both edge boxes and Cloud2 cams). It is snapshotted onto each cert row at certification time so history survives even when a device is repurposed (which creates a new provisioning row) or its order link is nulled.
 - Append-only: a terminal cert row (certified or failed) is never mutated. A retest or re-cert creates a new row. An in-progress (pending) row is editable by the two contributors until it reaches a terminal state.
-- Two contributors: Justin captures QA + component inventory + licenses; Casey captures the SMART test + report files. The row tracks each half independently.
+- Two contributors: The QA role captures QA + component inventory + licenses; the Hardware role captures the SMART test + report files. The row tracks each half independently.
 - All-pass gate: a device is certified only when both halves are complete and every check passes. Any failure makes the row terminal-failed; a new row is created to retry.
 - Two history kinds, distinguished by a reason label on each row (not separate counters): within-effort retries vs lifetime re-certs.
 - Home: a dedicated certification view (Option B), organized by date / customer / SKU with search — not a board drawer. The board button deep-links into it.
@@ -32,8 +32,8 @@ A per-device build certification system with an append-only audit trail keyed to
 
 ```
 new attempt -> row created (cert_status = pending, reason set)
-   Justin submits his half  -> qa_status = complete
-   Casey submits his half   -> hw_status = complete
+   QA role submits its half     -> qa_status = complete
+   Hardware role submits its half -> hw_status = complete
    when both halves complete:
        all checks pass       -> cert_status = certified   (row frozen, history)
        any check fails        -> cert_status = failed      (row frozen, history)
@@ -56,9 +56,9 @@ From app/models.py:1881. These already exist; the migration does not touch them.
 | qa_checklist | JSONB null | the 5 QA checks (shape below) |
 | license_counts | JSONB null | assigned / ordered (shape below) |
 | appliance_version | varchar(64) null | Appliance version string |
-| certified_by | varchar(128) null | Justin (QA half signer) |
-| co_certified_by | varchar(128) null | Casey (hardware/SMART half signer) |
-| certified_at | datetime null | when Justin's half landed |
+| certified_by | varchar(128) null | QA half signer |
+| co_certified_by | varchar(128) null | Hardware/SMART half signer |
+| certified_at | datetime null | when the QA half landed |
 | checklist_file_path | varchar(512) null | legacy single-path; superseded by a file child table in S6d |
 | created_at | datetime server_default now | row creation |
 
@@ -68,10 +68,10 @@ From app/models.py:1881. These already exist; the migration does not touch them.
 |---|---|---|---|---|
 | oem_serial | varchar(64) | — | yes (app-required) | audit spine; snapshotted at cert time |
 | reason | varchar(20) | 'initial' | no | initial / retest / repurpose / pilot_return |
-| qa_status | varchar(20) | 'pending' | no | Justin's half: pending / complete |
-| hw_status | varchar(20) | 'pending' | no | Casey's half: pending / complete |
+| qa_status | varchar(20) | 'pending' | no | QA half: pending / complete |
+| hw_status | varchar(20) | 'pending' | no | Hardware half: pending / complete |
 | cert_status | varchar(20) | 'pending' | no | computed terminal: pending / certified / failed |
-| co_certified_at | datetime | null | yes | when Casey's half landed (mirrors certified_at) |
+| co_certified_at | datetime | null | yes | when the Hardware half landed (mirrors certified_at) |
 | customer_name | varchar(256) | null | yes | snapshot at cert time (durable for the index + audit) |
 | order_number | varchar(64) | null | yes | snapshot at cert time |
 | sku | varchar(128) | null | yes | snapshot at cert time |
@@ -94,7 +94,7 @@ qa_checklist — five checks, checked/unchecked, all required to pass. Map keyed
 }
 ```
 
-hardware_validation — variable-length component inventory (Justin) plus the SMART test (Casey). type is a fixed vocab (cpu / gpu / ram / hdd / ssd), repeatable so a device can list multiple GPUs or drives. model is free text. ok is Justin's per-component validation.
+hardware_validation — variable-length component inventory (QA) plus the SMART test (Hardware). type is a fixed vocab (cpu / gpu / ram / hdd / ssd), repeatable so a device can list multiple GPUs or drives. model is free text. ok is the QA per-component validation.
 
 ```json
 {
@@ -116,8 +116,8 @@ license_counts — two integers, per device, hand-entered at cert time.
 
 ## Contributor split
 
-- Justin's half (qa_status, certified_by, certified_at): qa_checklist (5 items), hardware_validation.components (inventory + ok), license_counts, appliance_version.
-- Casey's half (hw_status, co_certified_by, co_certified_at): hardware_validation.smart_test, and the report file uploads (S6d).
+- QA half (qa_status, certified_by, certified_at): qa_checklist (5 items), hardware_validation.components (inventory + ok), license_counts, appliance_version.
+- Hardware half (hw_status, co_certified_by, co_certified_at): hardware_validation.smart_test, and the report file uploads (S6d).
 
 ## All-pass gate (how cert_status is computed)
 
@@ -143,8 +143,8 @@ The build_certification table has no inserting route today, so it is expected to
 ## Slice plan
 
 - S6a — this migration + a read-only certification index page (/fulfillment/certifications): lists devices needing/having cert, organized by date / customer / SKU, with search. Proves the schema, ships the nav home. No writes.
-- S6b — per-device cert detail view + Justin's QA capture (5 checks, component inventory, licenses, appliance_version). First write path (qa_status -> complete).
-- S6c — Casey's contribution (SMART result + sign-off via co_certified_by), partial-state handling, and the computed all-pass cert_status gate (hw_status -> complete, terminal compute).
+- S6b — per-device cert detail view + QA capture (5 checks, component inventory, licenses, appliance_version). First write path (qa_status -> complete).
+- S6c — Hardware contribution (SMART result + sign-off via co_certified_by), partial-state handling, and the computed all-pass cert_status gate (hw_status -> complete, terminal compute).
 - S6d — report file uploads per device. Needs a child table (build_certification_files) for multiple files per cert; its own schema decision, not pre-baked here. Intersects the /tmp cleanup track.
 - S6e — composite downloadable certification report per device (QA + hardware + SMART + licenses + files into one document).
 - S6f — board button wiring + is_complete board-close (option e) + the blast-radius check.
