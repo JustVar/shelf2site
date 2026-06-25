@@ -115,6 +115,12 @@
     padding: 0.85rem 1rem; font-size: 0.86rem;
   }
 
+  .certd-done { color: var(--fl-green, #10b981); font-size: 0.88rem; }
+  .certd-smart { display: flex; gap: 1.5rem; }
+  .certd-result { font-size: 0.92rem; border-radius: 8px; padding: 0.85rem 1rem; }
+  .certd-result--certified { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+  .certd-result--failed { color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
+
   .certd-hist-table { width: 100%; border-collapse: collapse; }
   .certd-hist-table th {
     text-align: left; font-size: 0.66rem; text-transform: uppercase;
@@ -160,16 +166,23 @@
     </div>
 
     {% if user and user.has_provisioning_manage %}
-      {% if awaiting_hw %}
+      {% if latest_terminal %}
+        <!-- finished device: terminal result + gated re-cert -->
         <div class="certd-panel">
-          <div class="certd-panel__head">QA Capture</div>
-          <div class="certd-notice">
-            QA already submitted for this serial. Awaiting hardware sign-off (SMART test) before this device can be certified.
+          <div class="certd-panel__head">Certification result</div>
+          <div class="certd-result certd-result--{{ latest_cert_status }}">
+            This device is <strong>{{ latest_cert_status }}</strong>.
           </div>
+          <button type="button" class="certd-addbtn" style="margin-top:0.9rem;" onclick="certdStartRecert()">Start re-certification</button>
         </div>
-      {% else %}
+      {% endif %}
+
+      <!-- forms wrapper: hidden initially if terminal (revealed by re-cert button) -->
+      <div id="certd-forms" {% if latest_terminal %}style="display:none;"{% endif %}>
+
+        {% if not qa_done %}
         <div class="certd-panel">
-          <div class="certd-panel__head">QA Capture (QA half)</div>
+          <div class="certd-panel__head">QA Sign-off</div>
 
           <div class="certd-checks-head">
             <span class="certd-field__label" style="margin:0;">QA checklist</span>
@@ -201,7 +214,34 @@
           </div>
           <div class="certd-msg" id="certd-msg"></div>
         </div>
-      {% endif %}
+        {% else %}
+        <div class="certd-panel">
+          <div class="certd-panel__head">QA Sign-off</div>
+          <div class="certd-done">&#10003; QA submitted{% if qa_signer %} by {{ qa_signer }}{% endif %}.</div>
+        </div>
+        {% endif %}
+
+        {% if not hw_done %}
+        <div class="certd-panel">
+          <div class="certd-panel__head">Hardware Sign-off</div>
+          <div class="certd-field__label" style="margin-bottom:0.5rem;">SMART test result</div>
+          <div class="certd-smart">
+            <label class="certd-check"><input type="radio" name="certd-smart" value="pass"> Pass</label>
+            <label class="certd-check"><input type="radio" name="certd-smart" value="fail"> Fail</label>
+          </div>
+          <div style="margin-top:0.8rem;">
+            <button type="button" class="certd-submit" id="certd-hw-btn" onclick="certdSubmitHW()">Submit Hardware</button>
+          </div>
+          <div class="certd-msg" id="certd-hw-msg"></div>
+        </div>
+        {% else %}
+        <div class="certd-panel">
+          <div class="certd-panel__head">Hardware Sign-off</div>
+          <div class="certd-done">&#10003; Hardware submitted{% if hw_signer %} by {{ hw_signer }}{% endif %}.</div>
+        </div>
+        {% endif %}
+
+      </div>
     {% endif %}
 
     <div class="certd-panel">
@@ -334,6 +374,39 @@
       certdSetMsg('Network error: ' + e.message, 'err');
       btn.disabled = false;
     }
+  }
+
+  async function certdSubmitHW() {
+    var btn = document.getElementById('certd-hw-btn');
+    var sel = document.querySelector('input[name="certd-smart"]:checked');
+    var msg = document.getElementById('certd-hw-msg');
+    if (!sel) { msg.textContent = 'Select a SMART result.'; msg.className = 'certd-msg err'; return; }
+
+    btn.disabled = true;
+    msg.textContent = 'Submitting...'; msg.className = 'certd-msg';
+    try {
+      var resp = await fetch(window.BASE_PATH + '/fulfillment/certifications/' + CERTD_PROV_ID + '/hw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smart_result: sel.value })
+      });
+      var data = await resp.json();
+      if (resp.ok && data.ok) {
+        msg.textContent = 'Hardware submitted. Reloading...'; msg.className = 'certd-msg ok';
+        setTimeout(function () { window.location.reload(); }, 600);
+      } else {
+        msg.textContent = data.detail || 'Submit failed.'; msg.className = 'certd-msg err';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.textContent = 'Network error: ' + e.message; msg.className = 'certd-msg err';
+      btn.disabled = false;
+    }
+  }
+
+  function certdStartRecert() {
+    var f = document.getElementById('certd-forms');
+    if (f) f.style.display = '';
   }
 
   document.addEventListener('DOMContentLoaded', function () {

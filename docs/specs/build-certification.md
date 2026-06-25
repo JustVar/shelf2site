@@ -1,14 +1,14 @@
 # Build Certification (F3 / S6) — schema and model spec
 
-Status: APPROVED. The S6a slice (051 migration + read-only cert index) is
-implemented and verified. Remaining slices S6b through S6f are specified
+Status: APPROVED. The S6a through S6c slices (schema, QA half, Hardware half + all-pass gate) are
+implemented and verified. Remaining slices S6d through S6f are specified
 below and not yet built. This document is the reference the S6 slices are
 built against.
 
 Implementation status:
 - S6a (051 migration: 9 columns + 3 indexes; read-only /fulfillment/certifications): DONE
 - S6b (per-device cert detail + QA capture, first write path): DONE
-- S6c (SMART + co-sign + all-pass gate): not started
+- S6c (SMART + co-sign + all-pass gate): DONE
 - S6d (report file uploads, build_certification_files child table): not started
 - S6e (composite cert report): not started
 - S6f (board button wiring + is_complete board-close + blast-radius check): not started
@@ -129,7 +129,7 @@ Computed in the route and written to cert_status when both halves are complete:
 
 ## Board close (separate from this schema — S6f)
 
-When a device reaches cert_status = certified, set DeviceProvisioning.is_complete = true and completed_at = now, and add DeviceProvisioning.is_complete == False to the device_rows query (routes/fulfillment.py:325) so certified devices drop off the Building board. A repurposed/returned box gets a new provisioning row (is_complete = false again), so it reappears for re-cert while prior cert rows remain as history. Blast-radius check required first: adding the is_complete filter hides every already-complete device, not only newly certified ones — measure how many rows are is_complete = true before applying.
+Close happens only when cert_status = certified through the all-pass gate (S6c); there is no one-click close that skips the gate. When a device reaches cert_status = certified, set DeviceProvisioning.is_complete = true and completed_at = now, and add DeviceProvisioning.is_complete == False to the device_rows query (routes/fulfillment.py:325) so certified devices drop off the Building board. A repurposed/returned box gets a new provisioning row (is_complete = false again), so it reappears for re-cert while prior cert rows remain as history. Blast-radius check required first: adding the is_complete filter hides every already-complete device, not only newly certified ones — measure how many rows are is_complete = true before applying.
 
 ## Backfill
 

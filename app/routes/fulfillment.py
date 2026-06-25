@@ -75,6 +75,10 @@ class CertQASubmit(BaseModel):
     license_ordered: int
 
 
+class CertHWSubmit(BaseModel):
+    smart_result: str           # "pass" or "fail"
+
+
 def _order_urgency(due_date) -> str:
     """Map a due date to an urgency bucket. Single source of the thresholds,
     shared by the order cards and the Building-board groups."""
@@ -930,12 +934,115 @@ def certifications_index(
 
 
 # ---------------------------------------------------------------------------
-# Build Certification - the QA half (F3/S6b), first write path
+# Build Certification - shared constants (QA keys, component vocab)
 # ---------------------------------------------------------------------------
 
 _QA_KEYS = {'hardware', 'pva_events', 'searches', 'netplan', 'registration'}
 _COMP_TYPES = {'cpu', 'gpu', 'ram', 'hdd', 'ssd'}
 
+
+# ---------------------------------------------------------------------------
+# Build Certification - shared half-apply + all-pass gate (F3/S6c)
+# ---------------------------------------------------------------------------
+
+def _compute_cert_gate(cert):
+    """All-pass gate: returns 'certified' or 'failed' (both halves complete).
+
+    certified iff every QA check true AND every component ok AND smart pass.
+    """
+    qa = cert.qa_checklist or {}
+    qa_all = all(bool((qa.get(k) or {}).get("checked")) for k in _QA_KEYS)
+    hv = cert.hardware_validation or {}
+    comps = hv.get("components") or []
+    comps_ok = bool(comps) and all(bool(c.get("ok")) for c in comps)
+    smart = (hv.get("smart_test") or {}).get("result")
+    smart_ok = smart == "pass"
+    return "certified" if (qa_all and comps_ok and smart_ok) else "failed"
+
+
+def _open_attempt(db, serial):
+    """Latest cert row for serial that is still pending (the open attempt).
+
+    Independence model: a half attaches to this row regardless of which
+    half is already on it. Returns None if no row or the latest is terminal.
+    """
+    latest = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == serial)
+        .order_by(BuildCertification.created_at.desc())
+        .first()
+    )
+    if latest is not None and latest.cert_status == "pending":
+        return latest
+    return None
+
+
+def _apply_cert_half(db, prov, eb, co, half, fields, signer):
+    """Create-or-update the open attempt with one half, then maybe gate.
+
+    half: 'qa' or 'hw'. fields: the validated payload data for that half.
+    Returns (cert_row, error_response_or_None). On per-half duplicate -> 409.
+    JSONB writes use whole-dict reassignment (no in-place mutation).
+    """
+    now = datetime.utcnow()
+    cert = _open_attempt(db, eb.serial)
+
+    if cert is None:
+        # whichever half goes first creates the row
+        cert = BuildCertification(
+            device_provisioning_id=prov.id,
+            oem_serial=eb.serial,
+            device_uuid=eb.uuid,
+            sku=eb.part_number,
+            customer_name=(co.customer_name if co else None),
+            order_number=(co.order_number if co else None),
+            qa_status="pending",
+            hw_status="pending",
+            cert_status="pending",
+            reason="initial",
+        )
+        db.add(cert)
+
+    # per-half 409: do not submit the same half twice on the open attempt
+    if half == "qa" and cert.qa_status == "complete":
+        return None, JSONResponse(status_code=409, content={
+            "detail": "QA already submitted for this attempt"
+        })
+    if half == "hw" and cert.hw_status == "complete":
+        return None, JSONResponse(status_code=409, content={
+            "detail": "Hardware already submitted for this attempt"
+        })
+
+    if half == "qa":
+        cert.qa_checklist = {k: {"checked": bool(v)} for k, v in fields["qa_checklist"].items()}
+        # preserve any existing smart_test; (re)set components
+        hv = dict(cert.hardware_validation or {})
+        hv["components"] = fields["components"]
+        cert.hardware_validation = hv
+        cert.license_counts = {"assigned": fields["license_assigned"], "ordered": fields["license_ordered"]}
+        cert.certified_by = signer
+        cert.certified_at = now
+        cert.qa_status = "complete"
+    else:  # hw
+        hv = dict(cert.hardware_validation or {})
+        hv["smart_test"] = {"result": fields["smart_result"], "by": signer, "at": now.isoformat()}
+        cert.hardware_validation = hv  # reassign -> tracked
+        cert.co_certified_by = signer
+        cert.co_certified_at = now
+        cert.hw_status = "complete"
+
+    # gate: if both halves now complete, compute terminal cert_status
+    if cert.qa_status == "complete" and cert.hw_status == "complete":
+        cert.cert_status = _compute_cert_gate(cert)
+
+    db.commit()
+    db.refresh(cert)
+    return cert, None
+
+
+# ---------------------------------------------------------------------------
+# Build Certification - QA half (F3/S6b, revised S6c for independence)
+# ---------------------------------------------------------------------------
 
 @router.post("/fulfillment/certifications/{prov_id}/qa")
 async def submit_cert_qa(
@@ -945,13 +1052,11 @@ async def submit_cert_qa(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Create a new build_certification row with the QA half.
+    """Apply the QA half to the open cert attempt (create-or-update).
 
-    Single-step: this POST CREATES the row (never updates). Sets qa_status
-    complete; hw_status and cert_status stay pending (the all-pass gate is
-    S6c). Append-only: a new attempt is always a new row.
+    Independence: either half may go first. The gate computes terminal
+    cert_status once both halves are complete (S6c).
     """
-    # Resolve the provisioning row + its edge box + order.
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
@@ -973,7 +1078,6 @@ async def submit_cert_qa(
         })
     if not all(isinstance(v, bool) for v in payload.qa_checklist.values()):
         return JSONResponse(status_code=400, content={"detail": "qa_checklist values must be true/false"})
-
     if not payload.components:
         return JSONResponse(status_code=400, content={"detail": "At least one component is required"})
     norm_components = []
@@ -988,53 +1092,28 @@ async def submit_cert_qa(
         if not cmodel:
             return JSONResponse(status_code=400, content={"detail": "Component model cannot be empty"})
         norm_components.append({"type": ctype, "model": cmodel, "ok": cok})
-
     if payload.license_assigned < 0 or payload.license_ordered < 0:
         return JSONResponse(status_code=400, content={"detail": "License counts must be >= 0"})
 
-    # --- soft-guard: block a duplicate QA-pending submit for this serial ---
-    # Look at the LATEST cert row for this serial; block only if it is
-    # qa_status complete AND cert_status pending (someone is mid-attempt).
-    latest = (
-        db.query(BuildCertification)
-        .filter(BuildCertification.oem_serial == eb.serial)
-        .order_by(BuildCertification.created_at.desc())
-        .first()
+    cert, err = _apply_cert_half(
+        db, prov, eb, co, "qa",
+        {
+            "qa_checklist": payload.qa_checklist,
+            "components": norm_components,
+            "license_assigned": payload.license_assigned,
+            "license_ordered": payload.license_ordered,
+        },
+        user.display_name,
     )
-    if latest is not None and latest.qa_status == "complete" and latest.cert_status == "pending":
-        return JSONResponse(status_code=409, content={
-            "detail": "QA already submitted for this serial, awaiting hardware sign-off"
-        })
-
-    # --- construct + insert (route sets all status fields, not the payload) ---
-    cert = BuildCertification(
-        device_provisioning_id=prov_id,
-        oem_serial=eb.serial,
-        device_uuid=eb.uuid,
-        sku=eb.part_number,
-        customer_name=(co.customer_name if co else None),
-        order_number=(co.order_number if co else None),
-        qa_checklist={k: {"checked": bool(v)} for k, v in payload.qa_checklist.items()},
-        hardware_validation={"components": norm_components},
-        license_counts={"assigned": payload.license_assigned, "ordered": payload.license_ordered},
-        certified_by=user.display_name,
-        certified_at=datetime.utcnow(),
-        qa_status="complete",
-        hw_status="pending",
-        cert_status="pending",
-        reason="initial",
-    )
-    db.add(cert)
-    db.commit()
-    db.refresh(cert)
-
+    if err:
+        return err
     return {
         "ok": True,
         "cert_id": cert.id,
         "qa_status": cert.qa_status,
+        "hw_status": cert.hw_status,
         "cert_status": cert.cert_status,
     }
-
 
 # ---------------------------------------------------------------------------
 # Build Certification - per-device detail view (F3/S6b), read
@@ -1091,14 +1170,22 @@ def certification_detail(
         "cert_status": h.cert_status,
         "certified_by": h.certified_by or "-",
         "certified_at": (h.certified_at.isoformat(sep=" ", timespec="minutes") if h.certified_at else "-"),
+        "co_certified_by": h.co_certified_by or "-",
+        "co_certified_at": (h.co_certified_at.isoformat(sep=" ", timespec="minutes") if h.co_certified_at else "-"),
     } for h in history_rows]
 
-    # Soft-guard state: is the latest row QA-done-but-pending (mid-attempt)?
-    awaiting_hw = bool(
-        history_rows
-        and history_rows[0].qa_status == "complete"
-        and history_rows[0].cert_status == "pending"
+    # Per-half open-attempt state (lockstep with the POST routes via _open_attempt).
+    open_cert = _open_attempt(db, eb.serial)
+    qa_done = bool(open_cert and open_cert.qa_status == "complete")
+    hw_done = bool(open_cert and open_cert.hw_status == "complete")
+    # No open attempt + a terminal latest row -> a finished device (gate re-cert behind a button).
+    latest_terminal = bool(
+        open_cert is None and history_rows and history_rows[0].cert_status in ("certified", "failed")
     )
+    latest_cert_status = history_rows[0].cert_status if history_rows else None
+    # Signers for the open attempt panels (done-by-X states).
+    qa_signer = (open_cert.certified_by if (open_cert and open_cert.qa_status == "complete") else None)
+    hw_signer = (open_cert.co_certified_by if (open_cert and open_cert.hw_status == "complete") else None)
 
     # The 5 QA checks, in display order, with labels (labels live in code).
     qa_checks = [
@@ -1115,7 +1202,64 @@ def certification_detail(
         "user": user,
         "device": device,
         "history": history,
-        "awaiting_hw": awaiting_hw,
+        "qa_done": qa_done,
+        "hw_done": hw_done,
+        "latest_terminal": latest_terminal,
+        "latest_cert_status": latest_cert_status,
+        "qa_signer": qa_signer,
+        "hw_signer": hw_signer,
         "qa_checks": qa_checks,
         "comp_types": comp_types,
     })
+
+
+# ---------------------------------------------------------------------------
+# Build Certification - Hardware/SMART half + gate (F3/S6c)
+# ---------------------------------------------------------------------------
+
+@router.post("/fulfillment/certifications/{prov_id}/hw")
+async def submit_cert_hw(
+    prov_id: int,
+    payload: CertHWSubmit,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Apply the Hardware/SMART half to the open cert attempt (create-or-update).
+
+    Independence: may go before or after QA. When both halves are complete
+    the all-pass gate computes terminal cert_status.
+    """
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
+    if prov.device_table != "edge_boxes":
+        return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
+
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
+    if not eb:
+        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
+
+    co = None
+    if prov.customer_order_id:
+        co = db.query(CustomerOrder).filter(CustomerOrder.id == prov.customer_order_id).first()
+
+    # --- validation ---
+    smart = (payload.smart_result or "").strip().lower()
+    if smart not in ("pass", "fail"):
+        return JSONResponse(status_code=400, content={"detail": "smart_result must be 'pass' or 'fail'"})
+
+    cert, err = _apply_cert_half(
+        db, prov, eb, co, "hw",
+        {"smart_result": smart},
+        user.display_name,
+    )
+    if err:
+        return err
+    return {
+        "ok": True,
+        "cert_id": cert.id,
+        "qa_status": cert.qa_status,
+        "hw_status": cert.hw_status,
+        "cert_status": cert.cert_status,
+    }
