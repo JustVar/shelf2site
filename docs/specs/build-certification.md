@@ -1,8 +1,6 @@
 # Build Certification (F3 / S6) — schema and model spec
 
-Status: APPROVED. The S6a through S6e slices (schema, QA half, Hardware half + all-pass gate, report file uploads, composite report) are
-implemented and verified. Remaining slice S6f is specified
-below and not yet built. This document is the reference the S6 slices are
+Status: APPROVED. All slices S6a through S6f (schema, QA half, Hardware half + all-pass gate, report file uploads, composite report, board-close) are implemented and verified. This document is the reference the S6 slices are
 built against.
 
 Implementation status:
@@ -11,7 +9,7 @@ Implementation status:
 - S6c (SMART + co-sign + all-pass gate): DONE
 - S6d (report file uploads, build_certification_files child table): DONE
 - S6e (composite cert report): DONE
-- S6f (board button wiring + is_complete board-close + blast-radius check): not started
+- S6f (board button wiring + is_complete board-close + blast-radius check): DONE
 
 ## What this feature is
 

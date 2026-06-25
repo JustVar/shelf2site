@@ -1230,6 +1230,8 @@ def certification_detail(
         "comp_types": comp_types,
         "cert_files": cert_files,
         "has_cert": has_cert,
+        "is_complete": bool(prov.is_complete),
+        "completed_at": (prov.completed_at.isoformat(sep=" ", timespec="minutes") if prov.completed_at else None),
     })
 
 
@@ -1546,3 +1548,58 @@ def cert_report(
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{fname}"'},
     )
+
+
+
+# ---------------------------------------------------------------------------
+# Build Certification - board close (F3/S6f)
+# ---------------------------------------------------------------------------
+
+@router.post("/fulfillment/certifications/{prov_id}/close")
+async def close_cert_device(
+    prov_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Close a certified device: set is_complete + completed_at.
+
+    Gated to certified-only (the latest cert row for the serial must be
+    cert_status == certified). The device then drops off the Building
+    board via the existing is_complete filter. Idempotent: re-closing an
+    already-complete device is a no-op.
+    """
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
+    if prov.device_table != "edge_boxes":
+        return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
+
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
+    if not eb:
+        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
+
+    # idempotent: already closed -> no-op success
+    if prov.is_complete:
+        return {"ok": True, "prov_id": prov.id, "already_complete": True,
+                "completed_at": (prov.completed_at.isoformat() if prov.completed_at else None)}
+
+    # gate: the latest cert row for this serial must be certified
+    latest = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == eb.serial)
+        .order_by(BuildCertification.created_at.desc())
+        .first()
+    )
+    if latest is None or latest.cert_status != "certified":
+        return JSONResponse(status_code=409, content={
+            "detail": "Device must be certified before it can be closed"
+        })
+
+    prov.is_complete = True
+    prov.completed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(prov)
+
+    return {"ok": True, "prov_id": prov.id,
+            "completed_at": (prov.completed_at.isoformat() if prov.completed_at else None)}

@@ -180,7 +180,14 @@
           <div class="certd-result certd-result--{{ latest_cert_status }}">
             This device is <strong>{{ latest_cert_status }}</strong>.
           </div>
+          {% if latest_cert_status == 'certified' and not is_complete and user and user.has_provisioning_manage %}
+          <button type="button" class="certd-submit" style="margin-top:0.9rem;" id="certd-close-btn" onclick="certdCloseDevice()">Build Certification &amp; Close</button>
+          <div class="certd-msg" id="certd-close-msg"></div>
+          {% elif is_complete %}
+          <div class="certd-done" style="margin-top:0.9rem;">&#10003; Closed{% if completed_at %} on {{ completed_at }}{% endif %}. This device has left the board.</div>
+          {% else %}
           <button type="button" class="certd-addbtn" style="margin-top:0.9rem;" onclick="certdStartRecert()">Start re-certification</button>
+          {% endif %}
         </div>
       {% endif %}
 
@@ -433,7 +440,31 @@
     }
   }
 
-  function certdStartRecert() {
+  async function certdCloseDevice() {
+    var btn = document.getElementById('certd-close-btn');
+    var msg = document.getElementById('certd-close-msg');
+    btn.disabled = true;
+    msg.textContent = 'Closing...'; msg.className = 'certd-msg';
+    try {
+      var resp = await fetch(window.BASE_PATH + '/fulfillment/certifications/' + CERTD_PROV_ID + '/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      var data = await resp.json();
+      if (resp.ok && data.ok) {
+        msg.textContent = 'Closed. This device has left the board.'; msg.className = 'certd-msg ok';
+        setTimeout(function () { window.location.reload(); }, 700);
+      } else {
+        msg.textContent = data.detail || 'Close failed.'; msg.className = 'certd-msg err';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.textContent = 'Network error: ' + e.message; msg.className = 'certd-msg err';
+      btn.disabled = false;
+    }
+  }
+
+    function certdStartRecert() {
     var f = document.getElementById('certd-forms');
     if (f) f.style.display = '';
   }
