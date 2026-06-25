@@ -24,6 +24,7 @@ from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
     OEMPurchaseOrder, Site, User, TABLE_MODELS,
+    BuildCertification,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
 )
 from ..sku_conversion import is_legacy_sku, is_2026_sku
@@ -802,3 +803,114 @@ async def assign_technician(
         "assigned_to": prov.assigned_to,
         "technician_name": technician_name or None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Build Certification index (F3/S6a) - read-only
+# ---------------------------------------------------------------------------
+
+@router.get("/fulfillment/certifications", response_class=HTMLResponse)
+def certifications_index(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Read-only certification index: every edge-box device with an order link,
+    organized by date / customer / SKU, decorated with latest cert status.
+
+    build_certification is append-only and may hold multiple rows per device;
+    the status shown reflects the latest cert row (max created_at) per device.
+    No writes occur here.
+    """
+    # All edge-box devices with an order link, joined to their order.
+    rows = (
+        db.query(
+            DeviceProvisioning.id.label("prov_id"),
+            DeviceProvisioning.current_stage,
+            DeviceProvisioning.is_complete,
+            EdgeBox.serial,
+            EdgeBox.part_number,
+            CustomerOrder.order_number,
+            CustomerOrder.customer_name,
+            CustomerOrder.due_date,
+        )
+        .join(
+            EdgeBox,
+            (DeviceProvisioning.device_id == EdgeBox.id)
+            & (DeviceProvisioning.device_table == "edge_boxes"),
+        )
+        .join(CustomerOrder, DeviceProvisioning.customer_order_id == CustomerOrder.id)
+        .filter(DeviceProvisioning.device_table == "edge_boxes")
+        .all()
+    )
+
+    # Latest cert row per device_provisioning_id (append-only -> pick max created_at).
+    cert_by_prov: dict[int, str] = {}
+    prov_ids = [r.prov_id for r in rows]
+    if prov_ids:
+        certs = (
+            db.query(
+                BuildCertification.device_provisioning_id,
+                BuildCertification.cert_status,
+                BuildCertification.created_at,
+            )
+            .filter(BuildCertification.device_provisioning_id.in_(prov_ids))
+            .order_by(BuildCertification.created_at.asc())
+            .all()
+        )
+        # asc order -> last write per prov_id wins (the latest cert row).
+        for c in certs:
+            cert_by_prov[c.device_provisioning_id] = c.cert_status
+
+    _STATUS_LABELS = {
+        "certified": "Certified",
+        "failed": "Failed",
+        "pending": "In progress",
+    }
+
+    # Group date -> customer -> sku -> [device dicts]
+    groups: dict = {}
+    for r in rows:
+        cert_status = cert_by_prov.get(r.prov_id)
+        status_key = cert_status if cert_status else "needs"
+        status_label = _STATUS_LABELS.get(cert_status, "Needs cert")
+        date_key = r.due_date.isoformat() if r.due_date else "No date"
+        cust_key = r.customer_name or "Unknown customer"
+        sku_key = r.part_number or "No SKU"
+        device = {
+            "prov_id": r.prov_id,
+            "serial": r.serial or "-",
+            "order_number": r.order_number,
+            "current_stage": r.current_stage,
+            "status_key": status_key,
+            "status_label": status_label,
+        }
+        groups.setdefault(date_key, {}).setdefault(cust_key, {}).setdefault(
+            sku_key, []
+        ).append(device)
+
+    total_devices = len(rows)
+
+    # Sort: date groups soonest-due first ("No date" last), then customer and
+    # SKU alphabetically. dict preserves insertion order, so rebuild in order.
+    def _cert_date_sort_key(date_key: str):
+        # "No date" sorts last; real ISO dates sort chronologically.
+        return (1, "") if date_key == "No date" else (0, date_key)
+
+    sorted_groups: dict = {}
+    for date_key in sorted(groups, key=_cert_date_sort_key):
+        customers = groups[date_key]
+        sorted_customers: dict = {}
+        for cust_key in sorted(customers):
+            skus = customers[cust_key]
+            sorted_customers[cust_key] = {
+                sku_key: skus[sku_key] for sku_key in sorted(skus)
+            }
+        sorted_groups[date_key] = sorted_customers
+
+    return templates.TemplateResponse("certifications.html", {
+        "request": request,
+        "user": user,
+        "groups": sorted_groups,
+        "total_devices": total_devices,
+    })

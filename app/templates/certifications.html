@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Certifications - Asset Tracker{% endblock %}
+
+{% block head %}
+<style>
+  .cert-page { padding: 1.25rem 1.5rem; }
+
+  .cert-page__header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 0.35rem;
+  }
+  .cert-page__title { font-size: 1.35rem; font-weight: 700; color: var(--text); }
+  .cert-page__count { font-size: 0.82rem; color: var(--text-muted); }
+  .cert-page__sub {
+    font-size: 0.78rem; color: var(--text-muted);
+    margin-bottom: 1.1rem; line-height: 1.4;
+  }
+
+  .cert-search {
+    width: 100%; max-width: 420px; margin-bottom: 1.25rem;
+    padding: 0.55rem 0.8rem; font-size: 0.85rem; font-family: inherit;
+    background: var(--sx-surface, var(--card-bg)); color: var(--text);
+    border: 1px solid var(--sx-border, var(--border)); border-radius: 8px;
+    outline: none;
+  }
+  .cert-search:focus { border-color: var(--cert-emerald, #10b981); }
+
+  .cert-dategroup { margin-bottom: 1.75rem; }
+  .cert-dategroup__head {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-muted);
+    padding-bottom: 0.4rem; margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--sx-border, var(--border));
+  }
+
+  .cert-custgroup { margin: 0 0 1rem 0; }
+  .cert-custgroup__head {
+    font-size: 0.92rem; font-weight: 600; color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .cert-custgroup__order {
+    font-size: 0.76rem; font-weight: 500; color: var(--text-muted);
+    margin-left: 0.4rem;
+  }
+
+  .cert-sku {
+    margin: 0 0 0.6rem 0.75rem;
+    border-left: 2px solid var(--sx-border, var(--border));
+    padding-left: 0.85rem;
+  }
+  .cert-sku__head {
+    font-size: 0.74rem; font-weight: 600; color: var(--text-muted);
+    font-family: var(--sx-font-mono, monospace);
+    margin-bottom: 0.4rem;
+  }
+
+  .cert-table { width: 100%; border-collapse: collapse; }
+  .cert-table th {
+    text-align: left; font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-muted); padding: 0.3rem 0.7rem 0.3rem 0;
+    border-bottom: 1px solid var(--sx-border, var(--border));
+  }
+  .cert-table td {
+    font-size: 0.83rem; color: var(--text);
+    padding: 0.45rem 0.7rem 0.45rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .cert-table tr:hover td { background: rgba(255,255,255,0.025); }
+  .cert-table__serial { font-family: var(--sx-font-mono, monospace); font-size: 0.8rem; }
+  .cert-table__stage { color: var(--text-muted); font-size: 0.78rem; }
+
+  .cert-badge {
+    display: inline-block; padding: 0.12rem 0.55rem;
+    font-size: 0.7rem; font-weight: 600; border-radius: 10px;
+    white-space: nowrap;
+  }
+  .cert-badge--needs {
+    color: var(--text-muted);
+    background: rgba(148,163,184,0.12);
+    border: 1px solid var(--sx-border, var(--border));
+  }
+  .cert-badge--certified {
+    color: var(--fl-green, #10b981);
+    background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.3);
+  }
+  .cert-badge--failed {
+    color: var(--fl-red, #ef4444);
+    background: rgba(239,68,68,0.12);
+    border: 1px solid rgba(239,68,68,0.3);
+  }
+  .cert-badge--pending {
+    color: var(--fl-amber, #f59e0b);
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.3);
+  }
+
+  .cert-empty {
+    text-align: center; color: var(--text-muted);
+    font-size: 0.9rem; padding: 3rem 1rem;
+  }
+  .cert-noresults {
+    display: none; text-align: center; color: var(--text-muted);
+    font-size: 0.85rem; padding: 2rem 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fulfillment-page">
+  <div class="cert-page">
+
+    <div class="cert-page__header">
+      <span class="cert-page__title">Build Certifications</span>
+      <span class="cert-page__count">{{ total_devices }} device{{ '' if total_devices == 1 else 's' }}</span>
+    </div>
+    <div class="cert-page__sub">
+      Order-linked edge-box devices, organized by due date, customer, and SKU.
+      Devices without an order link or edge-box record are not shown.
+    </div>
+
+    {% if total_devices == 0 %}
+      <div class="cert-empty">No order-linked edge-box devices found.</div>
+    {% else %}
+      <input
+        type="text"
+        id="cert-search"
+        class="cert-search"
+        placeholder="Search order, customer, SKU, or serial..."
+        oninput="certFilter(this.value)"
+        autocomplete="off">
+
+      <div id="cert-results">
+      {% for date_key, customers in groups.items() %}
+        <div class="cert-dategroup">
+          <div class="cert-dategroup__head">{{ date_key }}</div>
+
+          {% for cust_key, skus in customers.items() %}
+            <div class="cert-custgroup">
+              <div class="cert-custgroup__head">{{ cust_key }}</div>
+
+              {% for sku_key, devices in skus.items() %}
+                <div class="cert-sku">
+                  <div class="cert-sku__head">{{ sku_key }}</div>
+                  <table class="cert-table">
+                    <thead>
+                      <tr>
+                        <th>Serial</th>
+                        <th>Order</th>
+                        <th>Stage</th>
+                        <th>Cert status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for d in devices %}
+                      <tr class="cert-row"
+                          data-search="{{ (d.serial ~ ' ' ~ d.order_number ~ ' ' ~ cust_key ~ ' ' ~ sku_key) | lower }}">
+                        <td class="cert-table__serial">{{ d.serial }}</td>
+                        <td>{{ d.order_number }}</td>
+                        <td class="cert-table__stage">{{ d.current_stage }}</td>
+                        <td>
+                          <span class="cert-badge cert-badge--{{ d.status_key }}">{{ d.status_label }}</span>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% endfor %}
+
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+      </div>
+
+      <div id="cert-noresults" class="cert-noresults">No devices match your search.</div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  function certFilter(q) {
+    var term = (q || '').trim().toLowerCase();
+    var rows = document.querySelectorAll('.cert-row');
+    var anyVisible = false;
+
+    rows.forEach(function (row) {
+      var hay = row.getAttribute('data-search') || '';
+      var match = term === '' || hay.indexOf(term) !== -1;
+      row.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
+    });
+
+    document.querySelectorAll('.cert-sku').forEach(function (sku) {
+      var visible = sku.querySelectorAll('.cert-row:not([style*="display: none"])').length;
+      sku.style.display = visible ? '' : 'none';
+    });
+    document.querySelectorAll('.cert-custgroup').forEach(function (cg) {
+      var visible = cg.querySelectorAll('.cert-row:not([style*="display: none"])').length;
+      cg.style.display = visible ? '' : 'none';
+    });
+    document.querySelectorAll('.cert-dategroup').forEach(function (dg) {
+      var visible = dg.querySelectorAll('.cert-row:not([style*="display: none"])').length;
+      dg.style.display = visible ? '' : 'none';
+    });
+
+    var nores = document.getElementById('cert-noresults');
+    if (nores) nores.style.display = anyVisible ? 'none' : 'block';
+  }
+</script>
+{% endblock %}

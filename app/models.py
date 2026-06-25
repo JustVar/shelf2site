@@ -1895,6 +1895,15 @@ class BuildCertification(Base):
     checklist_file_path = Column(String(512), nullable=True)
     certified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    oem_serial      = Column(String(64), nullable=True)
+    reason          = Column(String(20), nullable=False, server_default="initial")
+    qa_status       = Column(String(20), nullable=False, server_default="pending")
+    hw_status       = Column(String(20), nullable=False, server_default="pending")
+    cert_status     = Column(String(20), nullable=False, server_default="pending")
+    co_certified_at = Column(DateTime, nullable=True)
+    customer_name   = Column(String(256), nullable=True)
+    order_number    = Column(String(64), nullable=True)
+    sku             = Column(String(128), nullable=True)
 
 
 class InstallCertification(Base):
