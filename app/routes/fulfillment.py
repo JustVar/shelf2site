@@ -1213,7 +1213,7 @@ def certification_detail(
         ("netplan", "Netplan"),
         ("registration", "Registration"),
     ]
-    comp_types = ["cpu", "gpu", "ram", "hdd", "ssd"]
+    comp_types = ["cpu", "ram", "gpu", "hdd", "ssd"]
 
     return templates.TemplateResponse("certification_detail.html", {
         "request": request,
@@ -1391,6 +1391,7 @@ def download_cert_file(
         path=str(path),
         filename=rec.original_name,
         media_type=rec.content_type or "application/octet-stream",
+        content_disposition_type="inline",
     )
 
 

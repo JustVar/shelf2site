@@ -56,28 +56,24 @@
   .certd-check input { accent-color: var(--cert-emerald, #10b981); width: 16px; height: 16px; cursor: pointer; }
 
   .certd-comp-row {
-    display: grid; grid-template-columns: 130px 1fr 70px 36px;
+    display: grid; grid-template-columns: 130px 1fr 70px;
     gap: 0.6rem; align-items: center; margin-bottom: 0.5rem;
   }
-  .certd-comp-row select,
   .certd-comp-row input[type="text"] {
     padding: 0.4rem 0.55rem; font-size: 0.83rem; font-family: inherit;
     background: var(--card-bg); color: var(--text);
     border: 1px solid var(--sx-border, var(--border)); border-radius: 6px;
     outline: none;
   }
-  .certd-comp-row select:focus,
   .certd-comp-row input[type="text"]:focus { border-color: var(--cert-emerald, #10b981); }
   .certd-comp-ok { display: flex; align-items: center; justify-content: center; }
   .certd-comp-ok input { accent-color: var(--cert-emerald, #10b981); width: 16px; height: 16px; cursor: pointer; }
-  .certd-comp-del {
-    background: none; border: 1px solid var(--sx-border, var(--border));
-    color: var(--text-muted); border-radius: 6px; cursor: pointer;
-    font-size: 0.9rem; line-height: 1; padding: 0.35rem 0;
+  .certd-comp-type-label {
+    font-size: 0.83rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.03em; color: var(--text-muted);
   }
-  .certd-comp-del:hover { color: var(--fl-red, #ef4444); border-color: var(--fl-red, #ef4444); }
   .certd-comp-head {
-    display: grid; grid-template-columns: 130px 1fr 70px 36px;
+    display: grid; grid-template-columns: 130px 1fr 70px;
     gap: 0.6rem; font-size: 0.66rem; text-transform: uppercase;
     letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.4rem;
   }
@@ -212,10 +208,17 @@
 
           <div class="certd-field__label" style="margin:1.1rem 0 0.4rem 0;">Component inventory</div>
           <div class="certd-comp-head">
-            <span>Type</span><span>Model</span><span>OK</span><span></span>
+            <span>Component</span><span>Model</span><span>OK</span>
           </div>
-          <div id="certd-comp-rows"></div>
-          <button type="button" class="certd-addbtn" onclick="certdAddRow()">+ Add component</button>
+          <div id="certd-comp-rows">
+            {% for t in comp_types %}
+            <div class="certd-comp-row" data-type="{{ t }}">
+              <span class="certd-comp-type-label">{{ t|upper }}</span>
+              <input type="text" class="certd-comp-model" placeholder="Model">
+              <span class="certd-comp-ok"><input type="checkbox" class="certd-comp-okbox" checked></span>
+            </div>
+            {% endfor %}
+          </div>
 
           <div class="certd-field__label" style="margin:1.1rem 0 0.4rem 0;">License counts</div>
           <div class="certd-lic">
@@ -263,7 +266,7 @@
       {% if cert_files %}
         {% for f in cert_files %}
         <div class="certd-file-row">
-          <a href="{{ base_path }}/fulfillment/certifications/files/{{ f.id }}">{{ f.original_name }}</a>
+          <a href="{{ base_path }}/fulfillment/certifications/files/{{ f.id }}" target="_blank" rel="noopener">{{ f.original_name }}</a>
           <span class="certd-file-meta">{{ f.size_kb }} KB &middot; {{ f.uploaded_by }} &middot; {{ f.uploaded_at }}</span>
         </div>
         {% endfor %}
@@ -310,7 +313,7 @@
 
 <script>
   var CERTD_PROV_ID = {{ device.prov_id }};
-  var CERTD_TYPES = {{ comp_types | tojson }};
+
 
   function certdAllChecked() {
     var boxes = document.querySelectorAll('input[data-qa]');
@@ -328,29 +331,7 @@
     certdSyncCheckAll();
   }
 
-  function certdMakeRow() {
-    var row = document.createElement('div');
-    row.className = 'certd-comp-row';
-    var opts = CERTD_TYPES.map(function (t) {
-      return '<option value="' + t + '">' + t.toUpperCase() + '</option>';
-    }).join('');
-    row.innerHTML =
-      '<select class="certd-comp-type">' + opts + '</select>' +
-      '<input type="text" class="certd-comp-model" placeholder="Model (e.g. Intel i7-14700H)">' +
-      '<span class="certd-comp-ok"><input type="checkbox" class="certd-comp-okbox" checked></span>' +
-      '<button type="button" class="certd-comp-del" onclick="certdDelRow(this)">&times;</button>';
-    return row;
-  }
 
-  function certdAddRow() {
-    document.getElementById('certd-comp-rows').appendChild(certdMakeRow());
-  }
-
-  function certdDelRow(btn) {
-    var rows = document.getElementById('certd-comp-rows');
-    if (rows.children.length <= 1) return;
-    btn.closest('.certd-comp-row').remove();
-  }
 
   function certdSetMsg(text, kind) {
     var el = document.getElementById('certd-msg');
@@ -369,13 +350,12 @@
     var components = [];
     var bad = false;
     document.querySelectorAll('#certd-comp-rows .certd-comp-row').forEach(function (r) {
-      var type = r.querySelector('.certd-comp-type').value;
+      var type = r.dataset.type;
       var model = r.querySelector('.certd-comp-model').value.trim();
       var ok = r.querySelector('.certd-comp-okbox').checked;
       if (!model) bad = true;
       components.push({ type: type, model: model, ok: ok });
     });
-    if (components.length === 0) { certdSetMsg('Add at least one component.', 'err'); return; }
     if (bad) { certdSetMsg('Every component needs a model.', 'err'); return; }
 
     var assigned = parseInt(document.getElementById('certd-lic-assigned').value, 10);
@@ -501,8 +481,6 @@
   }
 
     document.addEventListener('DOMContentLoaded', function () {
-    var rows = document.getElementById('certd-comp-rows');
-    if (rows && rows.children.length === 0) rows.appendChild(certdMakeRow());
     certdSyncCheckAll();
   });
 </script>
