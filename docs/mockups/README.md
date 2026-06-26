@@ -2,6 +2,10 @@
 
 Canonical reference for the Building board and fulfillment UI. Values read directly from the live stylesheets and `app/routes/fulfillment.py`, not transcribed from memory. Update this file when the tokens change.
 
+## Superdesign mockups
+
+Light-mode Superdesign reference mockups live in [`superdesign/`](superdesign/SUPERDESIGN.md). They are design intent only (layout, component structure, the 5-dot stage tracker, initials badges, modal shapes). Translate them into the dark tokens documented in this file. Do not copy their light-mode Tailwind.
+
 ## How theming works
 
 There is **no `:root`**. Theming is driven by a `data-theme` attribute on the document:
