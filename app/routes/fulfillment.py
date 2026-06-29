@@ -486,6 +486,7 @@ def fulfillment_page(
             "installer_company": cert_map[dr.id].installer_company if dr.id in cert_map else None,
             "cert_id": cert_map[dr.id].id if dr.id in cert_map else None,
             "pdf_stored_name": cert_map[dr.id].pdf_stored_name if dr.id in cert_map else None,
+            "cert_completion_date": cert_map[dr.id].completion_date if dr.id in cert_map else None,
         })
 
     # Sites for deployment modal dropdown
@@ -695,6 +696,22 @@ async def update_deployment_status(
         return JSONResponse(status_code=400, content={"detail": f"Invalid status: {new_status}"})
 
     old_status = dr.status
+
+    # Lock: a certified installation cannot be reverted out of complete
+    if old_status == "complete" and new_status != "complete":
+        locked = (
+            db.query(InstallationCertification)
+            .filter(
+                InstallationCertification.deployment_record_id == dep_id,
+                InstallationCertification.status == "certified",
+            )
+            .first()
+        )
+        if locked is not None:
+            return JSONResponse(status_code=409, content={
+                "detail": "Certified installation cannot be reverted"
+            })
+
     dr.status = new_status
 
     # Auto-set installed_date when completing
