@@ -484,6 +484,8 @@ def fulfillment_page(
             "certified_by": cert_map[dr.id].certified_by if dr.id in cert_map else None,
             "installer_name": cert_map[dr.id].installer_name if dr.id in cert_map else None,
             "installer_company": cert_map[dr.id].installer_company if dr.id in cert_map else None,
+            "cert_id": cert_map[dr.id].id if dr.id in cert_map else None,
+            "pdf_stored_name": cert_map[dr.id].pdf_stored_name if dr.id in cert_map else None,
         })
 
     # Sites for deployment modal dropdown
@@ -1405,6 +1407,122 @@ def download_cert_file(
         path=str(path),
         filename=rec.original_name,
         media_type=rec.content_type or "application/octet-stream",
+        content_disposition_type="inline",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Installation Certification (I2): atomic Complete & Certify + inline PDF serve
+# ---------------------------------------------------------------------------
+
+_INSTALL_PDF_MAX = 20 * 1024 * 1024  # 20 MB (post-install PDFs embed photos)
+
+
+@router.post("/fulfillment/deployments/{dep_id}/install/certify")
+async def certify_installation(
+    dep_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    installer_name: str = Form(""),
+    installer_company: str = Form(""),
+    notes: str = Form(""),
+    completion_date: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Atomic Complete & Certify for a deployment installation.
+
+    One request: stores the required post-install PDF, creates the
+    installation_certification row (or reuses an existing pending one), records
+    installer + notes, marks it certified, and flips the deployment record to
+    complete. PDF only, 20 MB cap. Nothing commits unless all steps succeed.
+    """
+    dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
+    if not dr:
+        return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
+
+    existing = (
+        db.query(InstallationCertification)
+        .filter(InstallationCertification.deployment_record_id == dep_id)
+        .first()
+    )
+    if existing and existing.status == "certified":
+        return JSONResponse(status_code=400, content={
+            "detail": "This deployment is already certified"
+        })
+
+    # validate type: PDF only, content-type AND extension
+    ctype = (file.content_type or "").lower()
+    ext = Path(file.filename or "").suffix.lower()
+    if ctype != "application/pdf" or ext != ".pdf":
+        return JSONResponse(status_code=400, content={"detail": "A PDF is required"})
+
+    content = await file.read()
+    if len(content) > _INSTALL_PDF_MAX:
+        return JSONResponse(status_code=413, content={"detail": "PDF exceeds 20 MB limit"})
+    if len(content) == 0:
+        return JSONResponse(status_code=400, content={"detail": "Empty file"})
+
+    # parse optional completion date
+    comp_date = None
+    if completion_date.strip():
+        try:
+            comp_date = date.fromisoformat(completion_date.strip())
+        except ValueError:
+            return JSONResponse(status_code=400, content={"detail": "Invalid completion date"})
+
+    # store PDF under INSTALL_CERT_UPLOAD_DIR/<dep_id>/<uuid>.pdf
+    dep_dir = Path(settings.INSTALL_CERT_UPLOAD_DIR) / str(dep_id)
+    dep_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.pdf"
+    with open(dep_dir / stored_name, "wb") as fh:
+        fh.write(content)
+
+    cert = existing or InstallationCertification(deployment_record_id=dep_id)
+    cert.installer_name = installer_name.strip() or None
+    cert.installer_company = installer_company.strip() or None
+    cert.notes = notes.strip() or None
+    cert.completion_date = comp_date
+    cert.pdf_original_name = file.filename or "post-install.pdf"
+    cert.pdf_stored_name = stored_name
+    cert.pdf_content_type = "application/pdf"
+    cert.pdf_size_bytes = len(content)
+    cert.status = "certified"
+    cert.certified_by = user.display_name
+    cert.certified_at = datetime.utcnow()
+    if not cert.created_by:
+        cert.created_by = user.display_name
+    if cert.id is None:
+        db.add(cert)
+
+    dr.status = "complete"
+    if not dr.installed_date:
+        dr.installed_date = date.today()
+
+    db.commit()
+    return {"ok": True, "deployment_id": dep_id, "cert_id": cert.id, "status": "certified"}
+
+
+@router.get("/fulfillment/install-cert/{cert_id}/pdf")
+def serve_install_pdf(
+    cert_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Serve the post-install PDF inline (viewer-gated)."""
+    rec = db.query(InstallationCertification).filter(
+        InstallationCertification.id == cert_id
+    ).first()
+    if not rec or not rec.pdf_stored_name:
+        return JSONResponse(status_code=404, content={"detail": "PDF not found"})
+    path = Path(settings.INSTALL_CERT_UPLOAD_DIR) / str(rec.deployment_record_id) / rec.pdf_stored_name
+    if not path.exists():
+        return JSONResponse(status_code=404, content={"detail": "PDF missing on disk"})
+    return FileResponse(
+        path=str(path),
+        filename=rec.pdf_original_name or "post-install.pdf",
+        media_type="application/pdf",
         content_disposition_type="inline",
     )
 

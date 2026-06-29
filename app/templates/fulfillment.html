@@ -173,6 +173,8 @@
 .o-chip.warn { color: #fbbf24; border-color: rgba(245,158,11,.3); }
 .o-cert { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: clamp(10px, 0.7vw, 13px); color: var(--accent-primary, #10b981); }
 .o-cert-inst { color: var(--text-muted); }
+.o-cert-pdf { color: var(--accent-primary, #10b981); text-decoration: underline; font-size: clamp(10px, 0.7vw, 13px); }
+.o-btn-cert { background: var(--accent-primary, #10b981); color: #04130d; border: none; cursor: pointer; font-weight: 600; border-radius: 4px; }
 .o-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
 .o-btn { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-size: clamp(10px, 0.65vw, 13px); font-weight: 600; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: all .15s; min-height: 36px; }
 .o-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue-l); }
@@ -752,11 +754,16 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     <div class="o-cert">
                         <span>Certified{% if dr.certified_by %} by {{ dr.certified_by }}{% endif %}</span>
                         {% if dr.installer_name %}<span class="o-cert-inst">Installed by {{ dr.installer_name }}{% if dr.installer_company %} ({{ dr.installer_company }}){% endif %}</span>{% endif %}
+                        {% if dr.pdf_stored_name and dr.cert_id %}<a class="o-cert-pdf" href="{{ base_path }}/fulfillment/install-cert/{{ dr.cert_id }}/pdf" target="_blank" rel="noopener">Post-Install PDF</a>{% endif %}
                     </div>
                     {% endif %}
                     <div class="mini-steps" id="ms-dep-{{ dr.id }}"></div>
                     {% if user and user.has_provisioning_manage %}
                     <div class="o-actions" style="margin-top:6px;">
+                        {% if dr.status == "installing" %}
+                        <button type="button" class="o-btn o-btn-cert" style="padding:2px 6px;font-size:10px;"
+                                onclick="openCertifyModal({{ dr.id }}, {{ (dr.order_number or '')|tojson|forceescape }}, {{ (dr.customer_name or '')|tojson|forceescape }})">Certify Installation</button>
+                        {% endif %}
                         <select class="o-btn" style="padding:2px 6px;font-size:10px;"
                                 onchange="updateDeployStatus({{ dr.id }}, this.value, this)"
                                 title="Change status">
@@ -1284,6 +1291,104 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 
 <!-- ══════════════════ DEPLOY MODAL ═════════════════════════════ -->
 {% if user and user.has_provisioning_manage %}
+<div class="fl-modal-overlay" id="certify-modal-overlay" onclick="closeCertifyModal()" style="display:none;position:fixed;inset:0;z-index:1090;"></div>
+<div class="fl-modal" id="certify-modal" style="display:none;position:fixed;z-index:1091;">
+    <div class="modal-head">
+        <div>
+            <div class="modal-title">Complete &amp; Certify Installation</div>
+            <div class="modal-sub" id="certify-modal-sub">Upload the signed post-install PDF</div>
+        </div>
+        <button class="modal-close" onclick="closeCertifyModal()">✕</button>
+    </div>
+    <div style="padding:0 18px 6px 18px;display:flex;flex-direction:column;gap:10px;">
+        <div>
+            <label class="sp-field-label">Post-Install PDF (required)</label>
+            <input class="sp-field-input" id="certify-pdf" type="file" accept="application/pdf">
+        </div>
+        <div style="display:flex;gap:10px;">
+            <div style="flex:1;">
+                <label class="sp-field-label">Installer name</label>
+                <input class="sp-field-input" id="certify-installer-name" type="text" placeholder="e.g. Taylor">
+            </div>
+            <div style="flex:1;">
+                <label class="sp-field-label">Installer company</label>
+                <input class="sp-field-input" id="certify-installer-company" type="text" placeholder="e.g. NTX Integrators">
+            </div>
+        </div>
+        <div>
+            <label class="sp-field-label">Completion date</label>
+            <input class="sp-field-input" id="certify-completion-date" type="date">
+        </div>
+        <div>
+            <label class="sp-field-label">Notes</label>
+            <textarea class="sp-field-input" id="certify-notes" rows="2" placeholder="Optional"></textarea>
+        </div>
+        <div class="certify-msg" id="certify-msg" style="font-size:12px;min-height:16px;"></div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="modal-btn-sec" onclick="closeCertifyModal()">Cancel</button>
+        <button type="button" class="modal-btn-pri" id="certify-submit-btn" onclick="submitCertifyInstall()">Complete &amp; Certify Installation</button>
+    </div>
+</div>
+<script>
+  var CERTIFY_DEP_ID = null;
+
+  function openCertifyModal(depId, orderNum, customer) {
+    CERTIFY_DEP_ID = depId;
+    document.getElementById('certify-pdf').value = '';
+    document.getElementById('certify-installer-name').value = '';
+    document.getElementById('certify-installer-company').value = '';
+    document.getElementById('certify-completion-date').value = '';
+    document.getElementById('certify-notes').value = '';
+    var msg = document.getElementById('certify-msg');
+    msg.textContent = ''; msg.style.color = '';
+    var sub = document.getElementById('certify-modal-sub');
+    sub.textContent = (orderNum || 'Deployment') + (customer ? ' \u00b7 ' + customer : '');
+    document.getElementById('certify-modal-overlay').style.display = 'block';
+    var m = document.getElementById('certify-modal');
+    m.style.display = 'block';
+    m.style.left = '50%'; m.style.top = '50%'; m.style.transform = 'translate(-50%, -50%)';
+  }
+
+  function closeCertifyModal() {
+    document.getElementById('certify-modal-overlay').style.display = 'none';
+    document.getElementById('certify-modal').style.display = 'none';
+    CERTIFY_DEP_ID = null;
+  }
+
+  async function submitCertifyInstall() {
+    var msg = document.getElementById('certify-msg');
+    var btn = document.getElementById('certify-submit-btn');
+    var fileEl = document.getElementById('certify-pdf');
+    if (!fileEl.files || fileEl.files.length === 0) {
+      msg.style.color = '#f87171'; msg.textContent = 'A post-install PDF is required.'; return;
+    }
+    var fd = new FormData();
+    fd.append('file', fileEl.files[0]);
+    fd.append('installer_name', document.getElementById('certify-installer-name').value);
+    fd.append('installer_company', document.getElementById('certify-installer-company').value);
+    fd.append('completion_date', document.getElementById('certify-completion-date').value);
+    fd.append('notes', document.getElementById('certify-notes').value);
+    btn.disabled = true;
+    msg.style.color = ''; msg.textContent = 'Uploading and certifying...';
+    try {
+      var resp = await fetch(BP + '/fulfillment/deployments/' + CERTIFY_DEP_ID + '/install/certify', {
+        method: 'POST', body: fd
+      });
+      var data = await resp.json();
+      if (resp.ok && data.ok) {
+        msg.style.color = '#10b981'; msg.textContent = 'Certified. Reloading...';
+        setTimeout(function () { window.location.reload(); }, 700);
+      } else {
+        msg.style.color = '#f87171'; msg.textContent = data.detail || 'Certify failed.';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.style.color = '#f87171'; msg.textContent = 'Network error: ' + e.message;
+      btn.disabled = false;
+    }
+  }
+</script>
 <div class="fl-modal-overlay" id="deploy-modal-overlay" onclick="closeDeployModal()" style="display:none;position:fixed;inset:0;z-index:1090;"></div>
 <div class="fl-modal" id="deploy-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1100;">
     <div class="modal-head">
