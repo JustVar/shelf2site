@@ -1922,19 +1922,24 @@ class BuildCertificationFile(Base):
     uploaded_at = Column(DateTime, nullable=False, server_default=func.now())
 
 
-class InstallCertification(Base):
-    __tablename__ = "install_certification"
+class InstallationCertification(Base):
+    __tablename__ = "installation_certification"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    device_provisioning_id = Column(
-        Integer, ForeignKey("device_provisioning.id", ondelete="CASCADE"), nullable=False
+    deployment_record_id = Column(
+        Integer, ForeignKey("deployment_records.id", ondelete="CASCADE"),
+        nullable=False, unique=True
     )
-    completed_by_type = Column(String(16), nullable=True)  # internal | partner
-    site_designation = Column(String(256), nullable=True)
-    engineer = Column(String(128), nullable=True)
-    handoff_date = Column(Date, nullable=True)
-    site_checklist = Column(JSONB, nullable=True)
-    deployment_summary = Column(Text, nullable=True)
-    checklist_file_path = Column(String(512), nullable=True)
+    status = Column(String(16), nullable=False, server_default="pending")
+    installer_name = Column(String(128), nullable=True)
+    installer_company = Column(String(128), nullable=True)
+    notes = Column(Text, nullable=True)
+    completion_date = Column(Date, nullable=True)
+    pdf_original_name = Column(String(256), nullable=True)
+    pdf_stored_name = Column(String(256), nullable=True)
+    pdf_content_type = Column(String(128), nullable=True)
+    pdf_size_bytes = Column(Integer, nullable=True)
+    certified_by = Column(String(128), nullable=True)
     certified_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    created_by = Column(String(128), nullable=True)

@@ -56,6 +56,8 @@ class Settings:
     PHOTO_UPLOAD_DIR: str = os.getenv("PHOTO_UPLOAD_DIR", "data/photos")
     # Cert report uploads (SMART reports, QA sheets, per box)
     CERT_UPLOAD_DIR: str = os.getenv("CERT_UPLOAD_DIR", "data/cert-reports")
+    # Install cert uploads (single post-install PDF, per deployment)
+    INSTALL_CERT_UPLOAD_DIR: str = os.getenv("INSTALL_CERT_UPLOAD_DIR", "data/install-cert-reports")
 
     # Zendesk Integration
     ZENDESK_SUBDOMAIN: str = os.getenv("ZENDESK_SUBDOMAIN", "")

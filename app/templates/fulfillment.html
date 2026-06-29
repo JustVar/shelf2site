@@ -171,6 +171,8 @@
 .o-chip { font-size: clamp(10px, 0.7vw, 14px); color: var(--text-muted); background: var(--fl-card2); border: 1px solid var(--fl-border2); padding: 2px 6px; border-radius: 4px; font-weight: 500; }
 .o-chip.urg { color: #f87171; border-color: rgba(239,68,68,.3); }
 .o-chip.warn { color: #fbbf24; border-color: rgba(245,158,11,.3); }
+.o-cert { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: clamp(10px, 0.7vw, 13px); color: var(--accent-primary, #10b981); }
+.o-cert-inst { color: var(--text-muted); }
 .o-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
 .o-btn { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-size: clamp(10px, 0.65vw, 13px); font-weight: 600; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: all .15s; min-height: 36px; }
 .o-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue-l); }
@@ -746,6 +748,12 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                         </span>
                         {% endif %}
                     </div>
+                    {% if dr.status == "complete" and dr.cert_status == "certified" %}
+                    <div class="o-cert">
+                        <span>Certified{% if dr.certified_by %} by {{ dr.certified_by }}{% endif %}</span>
+                        {% if dr.installer_name %}<span class="o-cert-inst">Installed by {{ dr.installer_name }}{% if dr.installer_company %} ({{ dr.installer_company }}){% endif %}</span>{% endif %}
+                    </div>
+                    {% endif %}
                     <div class="mini-steps" id="ms-dep-{{ dr.id }}"></div>
                     {% if user and user.has_provisioning_manage %}
                     <div class="o-actions" style="margin-top:6px;">

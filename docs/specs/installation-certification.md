@@ -7,6 +7,11 @@ Appliance Post-Install Checklist PDF (the real verification document).
 
 ## What this feature is
 
+> Lineage: an earlier `install_certification` table (migration 050) encoded an
+> in-app checklist design for this feature. It was never wired up and is
+> superseded by this spec; retired in migration 054.
+
+
 When a device is installed at a customer site, the installer (internal SE or a
 partner such as NTX Integrators) produces a **Appliance Post-Install Checklist PDF** —
 customer info, system info, network speed test, notes, and installation photos in
@@ -93,7 +98,7 @@ no  -> rejected ("a post-install PDF is required to certify")
 | pdf_original_name | varchar(256) null | display name |
 | pdf_stored_name | varchar(256) null | uuid + ext on disk |
 | pdf_content_type | varchar(128) null | for inline serve |
-| pdf_size_kb | int null | |
+| pdf_size_bytes | int null | raw bytes (matches build_certification_files) |
 | certified_by | varchar(128) null | internal certifier display_name |
 | certified_at | datetime null | server timestamp at certify |
 | created_at | datetime not null | |

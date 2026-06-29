@@ -28,6 +28,7 @@ from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
     OEMPurchaseOrder, Site, User, TABLE_MODELS,
     BuildCertification, BuildCertificationFile,
+    InstallationCertification,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
 )
 from ..sku_conversion import is_legacy_sku, is_2026_sku
@@ -452,6 +453,15 @@ def fulfillment_page(
         s: [] for s in DeploymentRecord.DEPLOYMENT_STATUSES
         if s != "cancelled"
     }
+    # Install certs for these deployment records (I1 read-only board state)
+    dep_ids = [dr.id for dr in deployment_records]
+    cert_map = {}
+    if dep_ids:
+        for ic in db.query(InstallationCertification).filter(
+            InstallationCertification.deployment_record_id.in_(dep_ids)
+        ).all():
+            cert_map[ic.deployment_record_id] = ic
+
     for dr in deployment_records:
         status = dr.status if dr.status in deploy_columns else "scheduled"
         deploy_columns[status].append({
@@ -470,6 +480,10 @@ def fulfillment_page(
             "integrator_name": dr.integrator_name,
             "integrator_contact": dr.integrator_contact,
             "notes": dr.notes,
+            "cert_status": cert_map[dr.id].status if dr.id in cert_map else None,
+            "certified_by": cert_map[dr.id].certified_by if dr.id in cert_map else None,
+            "installer_name": cert_map[dr.id].installer_name if dr.id in cert_map else None,
+            "installer_company": cert_map[dr.id].installer_company if dr.id in cert_map else None,
         })
 
     # Sites for deployment modal dropdown
