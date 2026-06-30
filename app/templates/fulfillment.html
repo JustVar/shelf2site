@@ -904,7 +904,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                 <div style="display:flex;align-items:center;gap:6px;">
                     {% if card.sku_requirements %}
                     {% set first_sku = card.sku_requirements[0] %}
-                    <span style="font-size:9px;color:var(--text-muted);opacity:.5;">{{ first_sku.get('qty', '?') }}&times; {{ first_sku.get('sku', 'TBD') }}</span>
+                    <span style="font-size:9px;color:var(--text-muted);opacity:.5;">{{ first_sku.get('qty', '?') }}&times; {{ first_sku.get('model', 'TBD') }}</span>
                     {% endif %}
                     {% if card.due_date %}
                     <span class="arch-row-meta">{{ card.due_date.strftime('%b %d') }}</span>
@@ -1051,7 +1051,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     <span class="al-chip urg">{{ (card.days_until_due * -1) }}d overdue</span>
                     <span class="al-chip">{{ col_labels[status] }}</span>
                     {% if card.sku_requirements %}
-                    <span class="al-chip">{{ card.total_sku_qty }}&times; {{ card.sku_requirements[0].get('sku', '') }}</span>
+                    <span class="al-chip">{{ card.total_sku_qty }}&times; {{ card.sku_requirements[0].get('model', '') }}</span>
                     {% endif %}
                 </div>
             </div>
@@ -1087,7 +1087,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     <span class="al-chip warn">Due {{ card.days_until_due }}d</span>
                     <span class="al-chip">{{ col_labels[status] }}</span>
                     {% if card.sku_requirements %}
-                    <span class="al-chip">{{ card.total_sku_qty }}&times; {{ card.sku_requirements[0].get('sku', '') }}</span>
+                    <span class="al-chip">{{ card.total_sku_qty }}&times; {{ card.sku_requirements[0].get('model', '') }}</span>
                     {% endif %}
                 </div>
             </div>
