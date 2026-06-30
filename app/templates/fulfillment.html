@@ -180,6 +180,8 @@
 .o-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
 .o-btn { background: transparent; border: 1px solid var(--fl-border2); color: var(--text-muted); font-size: clamp(10px, 0.65vw, 13px); font-weight: 600; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: all .15s; min-height: 36px; }
 .o-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue-l); }
+select.o-btn { color: var(--text-muted); }
+select.o-btn option { background: var(--card-bg, #1e2130); color: var(--text, #e2e8f0); }
 .o-btn-danger { color: var(--fl-red); border-color: var(--fl-red); }
 .o-btn-danger:hover { background: var(--fl-red); color: #fff; }
 
@@ -232,6 +234,13 @@
 
 /* ── Deployment section ──────────────────────────────────────────── */
 .deploy-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--fl-border2); }
+.deploy-recent { margin-top: 22px; padding: 14px 16px 16px; background: var(--fl-card2, rgba(255,255,255,.02)); border: 1px solid var(--fl-border2); border-radius: 12px; }
+.deploy-recent-head { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
+.deploy-recent-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.deploy-recent-head .pfb-num { margin-left: 0; }
+.deploy-recent .o-card { opacity: 0.72; transition: opacity .15s; }
+.deploy-recent .o-card:hover { opacity: 1; }
+.dep-empty { color: var(--text-muted); font-size: 12px; opacity: .55; padding: 18px 4px; }
 .archived-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--fl-border2); }
 
 /* ── Overlay + slide panel ───────────────────────────────────────── */
@@ -623,6 +632,9 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 
 <!-- BUILDING BOARD: tabbed (Queued / In Progress / Ready for Handoff), one shared card row -->
 {% set _btabs = [("queued", "Queued", "var(--text-muted)"), ("in_progress", "In Progress", "var(--accent-blue)"), ("ready_for_handoff", "Ready for Handoff", "var(--fl-green)")] %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Order Pipeline</span>
+</div>
 <div class="bld-tabs" id="bld-tabs">
     {% for tkey, tlabel, tcolor in _btabs %}
     {% set tgroups = fulfillment_groups | selectattr("tab", "equalto", tkey) | list %}
@@ -696,24 +708,102 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         <button class="cb-tool-btn" onclick="openDeployModal()">+ Schedule Deployment</button>
         {% endif %}
     </div>
-    <div class="pipe-filter-bar" id="pfb-deploy">
-        <div class="pfb-header"><span class="pfb-title">Deployment Pipeline</span></div>
-        <div class="pfb-stages">
-            {% for status in deploy_statuses %}
-            <div class="pfb-stage" id="pfb-dep-{{ status }}" onclick="filterDeploy('{{ status }}')">
-                <div class="pfb-dot" style="background:{{ deploy_dot_colors[status] }};border-color:{{ deploy_dot_colors[status] }};"></div>
-                <span class="pfb-lbl">{{ deploy_status_labels[status] }}</span>
-                <span class="pfb-num">{{ deploy_columns[status]|length }}</span>
-            </div>
-            {% endfor %}
-        </div>
+    {% set _onsite_installing = (deploy_columns['on_site']|length) + (deploy_columns['installing']|length) %}
+    {% set _deptabs = [('scheduled', 'Scheduled', deploy_columns['scheduled']|length), ('in_transit', 'In Transit', deploy_columns['in_transit']|length), ('onsite_installing', 'On-Site & Installing', _onsite_installing)] %}
+    <div class="bld-tabs" id="dep-tabs">
+        {% for tkey, tlabel, tcount in _deptabs %}
+        <button class="bld-tab" data-dep-tab-btn="{{ tkey }}" onclick="switchDeployTab('{{ tkey }}')">
+            <span class="bld-tab-lbl">{{ tlabel }}</span>
+            <span class="bld-tab-count" data-dep-tab-count="{{ tkey }}">({{ tcount }})</span>
+        </button>
+        {% endfor %}
     </div>
-    <div class="kanban-grid grid-5" id="kanban-deploy">
-        {% for status in deploy_statuses %}
-        <div class="k-col" id="dep-col-{{ status }}">
-            <div class="k-body">
-                {% if deploy_columns[status] %}
-                {% for dr in deploy_columns[status] %}
+    <div class="bld-grid" id="kanban-deploy">
+        {% for status in ['scheduled', 'in_transit', 'on_site', 'installing'] %}
+        {% for dr in deploy_columns[status] %}
+                <div class="o-card"
+                     data-dep-id="{{ dr.id }}" data-dep-status="{{ status }}" data-dep-tab="{% if status in ['on_site', 'installing'] %}onsite_installing{% else %}{{ status }}{% endif %}" data-order-id="{{ dr.customer_order_id or '' }}"
+                     data-search="{{ dr.order_number or '' }} {{ dr.customer_name or '' }} {{ dr.site_name or '' }} {{ dr.se_name or '' }}"
+                     style="--urg:{% if dr.scheduled_date and dr.scheduled_date < today %}var(--fl-red){% elif dr.scheduled_date and (dr.scheduled_date - today).days <= 7 %}var(--fl-amber){% else %}{{ deploy_dot_colors[status] }}{% endif %};">
+                    <div class="o-top">
+                        <span class="o-id">{{ dr.order_number or 'No Order' }}</span>
+                    </div>
+                    <div class="o-name">{{ dr.customer_name or 'Unknown Customer' }}</div>
+                    {% if dr.site_name or dr.address %}
+                    <div class="o-owner">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span>{{ dr.site_name or dr.address|truncate(40) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if dr.se_name %}
+                    <div class="o-owner">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <span>{{ dr.se_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if dr.integrator_name %}
+                    <div class="o-owner">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                        <span>{{ dr.integrator_name }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="o-meta">
+                        {% if dr.scheduled_date %}
+                        <span class="o-chip {% if dr.scheduled_date < today %}urg{% elif (dr.scheduled_date - today).days <= 7 %}warn{% endif %}">
+                            Sched {{ dr.scheduled_date.strftime('%b %d') }}
+                        </span>
+                        {% endif %}
+                        {% if dr.installed_date %}
+                        <span class="o-chip">
+                            Done {{ dr.installed_date.strftime('%b %d') }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if dr.status == "complete" and dr.cert_status == "certified" %}
+                    <div class="o-cert">
+                        <span>Certified{% if dr.certified_by %} by {{ dr.certified_by }}{% endif %}</span>
+                        {% if dr.installer_name %}<span class="o-cert-inst">Installed by {{ dr.installer_name }}{% if dr.installer_company %} ({{ dr.installer_company }}){% endif %}</span>{% endif %}
+                        {% if dr.pdf_stored_name and dr.cert_id %}<a class="o-cert-pdf" href="{{ base_path }}/fulfillment/install-cert/{{ dr.cert_id }}/pdf" target="_blank" rel="noopener">Post-Install PDF</a>{% endif %}
+                        {% if dr.cert_completion_date %}<span class="o-cert-date">Completed {{ dr.cert_completion_date.strftime("%b %d, %Y") }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                    <div class="mini-steps" id="ms-dep-{{ dr.id }}"></div>
+                    {% if user and user.has_provisioning_manage %}
+                    <div class="o-actions" style="margin-top:6px;">
+                        {% if dr.status == "installing" %}
+                        <button type="button" class="o-btn o-btn-cert" style="padding:2px 6px;font-size:10px;"
+                                onclick="openCertifyModal({{ dr.id }}, {{ (dr.order_number or '')|tojson|forceescape }}, {{ (dr.customer_name or '')|tojson|forceescape }})">Certify Installation</button>
+                        {% endif %}
+                        {% if dr.status == "complete" and dr.cert_status == "certified" %}
+                        <span class="o-locked" title="Certified installation">✓ Certified</span>
+                        {% else %}
+                        <select class="o-btn" style="padding:2px 6px;font-size:10px;"
+                                onchange="updateDeployStatus({{ dr.id }}, this.value, this)"
+                                title="Change status">
+                            {% for ds in deploy_statuses %}
+                            <option value="{{ ds }}" {% if ds == status %}selected{% endif %}>{{ deploy_status_labels[ds] }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+        {% endfor %}
+        {% endfor %}
+        <div class="dep-empty" data-dep-empty-tab="scheduled" style="display:none;">No scheduled deployments</div>
+        <div class="dep-empty" data-dep-empty-tab="in_transit" style="display:none;">No in transit deployments</div>
+        <div class="dep-empty" data-dep-empty-tab="onsite_installing" style="display:none;">No on-site or installing deployments</div>
+    </div>
+    {% if deploy_columns['complete'] %}
+    <div class="deploy-recent">
+        <div class="deploy-recent-head">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary, #10b981)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span class="deploy-recent-title">Recently Completed</span>
+            <span class="pfb-num">{{ deploy_columns['complete']|length }}</span>
+        </div>
+        <div class="bld-grid deploy-recent-grid">
+            {% set status = 'complete' %}
+            {% for dr in deploy_columns['complete'] %}
                 <div class="o-card"
                      data-dep-id="{{ dr.id }}" data-dep-status="{{ status }}" data-order-id="{{ dr.customer_order_id or '' }}"
                      data-search="{{ dr.order_number or '' }} {{ dr.customer_name or '' }} {{ dr.site_name or '' }} {{ dr.se_name or '' }}"
@@ -768,7 +858,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                                 onclick="openCertifyModal({{ dr.id }}, {{ (dr.order_number or '')|tojson|forceescape }}, {{ (dr.customer_name or '')|tojson|forceescape }})">Certify Installation</button>
                         {% endif %}
                         {% if dr.status == "complete" and dr.cert_status == "certified" %}
-                        <span class="o-locked" title="Certified installations are locked">✓ Certified · locked</span>
+                        <span class="o-locked" title="Certified installation">✓ Certified</span>
                         {% else %}
                         <select class="o-btn" style="padding:2px 6px;font-size:10px;"
                                 onchange="updateDeployStatus({{ dr.id }}, this.value, this)"
@@ -781,16 +871,13 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     </div>
                     {% endif %}
                 </div>
-                {% endfor %}
-                {% else %}
-                <div class="k-empty">No {{ deploy_status_labels[status]|lower }} deployments</div>
-                {% endif %}
-            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
+    {% endif %}
 </div>
 
+{% if false %}  {# Archived Orders hidden until the archive feature exists #}
 <!-- ── ARCHIVED ORDERS ───────────────────────────────────────────── -->
 <div class="archived-section">
 {% set archived_total = columns['delivered'] | length + columns['installed'] | length %}
@@ -833,6 +920,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     </div>
 </div>
 </div>
+{% endif %}
 
 </div>{# /board-inhouse #}
 
@@ -1646,7 +1734,6 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 let currentMode = 'inhouse';
 let openSpId = null;
 let pfbFilter = null;
-let depFilter = null;
 let skuFilter = null;
 let coverageOpen = false;
 let coverageSelected = new Set();
@@ -1781,25 +1868,6 @@ function filterPipe(stage) {
 }
 
 /* ── Deployment Pipeline filter bar ───────────────────────────────── */
-const depColMap = {
-    'scheduled':  'dep-col-scheduled',
-    'in_transit': 'dep-col-in_transit',
-    'on_site':    'dep-col-on_site',
-    'installing': 'dep-col-installing',
-    'complete':   'dep-col-complete',
-};
-function filterDeploy(stage) {
-    depFilter = depFilter === stage ? null : stage;
-    document.querySelectorAll('#pfb-deploy .pfb-stage').forEach(el => el.classList.remove('pf-on'));
-    if (depFilter) {
-        document.getElementById('pfb-dep-' + depFilter)?.classList.add('pf-on');
-    }
-    const target = depFilter ? depColMap[depFilter] : null;
-    Object.values(depColMap).forEach(id => {
-        const col = document.getElementById(id);
-        if (col) col.classList.toggle('dimmed', target !== null && target !== id);
-    });
-}
 
 /* ── OEM Pipeline filter bar ─────────────────────────────────────── */
 const oemColIds = {
@@ -2235,11 +2303,13 @@ function jumpToCard(colId) {
 
 /* ── Search ────────────────────────────────────────────────────────── */
 let activeTab = null;
+let activeDepTab = 'scheduled';
 var flattenAll = false;
 function recomputeVisibility() {
     var q = (document.getElementById('cb-search').value || '').trim().toLowerCase();
     var board = currentMode === 'oem' ? '#board-oem' : '#board-inhouse';
     var counts = {};
+    var depCounts = {};
     var flatActive = (q.length > 0) && flattenAll;
     document.querySelectorAll(board + ' .o-card').forEach(function(card) {
         var matches = true;
@@ -2255,7 +2325,14 @@ function recomputeVisibility() {
         }
         var cardTab = card.dataset.tab;
         if (cardTab && matches) counts[cardTab] = (counts[cardTab] || 0) + 1;
-        var inActiveTab = !cardTab || cardTab === activeTab || flatActive;
+        var depTab = card.dataset.depTab;
+        if (depTab && matches) depCounts[depTab] = (depCounts[depTab] || 0) + 1;
+        var inActiveTab;
+        if (depTab) {
+            inActiveTab = depTab === activeDepTab;
+        } else {
+            inActiveTab = !cardTab || cardTab === activeTab || flatActive;
+        }
         card.classList.toggle('o-hidden', !(matches && inActiveTab));
     });
     var searching = q.length > 0;
@@ -2267,6 +2344,17 @@ function recomputeVisibility() {
         if (!searching) flattenAll = false;
         _sab.classList.toggle('active', flattenAll && searching);
     }
+    document.querySelectorAll('#dep-tabs .bld-tab').forEach(function(b) {
+        var t = b.dataset.depTabBtn;
+        var badge = b.querySelector('[data-dep-tab-count]');
+        var n = depCounts[t] || 0;
+        if (badge) badge.textContent = '(' + n + ')';
+        b.classList.toggle('has-hits', (q.length > 0) && n > 0);
+    });
+    document.querySelectorAll('[data-dep-empty-tab]').forEach(function(e) {
+        var show = e.dataset.depEmptyTab === activeDepTab && !(depCounts[activeDepTab] > 0);
+        e.style.display = show ? '' : 'none';
+    });
     var tabLabels = {};
     document.querySelectorAll('#bld-tabs .bld-tab').forEach(function(b) {
         var t = b.dataset.tab;
@@ -2301,6 +2389,13 @@ function recomputeVisibility() {
             e.textContent = 'No orders in this stage';
         }
     });
+}
+function switchDeployTab(key) {
+    activeDepTab = key;
+    document.querySelectorAll('#dep-tabs .bld-tab').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.depTabBtn === key);
+    });
+    recomputeVisibility();
 }
 function switchBldTab(key) {
     flattenAll = false;
@@ -2944,6 +3039,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var _tabOrder = ['queued', 'in_progress', 'ready_for_handoff'];
     var _first = _tabOrder.find(function(t) { return document.querySelector('#kanban-ih .o-card[data-tab="' + t + '"]'); }) || _tabOrder[0];
     switchBldTab(_first);
+    switchDeployTab('scheduled');
 });
 </script>
 {% endblock %}
