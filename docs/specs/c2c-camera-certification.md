@@ -78,7 +78,7 @@ deriving the batch from the set of cam provisioning rows linked to the order.
 
 ## Cert layer (the firmed-up part)
 
-### Schema — `c2c_certification` (new table, migration 054)
+### Schema — `c2c_certification` (new table, migration 055)
 
 Per-camera. Keys on the provisioning row (mirrors build cert) so the order link
 and a serial snapshot come along.
@@ -126,7 +126,7 @@ current JSONB shape is). No components, no SMART, no two-person sign-off.
 ## Slice plan
 
 - **C1** — ground the acquisition representation (read the order line-item model),
-  then migration 054 (`c2c_certification` table + indexes) and the minimal
+  then migration 055 (`c2c_certification` table + indexes) and the minimal
   acquisition path: provision cams (`device_table="cameras"`) to an order, plus a
   read-only C2C view. No certify write path yet.
 - **C2** — per-cam certify modal + write path: the four-item checklist, the
