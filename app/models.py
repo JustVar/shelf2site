@@ -1943,3 +1943,25 @@ class InstallationCertification(Base):
     certified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     created_by = Column(String(128), nullable=True)
+
+
+class C2CCertification(Base):
+    __tablename__ = "c2c_certification"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_provisioning_id = Column(
+        Integer, ForeignKey("device_provisioning.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    # Snapshot of the camera serial at certification, for lifetime history.
+    camera_serial_snapshot = Column(String(64), nullable=True)
+    status = Column(String(16), nullable=False, server_default="pending")  # pending | certified
+    # Checklist booleans: {powered_on, firmware_verified, qr_site_connected, registered}
+    checklist = Column(JSONB, nullable=True)
+    # Point-in-time firmware/plugin/license evidence; shape iterates (JSONB, migration-free).
+    firmware_evidence = Column(JSONB, nullable=True)
+    notes = Column(Text, nullable=True)
+    certified_by = Column(String(128), nullable=True)   # internal certifier display_name
+    certified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    created_by = Column(String(128), nullable=True)
