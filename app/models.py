@@ -1024,6 +1024,12 @@ class DeviceProvisioning(Base):
     # row. Nullable; legacy rows leave it NULL. See docs/specs/c2c-catalog-and-accessories.md.
     item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)
 
+    # Assignment type (Migration 057): how a provisioned device is assigned -
+    # sale | pilot | demo | internal (see ASSIGNMENT_TYPES). Product-agnostic;
+    # only the C2C sale path is wired. Distinct from deployment_type (device
+    # classification / order channel). Nullable; legacy rows leave it NULL.
+    assignment_type = Column(String(32), nullable=True)
+
     # Zendesk integration (Migration 006)
     zendesk_ticket_id = Column(Integer, nullable=True)
 
@@ -1055,6 +1061,15 @@ class DeviceProvisioning(Base):
         "in_progress": "In Progress",
         "certified": "Certified Devices",
         "in_inventory": "In Inventory",
+    }
+
+    # How a provisioned device is assigned (Migration 057). Shared vocabulary;
+    # only 'sale' is wired today. pilot/demo/internal are defined-but-not-built.
+    ASSIGNMENT_TYPES = {
+        "sale": "Sale",
+        "pilot": "Pilot",
+        "demo": "Demo",
+        "internal": "Internal",
     }
 
 
