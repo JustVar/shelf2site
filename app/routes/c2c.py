@@ -213,7 +213,6 @@ async def c2c_certify(
     body = await request.json()
     raw = body.get("checklist") or {}
     checklist = {k: bool(raw.get(k)) for k in CHECKLIST_ITEMS}
-    firmware_evidence = body.get("firmware_evidence")   # flexible JSONB blob; shape iterates
     notes = (body.get("notes") or "").strip() or None
     all_pass = all(checklist[k] for k in CHECKLIST_ITEMS)
 
@@ -233,7 +232,11 @@ async def c2c_certify(
 
     # Whole-object assignment for JSONB (SQLAlchemy does not track in-place mutation).
     cert.checklist = checklist
-    cert.firmware_evidence = firmware_evidence
+    # Guard firmware_evidence against destructive omission: only overwrite when the
+    # key is present, so a submit that omits it leaves stored evidence untouched.
+    # Present-but-null/empty is honored as an explicit clear. Whole-object assign.
+    if "firmware_evidence" in body:
+        cert.firmware_evidence = body["firmware_evidence"]
     cert.notes = notes
     cert.camera_serial_snapshot = item.item_sn
 
