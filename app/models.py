@@ -1019,6 +1019,11 @@ class DeviceProvisioning(Base):
     # Customer Order link (Migration 018)
     customer_order_id = Column(Integer, ForeignKey("customer_orders.id", ondelete="SET NULL"), nullable=True)
 
+    # C2C option D link (Migration 056): points a provisioning row at a camera
+    # entered as unified inventory (item_schema.items) instead of a legacy public.*
+    # row. Nullable; legacy rows leave it NULL. See docs/specs/c2c-catalog-and-accessories.md.
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)
+
     # Zendesk integration (Migration 006)
     zendesk_ticket_id = Column(Integer, nullable=True)
 
@@ -1035,6 +1040,7 @@ class DeviceProvisioning(Base):
     assignee = relationship("User", foreign_keys=[assigned_to])
     creator = relationship("User", foreign_keys=[created_by])
     customer_order = relationship("CustomerOrder", back_populates="provisioning_records")
+    item = relationship("Item", foreign_keys=[item_id])
 
     PRIORITY_TYPES = {
         "low": "Low",
