@@ -32,7 +32,7 @@ from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    Camera, CustomerOrder, DeviceProvisioning, Site, User, get_display_name,
+    CustomerOrder, DeviceProvisioning, Item, Site, User,
 )
 
 router = APIRouter()
@@ -62,23 +62,27 @@ def c2c_page(
 
 
 # ---------------------------------------------------------------------------
-# Minimal cam acquisition path (C1)
+# Cam acquisition path — option D (C2 slice)
 # ---------------------------------------------------------------------------
-# Provision a physical camera to a customer order: creates the DeviceProvisioning
-# row (device_table="cameras") that the per-cam cert (C2) keys on. Cams do not
-# ride the edge-box stage pipeline, so:
-#   * stages=[]           — column is nullable=False; [] is safe because every
-#                           stages read guards falsy (_get_stage_label /
-#                           `rec.stages or []`). The only unguarded indexers are
-#                           the edge-box advance/revert routes, which cams never
-#                           reach.
-#   * fulfillment_type=NULL — "not in the (edge-box) fulfillment pipeline".
-#   * current_stage="acquired" — a display label only; there is no stage machine
-#                           for cams. Kept human-readable for the read-only view.
+# Provision a C2C camera to a customer order. Under option D (see
+# docs/specs/c2c-catalog-and-accessories.md section 7) the camera is a unified
+# inventory row (item_schema.items, category camera_c2c), NOT a legacy
+# public.cameras row. The provisioning row links to it via the item_id FK
+# (migration 056); the per-cam cert (C2) still keys on the provisioning row.
 #
-# The order's cam batch (how many of model X are needed) stays in the existing
-# CustomerOrder.sku_requirements JSONB — no new order-line table. "Acquired" is
-# then simply the set of cameras DeviceProvisioning rows linked to the order.
+# device_table / device_id are NOT NULL on the shared polymorphic table, so an
+# items-backed row carries the sentinel device_table="items", device_id=<items.id>
+# while item_id is the real, integrity-backed link. Do NOT register Item in the
+# shared TABLE_MODELS (it pollutes ~15 legacy consumers). The provisioning
+# resolvers (orders.py, provisioning.py, sites.py) all .get(device_table) and
+# guard None, so an "items" row shows a plain "items #<id>" label there until an
+# item_id-aware name branch is added — non-breaking, cosmetic only.
+#
+# Cams do not ride the edge-box stage pipeline, so:
+#   * stages=[]           — nullable=False; [] is guarded-falsy in every stages
+#                           read (_get_stage_label / `rec.stages or []`).
+#   * fulfillment_type=NULL — not in the (edge-box) fulfillment pipeline.
+#   * current_stage="acquired" — a display label only; no stage machine for cams.
 
 @router.post("/fulfillment/c2c/acquire")
 async def c2c_acquire(
@@ -86,19 +90,24 @@ async def c2c_acquire(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Provision a camera (device_table='cameras') to a customer order."""
+    """Provision a C2C camera (item_schema.items, camera_c2c) to a customer order."""
     body = await request.json()
     device_id = body.get("device_id")
     customer_order_id = body.get("customer_order_id")
     site_id = body.get("site_id")
     notes = (body.get("notes") or "").strip()
 
-    # Camera is required and must exist.
+    # Camera is required, must exist in item_schema.items, and be a C2C category.
     if not device_id:
         return JSONResponse(status_code=400, content={"error": "device_id (camera) is required"})
-    camera = db.query(Camera).filter(Camera.id == int(device_id)).first()
+    camera = db.query(Item).filter(Item.id == int(device_id)).first()
     if not camera:
-        return JSONResponse(status_code=404, content={"error": "Camera not found"})
+        return JSONResponse(status_code=404, content={"error": "Camera not found in inventory (item_schema.items)"})
+    if camera.item_category not in ("camera_c2c",):
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Item {device_id} is category '{camera.item_category}', not a C2C camera (camera_c2c)"},
+        )
 
     # Order is required — C2C acquisition provisions cams *to an order*.
     if not customer_order_id:
@@ -119,12 +128,11 @@ async def c2c_acquire(
         if not site:
             return JSONResponse(status_code=404, content={"error": "Site not found"})
 
-    # One active provisioning per physical camera.
+    # One active provisioning per camera, keyed on the item_id link (option D).
     existing = (
         db.query(DeviceProvisioning)
         .filter(
-            DeviceProvisioning.device_table == "cameras",
-            DeviceProvisioning.device_id == int(device_id),
+            DeviceProvisioning.item_id == int(device_id),
             DeviceProvisioning.is_complete.is_(False),
         )
         .first()
@@ -132,9 +140,12 @@ async def c2c_acquire(
     if existing:
         return JSONResponse(status_code=409, content={"error": "Camera already has active provisioning"})
 
+    cam_name = camera.item_name or camera.item_model or f"Camera #{camera.id}"
+
     rec = DeviceProvisioning(
-        device_table="cameras",
-        device_id=int(device_id),
+        device_table="items",       # sentinel; the real link is item_id below
+        device_id=int(device_id),   # NOT NULL filler, mirrors item_id
+        item_id=int(device_id),     # integrity-backed FK to item_schema.items (option D)
         site_id=int(site_id) if site_id else None,
         current_stage="acquired",   # label only; cams have no stage machine
         stages=[],                  # nullable=False; guarded-falsy everywhere
@@ -152,11 +163,11 @@ async def c2c_acquire(
         request=request, user_id=user.id,
         target_table="device_provisioning", target_id=rec.id,
         action="create",
-        details=f"Acquired camera #{device_id} ({get_display_name(camera)}) to order {order.order_number}",
+        details=f"Acquired C2C camera item #{device_id} ({cam_name}) to order {order.order_number}",
     )
 
     return JSONResponse(content={
         "status": "acquired",
         "id": rec.id,
-        "camera_name": get_display_name(camera),
+        "camera_name": cam_name,
     })
