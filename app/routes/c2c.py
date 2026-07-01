@@ -156,6 +156,21 @@ def _c2c_board_data(db: Session) -> dict:
             "order_complete": need > 0 and acq == need and cert == acq,
         })
 
+    # Per-cam pre-fill map (keyed by provisioning_id as a string, for the JS map)
+    # so the certify modal opens on current stored state, not a blank form.
+    cam_cert_map = {
+        str(c["provisioning_id"]): {
+            "checklist": c["checklist"],
+            "firmware_evidence": c["firmware_evidence"],
+            "notes": c["notes"],
+            "name": c["item_name"],
+            "serial": c["item_sn"],
+            "sku": c["brand_sku"],
+            "order_number": c["order_number"],
+        }
+        for c in pending_cams + certified_cams
+    }
+
     return {
         "metrics": {
             "needed": total_needed,
@@ -168,6 +183,7 @@ def _c2c_board_data(db: Session) -> dict:
         "certified_cams": certified_cams,
         "orders": order_rollup,
         "available_items": available_items,
+        "cam_cert_map": cam_cert_map,
     }
 
 

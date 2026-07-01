@@ -4621,3 +4621,73 @@ body.sx-nav-collapsed .sx-nav__subgroup-content .sx-nav__link {
 .c2c-cam__btn--view { color: var(--text-muted); background: transparent; border: 1px solid var(--border); }
 
 .c2c-empty { color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem 0.5rem; }
+
+
+/* ── C2C certify modal (slice 4) ── */
+.c2c-modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1090;
+  background: rgba(15,23,42,0.62); backdrop-filter: blur(2px);
+}
+.c2c-modal {
+  display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 1091; width: min(720px, calc(100vw - 2rem)); max-height: 90vh;
+  flex-direction: column; overflow: hidden;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+.c2c-modal__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1rem 1.25rem; background: var(--fl-green, #10b981); color: #fff;
+}
+.c2c-modal__title { font-size: 1.05rem; font-weight: 700; }
+.c2c-modal__sub { font-size: 0.78rem; opacity: 0.9; margin-top: 0.15rem; }
+.c2c-modal__close {
+  background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 8px;
+  width: 30px; height: 30px; font-size: 1.1rem; line-height: 1; cursor: pointer;
+}
+.c2c-modal__close:hover { background: rgba(0,0,0,0.18); }
+.c2c-modal__body {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;
+  padding: 1.25rem; overflow-y: auto;
+}
+.c2c-modal__col { display: flex; flex-direction: column; gap: 0.7rem; }
+.c2c-modal__coltitle {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); margin-bottom: 0.1rem;
+}
+.c2c-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.c2c-field__label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
+.c2c-field__input {
+  font-family: inherit; font-size: 0.85rem; color: var(--text);
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.5rem 0.65rem; outline: none;
+}
+.c2c-field__input:focus { border-color: var(--fl-green, #10b981); }
+.c2c-field__area { resize: vertical; min-height: 62px; }
+.c2c-check {
+  display: flex; align-items: center; gap: 0.6rem; cursor: pointer;
+  padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 0.85rem; color: var(--text);
+}
+.c2c-check:hover { background: rgba(255,255,255,0.03); }
+.c2c-check__box { width: 16px; height: 16px; accent-color: var(--fl-green, #22c55e); cursor: pointer; }
+.c2c-modal__banner {
+  margin-top: 0.4rem; padding: 0.55rem 0.7rem; border-radius: 8px;
+  font-size: 0.76rem; font-weight: 600;
+}
+.c2c-modal__banner.is-wait { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); }
+.c2c-modal__banner.is-pass { color: var(--fl-green, #22c55e); background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); }
+.c2c-modal__foot {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  padding: 0.9rem 1.25rem; border-top: 1px solid var(--border);
+}
+.c2c-modal__btn {
+  font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  border-radius: 8px; padding: 0.5rem 1.1rem; border: 1px solid transparent;
+}
+.c2c-modal__btn--sec { color: var(--text-muted); background: transparent; border-color: var(--border); }
+.c2c-modal__btn--sec:hover { color: var(--text); }
+.c2c-modal__btn--pri { color: #fff; background: var(--fl-green, #10b981); }
+.c2c-modal__btn--pri:hover { filter: brightness(1.08); }
+.c2c-modal__btn--pri:disabled { opacity: 0.6; cursor: default; }
+@media (max-width: 620px) { .c2c-modal__body { grid-template-columns: 1fr; } }

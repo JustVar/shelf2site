@@ -67,7 +67,7 @@
         <div class="c2c-cam__name">{{ cam.item_name or 'Camera' }}</div>
         <div class="c2c-cam__serial">{{ cam.item_sn or 'no serial' }}</div>
         <div class="c2c-cam__meta">{{ cam.order_number or 'no order' }}{% if cam.customer_name %} &middot; {{ cam.customer_name }}{% endif %}</div>
-        <button type="button" class="c2c-cam__btn" data-prov="{{ cam.provisioning_id }}">Certify</button>
+        <button type="button" class="c2c-cam__btn" onclick="openC2cCertify('{{ cam.provisioning_id }}')">Certify</button>
       </div>
       {% else %}
       <div class="c2c-empty">No cameras awaiting certification.</div>
@@ -88,7 +88,7 @@
         <div class="c2c-cam__name">{{ cam.item_name or 'Camera' }}</div>
         <div class="c2c-cam__serial">{{ cam.item_sn or 'no serial' }}</div>
         <div class="c2c-cam__meta">{{ cam.order_number or 'no order' }}{% if cam.certified_by %} &middot; by {{ cam.certified_by }}{% endif %}</div>
-        <button type="button" class="c2c-cam__btn c2c-cam__btn--view" data-prov="{{ cam.provisioning_id }}">View</button>
+        <button type="button" class="c2c-cam__btn c2c-cam__btn--view" onclick="openC2cCertify('{{ cam.provisioning_id }}')">View</button>
       </div>
       {% else %}
       <div class="c2c-empty">No certified cameras yet.</div>
@@ -98,4 +98,148 @@
 
 </div>
 </div>
+
+{# ── certify modal ── #}
+<div class="c2c-modal-overlay" id="c2c-modal-overlay" onclick="closeC2cCertify()"></div>
+<div class="c2c-modal" id="c2c-modal" role="dialog" aria-modal="true">
+  <div class="c2c-modal__head">
+    <div>
+      <div class="c2c-modal__title">Certify Camera</div>
+      <div class="c2c-modal__sub" id="c2c-modal-sub"></div>
+    </div>
+    <button type="button" class="c2c-modal__close" onclick="closeC2cCertify()" aria-label="Close">&times;</button>
+  </div>
+
+  <div class="c2c-modal__body">
+    <div class="c2c-modal__col">
+      <div class="c2c-modal__coltitle">Firmware evidence</div>
+      <label class="c2c-field">
+        <span class="c2c-field__label">Firmware version</span>
+        <input type="text" class="c2c-field__input" id="c2c-fw-version" placeholder="e.g. 1.2.3">
+      </label>
+      <label class="c2c-field">
+        <span class="c2c-field__label">License</span>
+        <input type="text" class="c2c-field__input" id="c2c-fw-license" placeholder="license key or id">
+      </label>
+      <label class="c2c-field">
+        <span class="c2c-field__label">Plugins (comma-separated)</span>
+        <input type="text" class="c2c-field__input" id="c2c-fw-plugins" placeholder="analytics, motion">
+      </label>
+      <label class="c2c-field">
+        <span class="c2c-field__label">Notes</span>
+        <textarea class="c2c-field__input c2c-field__area" id="c2c-notes" rows="3" placeholder="Optional notes"></textarea>
+      </label>
+    </div>
+
+    <div class="c2c-modal__col">
+      <div class="c2c-modal__coltitle">Certification checklist</div>
+      <label class="c2c-check"><input type="checkbox" class="c2c-check__box" id="c2c-chk-powered_on" onchange="c2cUpdateBanner()"><span>Powered on</span></label>
+      <label class="c2c-check"><input type="checkbox" class="c2c-check__box" id="c2c-chk-firmware_verified" onchange="c2cUpdateBanner()"><span>Firmware verified</span></label>
+      <label class="c2c-check"><input type="checkbox" class="c2c-check__box" id="c2c-chk-qr_site_connected" onchange="c2cUpdateBanner()"><span>Connects to virtual site (QR)</span></label>
+      <label class="c2c-check"><input type="checkbox" class="c2c-check__box" id="c2c-chk-registered" onchange="c2cUpdateBanner()"><span>Registered</span></label>
+      <div class="c2c-modal__banner" id="c2c-banner"></div>
+    </div>
+  </div>
+
+  <div class="c2c-modal__foot">
+    <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" onclick="closeC2cCertify()">Cancel</button>
+    <button type="button" class="c2c-modal__btn c2c-modal__btn--pri" id="c2c-save-btn" onclick="c2cSaveChecklist()">Save checklist</button>
+  </div>
+</div>
+
+<script>
+var C2C_CERT = {{ cam_cert_map | tojson }};
+var C2C_ITEMS = ["powered_on", "firmware_verified", "qr_site_connected", "registered"];
+var c2cCurrentProv = null;
+
+function c2cSetChecklist(cl) {
+  cl = cl || {};
+  for (var i = 0; i < C2C_ITEMS.length; i++) {
+    var box = document.getElementById("c2c-chk-" + C2C_ITEMS[i]);
+    if (box) { box.checked = !!cl[C2C_ITEMS[i]]; }
+  }
+}
+
+function c2cUpdateBanner() {
+  var passed = 0;
+  for (var i = 0; i < C2C_ITEMS.length; i++) {
+    var box = document.getElementById("c2c-chk-" + C2C_ITEMS[i]);
+    if (box && box.checked) { passed++; }
+  }
+  var remaining = C2C_ITEMS.length - passed;
+  var banner = document.getElementById("c2c-banner");
+  if (remaining === 0) {
+    banner.textContent = "All 4 checks pass - saving will certify this camera.";
+    banner.className = "c2c-modal__banner is-pass";
+  } else {
+    banner.textContent = remaining + " of 4 remaining - stays pending until all pass.";
+    banner.className = "c2c-modal__banner is-wait";
+  }
+}
+
+function openC2cCertify(provId) {
+  var data = C2C_CERT[provId] || {};
+  c2cCurrentProv = provId;
+  document.getElementById("c2c-modal-sub").textContent =
+    (data.name || "Camera") + "  -  " + (data.serial || "no serial") + (data.sku ? ("  -  " + data.sku) : "");
+  c2cSetChecklist(data.checklist);
+  var fw = data.firmware_evidence || {};
+  document.getElementById("c2c-fw-version").value = fw.version || "";
+  document.getElementById("c2c-fw-license").value = fw.license || "";
+  var plugins = fw.plugins;
+  document.getElementById("c2c-fw-plugins").value =
+    (Object.prototype.toString.call(plugins) === "[object Array]") ? plugins.join(", ") : (plugins || "");
+  document.getElementById("c2c-notes").value = data.notes || "";
+  c2cUpdateBanner();
+  document.getElementById("c2c-modal-overlay").style.display = "block";
+  document.getElementById("c2c-modal").style.display = "flex";
+}
+
+function closeC2cCertify() {
+  document.getElementById("c2c-modal-overlay").style.display = "none";
+  document.getElementById("c2c-modal").style.display = "none";
+  c2cCurrentProv = null;
+}
+
+function c2cCollectFirmware() {
+  var fw = {};
+  var v = document.getElementById("c2c-fw-version").value.trim();
+  var lic = document.getElementById("c2c-fw-license").value.trim();
+  var plug = document.getElementById("c2c-fw-plugins").value.trim();
+  if (v) { fw.version = v; }
+  if (lic) { fw.license = lic; }
+  if (plug) {
+    fw.plugins = plug.split(",").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+  }
+  return fw;
+}
+
+function c2cSaveChecklist() {
+  if (!c2cCurrentProv) { return; }
+  var checklist = {};
+  for (var i = 0; i < C2C_ITEMS.length; i++) {
+    var box = document.getElementById("c2c-chk-" + C2C_ITEMS[i]);
+    checklist[C2C_ITEMS[i]] = !!(box && box.checked);
+  }
+  var payload = {
+    checklist: checklist,
+    firmware_evidence: c2cCollectFirmware(),
+    notes: document.getElementById("c2c-notes").value
+  };
+  var btn = document.getElementById("c2c-save-btn");
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+  fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/certify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  }).then(function (r) { return r.json(); }).then(function () {
+    window.location.reload();
+  }).catch(function () {
+    btn.disabled = false;
+    btn.textContent = "Save checklist";
+    window.alert("Save failed. Please try again.");
+  });
+}
+</script>
 {% endblock %}
