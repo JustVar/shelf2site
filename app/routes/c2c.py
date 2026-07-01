@@ -184,6 +184,9 @@ def _c2c_board_data(db: Session) -> dict:
         "orders": order_rollup,
         "available_items": available_items,
         "cam_cert_map": cam_cert_map,
+        # Orders with an unmet C2C need (needed > acquired) - the acquire panel
+        # order picker lists only these so the over-acquire block never dead-ends.
+        "acquirable_orders": [o for o in order_rollup if o["shortfall"] > 0],
     }
 
 

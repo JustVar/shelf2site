@@ -15,8 +15,11 @@
 <div class="c2c-page">
 
   <div class="c2c-page__header">
-    <h1>C2C Camera Certification</h1>
-    <p>Acquire Cloud2 cameras for an order, then certify each one.</p>
+    <div>
+      <h1>C2C Camera Certification</h1>
+      <p>Acquire Cloud2 cameras for an order, then certify each one.</p>
+    </div>
+    <button type="button" class="c2c-acquire-btn" onclick="openC2cAcquire(null, null)">+ Acquire camera</button>
   </div>
 
   {# ── metric cards ── #}
@@ -49,6 +52,7 @@
       {% if o.order_complete %}<span class="c2c-flag c2c-flag--complete">Complete</span>{% endif %}
       {% if o.shortfall %}<span class="c2c-flag c2c-flag--short">{{ o.shortfall }} short</span>{% endif %}
       {% if o.over_acquired %}<span class="c2c-flag c2c-flag--over">{{ o.over_acquired }} over-acquired</span>{% endif %}
+      {% if o.shortfall %}<button type="button" class="c2c-order-row__acquire" onclick="openC2cAcquire({{ o.order_id }}, '{{ o.order_number }}')">Acquire</button>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -239,6 +243,173 @@ function c2cSaveChecklist() {
     btn.disabled = false;
     btn.textContent = "Save checklist";
     window.alert("Save failed. Please try again.");
+  });
+}
+</script>
+
+{# ── acquire camera panel (slide-out) ── #}
+<div class="c2c-panel-overlay" id="c2c-acq-overlay" onclick="closeC2cAcquire()"></div>
+<aside class="c2c-panel" id="c2c-acq-panel" role="dialog" aria-modal="true" aria-label="Acquire camera">
+  <div class="c2c-panel__head">
+    <div>
+      <div class="c2c-panel__title">Acquire camera</div>
+      <div class="c2c-panel__sub">Provision a C2C camera from stock to an order.</div>
+    </div>
+    <button type="button" class="c2c-panel__close" onclick="closeC2cAcquire()" aria-label="Close">&times;</button>
+  </div>
+
+  <div class="c2c-panel__body">
+    <div class="c2c-panel__section">
+      <div class="c2c-panel__label">Choose an available camera</div>
+      {% if available_items %}
+      <div class="c2c-radio-list">
+        {% for it in available_items %}
+        <label class="c2c-radio">
+          <input type="radio" name="c2c-acq-cam" value="{{ it.item_id }}">
+          <span class="c2c-radio__main">
+            <span class="c2c-radio__name">{{ it.item_name or 'Camera' }}</span>
+            <span class="c2c-radio__meta"><span class="c2c-mono">{{ it.item_sn or 'no serial' }}</span> &middot; {{ it.brand_sku }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="c2c-panel__empty">No C2C cameras in stock. Add one via intake.</div>
+      {% endif %}
+    </div>
+
+    <div class="c2c-panel__section">
+      <div class="c2c-panel__label">Assign to order</div>
+      <div class="c2c-panel__locked" id="c2c-acq-order-locked" style="display:none;"></div>
+      <select class="c2c-panel__select" id="c2c-acq-order-select" onchange="c2cAcqUpdateBtn()">
+        <option value="">Select an order with an unmet need...</option>
+        {% for o in acquirable_orders %}
+        <option value="{{ o.order_id }}">{{ o.order_number }} &middot; {{ o.customer_name }} &middot; needs {{ o.needed }}, {{ o.acquired }} acquired</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="c2c-panel__section">
+      <div class="c2c-panel__label">Assignment type</div>
+      <div class="c2c-chips">
+        <span class="c2c-chip c2c-chip--active">Sale</span>
+        <span class="c2c-chip c2c-chip--disabled" title="Coming soon">Pilot</span>
+        <span class="c2c-chip c2c-chip--disabled" title="Coming soon">Demo</span>
+      </div>
+    </div>
+
+    <div class="c2c-panel__section">
+      <div class="c2c-panel__label">Notes (optional)</div>
+      <textarea class="c2c-panel__textarea" id="c2c-acq-notes" rows="2" placeholder="Optional notes"></textarea>
+    </div>
+
+    <div class="c2c-panel__error" id="c2c-acq-error" style="display:none;"></div>
+  </div>
+
+  <div class="c2c-panel__foot">
+    <button type="button" class="c2c-panel__btn c2c-panel__btn--sec" onclick="closeC2cAcquire()">Cancel</button>
+    <button type="button" class="c2c-panel__btn c2c-panel__btn--pri" id="c2c-acq-submit" onclick="c2cAcquireSubmit()">Acquire</button>
+  </div>
+</aside>
+
+<script>
+var C2C_ORDERS = {{ acquirable_orders | tojson }};
+var C2C_ORDER_BY_ID = {};
+(function () {
+  for (var i = 0; i < C2C_ORDERS.length; i++) { C2C_ORDER_BY_ID[String(C2C_ORDERS[i].order_id)] = C2C_ORDERS[i]; }
+})();
+var c2cAcqLockedOrder = null;
+
+function openC2cAcquire(orderId, orderNumber) {
+  var radios = document.querySelectorAll('input[name="c2c-acq-cam"]');
+  for (var i = 0; i < radios.length; i++) { radios[i].checked = false; }
+  document.getElementById("c2c-acq-notes").value = "";
+  var err = document.getElementById("c2c-acq-error");
+  err.style.display = "none"; err.textContent = "";
+
+  var locked = document.getElementById("c2c-acq-order-locked");
+  var sel = document.getElementById("c2c-acq-order-select");
+  var submit = document.getElementById("c2c-acq-submit");
+
+  if (orderId) {
+    c2cAcqLockedOrder = String(orderId);
+    var o = C2C_ORDER_BY_ID[c2cAcqLockedOrder];
+    var label = orderNumber || (o ? o.order_number : ("Order " + orderId));
+    if (o) { label += "  -  " + (o.customer_name || "") + "  -  needs " + o.needed + ", " + o.acquired + " acquired"; }
+    locked.textContent = label;
+    locked.style.display = "block";
+    sel.style.display = "none";
+    submit.textContent = "Acquire to " + (orderNumber || (o ? o.order_number : orderId));
+  } else {
+    c2cAcqLockedOrder = null;
+    locked.style.display = "none";
+    sel.style.display = "block";
+    sel.value = "";
+    c2cAcqUpdateBtn();
+  }
+  document.getElementById("c2c-acq-overlay").style.display = "block";
+  document.getElementById("c2c-acq-panel").classList.add("is-open");
+}
+
+function closeC2cAcquire() {
+  document.getElementById("c2c-acq-overlay").style.display = "none";
+  document.getElementById("c2c-acq-panel").classList.remove("is-open");
+}
+
+function c2cAcqUpdateBtn() {
+  if (c2cAcqLockedOrder) { return; }
+  var sel = document.getElementById("c2c-acq-order-select");
+  var submit = document.getElementById("c2c-acq-submit");
+  if (sel.value) {
+    var o = C2C_ORDER_BY_ID[sel.value];
+    submit.textContent = "Acquire to " + (o ? o.order_number : sel.value);
+  } else {
+    submit.textContent = "Acquire";
+  }
+}
+
+function c2cAcqSelectedCam() {
+  var radios = document.querySelectorAll('input[name="c2c-acq-cam"]');
+  for (var i = 0; i < radios.length; i++) { if (radios[i].checked) { return radios[i].value; } }
+  return null;
+}
+
+function c2cAcqShowError(msg) {
+  var err = document.getElementById("c2c-acq-error");
+  err.textContent = msg; err.style.display = "block";
+}
+
+function c2cAcquireSubmit() {
+  var deviceId = c2cAcqSelectedCam();
+  if (!deviceId) { c2cAcqShowError("Select a camera to acquire."); return; }
+  var orderId = c2cAcqLockedOrder || document.getElementById("c2c-acq-order-select").value;
+  if (!orderId) { c2cAcqShowError("Select an order."); return; }
+
+  var payload = {
+    device_id: parseInt(deviceId, 10),
+    customer_order_id: parseInt(orderId, 10),
+    assignment_type: "sale",
+    notes: document.getElementById("c2c-acq-notes").value
+  };
+  var btn = document.getElementById("c2c-acq-submit");
+  var label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Acquiring...";
+  fetch("{{ base_path }}/fulfillment/c2c/acquire", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  }).then(function (r) {
+    return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+  }).then(function (res) {
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      btn.disabled = false; btn.textContent = label;
+      c2cAcqShowError((res.data && res.data.error) ? res.data.error : "Acquire failed.");
+    }
+  }).catch(function () {
+    btn.disabled = false; btn.textContent = label;
+    c2cAcqShowError("Acquire failed. Please try again.");
   });
 }
 </script>
