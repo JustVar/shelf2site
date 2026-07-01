@@ -235,6 +235,7 @@ async def c2c_acquire(
     customer_order_id = body.get("customer_order_id")
     site_id = body.get("site_id")
     notes = (body.get("notes") or "").strip()
+    assignment_type = (body.get("assignment_type") or "sale").strip()
 
     # Camera is required, must exist in item_schema.items, and be a C2C category.
     if not device_id:
@@ -248,6 +249,18 @@ async def c2c_acquire(
             content={"error": f"Item {device_id} is category '{camera.item_category}', not a C2C camera (camera_c2c)"},
         )
 
+    # Assignment type. The vocabulary (sale | pilot | demo | internal) is a shared
+    # foundation but only the sale path is wired this slice; pilot/demo/internal
+    # are defined-but-not-built, so reject them loudly (a stray call fails, and
+    # the UI never offers them).
+    if assignment_type not in DeviceProvisioning.ASSIGNMENT_TYPES:
+        return JSONResponse(status_code=400, content={"error": f"Invalid assignment_type: {assignment_type}"})
+    if assignment_type != "sale":
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"assignment_type '{assignment_type}' is defined but not yet supported (only 'sale' is wired)"},
+        )
+
     # Order is required — C2C acquisition provisions cams *to an order*.
     if not customer_order_id:
         return JSONResponse(status_code=400, content={"error": "customer_order_id is required"})
@@ -259,6 +272,27 @@ async def c2c_acquire(
         return JSONResponse(
             status_code=400,
             content={"error": f"Order {order.order_number} has no Customer PO - add one before acquiring cameras"},
+        )
+
+    # Over-acquire block (sale): do not acquire more C2C cams than the order needs.
+    # needed = sum of qty on the order camera_c2c sku_requirements lines;
+    # acquired = provisioning rows for the order already linked to a C2C item.
+    c2c_skus = {
+        sku for (sku,) in db.query(ItemPartNumber.brand_sku)
+        .filter(ItemPartNumber.item_category == "camera_c2c").all()
+    }
+    needed = sum(int(line.get("qty") or 0) for line in (order.sku_requirements or [])
+                 if line.get("model") in c2c_skus)
+    acquired = (
+        db.query(DeviceProvisioning)
+        .filter(DeviceProvisioning.customer_order_id == order.id,
+                DeviceProvisioning.item_id.isnot(None))
+        .count()
+    )
+    if acquired >= needed:
+        return JSONResponse(
+            status_code=409,
+            content={"error": f"Order {order.order_number} already has all needed C2C cameras acquired ({acquired} of {needed})."},
         )
 
     # Validate site if provided.
@@ -289,6 +323,7 @@ async def c2c_acquire(
         current_stage="acquired",   # label only; cams have no stage machine
         stages=[],                  # nullable=False; guarded-falsy everywhere
         fulfillment_type=None,      # NULL = not in the edge-box fulfillment pipeline
+        assignment_type=assignment_type,  # 'sale' this slice; vocabulary defined for pilot/demo
         notes=notes or None,
         customer_order_id=order.id,
         created_by=user.id,
@@ -302,7 +337,7 @@ async def c2c_acquire(
         request=request, user_id=user.id,
         target_table="device_provisioning", target_id=rec.id,
         action="create",
-        details=f"Acquired C2C camera item #{device_id} ({cam_name}) to order {order.order_number}",
+        details=f"Acquired C2C camera item #{device_id} ({cam_name}) to order {order.order_number} [{assignment_type}]",
     )
 
     return JSONResponse(content={
