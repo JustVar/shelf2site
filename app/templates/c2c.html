@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}C2C Cameras - Asset Tracker{% endblock %}
+{% block nav_fulfillment %}active{% endblock %}
+
+{% block content %}
+{#
+  C2C camera fulfillment/cert overview — C1 SKELETON.
+
+  This is intentionally a shell: the page header plus the three section headers,
+  nothing laid out inside them. The visual design (dark-token translation from
+  docs/mockups/README.md) and the per-section data wiring are a design call and
+  are handed back to Chat. Do not build the table/list layout here.
+
+  Sections, per docs/specs/c2c-camera-certification.md (UI):
+    1. Cameras Needed          — model x quantity from CustomerOrder.sku_requirements
+    2. Acquired / Provisioned  — cameras DeviceProvisioning rows linked to the order
+    3. Per-Camera Certification — c2c_certification status per cam (cert write path is C2)
+#}
+<div class="c2c-page" style="padding: 1.5rem;">
+
+    <header style="margin-bottom: 1.25rem;">
+        <h1>C2C Camera Certification</h1>
+        <p style="color: var(--text-muted, #888);">
+            Acquire Cloud2 cameras for an order, then certify each one. Read-only overview.
+        </p>
+    </header>
+
+    <div role="note" style="margin-bottom: 1.5rem; padding: 0.75rem 1rem;
+         border: 1px dashed var(--border, #444); border-radius: 6px;
+         color: var(--text-muted, #888); font-size: 0.9rem;">
+        Skeleton — layout pending. The section layout (dark tokens from
+        <code>docs/mockups/README.md</code>) is a design step handed back to Chat.
+    </div>
+
+    <section id="c2c-needed" style="margin-bottom: 1.5rem;">
+        <h2>Cameras Needed</h2>
+        <p style="color: var(--text-muted, #888);">Model &times; quantity per order — layout pending.</p>
+    </section>
+
+    <section id="c2c-acquired" style="margin-bottom: 1.5rem;">
+        <h2>Acquired / Provisioned</h2>
+        <p style="color: var(--text-muted, #888);">Cameras provisioned to the order — layout pending.</p>
+    </section>
+
+    <section id="c2c-certification" style="margin-bottom: 1.5rem;">
+        <h2>Per-Camera Certification</h2>
+        <p style="color: var(--text-muted, #888);">Cert status per camera — layout pending (certify write path is C2).</p>
+    </section>
+
+</div>
+{% endblock %}
