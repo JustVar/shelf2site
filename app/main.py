@@ -93,6 +93,22 @@ app = FastAPI(
 # Static files and templates
 _base_dir = Path(__file__).resolve().parent.parent
 _static_dir = _base_dir / "static"
+
+# Derive the stylesheet cache-bust from main.css content so it updates
+# automatically on any CSS change. Computed once at startup; a redeploy (restart)
+# recomputes it. Kills the manual ?v= bump that silently broke returning users.
+_main_css_path = _static_dir / "css" / "main.css"
+
+
+def _compute_css_version():
+    try:
+        import hashlib
+        return hashlib.sha1(_main_css_path.read_bytes()).hexdigest()[:10]
+    except Exception:
+        return "0"
+
+
+CSS_VERSION = _compute_css_version()
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 templates = Jinja2Templates(directory=str(_base_dir / "app" / "templates"))
@@ -172,6 +188,7 @@ async def sidebar_counts_middleware(request: Request, call_next):
 
     request.state.triage_count = 0
     request.state.pending_count = 0
+    request.state.asset_v = CSS_VERSION
 
     from .auth import get_session_user_id
     user_id = get_session_user_id(request)
