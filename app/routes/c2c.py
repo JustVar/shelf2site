@@ -34,7 +34,7 @@ from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    C2CCertification, CustomerOrder, DeviceProvisioning, Item, Site, User,
+    C2CCertification, CustomerOrder, DeviceProvisioning, Item, ItemPartNumber, Site, User,
 )
 
 router = APIRouter()
@@ -46,12 +46,130 @@ templates.env.globals["base_path"] = BP
 
 
 # ---------------------------------------------------------------------------
-# Read-only C2C view — SKELETON ONLY (C1)
+# Read-only C2C board — data feeds (option D, C2 slice 4 / Part A)
 # ---------------------------------------------------------------------------
-# Route + template shell only: renders the section headers on an otherwise empty
-# page. The visual layout (dark-token translation from docs/mockups/README.md)
-# and the per-section data wiring are a design call handed back to Chat. Do NOT
-# build the table/list layout here.
+
+def _c2c_board_data(db: Session) -> dict:
+    """Assemble the C2C board data (option D).
+
+    - needed: sum of qty on an order sku_requirements line whose model is a
+      camera_c2c catalog SKU (join to part_numbers.item_category).
+    - acquired: device_provisioning rows with item_id set (the option-D link),
+      split certified vs pending by the linked c2c_certification.status.
+    - available: item_schema.items camera_c2c not linked to ANY provisioning row
+      (net on has-a-provisioning per the section-9 decision, NOT is_complete).
+    - order_complete: acquired == needed (> 0) and every acquired cam certified.
+
+    Live edge case, surfaced not clamped: an order can be needed=0 with
+    acquired>0 (a cam linked to an order that has no camera_c2c requirement line)
+    -> reported as over_acquired.
+    """
+    # Catalog SKUs that count as C2C cameras (today: just C2C-GEN1-4MP).
+    c2c_skus = {
+        sku for (sku,) in db.query(ItemPartNumber.brand_sku)
+        .filter(ItemPartNumber.item_category == "camera_c2c").all()
+    }
+
+    # All acquired C2C cams (item_id-linked provisioning rows) + cert + order context.
+    cam_records = (
+        db.query(
+            DeviceProvisioning.id.label("provisioning_id"),
+            DeviceProvisioning.item_id,
+            DeviceProvisioning.customer_order_id,
+            Item.item_name, Item.item_sn, Item.brand_sku,
+            CustomerOrder.order_number, CustomerOrder.customer_name,
+            C2CCertification.status.label("cert_status"),
+            C2CCertification.certified_by, C2CCertification.certified_at,
+            C2CCertification.checklist, C2CCertification.firmware_evidence,
+            C2CCertification.notes,
+        )
+        .join(Item, Item.id == DeviceProvisioning.item_id)
+        .outerjoin(CustomerOrder, CustomerOrder.id == DeviceProvisioning.customer_order_id)
+        .outerjoin(C2CCertification, C2CCertification.device_provisioning_id == DeviceProvisioning.id)
+        .filter(DeviceProvisioning.item_id.isnot(None))
+        .order_by(DeviceProvisioning.id)
+        .all()
+    )
+
+    pending_cams, certified_cams = [], []
+    acquired_by_order, certified_by_order = {}, {}
+    for r in cam_records:
+        cam = {
+            "provisioning_id": r.provisioning_id,
+            "item_id": r.item_id,
+            "item_name": r.item_name,
+            "item_sn": r.item_sn,
+            "brand_sku": r.brand_sku,
+            "order_id": r.customer_order_id,
+            "order_number": r.order_number,
+            "customer_name": r.customer_name,
+            "cert_status": r.cert_status or "pending",
+            "certified_by": r.certified_by or None,
+            "certified_at": r.certified_at,
+            "checklist": r.checklist or {},
+            "firmware_evidence": r.firmware_evidence or {},
+            "notes": r.notes or "",
+        }
+        oid = r.customer_order_id
+        acquired_by_order[oid] = acquired_by_order.get(oid, 0) + 1
+        if r.cert_status == "certified":
+            certified_cams.append(cam)
+            certified_by_order[oid] = certified_by_order.get(oid, 0) + 1
+        else:
+            pending_cams.append(cam)
+
+    # Available (unlinked) camera_c2c inventory.
+    linked_item_ids = {
+        iid for (iid,) in db.query(DeviceProvisioning.item_id)
+        .filter(DeviceProvisioning.item_id.isnot(None)).distinct().all()
+    }
+    avail_q = db.query(Item).filter(Item.item_category == "camera_c2c")
+    if linked_item_ids:
+        avail_q = avail_q.filter(~Item.id.in_(linked_item_ids))
+    available_items = [
+        {"item_id": i.id, "item_name": i.item_name, "item_sn": i.item_sn,
+         "brand_sku": i.brand_sku}
+        for i in avail_q.order_by(Item.id).all()
+    ]
+
+    # Per-order rollup: any order with a camera_c2c need OR an acquired C2C cam.
+    order_rollup = []
+    total_needed = 0
+    for o in db.query(CustomerOrder).order_by(CustomerOrder.id).all():
+        need = sum(int(line.get("qty") or 0) for line in (o.sku_requirements or [])
+                   if line.get("model") in c2c_skus)
+        acq = acquired_by_order.get(o.id, 0)
+        if need == 0 and acq == 0:
+            continue
+        total_needed += need
+        cert = certified_by_order.get(o.id, 0)
+        order_rollup.append({
+            "order_id": o.id,
+            "order_number": o.order_number,
+            "customer_name": o.customer_name,
+            "needed": need,
+            "acquired": acq,
+            "certified": cert,
+            "pending": acq - cert,
+            "shortfall": max(need - acq, 0),
+            "over_acquired": max(acq - need, 0),
+            "order_complete": need > 0 and acq == need and cert == acq,
+        })
+
+    return {
+        "metrics": {
+            "needed": total_needed,
+            "acquired": len(cam_records),
+            "certified": len(certified_cams),
+            "pending": len(pending_cams),
+            "available": len(available_items),
+        },
+        "pending_cams": pending_cams,
+        "certified_cams": certified_cams,
+        "orders": order_rollup,
+        "available_items": available_items,
+    }
+
 
 @router.get("/fulfillment/c2c", response_class=HTMLResponse)
 def c2c_page(
@@ -59,8 +177,11 @@ def c2c_page(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_viewer),
 ):
-    """C2C camera fulfillment/cert overview (read-only skeleton)."""
-    return templates.TemplateResponse("c2c.html", {"request": request, "user": user})
+    """C2C camera fulfillment/cert overview (read-only)."""
+    ctx = _c2c_board_data(db)
+    ctx["request"] = request
+    ctx["user"] = user
+    return templates.TemplateResponse("c2c.html", ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +334,6 @@ async def c2c_certify(
     body = await request.json()
     raw = body.get("checklist") or {}
     checklist = {k: bool(raw.get(k)) for k in CHECKLIST_ITEMS}
-    notes = (body.get("notes") or "").strip() or None
     all_pass = all(checklist[k] for k in CHECKLIST_ITEMS)
 
     # One cert record per provisioning row: get-or-create.
@@ -237,7 +357,10 @@ async def c2c_certify(
     # Present-but-null/empty is honored as an explicit clear. Whole-object assign.
     if "firmware_evidence" in body:
         cert.firmware_evidence = body["firmware_evidence"]
-    cert.notes = notes
+    # Same present-key-wins guard for notes (a modal field): omit -> untouched,
+    # present-but-empty -> explicit clear.
+    if "notes" in body:
+        cert.notes = (body.get("notes") or "").strip() or None
     cert.camera_serial_snapshot = item.item_sn
 
     if all_pass:
