@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# wsync PREV NEW — pull bundle from apphost, guard, ff-merge, push both remotes,
+# verify all four HEADs, clean up. Run on the workstation. Aborts on any guard.
+#
+# SSH defaults target the explicit key+host (works from the Claude chat shell).
+# For an interactive shell that resolves the ssh alias instead:
+#   AT_SSH_OPTS="" AT_SSH_HOST="apphost" wsync PREV NEW
+set -uo pipefail
+
+PREV="${1:-}"
+NEW="${2:-}"
+if [ -z "$PREV" ] || [ -z "$NEW" ]; then
+  echo "ABORT: usage: wsync PREV NEW" >&2; exit 1
+fi
+
+REPO="${AT_WS_REPO:-/c/Users/you/Company/asset-tracker/asset-tracker}"
+SSH_OPTS="${AT_SSH_OPTS:--i ~/.ssh/id_ed25519}"
+SSH_HOST="${AT_SSH_HOST:-admin@192.0.2.10}"
+BUNDLE_NAME="sync_${PREV}_${NEW}.bundle"
+SRC="/tmp/${BUNDLE_NAME}"
+DST="/c/tmp/${BUNDLE_NAME}"
+
+g() { git -C "$REPO" "$@"; }
+
+# 0. repo sane
+g rev-parse --show-toplevel >/dev/null 2>&1 || { echo "ABORT: $REPO is not a git repo" >&2; exit 1; }
+
+# 1. scp bundle from apphost
+scp $SSH_OPTS "${SSH_HOST}:${SRC}" "$DST" || { echo "ABORT: scp failed ($SRC)" >&2; exit 1; }
+
+# 2. guard: tree clean
+if [ -n "$(g status --porcelain)" ]; then
+  echo "ABORT: workstation tree not clean" >&2; g status --short >&2; exit 1
+fi
+
+# 3. guard: HEAD == PREV
+H=$(g rev-parse --short=7 HEAD)
+if [ "$H" != "$PREV" ]; then
+  echo "ABORT: HEAD $H != PREV $PREV" >&2; exit 1
+fi
+
+# 4. guard: bundle tip == NEW
+TIP=$(g bundle list-heads "$DST" | awk '/refs\/heads\/main/{print substr($1,1,7)}')
+if [ "$TIP" != "$NEW" ]; then
+  echo "ABORT: bundle tip $TIP != NEW $NEW" >&2; exit 1
+fi
+
+# 5. guard: bundle verifies
+g bundle verify "$DST" >/dev/null 2>&1 || { echo "ABORT: bundle verify failed" >&2; exit 1; }
+
+# 6. ff-only merge
+g fetch "$DST" main >/dev/null 2>&1 || { echo "ABORT: fetch from bundle failed" >&2; exit 1; }
+g merge --ff-only FETCH_HEAD >/dev/null 2>&1 || { echo "ABORT: ff-merge refused" >&2; exit 1; }
+
+# 7. guard: HEAD == NEW after merge
+H=$(g rev-parse --short=7 HEAD)
+if [ "$H" != "$NEW" ]; then
+  echo "ABORT: post-merge HEAD $H != NEW $NEW" >&2; exit 1
+fi
+
+# 8. push origin (separate, own exit check)
+g push origin main || { echo "ABORT: push origin failed" >&2; exit 1; }
+
+# 9. push company (separate, never chained)
+g push company main || { echo "ABORT: push company failed. origin is ahead of company now." >&2; exit 1; }
+
+# 10. verify all four HEADs == NEW
+WS=$(g rev-parse --short=7 HEAD)
+SP=$(ssh $SSH_OPTS "$SSH_HOST" 'cd /opt/asset_tracker && git rev-parse --short=7 HEAD')
+OR=$(g ls-remote origin -h refs/heads/main | cut -c1-7)
+CO=$(g ls-remote company -h refs/heads/main | cut -c1-7)
+echo "HEADS: ws=$WS apphost=$SP origin=$OR company=$CO (want $NEW)"
+if [ "$WS" != "$NEW" ] || [ "$SP" != "$NEW" ] || [ "$OR" != "$NEW" ] || [ "$CO" != "$NEW" ]; then
+  echo "ABORT: HEAD mismatch — leaving bundles in place for diagnosis" >&2; exit 1
+fi
+
+# 11. cleanup (only after all four match)
+rm -f "$DST"
+ssh $SSH_OPTS "$SSH_HOST" "rm -f '$SRC'"
+echo "OK: four-way synced at $NEW. Bundles cleaned both sides."
