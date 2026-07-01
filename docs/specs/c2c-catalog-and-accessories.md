@@ -261,14 +261,15 @@ legacy test artifact. This reverses which table acquire targets — expected.
 
 ---
 
-## 8. Why C1 still stands regardless of the decision
+## 8. Why the C1 schema still stands under option D
 
-C1's acquire path and cert schema key on the **physical `device_id` + order**,
-never on SKU. Provisioning #243 and migration 055 are valid and working under
-option A. The seam lives entirely in the unbuilt "available stock" derivation and
-the cert-grain choice for C2 — not in acquire or the 055 schema. If A is chosen,
-nothing changes. If B is chosen, 055's FK is reworked before C2. If C is chosen,
-055 is untouched and a new `cameras` link migration is added.
+Migration 055 and the cert grain are untouched by option D: the cert still keys
+on the provisioning row. What changed in C2 is the acquire target, which now
+points at an `item_schema.items` camera through the new `item_id` FK (migration
+056) instead of a legacy `public.cameras` row. Provisioning #243 is a legacy C1
+test artifact (`device_table=cameras`, `item_id` NULL); new acquires create
+items-backed rows (`device_table="items"`, `item_id` set). The 055 cert schema is
+reused as-is.
 
 ---
 
@@ -303,8 +304,9 @@ nothing changes. If B is chosen, 055's FK is reworked before C2. If C is chosen,
 
 ## 11. Slice impact
 
-- **C1 (shipped):** unaffected. Acquire + 055 stand.
-- **C2 (next):** cert write path — **blocked on the section 7 decision.** Under A
-  it proceeds as originally specced. Under B it reworks the 055 FK first.
-- **Catalog/accessory work:** its own track once section 7 is decided; do not
-  fold into C2.
+- **C1 (shipped):** stands. The acquire handler was re-pointed at items in C2
+  slice 2; migration 055 is untouched.
+- **C2 (in progress, option D):** slice 1 (item_id link) and slice 2 (acquire
+  against items) shipped; slice 3 is the cert write path; slice 4 is the order
+  rollup + view wiring.
+- **Catalog/accessory work:** its own track; do not fold into C2.

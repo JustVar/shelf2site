@@ -1,25 +1,27 @@
 """C2C camera certification — a separate, lighter fulfillment flow.
 
-C2C cameras (category ``camera_c2c``, the ``cameras`` table) are the company's
-Cloud2 camera product. Unlike edge boxes there is no build and no parts: acquire
-the cameras for an order, then (in a later slice) certify each one — powered on,
-firmware verified, connected to its virtual site via QR, and registered.
+C2C cameras (category ``camera_c2c``) are the company's Cloud2 camera product.
+Unlike edge boxes there is no build and no parts: acquire the cameras for an
+order, then certify each one — powered on, firmware verified, connected to its
+virtual site via QR, and registered.
 
-This is deliberately its own route surface. The edge-box fulfillment/cert flow
-is hardcoded ``device_table == "edge_boxes"`` in ~10 guards, so C2C does NOT ride
-those routes.
+Cert-subject grain is option D (docs/specs/c2c-catalog-and-accessories.md
+section 7): the camera is a unified-inventory row (item_schema.items) and the
+provisioning row links to it via the item_id FK (migration 056). This is
+deliberately its own route surface; the edge-box fulfillment/cert flow is
+hardcoded ``device_table == "edge_boxes"`` in ~10 guards, so C2C does NOT ride
+those routes, and Item is NOT registered in the shared TABLE_MODELS.
 
-C1 scope (this file today):
-  * GET  /fulfillment/c2c          read-only overview — SKELETON only (viewer)
-  * POST /fulfillment/c2c/acquire  provision a camera to an order    (manager)
-
-The per-camera certify write path (checklist + firmware-evidence JSONB + the
-all-pass gate) is C2 and is intentionally absent here.
+Routes:
+  * GET  /fulfillment/c2c                              read-only overview (viewer)
+  * POST /fulfillment/c2c/acquire                      provision a cam to an order (manager)
+  * POST /fulfillment/c2c/{provisioning_id}/certify    checklist + evidence, all-pass gate (manager)
 
 See docs/specs/c2c-camera-certification.md and
 docs/specs/c2c-c1-discovery-handoff.md.
 """
 
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -32,7 +34,7 @@ from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    CustomerOrder, DeviceProvisioning, Item, Site, User,
+    C2CCertification, CustomerOrder, DeviceProvisioning, Item, Site, User,
 )
 
 router = APIRouter()
@@ -170,4 +172,99 @@ async def c2c_acquire(
         "status": "acquired",
         "id": rec.id,
         "camera_name": cam_name,
+    })
+
+# ---------------------------------------------------------------------------
+# Certify write path — option D (C2 slice 3)
+# ---------------------------------------------------------------------------
+# Per-camera certification. Submit the four-item checklist + firmware evidence;
+# the cam certifies only when ALL four checklist items pass (all-pass gate),
+# otherwise it stays pending. One c2c_certification row per provisioning row
+# (get-or-create, updated on each submit). Certification is tracked by
+# status="certified" on the cert row; it deliberately does NOT touch the
+# provisioning is_complete flag (that means "provisioning closed", a different
+# lifecycle state).
+#
+# The four checklist items are manual booleans. qr_site_connected is a manual
+# confirmation for now; whether it becomes a real virtual-site API check is
+# parked (see docs/specs/c2c-camera-certification.md) - a later enhancement.
+
+CHECKLIST_ITEMS = ("powered_on", "firmware_verified", "qr_site_connected", "registered")
+
+
+@router.post("/fulfillment/c2c/{provisioning_id}/certify")
+async def c2c_certify(
+    provisioning_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Submit the C2C checklist + firmware evidence for an acquired cam; gate to certified."""
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
+    # Must be an option-D C2C cam (linked to item_schema.items via item_id).
+    if prov.item_id is None:
+        return JSONResponse(status_code=400, content={"error": "Not a C2C camera provisioning (no item_id link)"})
+    item = db.query(Item).filter(Item.id == prov.item_id).first()
+    if not item:
+        return JSONResponse(status_code=404, content={"error": "Linked camera item not found"})
+
+    body = await request.json()
+    raw = body.get("checklist") or {}
+    checklist = {k: bool(raw.get(k)) for k in CHECKLIST_ITEMS}
+    firmware_evidence = body.get("firmware_evidence")   # flexible JSONB blob; shape iterates
+    notes = (body.get("notes") or "").strip() or None
+    all_pass = all(checklist[k] for k in CHECKLIST_ITEMS)
+
+    # One cert record per provisioning row: get-or-create.
+    cert = (
+        db.query(C2CCertification)
+        .filter(C2CCertification.device_provisioning_id == provisioning_id)
+        .first()
+    )
+    created = cert is None
+    if created:
+        cert = C2CCertification(
+            device_provisioning_id=provisioning_id,
+            created_by=user.display_name,
+        )
+        db.add(cert)
+
+    # Whole-object assignment for JSONB (SQLAlchemy does not track in-place mutation).
+    cert.checklist = checklist
+    cert.firmware_evidence = firmware_evidence
+    cert.notes = notes
+    cert.camera_serial_snapshot = item.item_sn
+
+    if all_pass:
+        cert.status = "certified"
+        cert.certified_by = user.display_name
+        cert.certified_at = datetime.utcnow()
+    else:
+        cert.status = "pending"
+        cert.certified_by = None
+        cert.certified_at = None
+
+    # is_complete stays False (decided): certification is tracked by cert.status,
+    # not the provisioning lifecycle flag. Do NOT touch prov.is_complete here.
+
+    db.commit()
+    db.refresh(cert)
+
+    passed = sum(1 for k in CHECKLIST_ITEMS if checklist[k])
+    log_event(
+        db, "c2c_camera_certified" if all_pass else "c2c_camera_cert_updated",
+        request=request, user_id=user.id,
+        target_table="c2c_certification", target_id=cert.id,
+        action="create" if created else "update",
+        details=f"C2C cert {cert.status} for cam item #{prov.item_id} "
+                f"({item.item_name or item.item_model}) checklist {passed}/4",
+    )
+
+    return JSONResponse(content={
+        "status": cert.status,
+        "cert_id": cert.id,
+        "all_pass": all_pass,
+        "checklist": checklist,
     })
