@@ -149,6 +149,12 @@ async def security_headers_middleware(request: Request, call_next):
     # Without this header the browser restricts SW scope to /inventory/static/ only.
     if path.endswith("/sw.js"):
         response.headers["Service-Worker-Allowed"] = f"{BP}/"
+    # No-store on dynamic HTML so a boosted navigation or back-forward cache never
+    # serves a stale page after a deploy. Static assets are unaffected (their own
+    # ?v= cache-busting + SW stale-while-revalidate handle them). Fixes the class
+    # where an HTML change rides in but the browser reuses the old document.
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store"
     return response
 
 

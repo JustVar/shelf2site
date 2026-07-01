@@ -3,11 +3,11 @@
 // Service Worker for Asset Tracker PWA
 // Caches static assets, provides offline fallback, handles push notifications
 
-const CACHE_NAME = "asset-tracker-v14";
+const CACHE_NAME = "asset-tracker-v15";
 const OFFLINE_URL = "/assettracker/static/offline.html";
 const STATIC_ASSETS = [
   "/assettracker/static/css/fonts.css?v=2",
-  "/assettracker/static/css/main.css?v=20260313b",
+  "/assettracker/static/css/main.css?v=20260701b",
   "/assettracker/static/css/receive.css",
   "/assettracker/static/css/scanner.css",
   "/assettracker/static/js/theme.js",
