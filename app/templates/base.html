@@ -155,6 +155,18 @@
         {% endif %} #}
         {% endif %}
 
+        {# === FULFILLMENT === #}
+        {% if user and user.has_provisioning_view %}
+        <div class="sx-nav__section-label">Fulfillment</div>
+
+        <a href="{{ base_path }}/fulfillment/c2c"
+           class="sx-nav__link {% if '/fulfillment/c2c' in request.url.path %}sx-nav__link--active{% endif %}"
+           data-label="C2C Cameras">
+          {{ icon('camera', size=14) }}
+          <span class="sx-nav__label">C2C Cameras</span>
+        </a>
+        {% endif %}
+
 {# === ADMIN === #}
 {% set _admin_visible = user and (user.has_user_management or user.has_audit_access or user.has_system_admin or user.is_editor_or_above or user.has_financial_access) %}
 {% if _admin_visible %}
