@@ -104,25 +104,33 @@ category are NOT yet catalog-grounded** — treat them as proposed:
 Ground the SKUs and the accessory category before treating §3 specifics as
 build-ready.
 
+(Intake path confirmed: C2C stock enters `item_schema.items` via the existing
+`POST /intake` — the live `camera_c2c` row `C2C-GEN1-4MP` (items id 17) was
+created that way. See section 7, option D.)
+
 ---
 
-## 4. Order and acquisition flow (partially grounded — see open read)
+## 4. Order and acquisition flow (grounded — OEM sourcing is manual)
 
-Customer orders cameras -> Company obtains them (from stock, or **from OEM with a
-delivery lead time**) -> Company sends to customer (via engineer, integrator, or
+Customer orders cameras -> Company obtains them (from stock, or from OEM with a
+delivery lead time) -> Company sends to customer (via engineer, integrator, or
 ship).
 
-- The `sku_requirements` line already carries a **`source`** field
-  (`stock | oem | tbd`) that picks the obtain path. A `source=oem` line implies
-  OEM procurement; `source=stock` pulls from on-hand inventory.
-- `OEMPurchaseOrder` (read in C1) exists with `customer_order_id`, `vendor_name`,
-  `sku`, `qty_ordered`, `qty_received`, `expected_delivery`, `received_date`,
-  `status` — the structure a C2C OEM-sourced line would flow through.
+**OEM sourcing is manual today; `source` drives nothing (grounded this session):**
+- The `sku_requirements` line's **`source`** field (`stock | oem | tbd`) is
+  **inert**. It appears in exactly two places app-wide (the column comment and a
+  display passthrough in `_sku_availability`); there is **no `source == "oem"`
+  branch** anywhere. It is a decorative label, not a trigger.
+- `OEMPurchaseOrder` rows are created **by hand** via
+  `POST /api/orders/{order_id}/oem-pos` (the sole instantiation site, `orders.py`)
+  — order-scoped, with **no `sku_requirements` linkage** and no auto-derivation.
+- For cams: a `source=oem` line carries the label and does nothing automatically.
+  OEM-sourced cams reuse the **same manual, category-agnostic PO API** (it accepts
+  any SKU), so no new acquisition mechanism is required — but a human creates the
+  PO and nothing ties it to the specific line.
 
-**OPEN READ (not yet grounded):** how a `source=oem` cam line actually becomes an
-`OEMPurchaseOrder` today, and whether cams reuse that path or need a minimal one.
-This section is framed, not confirmed. Ground before building the acquisition
-side of any option.
+**Open decision (not a blocker for D):** whether C2C cams need any auto-wiring of
+`source=oem` -> `OEMPurchaseOrder`, or manual PO creation is sufficient.
 
 ---
 
@@ -167,7 +175,7 @@ to `part_numbers.brand_sku`** (not a bare string).
 
 ---
 
-## 7. CENTRAL DECISION — cert-subject grain (OPEN)
+## 7. CENTRAL DECISION — cert-subject grain (DECIDED — option D)
 
 The two halves of the C2C view key off different, unlinked tables: "Needed"
 (SKU -> `items`/`part_numbers`) and "Acquired/Certified" (provisioning ->
@@ -219,20 +227,37 @@ expensive after C2 builds the cert write path.
   duplicates what `items` already provides — arguably deepens the seam rather
   than closing it.
 
-### Recommendation framework (not a decision)
-Given the migration trajectory is **unsure**:
-- **A** is lowest-effort and truthful if you accept needed-vs-acquired only. Best
-  if `public.cameras` is effectively permanent.
-- **C** is the lowest-regret hedge: keeps C1 working, makes availability
-  computable, does not bet on the migration — at the cost of deepening the seam.
-- **B** is the correct long-term bet **only if** the migration to `items` is
-  real and near; otherwise it is over-engineering.
+### Decision — Option D (CHOSEN)
 
-Lean: with trajectory unsure, **A for C2 now** (ship needed-vs-acquired, keep C2
-minimal) **plus a logged decision to revisit B/C when the cameras -> `items`
-migration is scheduled or ruled out**. This avoids committing to either schema
-bet prematurely while keeping the shipped surface honest about what it shows.
-Decision is the owner's.
+**D = keep the C1 provisioning + cert chain, and point it at an
+`item_schema.items` camera via a new nullable `item_id` FK on
+`device_provisioning`.** C2C cameras are entered as normal inventory into
+`item_schema.items` through the existing `POST /intake` (the live `camera_c2c`
+row `C2C-GEN1-4MP`, items id 17, was created that way). Acquisition and
+certification stay on the `DeviceProvisioning` chain C1 built; **migration 055
+and the cert grain are untouched** (cert still keys on `device_provisioning_id`).
+Availability becomes computable natively, because the items row already carries
+`brand_sku` + `item_category`.
+
+D is a lighter shape than the original "B" framing: it keeps the provisioning row
+(so the order-link and serial-snapshot come along for free) and only adds a link
+column; it does not fork cert off the provisioning subsystem.
+
+**Why not the others (the decision record):**
+- **A — REJECTED.** The owner requires available-in-stock counting (how many can
+  we use vs how many to order); A explicitly drops that.
+- **C — DOMINATED.** `item_schema.items` already carries `brand_sku` +
+  `item_category`, so per-model counts are native under D; bolting a SKU onto
+  legacy `public.cameras` (C) is redundant and deepens the seam.
+- **B1 — DEAD.** Probed: registering `Item` in the shared `TABLE_MODELS` pollutes
+  ~15 legacy consumers (the label helpers return `-` / an ORM object). Not viable.
+- **B2 — OVERKILL.** The need is inventory counting, not cert-on-items; reworking
+  055's FK and forking cert off provisioning (losing the order-link +
+  serial-snapshot) is disproportionate.
+
+**Consequence:** C1's verified acquire (provisioning #243) targets a legacy
+`public.cameras` row. Going forward acquire targets `item_schema.items`; #243 is a
+legacy test artifact. This reverses which table acquire targets — expected.
 
 ---
 
@@ -252,10 +277,11 @@ nothing changes. If B is chosen, 055's FK is reworked before C2. If C is chosen,
 - **Needed** — order `camera_c2c` lines (section 5 join). Computable now.
 - **Acquired** — cam `DeviceProvisioning` rows on the order (like #243).
   Computable now.
-- **Available in stock** — NOT computable under option A (legacy cams carry no
-  SKU). Computable under B or C. Do NOT reuse `_sku_availability` for cams under
-  any option — its cross-category `ilike` over-matches and it never sees
-  `item_schema.items`.
+- **Available in stock** — **now computable under D.** Query `item_schema.items`
+  directly, filtered on `item_category = 'camera_c2c'` (and/or `brand_sku`),
+  netting out cams already linked to an active `DeviceProvisioning` (via the new
+  `item_id`). Do NOT reuse `_sku_availability` for cams — its cross-category
+  `ilike` over-matches and it never sees `item_schema.items`.
 
 ---
 
