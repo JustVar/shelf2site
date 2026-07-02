@@ -361,6 +361,7 @@ function openC2cAcquire(orderId, orderNumber) {
 function closeC2cAcquire() {
   document.getElementById("c2c-acq-overlay").style.display = "none";
   document.getElementById("c2c-acq-panel").classList.remove("is-open");
+  c2cAcqLockedOrder = null;  // clear locked order so a later dropdown open is never stranded on it
 }
 
 function c2cAcqUpdateBtn() {
