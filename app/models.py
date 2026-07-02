@@ -1030,6 +1030,10 @@ class DeviceProvisioning(Base):
     # classification / order channel). Nullable; legacy rows leave it NULL.
     assignment_type = Column(String(32), nullable=True)
 
+    # Per-camera loan return date (Migration 058); NULL = still out. The
+    # order-level return status is derived (returned vs still-out).
+    returned_date = Column(Date, nullable=True)
+
     # Zendesk integration (Migration 006)
     zendesk_ticket_id = Column(Integer, nullable=True)
 
@@ -1085,6 +1089,14 @@ class CustomerOrder(Base):
     salesforce_order_id = Column(String(64), nullable=True)
     salesforce_opp_id = Column(String(64), nullable=True)
     po_number = Column(String(64), unique=True, nullable=True)  # Salesforce customer PO; app-level gate for pipeline entry
+    # Order classification (Migration 058) - single source of truth for the order
+    # type; see ORDER_TYPES. Backfilled 'sale' for existing orders. Non-sale types
+    # (pilot/try_and_buy/demo) carry no PO and are loans. Retires reliance on
+    # device_provisioning.assignment_type for classification.
+    order_type = Column(String(32), nullable=False, server_default="sale")
+    # Loan due date (Migration 058) for non-sale order types; per-camera return
+    # lives on device_provisioning.returned_date and order return status derives.
+    expected_return = Column(Date, nullable=True)
     customer_name = Column(String(256), nullable=False)
     customer_account = Column(String(256), nullable=True)
     sales_engineer = Column(String(128), nullable=True)
@@ -1143,6 +1155,16 @@ class CustomerOrder(Base):
         "shipped": "var(--accent, #9b59b6)",
         "delivered": "var(--success, #27ae60)",
         "installed": "var(--success, #27ae60)",
+    }
+
+    # Order classification vocabulary (Migration 058) - the single source of truth.
+    # Non-sale types are loans (no PO). try_and_buy is new; order_type is a plain
+    # varchar so this is an app-level addition, no DB enum change.
+    ORDER_TYPES = {
+        "sale": "Sale/PO",
+        "pilot": "Pilot",
+        "try_and_buy": "Try and Buy",
+        "demo": "Demo",
     }
 
 

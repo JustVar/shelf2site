@@ -277,26 +277,29 @@ async def c2c_acquire(
             content={"error": f"Order {order.order_number} has no Customer PO - add one before acquiring cameras"},
         )
 
-    # Over-acquire block (sale): do not acquire more C2C cams than the order needs.
-    # needed = sum of qty on the order camera_c2c sku_requirements lines;
-    # acquired = provisioning rows for the order already linked to a C2C item.
-    c2c_skus = {
-        sku for (sku,) in db.query(ItemPartNumber.brand_sku)
-        .filter(ItemPartNumber.item_category == "camera_c2c").all()
-    }
-    needed = sum(int(line.get("qty") or 0) for line in (order.sku_requirements or [])
-                 if line.get("model") in c2c_skus)
-    acquired = (
-        db.query(DeviceProvisioning)
-        .filter(DeviceProvisioning.customer_order_id == order.id,
-                DeviceProvisioning.item_id.isnot(None))
-        .count()
-    )
-    if acquired >= needed:
-        return JSONResponse(
-            status_code=409,
-            content={"error": f"Order {order.order_number} already has all needed C2C cameras acquired ({acquired} of {needed})."},
+    # Over-acquire block - only SALE orders carry a needed quota to enforce. The
+    # order's order_type (Migration 058) is the classification source; non-sale
+    # (loan) types have no quota and skip this. Gating here is also the spike-
+    # identified sale-gate fix - the block is otherwise unconditional and would
+    # error / spuriously 409 a loan acquire.
+    if order.order_type == "sale":
+        c2c_skus = {
+            sku for (sku,) in db.query(ItemPartNumber.brand_sku)
+            .filter(ItemPartNumber.item_category == "camera_c2c").all()
+        }
+        needed = sum(int(line.get("qty") or 0) for line in (order.sku_requirements or [])
+                     if line.get("model") in c2c_skus)
+        acquired = (
+            db.query(DeviceProvisioning)
+            .filter(DeviceProvisioning.customer_order_id == order.id,
+                    DeviceProvisioning.item_id.isnot(None))
+            .count()
         )
+        if acquired >= needed:
+            return JSONResponse(
+                status_code=409,
+                content={"error": f"Order {order.order_number} already has all needed C2C cameras acquired ({acquired} of {needed})."},
+            )
 
     # Validate site if provided.
     if site_id:
