@@ -366,7 +366,7 @@ async def c2c_acquire(
     if order.order_type == "sale" and not order.po_number:
         return JSONResponse(
             status_code=400,
-            content={"error": f"Order {order.order_number} has no Customer PO - add one before acquiring cameras"},
+            content={"error": f"Order {order.order_number} has no Customer PO - add one before assigning cameras"},
         )
 
     # Over-acquire block - only SALE orders carry a needed quota to enforce. The
@@ -390,7 +390,7 @@ async def c2c_acquire(
         if acquired >= needed:
             return JSONResponse(
                 status_code=409,
-                content={"error": f"Order {order.order_number} already has all needed C2C cameras acquired ({acquired} of {needed})."},
+                content={"error": f"Order {order.order_number} already has all needed C2C cameras assigned ({acquired} of {needed})."},
             )
 
     # Validate site if provided.
@@ -444,7 +444,7 @@ async def c2c_acquire(
         request=request, user_id=user.id,
         target_table="device_provisioning", target_id=rec.id,
         action="create",
-        details=f"Acquired C2C camera item #{device_id} ({cam_name}) to order {order.order_number} [{order.order_type}]",
+        details=f"Assigned C2C camera item #{device_id} ({cam_name}) to order {order.order_number} [{order.order_type}]",
     )
 
     return JSONResponse(content={
