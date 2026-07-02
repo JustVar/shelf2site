@@ -178,6 +178,7 @@ def build_fulfillment_groups(orders, order_devices):
             "due_date": o.due_date,
             "urgency": _order_urgency(o.due_date),
             "is_sensitive": o.is_sensitive,
+            "order_type": o.order_type,
         }
         devs = order_devices.get(o.id, [])
         by_sku = {}
@@ -261,6 +262,7 @@ def _build_order_card(order: CustomerOrder, prov_count: int) -> dict:
         "shipping_address": order.shipping_address,
         "ship_method": order.ship_method or "carrier",
         "recipient_name": order.recipient_name,
+        "order_type": order.order_type,
     }
 
 

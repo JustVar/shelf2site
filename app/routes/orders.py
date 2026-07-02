@@ -155,6 +155,7 @@ def order_detail(
         "prov_records": prov_enriched,
         "oem_pos": order.oem_pos,
         "ORDER_STATUSES": CustomerOrder.ORDER_STATUSES,
+        "ORDER_TYPES": CustomerOrder.ORDER_TYPES,
         "STATUS_COLORS": CustomerOrder.STATUS_COLORS,
         "se_names": se_names,
     })
@@ -288,7 +289,33 @@ async def update_order(
         except (TypeError, ValueError):
             pass
 
-    if old_status == "new" and order.status != "new" and not order.po_number:
+    # Order-type coupling, parity with create_order. Only when the full edit form submits
+    # an order_type: whitelist it, and couple the PO / loan-due-date invariant. Loans carry
+    # no PO (forced null); sale requires one. Never trust the client to have omitted fields.
+    if "order_type" in body:
+        order_type = (body.get("order_type") or "sale").strip()
+        if order_type not in CustomerOrder.ORDER_TYPES:
+            db.rollback()
+            return JSONResponse(status_code=400, content={"error": "Invalid order type"})
+        order.order_type = order_type
+        if order_type == "sale":
+            if not order.po_number:
+                db.rollback()
+                return JSONResponse(status_code=400, content={"error": "Customer PO is required for sale orders"})
+            order.expected_return = None
+        else:
+            order.po_number = None
+            raw_return = (body.get("expected_return") or "").strip()
+            if raw_return:
+                try:
+                    order.expected_return = date.fromisoformat(raw_return)
+                except ValueError:
+                    db.rollback()
+                    return JSONResponse(status_code=400, content={"error": "Invalid loan due date, use YYYY-MM-DD"})
+            else:
+                order.expected_return = None
+
+    if old_status == "new" and order.status != "new" and order.order_type == "sale" and not order.po_number:
         db.rollback()
         return JSONResponse(status_code=400, content={"error": "Add a Customer PO before advancing this order past Approved PO"})
 

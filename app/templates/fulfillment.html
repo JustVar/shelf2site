@@ -671,6 +671,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             {% if g.due_date %}<span class="oc-date">Due {{ g.due_date.strftime("%b %d") }}</span>{% endif %}
             {% if g.tab != "queued" %}<span class="o-pill {% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}">{% if g.tab == "ready_for_handoff" %}Ready{% elif g.urgency in ("overdue", "critical") %}High Priority{% else %}Normal{% endif %}</span>{% endif %}
             {% if g.is_sensitive and can_see_sensitive %}<span class="badge-sensitive">Sensitive</span>{% endif %}
+            {% if g.order_type %}<span class="order-type-badge order-type-badge--{{ g.order_type }}">{{ order_types.get(g.order_type, g.order_type) }}</span>{% endif %}
         </div>
         {% if g.stage_states %}
         <div class="oc-track-lbl">Stage Persistence</div>
@@ -899,6 +900,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             <div class="arch-row" style="--arch-color:{{ arch_colors.get(status, 'var(--fl-border2)') }};">
                 <div style="flex:1;min-width:0;">
                     <span class="arch-row-name">{{ card.order_number }} · {{ card.customer_name }}</span>
+                    {% if card.order_type %}<span class="order-type-badge order-type-badge--{{ card.order_type }}">{{ order_types.get(card.order_type, card.order_type) }}</span>{% endif %}
                     {% if card.sales_engineer %}<span class="arch-se">{{ card.sales_engineer }}</span>{% endif %}
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">

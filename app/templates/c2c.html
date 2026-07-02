@@ -47,6 +47,7 @@
     {% for o in orders %}
     <div class="c2c-order-row">
       <span class="c2c-order-row__id">{{ o.order_number }}</span>
+      {% if o.order_type %}<span class="order-type-badge order-type-badge--{{ o.order_type }}">{{ order_types.get(o.order_type, o.order_type) if order_types else o.order_type }}</span>{% endif %}
       <span class="c2c-order-row__cust">{{ o.customer_name }}</span>
       <span class="c2c-order-row__counts">{{ o.acquired }}/{{ o.needed }} acquired &middot; {{ o.certified }} certified</span>
       {% if o.order_complete %}<span class="c2c-flag c2c-flag--complete">Complete</span>{% endif %}

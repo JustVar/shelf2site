@@ -18,6 +18,7 @@
                          background:{{ sc }}22; color:{{ sc }}; border:1px solid {{ sc }}55;">
                 {{ ORDER_STATUSES.get(order.status, order.status) | title }}
             </span>
+            <span class="order-type-badge order-type-badge--{{ order.order_type }}">{{ ORDER_TYPES.get(order.order_type, order.order_type) }}</span>
         </div>
         <div style="font-size:1.1rem; font-weight:500; margin-top:0.35rem;">{{ order.customer_name }}</div>
         {% if order.customer_account and order.customer_account != order.customer_name %}
@@ -296,6 +297,14 @@
             <button class="modal-close" onclick="document.getElementById('edit-order-modal').classList.remove('open')">✕</button>
         </div>
         <div class="form-group" style="margin-top:0.75rem;">
+            <label>Order Type</label>
+            <select id="edit-order-type" class="form-control" onchange="toggleEditOrderTypeFields()">
+                {% for k, v in ORDER_TYPES.items() %}
+                <option value="{{ k }}"{% if k == order.order_type %} selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:0.75rem;">
             <label>Customer Name *</label>
             <input type="text" id="edit-customer-name" class="form-control" value="{{ order.customer_name or '' }}">
         </div>
@@ -368,6 +377,10 @@
                     <option value="prebuilt_finished"{% if order.default_fulfillment_type == 'prebuilt_finished' %} selected{% endif %}>Prebuilt Finished</option>
                 </select>
             </div>
+        </div>
+        <div class="form-group" id="edit-expret-group" style="display:none;">
+            <label>Loan Due Date (expected return)</label>
+            <input type="date" id="edit-expected-return" class="form-control" value="{{ order.expected_return or '' }}">
         </div>
         <div class="form-group">
             <label>Notes</label>
@@ -710,6 +723,18 @@ async function refreshAvailability() {
 function openEditModal() {
     // Navigate to orders list with edit intent — for simplicity redirect to orders page
     document.getElementById('edit-order-modal').classList.add('open');
+    toggleEditOrderTypeFields();
+}
+
+function toggleEditOrderTypeFields() {
+    const isSale = document.getElementById('edit-order-type').value === 'sale';
+    const po = document.getElementById('edit-po-number');
+    po.disabled = !isSale;
+    if (!isSale) po.value = '';
+    document.getElementById('edit-expret-group').style.display = isSale ? 'none' : '';
+    const er = document.getElementById('edit-expected-return');
+    er.disabled = isSale;
+    if (isSale) er.value = '';
 }
 
 async function saveEditOrder() {
@@ -726,6 +751,8 @@ async function saveEditOrder() {
         distributor_name: $('edit-distributor-name').value.trim() || null,
         status: $('edit-status').value,
         po_number: $('edit-po-number').value.trim() || null,
+        order_type: $('edit-order-type').value,
+        expected_return: $('edit-expected-return').value || null,
         default_fulfillment_type: $('edit-default-fulfillment-type').value || null,
         notes: $('edit-notes').value.trim() || null,
         is_sensitive: $('edit-sensitive').checked,

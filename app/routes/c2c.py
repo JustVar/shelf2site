@@ -154,6 +154,7 @@ def _c2c_board_data(db: Session) -> dict:
             "shortfall": max(need - acq, 0),
             "over_acquired": max(acq - need, 0),
             "order_complete": need > 0 and acq == need and cert == acq,
+            "order_type": o.order_type,
         })
 
     # Per-cam pre-fill map (keyed by provisioning_id as a string, for the JS map)
@@ -200,6 +201,7 @@ def c2c_page(
     ctx = _c2c_board_data(db)
     ctx["request"] = request
     ctx["user"] = user
+    ctx["order_types"] = CustomerOrder.ORDER_TYPES
     return templates.TemplateResponse("c2c.html", ctx)
 
 
