@@ -118,10 +118,17 @@ def _c2c_board_data(db: Session) -> dict:
         else:
             pending_cams.append(cam)
 
-    # Available (unlinked) camera_c2c inventory.
+    # Available (unlinked) camera_c2c inventory. A cam is "linked" (unavailable)
+    # only while it has at least one STILL-OUT provisioning row (returned_date
+    # IS NULL). A cam whose rows are ALL returned drops out and is assignable
+    # again (return-as-ending). Sale cams never get a returned_date, so they
+    # stay linked for life.
     linked_item_ids = {
         iid for (iid,) in db.query(DeviceProvisioning.item_id)
-        .filter(DeviceProvisioning.item_id.isnot(None)).distinct().all()
+        .filter(
+            DeviceProvisioning.item_id.isnot(None),
+            DeviceProvisioning.returned_date.is_(None),
+        ).distinct().all()
     }
     avail_q = db.query(Item).filter(Item.item_category == "camera_c2c")
     if linked_item_ids:
@@ -392,12 +399,18 @@ async def c2c_acquire(
         if not site:
             return JSONResponse(status_code=404, content={"error": "Site not found"})
 
-    # One active provisioning per camera, keyed on the item_id link (option D).
+    # One STILL-OUT provisioning per camera, keyed on the item_id link (option D).
+    # Under option D a C2C row keeps is_complete=False forever, so the old
+    # is_complete gate blocked EVERY cam that was ever acquired - including
+    # returned ones. Gate on returned_date instead: only a still-out row
+    # (returned_date IS NULL) blocks re-acquire; a returned cam passes and is
+    # re-assigned via the unchanged acquire path (new row, fresh cert, old row
+    # preserved).
     existing = (
         db.query(DeviceProvisioning)
         .filter(
             DeviceProvisioning.item_id == int(device_id),
-            DeviceProvisioning.is_complete.is_(False),
+            DeviceProvisioning.returned_date.is_(None),
         )
         .first()
     )
