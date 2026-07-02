@@ -1305,6 +1305,14 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     <form id="new-order-form" onsubmit="submitNewOrder(event)">
         <div class="dm-pane">
             <div class="sp-field-group">
+                <label class="sp-field-lbl">Order Type</label>
+                <select class="sp-field-input" name="order_type" id="no-order-type" onchange="toggleOrderTypeFields()">
+                    {% for k, v in order_types.items() %}
+                    <option value="{{ k }}" {% if k == 'sale' %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="sp-field-group">
                 <label class="sp-field-lbl">Customer Name *</label>
                 <input type="text" class="sp-field-input" name="customer_name" required placeholder="e.g. Acme Corp">
             </div>
@@ -1351,9 +1359,9 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                 </div>
             </div>
             <div class="sp-field-row">
-                <div class="sp-field-group">
-                    <label class="sp-field-lbl">Customer PO</label>
-                    <input type="text" class="sp-field-input" name="po_number" placeholder="Salesforce PO #">
+                <div class="sp-field-group" id="no-po-group">
+                    <label class="sp-field-lbl">Customer PO <span id="no-po-req">*</span></label>
+                    <input type="text" class="sp-field-input" name="po_number" id="no-po-number" placeholder="Salesforce PO #" required>
                 </div>
                 <div class="sp-field-group">
                     <label class="sp-field-lbl">Default Fulfillment Type</label>
@@ -1364,6 +1372,10 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                         <option value="prebuilt_finished">Prebuilt Finished</option>
                     </select>
                 </div>
+            </div>
+            <div class="sp-field-group" id="no-expret-group" style="display:none;">
+                <label class="sp-field-lbl">Loan Due Date (expected return)</label>
+                <input type="date" class="sp-field-input" name="expected_return" id="no-expected-return" disabled>
             </div>
             <div class="sp-field-group">
                 <label class="sp-field-lbl">Notes</label>
@@ -1795,11 +1807,29 @@ function updateStageChips(devices) {
 function openNewOrderModal() {
     document.getElementById('new-order-overlay').style.display = 'block';
     document.getElementById('new-order-modal').style.display = 'flex';
+    toggleOrderTypeFields();
 }
 function closeNewOrderModal() {
     document.getElementById('new-order-overlay').style.display = 'none';
     document.getElementById('new-order-modal').style.display = 'none';
     document.getElementById('new-order-form').reset();
+}
+
+function toggleOrderTypeFields() {
+    const t = document.getElementById('no-order-type').value;
+    const isSale = (t === 'sale');
+    // Customer PO: shown + required only for sale; disabled so FormData omits it for loans
+    document.getElementById('no-po-group').style.display = isSale ? '' : 'none';
+    const po = document.getElementById('no-po-number');
+    po.required = isSale;
+    po.disabled = !isSale;
+    if (!isSale) po.value = '';
+    document.getElementById('no-po-req').style.display = isSale ? '' : 'none';
+    // Loan due date: shown only for non-sale; disabled for sale so FormData omits it
+    document.getElementById('no-expret-group').style.display = isSale ? 'none' : '';
+    const er = document.getElementById('no-expected-return');
+    er.disabled = isSale;
+    if (isSale) er.value = '';
 }
 
 async function submitNewOrder(e) {

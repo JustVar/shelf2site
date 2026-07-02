@@ -175,6 +175,29 @@ async def create_order(
     if not customer_name:
         return JSONResponse(status_code=400, content={"error": "Customer name is required"})
 
+    # Order type classification (Migration 058) - whitelist-validate; default sale.
+    # Sale orders require a Customer PO (pipeline gate); loan types (pilot/try_and_buy/
+    # demo) carry no PO and instead may set an expected_return loan due date. The
+    # client hides/disables the irrelevant fields, but re-validate here - never trust
+    # the client to have omitted them.
+    order_type = (body.get("order_type") or "sale").strip()
+    if order_type not in CustomerOrder.ORDER_TYPES:
+        return JSONResponse(status_code=400, content={"error": "Invalid order type"})
+
+    po_number = (body.get("po_number") or "").strip() or None
+    expected_return = None
+    if order_type == "sale":
+        if not po_number:
+            return JSONResponse(status_code=400, content={"error": "Customer PO is required for sale orders"})
+    else:
+        po_number = None  # loans carry no PO regardless of what the client sent
+        raw_return = (body.get("expected_return") or "").strip()
+        if raw_return:
+            try:
+                expected_return = date.fromisoformat(raw_return)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"error": "Invalid loan due date, use YYYY-MM-DD"})
+
     # Numeric fields — safe parse
     def _to_dec(val):
         try:
@@ -200,8 +223,10 @@ async def create_order(
         is_sensitive=bool(body.get("is_sensitive", False)),
         contract_value=_to_dec(body.get("contract_value")),
         hardware_cost=_to_dec(body.get("hardware_cost")),
-        po_number=(body.get("po_number") or "").strip() or None,
+        po_number=po_number,
         default_fulfillment_type=(body.get("default_fulfillment_type") or "").strip() or None,
+        order_type=order_type,
+        expected_return=expected_return,
         created_by=user.id,
     )
     db.add(order)

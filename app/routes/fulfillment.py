@@ -537,6 +537,7 @@ def fulfillment_page(
         "active_statuses": ACTIVE_STATUSES,
         "archived_statuses": ARCHIVED_STATUSES,
         "order_statuses": CustomerOrder.ORDER_STATUSES,
+        "order_types": CustomerOrder.ORDER_TYPES,
         "status_colors": CustomerOrder.STATUS_COLORS,
         "total_active": total_active,
         "overdue_count": overdue_count,
