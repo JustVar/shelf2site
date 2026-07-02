@@ -729,6 +729,7 @@ function openEditModal() {
 function toggleEditOrderTypeFields() {
     const isSale = document.getElementById('edit-order-type').value === 'sale';
     const po = document.getElementById('edit-po-number');
+    po.required = isSale;
     po.disabled = !isSale;
     if (!isSale) po.value = '';
     document.getElementById('edit-expret-group').style.display = isSale ? 'none' : '';
