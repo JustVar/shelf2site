@@ -9,6 +9,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
 from ..models import Item, ItemLocation
+from .c2c import _pilots_due_back
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -172,6 +173,8 @@ def dashboard(
         for item in recent_items
     ]
 
+    pilots = _pilots_due_back(db)
+
     return templates.TemplateResponse("dashboard.html", {
         "request":          request,
         "user":             user,
@@ -182,5 +185,7 @@ def dashboard(
         "product_status":   product_status,
         "category_counts":  category_counts,
         "recent_activity":  recent_activity,
+        "pilots_overdue":   pilots["counts"]["overdue"],
+        "pilots_due_soon":  pilots["counts"]["due_soon"],
         "page":             "dashboard",
     })

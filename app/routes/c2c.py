@@ -21,7 +21,7 @@ See docs/specs/c2c-camera-certification.md and
 docs/specs/c2c-c1-discovery-handoff.md.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -189,6 +189,93 @@ def _c2c_board_data(db: Session) -> dict:
         # order picker lists only these so the over-acquire block never dead-ends.
         "acquirable_orders": [o for o in order_rollup if o["shortfall"] > 0],
     }
+
+
+_LOAN_TYPES = ("pilot", "try_and_buy", "demo")
+
+
+def _pilots_due_back(db: Session) -> dict:
+    """Loan-order return rollup (Migration 058). Sale orders never appear; fully-returned
+    orders drop off. Status from returned_date + expected_return + today. Backs the
+    Pilots Due Back list page and the dashboard count. Derived, nothing stored."""
+    today = date.today()
+    rows = (
+        db.query(
+            DeviceProvisioning.id.label("provisioning_id"),
+            DeviceProvisioning.returned_date,
+            Item.item_name, Item.item_sn,
+            CustomerOrder.id.label("order_id"),
+            CustomerOrder.order_number, CustomerOrder.customer_name,
+            CustomerOrder.order_type, CustomerOrder.expected_return,
+        )
+        .join(Item, Item.id == DeviceProvisioning.item_id)
+        .join(CustomerOrder, CustomerOrder.id == DeviceProvisioning.customer_order_id)
+        .filter(
+            DeviceProvisioning.item_id.isnot(None),
+            CustomerOrder.order_type.in_(_LOAN_TYPES),
+        )
+        .order_by(DeviceProvisioning.id)
+        .all()
+    )
+    by_order = {}
+    for r in rows:
+        o = by_order.setdefault(r.order_id, {
+            "order_id": r.order_id, "order_number": r.order_number,
+            "customer_name": r.customer_name, "order_type": r.order_type,
+            "expected_return": r.expected_return,
+            "acquired": 0, "returned": 0, "still_out": 0, "status": None, "cams": [],
+        })
+        o["acquired"] += 1
+        if r.returned_date is not None:
+            o["returned"] += 1
+        o["cams"].append({
+            "provisioning_id": r.provisioning_id,
+            "item_name": r.item_name, "item_sn": r.item_sn,
+            "returned_date": r.returned_date,
+        })
+
+    orders = []
+    counts = {"overdue": 0, "due_soon": 0, "on_loan": 0}
+    for o in by_order.values():
+        o["still_out"] = o["acquired"] - o["returned"]
+        if o["still_out"] == 0:
+            continue  # fully returned -> drops off the surface
+        er = o["expected_return"]
+        if er is None:
+            o["status"] = "on-loan"
+        else:
+            days = (er - today).days
+            if days < 0:
+                o["status"] = "overdue"
+            elif days <= 7:
+                o["status"] = "due-soon"
+            else:
+                o["status"] = "on-loan"
+        counts[o["status"].replace("-", "_")] += 1
+        orders.append(o)
+
+    rank = {"overdue": 0, "due-soon": 1, "on-loan": 2}
+    orders.sort(key=lambda x: (rank[x["status"]], x["expected_return"] or date.max))
+    return {
+        "orders": orders,
+        "counts": counts,
+        "total_due_back": len(orders),
+        "actionable": counts["overdue"] + counts["due_soon"],
+    }
+
+
+@router.get("/fulfillment/pilots-due-back", response_class=HTMLResponse)
+def pilots_due_back_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Loan cameras still out, grouped by order (read-only)."""
+    ctx = _pilots_due_back(db)
+    ctx["request"] = request
+    ctx["user"] = user
+    ctx["order_types"] = CustomerOrder.ORDER_TYPES
+    return templates.TemplateResponse("pilots_due_back.html", ctx)
 
 
 @router.get("/fulfillment/c2c", response_class=HTMLResponse)
@@ -452,3 +539,75 @@ async def c2c_certify(
         "all_pass": all_pass,
         "checklist": checklist,
     })
+
+
+@router.post("/fulfillment/c2c/{provisioning_id}/return")
+async def c2c_mark_returned(
+    provisioning_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Mark ONE loan camera returned. Stamps returned_date (default today, editable via
+    body). Cam stays linked; is_complete is NOT touched."""
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
+    order = prov.customer_order
+    if order is None or order.order_type not in _LOAN_TYPES:
+        return JSONResponse(status_code=400, content={"error": "Mark returned applies to loan orders only (pilot, try_and_buy, demo)"})
+    body = await request.json()
+    if body.get("returned_date"):
+        try:
+            new_date = date.fromisoformat(str(body["returned_date"]).strip())
+        except (ValueError, TypeError):
+            return JSONResponse(status_code=400, content={"error": "returned_date must be YYYY-MM-DD"})
+    else:
+        new_date = date.today()
+    prov.returned_date = new_date  # is_complete intentionally left untouched
+    db.commit()
+    log_event(
+        db, "c2c_camera_returned",
+        request=request, user_id=user.id,
+        target_table="device_provisioning", target_id=prov.id,
+        action="update",
+        details=f"Marked C2C cam prov #{prov.id} returned {new_date} for order {order.order_number} [{order.order_type}]",
+    )
+    return JSONResponse(content={"status": "returned", "provisioning_id": prov.id, "returned_date": new_date.isoformat()})
+
+
+@router.post("/fulfillment/c2c/order/{order_id}/return-all")
+async def c2c_mark_all_returned(
+    order_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Mark all STILL-OUT loan cameras of one order returned (today). Already-returned cams
+    keep their date. is_complete is NOT touched."""
+    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    if not order:
+        return JSONResponse(status_code=404, content={"error": "Customer order not found"})
+    if order.order_type not in _LOAN_TYPES:
+        return JSONResponse(status_code=400, content={"error": "Mark returned applies to loan orders only (pilot, try_and_buy, demo)"})
+    today = date.today()
+    still_out = (
+        db.query(DeviceProvisioning)
+        .filter(
+            DeviceProvisioning.customer_order_id == order.id,
+            DeviceProvisioning.item_id.isnot(None),
+            DeviceProvisioning.returned_date.is_(None),
+        )
+        .all()
+    )
+    for p in still_out:
+        p.returned_date = today  # is_complete intentionally left untouched
+    db.commit()
+    log_event(
+        db, "c2c_order_cams_returned",
+        request=request, user_id=user.id,
+        target_table="customer_orders", target_id=order.id,
+        action="update",
+        details=f"Marked {len(still_out)} C2C cam(s) returned {today} for order {order.order_number} [{order.order_type}]",
+    )
+    return JSONResponse(content={"status": "returned", "order_id": order.id, "count": len(still_out)})

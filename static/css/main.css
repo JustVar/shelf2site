@@ -4791,6 +4791,53 @@ body.sx-nav-collapsed .sx-nav__subgroup-content .sx-nav__link {
 .order-type-badge--pilot       { color: var(--fl-purple, #a855f7);  background: rgba(168,85,247,0.14);  border: 1px solid rgba(168,85,247,0.32); }
 .order-type-badge--try_and_buy { color: var(--fl-orange, #f97316);  background: rgba(249,115,22,0.14);  border: 1px solid rgba(249,115,22,0.32); }
 .order-type-badge--demo        { color: var(--fl-amber, #f59e0b);   background: rgba(245,158,11,0.14);  border: 1px solid rgba(245,158,11,0.32); }
+
+/* ============================================================
+   Pilots Due Back (sub-slice 5): loan-camera return tracking.
+   New classes only. Self-contained with hard --fl-* fallbacks so
+   the list page + dashboard widget render regardless of theme scope.
+   ============================================================ */
+.pilots-header { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.pilots-header__title { margin: 0; }
+.pilots-header__counts { display: flex; gap: 0.5rem; }
+.pilots-count { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 10px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.pilots-count--overdue  { color: var(--fl-red, #ef4444);   background: rgba(239,68,68,0.12);  border: 1px solid rgba(239,68,68,0.3); }
+.pilots-count--due-soon { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); }
+
+.pilots-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.pilots-card { background: var(--card-bg, #232a44); border: 1px solid var(--border, #2d3748); border-radius: 8px; padding: 0.75rem 0.9rem; border-left-width: 3px; }
+.pilots-card--overdue  { border-left-color: var(--fl-red, #ef4444); }
+.pilots-card--due-soon { border-left-color: var(--fl-amber, #f59e0b); }
+.pilots-card--on-loan  { border-left-color: var(--border, #2d3748); }
+.pilots-card__head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.pilots-card__id { font-weight: 700; color: var(--text, #e2e8f0); }
+.pilots-card__cust { color: var(--text-muted, #94a3b8); }
+.pilots-card__meta { margin-left: auto; color: var(--text-muted, #94a3b8); font-size: 0.78rem; }
+.pilots-status { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.pilots-status--overdue  { color: var(--fl-red, #ef4444);   background: rgba(239,68,68,0.12);  border: 1px solid rgba(239,68,68,0.3); }
+.pilots-status--due-soon { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); }
+.pilots-status--on-loan  { color: var(--text-muted, #94a3b8); background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.28); }
+
+.pilots-cams { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border, #2d3748); }
+.pilots-cam { display: flex; align-items: center; gap: 0.6rem; font-size: 0.8rem; }
+.pilots-cam__name { font-weight: 600; color: var(--text, #e2e8f0); }
+.pilots-cam__sn { color: var(--text-muted, #94a3b8); font-family: monospace; font-size: 0.75rem; }
+.pilots-cam__returned { color: var(--fl-green, #22c55e); font-weight: 600; margin-left: auto; }
+.pilots-cam__out { color: var(--fl-amber, #f59e0b); font-weight: 600; margin-left: auto; }
+.pilots-btn { padding: 0.25rem 0.6rem; border-radius: 6px; border: 1px solid var(--border, #2d3748); background: var(--card-bg, #232a44); color: var(--text, #e2e8f0); font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+.pilots-btn:hover { border-color: var(--accent-blue, #10b981); }
+.pilots-btn--all { margin-left: 0.4rem; }
+.pilots-empty { color: var(--text-muted, #94a3b8); padding: 2rem 0; }
+
+/* Dashboard "Pilots due back" widget (Option A - standalone panel below the hero) */
+.db-pilots { display: block; text-decoration: none; margin: 0 0 1rem 0; padding: 0.85rem 1rem; border-radius: 8px; background: var(--card-bg, #232a44); border: 1px solid var(--border, #2d3748); }
+.db-pilots--alert { border-color: var(--fl-red, #ef4444); }
+.db-pilots__title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #94a3b8); margin-bottom: 0.4rem; }
+.db-pilots__nums { display: flex; gap: 1.5rem; }
+.db-pilots__stat { color: var(--text, #e2e8f0); font-size: 0.85rem; }
+.db-pilots__stat b { font-size: 1.15rem; font-weight: 700; }
+.db-pilots__stat--overdue b  { color: var(--fl-red, #ef4444); }
+.db-pilots__stat--due-soon b { color: var(--fl-amber, #f59e0b); }
 .c2c-panel__textarea {
   font-family: inherit; font-size: 0.85rem; color: var(--text);
   background: rgba(255,255,255,0.03); border: 1px solid var(--border);

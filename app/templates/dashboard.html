@@ -55,6 +55,15 @@
 
 </div>
 
+<!-- Pilots due back (loan returns, sub-slice 5) -->
+<a href="{{ base_path }}/fulfillment/pilots-due-back" class="db-pilots{% if pilots_overdue %} db-pilots--alert{% endif %}">
+  <div class="db-pilots__title">Pilots due back</div>
+  <div class="db-pilots__nums">
+    <span class="db-pilots__stat db-pilots__stat--overdue"><b>{{ pilots_overdue }}</b> overdue</span>
+    <span class="db-pilots__stat db-pilots__stat--due-soon"><b>{{ pilots_due_soon }}</b> due soon</span>
+  </div>
+</a>
+
 <!-- Composition Bar -->
 {% if category_counts %}
 <div class="db-comp">

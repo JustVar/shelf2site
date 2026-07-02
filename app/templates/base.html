@@ -165,6 +165,13 @@
           {{ icon('camera', size=14) }}
           <span class="sx-nav__label">C2C Cameras</span>
         </a>
+
+        <a href="{{ base_path }}/fulfillment/pilots-due-back"
+           class="sx-nav__link {% if '/fulfillment/pilots-due-back' in request.url.path %}sx-nav__link--active{% endif %}"
+           data-label="Pilots Due Back">
+          {{ icon('history', size=14) }}
+          <span class="sx-nav__label">Pilots Due Back</span>
+        </a>
         {% endif %}
 
 {# === ADMIN === #}

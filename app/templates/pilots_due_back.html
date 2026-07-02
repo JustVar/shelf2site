@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Pilots Due Back - Asset Tracker{% endblock %}
+{% block content %}
+<div class="fulfillment-page pilots-page">
+  <div class="pilots-header">
+    <h1 class="pilots-header__title">Pilots Due Back</h1>
+    <div class="pilots-header__counts">
+      <span class="pilots-count pilots-count--overdue">{{ counts.overdue }} overdue</span>
+      <span class="pilots-count pilots-count--due-soon">{{ counts.due_soon }} due soon</span>
+    </div>
+  </div>
+
+  {% if orders %}
+  <div class="pilots-list">
+    {% for o in orders %}
+    <div class="pilots-card pilots-card--{{ o.status }}">
+      <div class="pilots-card__head">
+        <span class="pilots-card__id">{{ o.order_number }}</span>
+        <span class="order-type-badge order-type-badge--{{ o.order_type }}">{{ order_types.get(o.order_type, o.order_type) }}</span>
+        <span class="pilots-card__cust">{{ o.customer_name }}</span>
+        <span class="pilots-status pilots-status--{{ o.status }}">{{ o.status.replace('-', ' ') }}</span>
+        <span class="pilots-card__meta">Due {{ o.expected_return or '—' }} &middot; {{ o.returned }} of {{ o.acquired }} returned</span>
+        {% if o.still_out %}
+        <button type="button" class="pilots-btn pilots-btn--all" onclick="pilotsMarkAll({{ o.order_id }}, '{{ o.order_number }}')">Mark all returned</button>
+        {% endif %}
+      </div>
+      <div class="pilots-cams">
+        {% for cam in o.cams %}
+        <div class="pilots-cam">
+          <span class="pilots-cam__name">{{ cam.item_name or 'Camera' }}</span>
+          <span class="pilots-cam__sn">{{ cam.item_sn or '—' }}</span>
+          {% if cam.returned_date %}
+          <span class="pilots-cam__returned">Returned {{ cam.returned_date }}</span>
+          {% else %}
+          <span class="pilots-cam__out">Still out</span>
+          <button type="button" class="pilots-btn" onclick="pilotsMarkReturned({{ cam.provisioning_id }})">Mark returned</button>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="pilots-empty">No loan cameras are currently out. All pilots have been returned.</div>
+  {% endif %}
+</div>
+
+<script>
+function _pilotsPost(url) {
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (res.ok) { window.location.reload(); }
+      else { alert((res.d && res.d.error) || "Action failed"); }
+    })
+    .catch(function () { alert("Network error"); });
+}
+function pilotsMarkReturned(provId) {
+  _pilotsPost("{{ base_path }}/fulfillment/c2c/" + provId + "/return");
+}
+function pilotsMarkAll(orderId, orderNumber) {
+  if (!confirm("Mark all still-out cameras returned for " + orderNumber + "?")) { return; }
+  _pilotsPost("{{ base_path }}/fulfillment/c2c/order/" + orderId + "/return-all");
+}
+</script>
+{% endblock %}
