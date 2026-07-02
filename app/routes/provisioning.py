@@ -698,6 +698,19 @@ async def advance_provisioning(
     if rec.is_complete:
         return JSONResponse(status_code=400, content={"error": "Provisioning already complete"})
 
+    # C2C cams (option D: device_table="items", item_id set) have no stage machine and
+    # must never complete through this edge-box advance pipeline. Under option D is_complete
+    # stays False for a C2C row for life (returned or not), so reject at the source.
+    # Defensive: today a C2C row carries stages=[] and already bails at the "Current stage
+    # not found" check below, but that is incidental - this makes the invariant explicit so
+    # a future stages change cannot silently open the (item_id set + is_complete +
+    # returned_date NULL) anomaly. Edge-box rows have item_id NULL and are unaffected.
+    if rec.item_id is not None:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "C2C cameras are not advanced through the provisioning stage machine"},
+        )
+
     stages = copy.deepcopy(rec.stages)  # deep copy for JSONB mutation tracking
     now_str = datetime.utcnow().isoformat()
 
