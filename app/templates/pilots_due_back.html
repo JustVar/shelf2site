@@ -46,6 +46,25 @@
   {% endif %}
 </div>
 
+<!-- Mark all returned confirm dialog (in-app; reuses the C2C modal chrome) -->
+<div class="c2c-modal-overlay" id="pilots-confirm-overlay" onclick="pilotsConfirmClose()"></div>
+<div class="c2c-modal" id="pilots-confirm-modal" role="dialog" aria-modal="true">
+  <div class="c2c-modal__head">
+    <div>
+      <div class="c2c-modal__title">Mark all returned</div>
+      <div class="c2c-modal__sub" id="pilots-confirm-sub"></div>
+    </div>
+    <button type="button" class="c2c-modal__close" onclick="pilotsConfirmClose()">&times;</button>
+  </div>
+  <div style="padding:1rem 1.1rem; color:var(--text); font-size:0.85rem; line-height:1.5;">
+    Mark every still-out camera on this order as returned today. Cameras already returned keep their date.
+  </div>
+  <div class="c2c-modal__foot">
+    <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" onclick="pilotsConfirmClose()">Cancel</button>
+    <button type="button" class="c2c-modal__btn c2c-modal__btn--pri" id="pilots-confirm-go" onclick="pilotsConfirmGo()">Mark all returned</button>
+  </div>
+</div>
+
 <script>
 function _pilotsPost(url) {
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
@@ -59,9 +78,22 @@ function _pilotsPost(url) {
 function pilotsMarkReturned(provId) {
   _pilotsPost("{{ base_path }}/fulfillment/c2c/" + provId + "/return");
 }
+var _pilotsPendingOrder = null;
 function pilotsMarkAll(orderId, orderNumber) {
-  if (!confirm("Mark all still-out cameras returned for " + orderNumber + "?")) { return; }
-  _pilotsPost("{{ base_path }}/fulfillment/c2c/order/" + orderId + "/return-all");
+  _pilotsPendingOrder = orderId;
+  document.getElementById("pilots-confirm-sub").textContent = "Order " + orderNumber;
+  document.getElementById("pilots-confirm-overlay").style.display = "block";
+  document.getElementById("pilots-confirm-modal").style.display = "flex";
+}
+function pilotsConfirmClose() {
+  document.getElementById("pilots-confirm-overlay").style.display = "none";
+  document.getElementById("pilots-confirm-modal").style.display = "none";
+  _pilotsPendingOrder = null;
+}
+function pilotsConfirmGo() {
+  var oid = _pilotsPendingOrder;
+  pilotsConfirmClose();
+  if (oid !== null) { _pilotsPost("{{ base_path }}/fulfillment/c2c/order/" + oid + "/return-all"); }
 }
 </script>
 {% endblock %}
