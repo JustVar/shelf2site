@@ -254,17 +254,12 @@ async def c2c_acquire(
             content={"error": f"Item {device_id} is category '{camera.item_category}', not a C2C camera (camera_c2c)"},
         )
 
-    # Assignment type. The vocabulary (sale | pilot | demo | internal) is a shared
-    # foundation but only the sale path is wired this slice; pilot/demo/internal
-    # are defined-but-not-built, so reject them loudly (a stray call fails, and
-    # the UI never offers them).
+    # Classification is driven by the chosen order's order_type (Migration 058), NOT by a
+    # client-sent assignment_type. The body value defaults to "sale" and is only sanity-
+    # checked against the vocabulary here; the row's assignment_type is derived from
+    # order.order_type below (loans carry no PO and are not blocked).
     if assignment_type not in DeviceProvisioning.ASSIGNMENT_TYPES:
         return JSONResponse(status_code=400, content={"error": f"Invalid assignment_type: {assignment_type}"})
-    if assignment_type != "sale":
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"assignment_type '{assignment_type}' is defined but not yet supported (only 'sale' is wired)"},
-        )
 
     # Order is required — C2C acquisition provisions cams *to an order*.
     if not customer_order_id:
@@ -272,8 +267,9 @@ async def c2c_acquire(
     order = db.query(CustomerOrder).filter(CustomerOrder.id == int(customer_order_id)).first()
     if not order:
         return JSONResponse(status_code=404, content={"error": "Customer order not found"})
-    # Same PO gate as edge-box provisioning: no pipeline entry without a customer PO.
-    if not order.po_number:
+    # PO required only for SALE orders (Migration 058: order_type is the classification
+    # source; loans pilot/try_and_buy/demo carry no PO). Mirrors the over-acquire sale-gate.
+    if order.order_type == "sale" and not order.po_number:
         return JSONResponse(
             status_code=400,
             content={"error": f"Order {order.order_number} has no Customer PO - add one before acquiring cameras"},
@@ -331,7 +327,10 @@ async def c2c_acquire(
         current_stage="acquired",   # label only; cams have no stage machine
         stages=[],                  # nullable=False; guarded-falsy everywhere
         fulfillment_type=None,      # NULL = not in the edge-box fulfillment pipeline
-        assignment_type=assignment_type,  # 'sale' this slice; vocabulary defined for pilot/demo
+        # Classification retired to order.order_type (Migration 058); this column is
+        # vestigial (no readers). Stamp "sale" for sale orders, NULL for loans (try_and_buy
+        # is not in ASSIGNMENT_TYPES, so order_type is never derived into it directly).
+        assignment_type=("sale" if order.order_type == "sale" else None),
         notes=notes or None,
         customer_order_id=order.id,
         created_by=user.id,
@@ -345,7 +344,7 @@ async def c2c_acquire(
         request=request, user_id=user.id,
         target_table="device_provisioning", target_id=rec.id,
         action="create",
-        details=f"Acquired C2C camera item #{device_id} ({cam_name}) to order {order.order_number} [{assignment_type}]",
+        details=f"Acquired C2C camera item #{device_id} ({cam_name}) to order {order.order_number} [{order.order_type}]",
     )
 
     return JSONResponse(content={
