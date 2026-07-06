@@ -2013,3 +2013,22 @@ class C2CCertification(Base):
     cancel_reason = Column(Text, nullable=True)
     cancelled_by = Column(String(128), nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
+
+
+class C2CCertificationFile(Base):
+    """Source files + generated composite for a C2C cert EVENT (append-only). Bytes on disk
+    under C2C_CERT_UPLOAD_DIR/<camera_serial>/<stored_name>; only metadata in the DB."""
+    __tablename__ = "c2c_certification_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    c2c_certification_id = Column(
+        Integer, ForeignKey("c2c_certification.id", ondelete="CASCADE"), nullable=False
+    )
+    camera_serial = Column(String(64), nullable=True)   # lifetime anchor for the on-disk subdir
+    kind = Column(String(16), nullable=False, server_default="source")   # 'source' | 'composite'
+    original_name = Column(String(512), nullable=False)
+    stored_name = Column(String(512), nullable=False)
+    content_type = Column(String(128), nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    uploaded_by = Column(String(128), nullable=True)
+    uploaded_at = Column(DateTime, nullable=False, server_default=func.now())

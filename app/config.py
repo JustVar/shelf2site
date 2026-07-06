@@ -58,6 +58,8 @@ class Settings:
     CERT_UPLOAD_DIR: str = os.getenv("CERT_UPLOAD_DIR", "data/cert-reports")
     # Install cert uploads (single post-install PDF, per deployment)
     INSTALL_CERT_UPLOAD_DIR: str = os.getenv("INSTALL_CERT_UPLOAD_DIR", "data/install-cert-reports")
+    # C2C cert source files + generated composite (5b/5c); bytes on disk, metadata in DB
+    C2C_CERT_UPLOAD_DIR: str = os.getenv("C2C_CERT_UPLOAD_DIR", "data/c2c-cert-reports")
 
     # Zendesk Integration
     ZENDESK_SUBDOMAIN: str = os.getenv("ZENDESK_SUBDOMAIN", "")
