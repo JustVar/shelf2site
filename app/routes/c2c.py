@@ -21,11 +21,15 @@ See docs/specs/c2c-camera-certification.md and
 docs/specs/c2c-c1-discovery-handoff.md.
 """
 
+import io
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+import fitz
+
+from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -35,7 +39,7 @@ from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    C2CCertification, CustomerOrder, DeviceProvisioning, Item, ItemPartNumber, Site, User,
+    C2CCertification, C2CCertificationFile, CustomerOrder, DeviceProvisioning, Item, ItemPartNumber, Site, User,
 )
 
 router = APIRouter()
@@ -507,23 +511,10 @@ async def c2c_certify(
     checklist = {k: bool(raw.get(k)) for k in CHECKLIST_ITEMS}
     all_pass = all(checklist[k] for k in CHECKLIST_ITEMS)
 
-    # Append-only cert log: get-or-create the current PENDING draft. Certified and
-    # cancelled events are frozen (never mutated); only a pending draft is mutable. If
-    # the latest event is already certified/cancelled (or none exists), start a fresh
-    # pending draft - an all-pass certify then finalizes THIS draft in place.
-    cert = (
-        db.query(C2CCertification)
-        .filter(C2CCertification.device_provisioning_id == provisioning_id)
-        .order_by(C2CCertification.id.desc())
-        .first()
-    )
-    created = cert is None or cert.status != "pending"
-    if created:
-        cert = C2CCertification(
-            device_provisioning_id=provisioning_id,
-            created_by=user.display_name,
-        )
-        db.add(cert)
+    # Append-only cert log: attach to the current mutable PENDING draft (shared helper,
+    # also used by the file-upload endpoint). Certified/cancelled events are frozen; a
+    # non-pending latest event starts a fresh draft.
+    cert, created = _get_or_create_pending_c2c_draft(db, provisioning_id, user.display_name)
 
     # Whole-object assignment for JSONB (SQLAlchemy does not track in-place mutation).
     cert.checklist = checklist
@@ -552,6 +543,21 @@ async def c2c_certify(
 
     db.commit()
     db.refresh(cert)
+
+    if all_pass:
+        # Composite PDF for THIS finalized event (5c). AFTER commit so cert.id exists and a
+        # render failure cannot roll back the certification. Wrapped so a composite failure
+        # never 500s the certify (FailGate) - the cam stays certified; the composite is
+        # regenerable and the failure is audited.
+        try:
+            _generate_c2c_composite(db, cert, item, prov)
+        except Exception:
+            db.rollback()
+            log_event(
+                db, "c2c_composite_failed", request=request, user_id=user.id,
+                target_table="c2c_certification", target_id=cert.id, action="update",
+                details=f"Composite PDF generation failed for C2C cert #{cert.id}",
+            )
 
     passed = sum(1 for k in CHECKLIST_ITEMS if checklist[k])
     log_event(
@@ -641,3 +647,494 @@ async def c2c_mark_all_returned(
         details=f"Marked {len(still_out)} C2C cam(s) returned {today} for order {order.order_number} [{order.order_type}]",
     )
     return JSONResponse(content={"status": "returned", "order_id": order.id, "count": len(still_out)})
+
+
+# ============================================================================
+# C2C cert source files (5b): bytes on disk under C2C_CERT_UPLOAD_DIR/<serial>/,
+# metadata in c2c_certification_files. Files attach to the current mutable PENDING
+# draft (append-only: certified/cancelled events are frozen). Mirrors build-cert.
+# ============================================================================
+_C2C_FILE_TYPES = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg"}
+_C2C_FILE_EXTS = {".pdf", ".png", ".jpg", ".jpeg"}
+_C2C_FILE_MAX = 5 * 1024 * 1024  # 5 MB
+
+
+def _get_or_create_pending_c2c_draft(db, provisioning_id, created_by):
+    """Current mutable PENDING cert draft for a provisioning row, or a fresh one. Append-only:
+    a certified/cancelled latest event is frozen, so a non-pending (or missing) latest starts a
+    new draft. Returns (cert, created)."""
+    cert = (
+        db.query(C2CCertification)
+        .filter(C2CCertification.device_provisioning_id == provisioning_id)
+        .order_by(C2CCertification.id.desc())
+        .first()
+    )
+    created = cert is None or cert.status != "pending"
+    if created:
+        cert = C2CCertification(device_provisioning_id=provisioning_id, created_by=created_by)
+        db.add(cert)
+    return cert, created
+
+
+def _c2c_file_path(rec):
+    """On-disk path for a cert-file row from its camera_serial + stored_name."""
+    return Path(settings.C2C_CERT_UPLOAD_DIR) / (rec.camera_serial or "unknown") / rec.stored_name
+
+
+@router.get("/fulfillment/c2c/{provisioning_id}/cert-files")
+def c2c_cert_files(
+    provisioning_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Files (source + composite) on the LATEST cert event of a provisioning row. 'deletable'
+    marks source files on a still-pending (mutable) draft."""
+    latest = (
+        db.query(C2CCertification)
+        .filter(C2CCertification.device_provisioning_id == provisioning_id)
+        .order_by(C2CCertification.id.desc())
+        .first()
+    )
+    if not latest:
+        return {"cert_status": None, "files": []}
+    files = (
+        db.query(C2CCertificationFile)
+        .filter(C2CCertificationFile.c2c_certification_id == latest.id)
+        .order_by(C2CCertificationFile.uploaded_at.asc(), C2CCertificationFile.id.asc())
+        .all()
+    )
+    return {
+        "cert_status": latest.status,
+        "cancel_reason": latest.cancel_reason if latest.status == "cancelled" else None,
+        "files": [
+            {"id": f.id, "original_name": f.original_name, "kind": f.kind,
+             "deletable": f.kind == "source" and latest.status == "pending"}
+            for f in files
+        ],
+    }
+
+
+@router.post("/fulfillment/c2c/{provisioning_id}/files")
+async def c2c_upload_cert_file(
+    provisioning_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Upload a source file (PDF/PNG/JPG) onto the current PENDING cert draft. Bytes on disk."""
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
+    if prov.item_id is None:
+        return JSONResponse(status_code=400, content={"detail": "Not a C2C camera provisioning (no item_id link)"})
+    item = db.query(Item).filter(Item.id == prov.item_id).first()
+    if not item:
+        return JSONResponse(status_code=404, content={"detail": "Linked camera item not found"})
+
+    ctype = (file.content_type or "").lower()
+    ext = Path(file.filename or "").suffix.lower()
+    if ctype not in _C2C_FILE_TYPES or ext not in _C2C_FILE_EXTS:
+        return JSONResponse(status_code=400, content={"detail": "Allowed file types: PDF, PNG, JPG"})
+    content = await file.read()
+    if len(content) > _C2C_FILE_MAX:
+        return JSONResponse(status_code=413, content={"detail": "File exceeds 5 MB limit"})
+    if len(content) == 0:
+        return JSONResponse(status_code=400, content={"detail": "Empty file"})
+
+    cert, _ = _get_or_create_pending_c2c_draft(db, provisioning_id, user.display_name)
+    if cert.camera_serial_snapshot is None:
+        cert.camera_serial_snapshot = item.item_sn
+    db.flush()  # assign cert.id for the child FK
+
+    serial = cert.camera_serial_snapshot or item.item_sn or "unknown"
+    serial_dir = Path(settings.C2C_CERT_UPLOAD_DIR) / serial
+    serial_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}{_C2C_FILE_TYPES[ctype]}"
+    with open(serial_dir / stored_name, "wb") as fh:
+        fh.write(content)
+    rec = C2CCertificationFile(
+        c2c_certification_id=cert.id, camera_serial=serial, kind="source",
+        original_name=(file.filename or stored_name), stored_name=stored_name,
+        content_type=ctype, size_bytes=len(content), uploaded_by=user.display_name,
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+    log_event(
+        db, "c2c_cert_file_uploaded", request=request, user_id=user.id,
+        target_table="c2c_certification_files", target_id=rec.id, action="create",
+        details=f"Uploaded {rec.original_name} to C2C cert draft #{cert.id} (prov #{provisioning_id})",
+    )
+    return {"ok": True, "file_id": rec.id, "original_name": rec.original_name}
+
+
+@router.get("/fulfillment/c2c/files/{file_id}")
+def c2c_serve_cert_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Stream a cert file (source or composite) from disk."""
+    rec = db.query(C2CCertificationFile).filter(C2CCertificationFile.id == file_id).first()
+    if not rec:
+        return JSONResponse(status_code=404, content={"detail": "File not found"})
+    path = _c2c_file_path(rec)
+    if not path.exists():
+        return JSONResponse(status_code=404, content={"detail": "File missing on disk"})
+    return FileResponse(
+        path=str(path), filename=rec.original_name,
+        media_type=rec.content_type or "application/octet-stream",
+        content_disposition_type="inline",
+    )
+
+
+@router.delete("/fulfillment/c2c/files/{file_id}")
+def c2c_delete_cert_file(
+    file_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Delete a SOURCE file on a still-pending (mutable) draft. Composite files, and any file on
+    a frozen certified/cancelled event, cannot be deleted (append-only)."""
+    rec = db.query(C2CCertificationFile).filter(C2CCertificationFile.id == file_id).first()
+    if not rec:
+        return JSONResponse(status_code=404, content={"detail": "File not found"})
+    parent = db.query(C2CCertification).filter(C2CCertification.id == rec.c2c_certification_id).first()
+    if rec.kind != "source" or (parent is not None and parent.status != "pending"):
+        return JSONResponse(status_code=409, content={"detail": "Only source files on a pending draft can be deleted"})
+    cert_id = rec.c2c_certification_id
+    _c2c_file_path(rec).unlink(missing_ok=True)
+    db.delete(rec)
+    db.commit()
+    log_event(
+        db, "c2c_cert_file_deleted", request=request, user_id=user.id,
+        target_table="c2c_certification_files", target_id=file_id, action="delete",
+        details=f"Deleted cert source file #{file_id} from draft #{cert_id}",
+    )
+    return {"ok": True}
+
+
+# ============================================================================
+# C2C composite cert PDF (5c): summary cover + this event's source files merged.
+# Mirrors build-cert's _build_cert_report_pdf (font tokens hebo/helv verbatim; per-file
+# try/except -> red placeholder). Only kind='source' merged (never a prior composite).
+# ============================================================================
+_C2C_CHECKLIST_LABELS = {
+    "powered_on": "Powered on", "firmware_verified": "Firmware verified",
+    "qr_site_connected": "Connects to virtual site (QR)", "registered": "Registered",
+}
+
+
+def _build_c2c_composite_pdf(db, cert, item, prov):
+    """Composite PDF bytes: a summary page + this cert event's kind='source' files merged."""
+    doc = fitz.open()
+    page = doc.new_page()
+    margin = 56
+    y = margin
+
+    def line(text, size=11, dy=18, bold=False, color=(0, 0, 0)):
+        nonlocal y, page
+        if y > page.rect.height - margin:
+            page = doc.new_page()
+            y = margin
+        font = "hebo" if bold else "helv"
+        page.insert_text((margin, y), str(text), fontsize=size, fontname=font, color=color)
+        y += dy
+
+    def gap(dy=10):
+        nonlocal y
+        y += dy
+
+    serial = cert.camera_serial_snapshot or (item.item_sn if item else None) or "unknown"
+    when = cert.certified_at.strftime("%Y-%m-%d %H:%M UTC") if cert.certified_at else "-"
+    line("C2C Camera Certification", size=18, dy=30, bold=True)
+    line(f"Camera serial: {serial}", bold=True)
+    line(f"Model / SKU: {(item.item_model if item else '') or ''}  {(item.brand_sku if item else '') or ''}")
+    line(f"Status: {cert.status}", bold=True,
+         color=((0, 0.5, 0.15) if cert.status == "certified" else (0.6, 0.4, 0)))
+    line(f"Certified by: {cert.certified_by or '-'}    Date: {when}")
+    gap()
+    line("Checklist", size=13, dy=22, bold=True)
+    cl = cert.checklist or {}
+    for k in CHECKLIST_ITEMS:
+        mark = "[x]" if cl.get(k) else "[ ]"
+        line(f"  {mark} {_C2C_CHECKLIST_LABELS.get(k, k)}")
+    gap()
+    fw = cert.firmware_evidence or {}
+    if fw:
+        line("Firmware evidence", size=13, dy=22, bold=True)
+        for fk in ("version", "license", "plugins"):
+            if fw.get(fk) is not None:
+                val = fw[fk]
+                if isinstance(val, list):
+                    val = ", ".join(str(x) for x in val)
+                line(f"  {fk}: {val}")
+        gap()
+    if cert.notes:
+        line("Notes", size=13, dy=22, bold=True)
+        line(f"  {cert.notes}")
+
+    files = (
+        db.query(C2CCertificationFile)
+        .filter(C2CCertificationFile.c2c_certification_id == cert.id)
+        .filter(C2CCertificationFile.kind == "source")
+        .order_by(C2CCertificationFile.uploaded_at.asc(), C2CCertificationFile.id.asc())
+        .all()
+    )
+    for f in files:
+        fpath = Path(settings.C2C_CERT_UPLOAD_DIR) / (f.camera_serial or "unknown") / f.stored_name
+        try:
+            ctype = (f.content_type or "").lower()
+            if "pdf" in ctype and fpath.exists():
+                src = fitz.open(str(fpath))
+                doc.insert_pdf(src)
+                src.close()
+            elif ("png" in ctype or "jpeg" in ctype or "jpg" in ctype) and fpath.exists():
+                ipage = doc.new_page()
+                rect = ipage.rect + (margin, margin, -margin, -margin)
+                ipage.insert_image(rect, filename=str(fpath), keep_proportion=True)
+            else:
+                raise FileNotFoundError("missing or unsupported")
+        except Exception:
+            ph = doc.new_page()
+            ph.insert_text((margin, margin + 20), f"Could not embed file: {f.original_name}",
+                           fontsize=12, fontname="hebo", color=(0.8, 0, 0))
+
+    out = doc.tobytes()
+    doc.close()
+    # Live-render self-check: a bad font token / render error raises HERE, not at py_compile.
+    check = fitz.open(stream=out, filetype="pdf")
+    if check.page_count < 1:
+        check.close()
+        raise ValueError("composite has no pages")
+    for p in check:
+        p.get_text()
+    check.close()
+    return out
+
+
+def _generate_c2c_composite(db, cert, item, prov):
+    """Build + persist the composite PDF for a finalized cert event as a kind='composite' row
+    (bytes on disk). Idempotent: drops any prior composite for this event first."""
+    for old in (db.query(C2CCertificationFile)
+                .filter(C2CCertificationFile.c2c_certification_id == cert.id,
+                        C2CCertificationFile.kind == "composite").all()):
+        _c2c_file_path(old).unlink(missing_ok=True)
+        db.delete(old)
+    pdf_bytes = _build_c2c_composite_pdf(db, cert, item, prov)
+    serial = cert.camera_serial_snapshot or (item.item_sn if item else None) or "unknown"
+    serial_dir = Path(settings.C2C_CERT_UPLOAD_DIR) / serial
+    serial_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.pdf"
+    with open(serial_dir / stored_name, "wb") as fh:
+        fh.write(pdf_bytes)
+    db.add(C2CCertificationFile(
+        c2c_certification_id=cert.id, camera_serial=serial, kind="composite",
+        original_name=f"c2c_composite_{serial}_{cert.id}.pdf", stored_name=stored_name,
+        content_type="application/pdf", size_bytes=len(pdf_bytes),
+        uploaded_by=cert.certified_by or "system",
+    ))
+    db.commit()
+
+
+# ============================================================================
+# C2C cancel-certification + copy-forward re-cert (5d). Append-only: a cancel INSERTS a new
+# 'cancelled' event (the prior certified event + its files/composite stay frozen); a re-cert
+# INSERTS a fresh PENDING draft that inherits the prior certified event's source files, which
+# the user may remove/replace (via the delete endpoint) before certifying. is_complete never
+# touched (option D).
+# ============================================================================
+def _copy_forward_c2c_sources(db, new_cert, prior_cert):
+    """Duplicate a prior event's kind='source' files onto a fresh draft: copy the on-disk bytes
+    to a NEW stored_name + insert a new child row, so each event OWNS its files (the old event
+    stays frozen; removing an inherited file from the draft never touches the old event)."""
+    sources = (
+        db.query(C2CCertificationFile)
+        .filter(C2CCertificationFile.c2c_certification_id == prior_cert.id,
+                C2CCertificationFile.kind == "source")
+        .order_by(C2CCertificationFile.uploaded_at.asc(), C2CCertificationFile.id.asc())
+        .all()
+    )
+    serial = new_cert.camera_serial_snapshot or prior_cert.camera_serial_snapshot or "unknown"
+    serial_dir = Path(settings.C2C_CERT_UPLOAD_DIR) / serial
+    for f in sources:
+        src_path = _c2c_file_path(f)
+        if not src_path.exists():
+            continue  # skip a missing source; never abort the re-cert
+        serial_dir.mkdir(parents=True, exist_ok=True)
+        new_stored = f"{uuid.uuid4().hex}{Path(f.stored_name).suffix or '.bin'}"
+        with open(src_path, "rb") as rfh, open(serial_dir / new_stored, "wb") as wfh:
+            wfh.write(rfh.read())
+        db.add(C2CCertificationFile(
+            c2c_certification_id=new_cert.id, camera_serial=serial, kind="source",
+            original_name=f.original_name, stored_name=new_stored,
+            content_type=f.content_type, size_bytes=f.size_bytes, uploaded_by=f.uploaded_by,
+        ))
+
+
+@router.post("/fulfillment/c2c/{provisioning_id}/cancel-cert")
+async def c2c_cancel_cert(
+    provisioning_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Cancel a CERTIFIED cam: append a new 'cancelled' event (reason + who + when). The prior
+    certified event + its files/composite are frozen and untouched."""
+    latest = (
+        db.query(C2CCertification)
+        .filter(C2CCertification.device_provisioning_id == provisioning_id)
+        .order_by(C2CCertification.id.desc())
+        .first()
+    )
+    if latest is None or latest.status != "certified":
+        return JSONResponse(status_code=400, content={"detail": "Only a currently-certified camera can be cancelled"})
+    body = await request.json()
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        return JSONResponse(status_code=400, content={"detail": "A cancellation reason is required"})
+    event = C2CCertification(
+        device_provisioning_id=provisioning_id,
+        camera_serial_snapshot=latest.camera_serial_snapshot,
+        status="cancelled",
+        cancel_reason=reason,
+        cancelled_by=user.display_name,
+        cancelled_at=datetime.utcnow(),
+        created_by=user.display_name,
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    log_event(
+        db, "c2c_cert_cancelled", request=request, user_id=user.id,
+        target_table="c2c_certification", target_id=event.id, action="create",
+        details=f"Cancelled C2C cert for prov #{provisioning_id}: {reason}",
+    )
+    return {"status": "cancelled", "cert_id": event.id}
+
+
+@router.post("/fulfillment/c2c/{provisioning_id}/recertify")
+async def c2c_recertify(
+    provisioning_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Start a re-certification after a cancel: append a fresh PENDING draft inheriting the prior
+    certified event's checklist/evidence + source files (removable/replaceable before certify)."""
+    latest = (
+        db.query(C2CCertification)
+        .filter(C2CCertification.device_provisioning_id == provisioning_id)
+        .order_by(C2CCertification.id.desc())
+        .first()
+    )
+    if latest is None or latest.status != "cancelled":
+        return JSONResponse(status_code=400, content={"detail": "Re-certification only applies after a cancellation"})
+    prior_certified = (
+        db.query(C2CCertification)
+        .filter(C2CCertification.device_provisioning_id == provisioning_id,
+                C2CCertification.status == "certified")
+        .order_by(C2CCertification.id.desc())
+        .first()
+    )
+    cert, created = _get_or_create_pending_c2c_draft(db, provisioning_id, user.display_name)
+    if created and prior_certified is not None:
+        cert.camera_serial_snapshot = prior_certified.camera_serial_snapshot
+        cert.checklist = prior_certified.checklist
+        cert.firmware_evidence = prior_certified.firmware_evidence
+        cert.notes = prior_certified.notes
+        db.flush()  # assign cert.id for the copied child rows
+        _copy_forward_c2c_sources(db, cert, prior_certified)
+    db.commit()
+    db.refresh(cert)
+    log_event(
+        db, "c2c_cert_recertify_started", request=request, user_id=user.id,
+        target_table="c2c_certification", target_id=cert.id, action="create",
+        details=f"Started re-certification draft #{cert.id} for prov #{provisioning_id} (inherited files)",
+    )
+    return {"status": "pending", "cert_id": cert.id}
+
+
+# ============================================================================
+# Per-camera certification history (5e). A single physical camera (one item_schema.items row,
+# one serial) may be provisioned many times; each provisioning row carries an append-only cert
+# log. This view gathers every event across ALL of a camera's provisioning rows into one
+# timeline (newest first), each event linking to its composite PDF + source files.
+# ============================================================================
+@router.get("/fulfillment/c2c/history/{item_id}", response_class=HTMLResponse)
+def c2c_history(
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if item is None:
+        return HTMLResponse("Camera not found", status_code=404)
+    provs = db.query(DeviceProvisioning).filter(DeviceProvisioning.item_id == item_id).all()
+    prov_ids = [p.id for p in provs]
+    order_map = {}
+    order_ids = [p.customer_order_id for p in provs if p.customer_order_id]
+    if order_ids:
+        for o in db.query(CustomerOrder).filter(CustomerOrder.id.in_(order_ids)).all():
+            order_map[o.id] = o
+    prov_ctx = {}
+    for p in provs:
+        o = order_map.get(p.customer_order_id)
+        prov_ctx[p.id] = {
+            "order_number": (o.order_number if o else None),
+            "customer_name": (o.customer_name if o else None),
+        }
+    events = []
+    if prov_ids:
+        certs = (
+            db.query(C2CCertification)
+            .filter(C2CCertification.device_provisioning_id.in_(prov_ids))
+            .order_by(C2CCertification.id.asc())
+            .all()
+        )
+        cert_ids = [c.id for c in certs]
+        files_by_cert = {}
+        if cert_ids:
+            for f in (
+                db.query(C2CCertificationFile)
+                .filter(C2CCertificationFile.c2c_certification_id.in_(cert_ids))
+                .order_by(C2CCertificationFile.uploaded_at.asc(), C2CCertificationFile.id.asc())
+                .all()
+            ):
+                files_by_cert.setdefault(f.c2c_certification_id, []).append(f)
+        for c in certs:
+            cfiles = files_by_cert.get(c.id, [])
+            composite = next((f for f in cfiles if f.kind == "composite"), None)
+            sources = [f for f in cfiles if f.kind == "source"]
+            cl = c.checklist or {}
+            octx = prov_ctx.get(c.device_provisioning_id, {})
+            events.append({
+                "id": c.id,
+                "status": c.status,
+                "provisioning_id": c.device_provisioning_id,
+                "order_number": octx.get("order_number"),
+                "customer_name": octx.get("customer_name"),
+                "certified_by": c.certified_by,
+                "certified_at": c.certified_at,
+                "cancelled_by": c.cancelled_by,
+                "cancelled_at": c.cancelled_at,
+                "cancel_reason": c.cancel_reason,
+                "created_at": c.created_at,
+                "created_by": c.created_by,
+                "checklist_passed": sum(1 for k in CHECKLIST_ITEMS if cl.get(k)),
+                "checklist_total": len(CHECKLIST_ITEMS),
+                "composite": ({"id": composite.id, "name": composite.original_name} if composite else None),
+                "sources": [{"id": f.id, "name": f.original_name} for f in sources],
+            })
+        events.reverse()  # newest first
+    ctx = {
+        "request": request,
+        "user": user,
+        "item": {"id": item.id, "item_name": item.item_name, "item_sn": item.item_sn,
+                 "brand_sku": item.brand_sku},
+        "events": events,
+    }
+    return templates.TemplateResponse("c2c_history.html", ctx)

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Certification history {{ item.item_sn or item.item_name }} - Asset Tracker{% endblock %}
+
+{% block head %}
+<style>
+  .c2ch-page { max-width: 920px; margin: 0 auto; padding: 1.25rem 0 3rem; }
+  .c2ch-back {
+    display: inline-block; margin-bottom: 1rem; font-size: 0.85rem;
+    color: var(--text-muted, #94a3b8); text-decoration: none;
+  }
+  .c2ch-back:hover { color: var(--text, #e2e8f0); }
+  .c2ch-title { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.25rem; color: var(--text, #e2e8f0); }
+  .c2ch-title__serial { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--cert-emerald, #10b981); }
+  .c2ch-sub { font-size: 0.9rem; color: var(--text-muted, #94a3b8); margin-bottom: 0.35rem; }
+  .c2ch-count { font-size: 0.82rem; color: var(--text-muted, #94a3b8); margin-bottom: 1.5rem; }
+
+  /* timeline */
+  .c2ch-tl { list-style: none; margin: 0; padding: 0; position: relative; }
+  .c2ch-tl::before {
+    content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px;
+    background: var(--border, #334155);
+  }
+  .c2ch-ev { position: relative; padding: 0 0 1.25rem 2rem; }
+  .c2ch-dot {
+    position: absolute; left: 0; top: 4px; width: 16px; height: 16px; border-radius: 50%;
+    border: 3px solid var(--card-bg, #0f172a); box-sizing: content-box; z-index: 1;
+    background: var(--text-muted, #94a3b8);
+  }
+  .c2ch-dot--certified { background: var(--fl-green, #10b981); }
+  .c2ch-dot--cancelled { background: var(--fl-red, #ef4444); }
+  .c2ch-dot--pending { background: var(--fl-amber, #f59e0b); }
+
+  .c2ch-card {
+    background: var(--sx-surface, var(--card-bg, #0f172a));
+    border: 1px solid var(--border, #334155); border-radius: 10px; padding: 0.85rem 1rem;
+  }
+  .c2ch-card__top { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+  .c2ch-badge {
+    display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
+    padding: 0.15rem 0.5rem; border-radius: 999px; text-transform: uppercase;
+  }
+  .c2ch-badge--certified { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.12); }
+  .c2ch-badge--cancelled { color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.12); }
+  .c2ch-badge--pending { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); }
+  .c2ch-when { font-size: 0.82rem; color: var(--text-muted, #94a3b8); }
+  .c2ch-evid { margin-left: auto; font-size: 0.72rem; color: var(--text-muted, #94a3b8); font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+  .c2ch-who { font-size: 0.9rem; color: var(--text, #e2e8f0); margin-bottom: 0.2rem; }
+  .c2ch-meta { font-size: 0.82rem; color: var(--text-muted, #94a3b8); margin-bottom: 0.35rem; }
+  .c2ch-reason {
+    font-size: 0.85rem; color: var(--fl-red, #ef4444);
+    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 6px; padding: 0.4rem 0.6rem; margin: 0.35rem 0;
+  }
+  .c2ch-files { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .c2ch-file {
+    display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; text-decoration: none;
+    padding: 0.25rem 0.55rem; border-radius: 6px;
+    color: var(--text, #e2e8f0); background: var(--card-bg, #0f172a); border: 1px solid var(--border, #334155);
+  }
+  .c2ch-file:hover { border-color: var(--cert-emerald, #10b981); }
+  .c2ch-file--composite { color: var(--cert-emerald, #10b981); border-color: rgba(16,185,129,0.4); font-weight: 600; }
+  .c2ch-nofiles { font-size: 0.8rem; color: var(--text-muted, #94a3b8); font-style: italic; }
+  .c2ch-empty {
+    text-align: center; padding: 2.5rem 1rem; color: var(--text-muted, #94a3b8);
+    border: 1px dashed var(--border, #334155); border-radius: 10px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fulfillment-page">
+<div class="c2ch-page">
+
+  <a class="c2ch-back" href="{{ base_path }}/fulfillment/c2c">&larr; Back to C2C cameras</a>
+
+  <h1 class="c2ch-title">Certification history
+    <span class="c2ch-title__serial">{{ item.item_sn or 'no serial' }}</span>
+  </h1>
+  <div class="c2ch-sub">{{ item.item_name or 'Camera' }}{% if item.brand_sku %} &middot; {{ item.brand_sku }}{% endif %}</div>
+  <div class="c2ch-count">
+    {{ events|length }} certification event{{ '' if events|length == 1 else 's' }} across this camera's lifecycle
+  </div>
+
+  {% if events %}
+  <ul class="c2ch-tl">
+    {% for e in events %}
+    <li class="c2ch-ev">
+      <span class="c2ch-dot c2ch-dot--{{ e.status }}"></span>
+      <div class="c2ch-card">
+        <div class="c2ch-card__top">
+          {% if e.status == 'certified' %}
+            <span class="c2ch-badge c2ch-badge--certified">Certified</span>
+            <span class="c2ch-when">{{ e.certified_at.strftime('%Y-%m-%d %H:%M UTC') if e.certified_at else '—' }}</span>
+          {% elif e.status == 'cancelled' %}
+            <span class="c2ch-badge c2ch-badge--cancelled">Cancelled</span>
+            <span class="c2ch-when">{{ e.cancelled_at.strftime('%Y-%m-%d %H:%M UTC') if e.cancelled_at else '—' }}</span>
+          {% else %}
+            <span class="c2ch-badge c2ch-badge--pending">Pending draft</span>
+            <span class="c2ch-when">{{ e.created_at.strftime('%Y-%m-%d %H:%M UTC') if e.created_at else '—' }}</span>
+          {% endif %}
+          <span class="c2ch-evid">event #{{ e.id }}</span>
+        </div>
+
+        <div class="c2ch-who">
+          {% if e.status == 'certified' %}Certified by {{ e.certified_by or 'unknown' }}
+          {% elif e.status == 'cancelled' %}Cancelled by {{ e.cancelled_by or 'unknown' }}
+          {% else %}Draft started by {{ e.created_by or 'unknown' }}{% endif %}
+          &middot; {{ e.checklist_passed }}/{{ e.checklist_total }} checks passed
+        </div>
+
+        <div class="c2ch-meta">
+          {{ e.order_number or 'no order' }}{% if e.customer_name %} &middot; {{ e.customer_name }}{% endif %}
+          &middot; provisioning #{{ e.provisioning_id }}
+        </div>
+
+        {% if e.status == 'cancelled' and e.cancel_reason %}
+        <div class="c2ch-reason">Reason: {{ e.cancel_reason }}</div>
+        {% endif %}
+
+        <div class="c2ch-files">
+          {% if e.composite %}
+          <a class="c2ch-file c2ch-file--composite" href="{{ base_path }}/fulfillment/c2c/files/{{ e.composite.id }}" target="_blank" rel="noopener">Composite PDF</a>
+          {% endif %}
+          {% for s in e.sources %}
+          <a class="c2ch-file" href="{{ base_path }}/fulfillment/c2c/files/{{ s.id }}" target="_blank" rel="noopener">{{ s.name }}</a>
+          {% endfor %}
+          {% if not e.composite and not e.sources %}
+          <span class="c2ch-nofiles">No files on this event.</span>
+          {% endif %}
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="c2ch-empty">No certification events for this camera yet.</div>
+  {% endif %}
+
+</div>
+</div>
+{% endblock %}

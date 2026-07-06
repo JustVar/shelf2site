@@ -67,12 +67,13 @@
       <div class="c2c-cam">
         <div class="c2c-cam__head">
           <span class="c2c-sku">{{ cam.brand_sku or 'no SKU' }}</span>
-          <span class="c2c-pill c2c-pill--pending">Pending</span>
+          {% if cam.cert_status == 'cancelled' %}<span class="c2c-pill c2c-pill--pending" style="color:#ef4444; background:rgba(239,68,68,0.12);">Cancelled</span>{% else %}<span class="c2c-pill c2c-pill--pending">Pending</span>{% endif %}
         </div>
         <div class="c2c-cam__name">{{ cam.item_name or 'Camera' }}</div>
         <div class="c2c-cam__serial">{{ cam.item_sn or 'no serial' }}</div>
         <div class="c2c-cam__meta">{{ cam.order_number or 'no order' }}{% if cam.customer_name %} &middot; {{ cam.customer_name }}{% endif %}</div>
-        <button type="button" class="c2c-cam__btn" onclick="openC2cCertify('{{ cam.provisioning_id }}')">Certify</button>
+        <button type="button" class="c2c-cam__btn" onclick="openC2cCertify('{{ cam.provisioning_id }}')">{% if cam.cert_status == 'cancelled' %}Re-certify{% else %}Certify{% endif %}</button>
+        <a href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}" style="display:block; margin-top:0.4rem; font-size:0.78rem; color:#94a3b8; text-decoration:none;">View history &rarr;</a>
       </div>
       {% else %}
       <div class="c2c-empty">No cameras awaiting certification.</div>
@@ -94,6 +95,7 @@
         <div class="c2c-cam__serial">{{ cam.item_sn or 'no serial' }}</div>
         <div class="c2c-cam__meta">{{ cam.order_number or 'no order' }}{% if cam.certified_by %} &middot; by {{ cam.certified_by }}{% endif %}</div>
         <button type="button" class="c2c-cam__btn c2c-cam__btn--view" onclick="openC2cCertify('{{ cam.provisioning_id }}')">View</button>
+        <a href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}" style="display:block; margin-top:0.4rem; font-size:0.78rem; color:#94a3b8; text-decoration:none;">View history &rarr;</a>
       </div>
       {% else %}
       <div class="c2c-empty">No certified cameras yet.</div>
@@ -146,8 +148,27 @@
     </div>
   </div>
 
+  <div style="padding:0.75rem 1.25rem; border-top:1px solid var(--border);" id="c2c-files-section">
+    <div class="c2c-modal__coltitle">Certification files (PDF, PNG, JPG)</div>
+    <ul id="c2c-files-list" style="list-style:none; margin:0.4rem 0; padding:0; font-size:0.82rem;"></ul>
+    <div style="display:flex; gap:0.5rem; align-items:center;" id="c2c-file-upload-row">
+      <input type="file" id="c2c-file-input" accept=".pdf,.png,.jpg,.jpeg" style="font-size:0.8rem;">
+      <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" onclick="c2cUploadCertFile()">Upload</button>
+    </div>
+    <div id="c2c-cert-note" style="display:none; margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted);"></div>
+    <div id="c2c-cancel-box" style="display:none; margin-top:0.6rem;">
+      <input type="text" id="c2c-cancel-reason" placeholder="Reason for cancellation" style="width:100%; font-size:0.82rem; padding:0.35rem 0.45rem; box-sizing:border-box;">
+      <div style="margin-top:0.4rem; display:flex; gap:0.5rem;">
+        <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" onclick="c2cHideCancel()">Back</button>
+        <button type="button" class="c2c-modal__btn c2c-modal__btn--pri" onclick="c2cSubmitCancel()">Confirm cancellation</button>
+      </div>
+    </div>
+  </div>
+
   <div class="c2c-modal__foot">
-    <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" onclick="closeC2cCertify()">Cancel</button>
+    <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" onclick="closeC2cCertify()">Close</button>
+    <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" id="c2c-cancelcert-btn" onclick="c2cRevealCancel()" style="display:none;">Cancel certification</button>
+    <button type="button" class="c2c-modal__btn c2c-modal__btn--pri" id="c2c-recert-btn" onclick="c2cRecertify()" style="display:none;">Re-certify (inherit files)</button>
     <button type="button" class="c2c-modal__btn c2c-modal__btn--pri" id="c2c-save-btn" onclick="c2cSaveChecklist()">Save checklist</button>
   </div>
 </div>
@@ -196,6 +217,7 @@ function openC2cCertify(provId) {
     (Object.prototype.toString.call(plugins) === "[object Array]") ? plugins.join(", ") : (plugins || "");
   document.getElementById("c2c-notes").value = data.notes || "";
   c2cUpdateBanner();
+  c2cLoadCertFiles();
   document.getElementById("c2c-modal-overlay").style.display = "block";
   document.getElementById("c2c-modal").style.display = "flex";
 }
@@ -245,6 +267,132 @@ function c2cSaveChecklist() {
     btn.textContent = "Save checklist";
     window.alert("Save failed. Please try again.");
   });
+}
+
+function c2cRenderCertFiles(data) {
+  var ul = document.getElementById("c2c-files-list");
+  ul.innerHTML = "";
+  var files = (data && data.files) || [];
+  if (!files.length) {
+    var empty = document.createElement("li");
+    empty.style.color = "var(--text-muted)";
+    empty.textContent = "No files uploaded yet.";
+    ul.appendChild(empty);
+    return;
+  }
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    var li = document.createElement("li");
+    li.style.display = "flex"; li.style.alignItems = "center"; li.style.gap = "0.5rem"; li.style.padding = "0.15rem 0";
+    var a = document.createElement("a");
+    a.href = "{{ base_path }}/fulfillment/c2c/files/" + f.id;
+    a.target = "_blank";
+    a.textContent = (f.kind === "composite" ? "[composite] " : "") + f.original_name;
+    a.style.color = "var(--fl-green, #22c55e)";
+    li.appendChild(a);
+    if (f.deletable) {
+      var del = document.createElement("button");
+      del.type = "button"; del.textContent = "Remove"; del.style.marginLeft = "auto";
+      del.className = "c2c-modal__btn c2c-modal__btn--sec";
+      del.onclick = (function (fid) { return function () { c2cDeleteCertFile(fid); }; })(f.id);
+      li.appendChild(del);
+    }
+    ul.appendChild(li);
+  }
+}
+
+function c2cLoadCertFiles() {
+  if (!c2cCurrentProv) { return; }
+  fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/cert-files")
+    .then(function (r) { return r.json(); })
+    .then(function (data) { c2cRenderCertFiles(data); c2cApplyCertState(data); })
+    .catch(function () {});
+}
+
+function c2cUploadCertFile() {
+  if (!c2cCurrentProv) { return; }
+  var input = document.getElementById("c2c-file-input");
+  if (!input.files || !input.files.length) { window.alert("Choose a file first."); return; }
+  var fd = new FormData();
+  fd.append("file", input.files[0]);
+  fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/files", { method: "POST", body: fd })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (res.ok) { input.value = ""; c2cLoadCertFiles(); }
+      else { window.alert((res.d && res.d.detail) || "Upload failed."); }
+    })
+    .catch(function () { window.alert("Upload failed."); });
+}
+
+function c2cDeleteCertFile(fileId) {
+  fetch("{{ base_path }}/fulfillment/c2c/files/" + fileId, { method: "DELETE" })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (res.ok) { c2cLoadCertFiles(); }
+      else { window.alert((res.d && res.d.detail) || "Delete failed."); }
+    })
+    .catch(function () { window.alert("Delete failed."); });
+}
+
+function c2cApplyCertState(data) {
+  var status = (data && data.cert_status) || null;
+  var isPending = (status === "pending" || status === null);
+  var isCertified = (status === "certified");
+  var isCancelled = (status === "cancelled");
+  document.getElementById("c2c-save-btn").style.display = isPending ? "" : "none";
+  document.getElementById("c2c-cancelcert-btn").style.display = isCertified ? "" : "none";
+  document.getElementById("c2c-recert-btn").style.display = isCancelled ? "" : "none";
+  var up = document.getElementById("c2c-file-upload-row");
+  if (up) { up.style.display = isPending ? "flex" : "none"; }
+  for (var i = 0; i < C2C_ITEMS.length; i++) {
+    var box = document.getElementById("c2c-chk-" + C2C_ITEMS[i]);
+    if (box) { box.disabled = !isPending; }
+  }
+  c2cHideCancel();
+  var note = document.getElementById("c2c-cert-note");
+  if (isCancelled) {
+    note.style.display = "block";
+    note.textContent = "Certification cancelled" + (data.cancel_reason ? (": " + data.cancel_reason) : "") + ". Re-certify to start a new attempt (inherits the prior files).";
+  } else if (isCertified) {
+    note.style.display = "block";
+    note.textContent = "Certified. Cancel certification to revise; the new attempt inherits these files.";
+  } else {
+    note.style.display = "none";
+  }
+}
+
+function c2cRevealCancel() {
+  document.getElementById("c2c-cancel-box").style.display = "block";
+  document.getElementById("c2c-cancelcert-btn").style.display = "none";
+  document.getElementById("c2c-cancel-reason").focus();
+}
+
+function c2cHideCancel() {
+  var box = document.getElementById("c2c-cancel-box");
+  if (box) { box.style.display = "none"; }
+  var r = document.getElementById("c2c-cancel-reason");
+  if (r) { r.value = ""; }
+}
+
+function c2cSubmitCancel() {
+  if (!c2cCurrentProv) { return; }
+  var reason = document.getElementById("c2c-cancel-reason").value.trim();
+  if (!reason) { window.alert("Enter a reason for the cancellation."); return; }
+  fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/cancel-cert", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: reason })
+  }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (res.ok) { window.location.reload(); } else { window.alert((res.d && res.d.detail) || "Cancel failed."); }
+    }).catch(function () { window.alert("Cancel failed."); });
+}
+
+function c2cRecertify() {
+  if (!c2cCurrentProv) { return; }
+  fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/recertify", { method: "POST" })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (res.ok) { window.location.reload(); } else { window.alert((res.d && res.d.detail) || "Re-certify failed."); }
+    }).catch(function () { window.alert("Re-certify failed."); });
 }
 </script>
 
