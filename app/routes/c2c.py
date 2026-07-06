@@ -27,6 +27,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
@@ -70,6 +71,17 @@ def _c2c_board_data(db: Session) -> dict:
         .filter(ItemPartNumber.item_category == "camera_c2c").all()
     }
 
+    # Latest cert EVENT per provisioning row (append-only log): status is the newest
+    # event's status. id is monotonic, so max(id) = the latest event.
+    latest_cert = (
+        db.query(
+            C2CCertification.device_provisioning_id.label("dpid"),
+            func.max(C2CCertification.id).label("cert_id"),
+        )
+        .group_by(C2CCertification.device_provisioning_id)
+        .subquery()
+    )
+
     # All acquired C2C cams (item_id-linked provisioning rows) + cert + order context.
     cam_records = (
         db.query(
@@ -85,7 +97,8 @@ def _c2c_board_data(db: Session) -> dict:
         )
         .join(Item, Item.id == DeviceProvisioning.item_id)
         .outerjoin(CustomerOrder, CustomerOrder.id == DeviceProvisioning.customer_order_id)
-        .outerjoin(C2CCertification, C2CCertification.device_provisioning_id == DeviceProvisioning.id)
+        .outerjoin(latest_cert, latest_cert.c.dpid == DeviceProvisioning.id)
+        .outerjoin(C2CCertification, C2CCertification.id == latest_cert.c.cert_id)
         .filter(DeviceProvisioning.item_id.isnot(None))
         .order_by(DeviceProvisioning.id)
         .all()
@@ -494,13 +507,17 @@ async def c2c_certify(
     checklist = {k: bool(raw.get(k)) for k in CHECKLIST_ITEMS}
     all_pass = all(checklist[k] for k in CHECKLIST_ITEMS)
 
-    # One cert record per provisioning row: get-or-create.
+    # Append-only cert log: get-or-create the current PENDING draft. Certified and
+    # cancelled events are frozen (never mutated); only a pending draft is mutable. If
+    # the latest event is already certified/cancelled (or none exists), start a fresh
+    # pending draft - an all-pass certify then finalizes THIS draft in place.
     cert = (
         db.query(C2CCertification)
         .filter(C2CCertification.device_provisioning_id == provisioning_id)
+        .order_by(C2CCertification.id.desc())
         .first()
     )
-    created = cert is None
+    created = cert is None or cert.status != "pending"
     if created:
         cert = C2CCertification(
             device_provisioning_id=provisioning_id,
