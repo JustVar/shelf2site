@@ -2008,3 +2008,8 @@ class C2CCertification(Base):
     certified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     created_by = Column(String(128), nullable=True)
+    # Append-only cancel event (Migration 059): a cancel is a NEW row with
+    # status="cancelled" carrying reason + who + when; certify events leave these NULL.
+    cancel_reason = Column(Text, nullable=True)
+    cancelled_by = Column(String(128), nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
