@@ -193,7 +193,8 @@
           {% elif is_complete %}
           <div class="certd-done" style="margin-top:0.9rem;">&#10003; Closed{% if completed_at %} on {{ completed_at }}{% endif %}. This device has left the board.</div>
           {% else %}
-          <button type="button" class="certd-addbtn" style="margin-top:0.9rem;" onclick="certdStartRecert()">Start re-certification</button>
+          <button type="button" class="certd-addbtn" style="margin-top:0.9rem;" id="certd-recert-btn" onclick="certdStartRecert()">Start re-certification</button>
+          <div class="certd-msg" id="certd-recert-msg"></div>
           {% endif %}
         </div>
       {% endif %}
@@ -496,9 +497,28 @@
     }
   }
 
-    function certdStartRecert() {
-    var f = document.getElementById('certd-forms');
-    if (f) f.style.display = '';
+    async function certdStartRecert() {
+    var btn = document.getElementById('certd-recert-btn');
+    var msg = document.getElementById('certd-recert-msg');
+    if (btn) btn.disabled = true;
+    if (msg) { msg.textContent = 'Starting re-certification...'; msg.className = 'certd-msg'; }
+    try {
+      var resp = await fetch(window.BASE_PATH + '/fulfillment/certifications/' + CERTD_PROV_ID + '/recertify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      var data = await resp.json();
+      if (resp.ok && data.ok) {
+        if (msg) { msg.textContent = 'Re-certification started.'; msg.className = 'certd-msg ok'; }
+        setTimeout(function () { window.location.reload(); }, 500);
+      } else {
+        if (msg) { msg.textContent = data.detail || 'Re-certification failed.'; msg.className = 'certd-msg err'; }
+        if (btn) btn.disabled = false;
+      }
+    } catch (e) {
+      if (msg) { msg.textContent = 'Network error: ' + e.message; msg.className = 'certd-msg err'; }
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function certdUploadFile() {

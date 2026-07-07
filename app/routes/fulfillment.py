@@ -1228,11 +1228,14 @@ def certification_detail(
     qa_signer = (open_cert.certified_by if (open_cert and open_cert.qa_status == "complete") else None)
     hw_signer = (open_cert.co_certified_by if (open_cert and open_cert.hw_status == "complete") else None)
 
-    # Files for this serial (lifetime lens, all attempts; newest first).
+    # Files for the CURRENT attempt only (per-attempt lens; B3). Source uploads only; a
+    # persisted composite (B4, kind='composite') is surfaced separately, not in this list.
     cert_files = []
-    if eb.serial:
+    current_cert = history_rows[0] if history_rows else None
+    if current_cert is not None:
         for f in (db.query(BuildCertificationFile)
-                  .filter(BuildCertificationFile.oem_serial == eb.serial)
+                  .filter(BuildCertificationFile.build_certification_id == current_cert.id)
+                  .filter(BuildCertificationFile.kind == "source")
                   .order_by(BuildCertificationFile.uploaded_at.desc()).all()):
             cert_files.append({
                 "id": f.id,
@@ -1821,3 +1824,96 @@ async def cancel_cert_device(
     db.refresh(event)
 
     return {"ok": True, "cert_id": event.id, "cert_status": "cancelled"}
+
+
+@router.post("/fulfillment/certifications/{prov_id}/recertify")
+async def recertify_device(
+    prov_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Start a re-certification: append a fresh PENDING attempt that inherits the prior completed
+    attempt's checklist/evidence and copy-forwards its source files under new stored_names, with
+    reason='recert'. Applies after a failed or cancelled latest attempt. The QA/HW forms then let
+    the user re-submit (which overwrites the inherited checklist); files carry forward visibly."""
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
+    if prov.device_table != "edge_boxes":
+        return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
+
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
+    if not eb:
+        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
+
+    latest = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == eb.serial)
+        .order_by(BuildCertification.created_at.desc())
+        .first()
+    )
+    if latest is None or latest.cert_status not in ("failed", "cancelled"):
+        return JSONResponse(status_code=409, content={
+            "detail": "Re-certification applies after a failed or cancelled attempt"
+        })
+
+    # inherit from the most recent COMPLETED attempt (has checklist/evidence); skips a cancel marker
+    source = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == eb.serial)
+        .filter(BuildCertification.cert_status.in_(("certified", "failed")))
+        .order_by(BuildCertification.created_at.desc())
+        .first()
+    )
+
+    new_cert = BuildCertification(
+        device_provisioning_id=prov.id,
+        oem_serial=eb.serial,
+        device_uuid=(source.device_uuid if source else eb.uuid),
+        sku=(source.sku if source else eb.part_number),
+        customer_name=(source.customer_name if source else None),
+        order_number=(source.order_number if source else None),
+        qa_checklist=(source.qa_checklist if source else None),
+        hardware_validation=(source.hardware_validation if source else None),
+        license_counts=(source.license_counts if source else None),
+        qa_status="pending",
+        hw_status="pending",
+        cert_status="pending",
+        reason="recert",
+    )
+    db.add(new_cert)
+    db.flush()  # assign new_cert.id for the copied file rows
+
+    if source is not None:
+        srcs = (
+            db.query(BuildCertificationFile)
+            .filter(BuildCertificationFile.build_certification_id == source.id)
+            .filter(BuildCertificationFile.kind == "source")
+            .order_by(BuildCertificationFile.uploaded_at.asc(), BuildCertificationFile.id.asc())
+            .all()
+        )
+        serial_dir = Path(settings.CERT_UPLOAD_DIR) / (eb.serial or "unknown")
+        for f in srcs:
+            src_path = serial_dir / f.stored_name
+            if not src_path.exists():
+                continue  # skip a missing source file; never abort the re-cert
+            serial_dir.mkdir(parents=True, exist_ok=True)
+            new_stored = f"{uuid.uuid4().hex}{Path(f.stored_name).suffix or '.bin'}"
+            with open(src_path, "rb") as rfh, open(serial_dir / new_stored, "wb") as wfh:
+                wfh.write(rfh.read())
+            db.add(BuildCertificationFile(
+                build_certification_id=new_cert.id,
+                oem_serial=eb.serial,
+                kind="source",
+                original_name=f.original_name,
+                stored_name=new_stored,
+                content_type=f.content_type,
+                size_bytes=f.size_bytes,
+                uploaded_by=f.uploaded_by,
+            ))
+
+    db.commit()
+    db.refresh(new_cert)
+
+    return {"ok": True, "cert_id": new_cert.id, "cert_status": "pending"}
