@@ -68,7 +68,7 @@
     border-bottom: 1px solid rgba(255,255,255,0.04);
   }
   .cert-table tr:hover td { background: rgba(255,255,255,0.025); }
-  .cert-table__serial { font-family: var(--sx-font-mono, monospace); font-size: 0.8rem; }
+  .cert-table__serial { font-family: var(--sx-font-mono, monospace); font-size: 0.8rem; white-space: nowrap; }
   .cert-serial-link { color: var(--cert-emerald, #10b981); text-decoration: none; }
   .cert-serial-link:hover { text-decoration: underline; }
   .cert-table__stage { color: var(--text-muted); font-size: 0.78rem; }
@@ -97,6 +97,11 @@
     color: var(--fl-amber, #f59e0b);
     background: rgba(245,158,11,0.12);
     border: 1px solid rgba(245,158,11,0.3);
+  }
+  .cert-badge--cancelled {
+    color: var(--text-muted);
+    background: rgba(148,163,184,0.15);
+    border: 1px solid rgba(148,163,184,0.3);
   }
 
   .cert-empty {
@@ -159,9 +164,9 @@
                       {% for d in devices %}
                       <tr class="cert-row"
                           data-search="{{ (d.serial ~ ' ' ~ d.order_number ~ ' ' ~ cust_key ~ ' ' ~ sku_key) | lower }}">
-                        <td class="cert-table__serial"><a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/{{ d.prov_id }}">{{ d.serial }}</a>{% if d.serial %} <a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/history/{{ d.serial }}" style="margin-left:0.5rem; font-size:0.72rem; opacity:0.7;">history</a>{% endif %}</td>
+                        <td class="cert-table__serial"><a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/{{ d.prov_id }}">{{ d.serial }}</a>{% if d.serial %} <a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/history/{{ d.serial }}" style="margin-left:0.5rem; font-size:0.72rem; opacity:0.7;">History</a>{% endif %}</td>
                         <td>{{ d.order_number }}</td>
-                        <td class="cert-table__stage">{{ d.current_stage }}</td>
+                        <td class="cert-table__stage">{{ d.current_stage | stage_label }}</td>
                         <td>
                           <span class="cert-badge cert-badge--{{ d.status_key }}">{{ d.status_label }}</span>
                         </td>

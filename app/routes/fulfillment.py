@@ -40,6 +40,16 @@ templates = Jinja2Templates(
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
 
+# Friendly stage labels for the build-cert screens: the shared STAGE_LABELS map (which already
+# gives HW Check, Reg'd, etc). Display only - it never mutates the stored stage value.
+def _stage_label(value):
+    if not value:
+        return "-"
+    return STAGE_LABELS.get(value) or str(value).replace("_", " ").title()
+
+
+templates.env.filters["stage_label"] = _stage_label
+
 # Active statuses shown as open columns; archived shown collapsed
 ACTIVE_STATUSES = ["new", "sourcing", "building", "testing", "shipped"]
 ARCHIVED_STATUSES = ["delivered", "installed"]
@@ -921,6 +931,7 @@ def certifications_index(
     _STATUS_LABELS = {
         "certified": "Certified",
         "failed": "Failed",
+        "cancelled": "Cancelled",
         "pending": "In progress",
     }
 
@@ -1278,6 +1289,14 @@ def certification_detail(
         "hw_signer": hw_signer,
         "qa_checks": qa_checks,
         "comp_types": comp_types,
+        "qa_prefill": {
+            "checklist": (open_cert.qa_checklist if open_cert else None) or {},
+            "comp_by_type": {
+                (c.get("type") or ""): c
+                for c in (((open_cert.hardware_validation or {}).get("components")) if open_cert else None) or []
+            },
+            "license": (open_cert.license_counts if open_cert else None) or {},
+        },
         "cert_files": cert_files,
         "has_cert": has_cert,
         "is_complete": bool(prov.is_complete),

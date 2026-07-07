@@ -126,7 +126,9 @@
   .certd-upload input[type=file] { font-size: 0.8rem; color: var(--text-muted); }
 
   .certd-hist-table { width: 100%; border-collapse: collapse; }
+  .certd-hist-wrap { overflow-x: auto; }
   .certd-hist-table th {
+    white-space: nowrap;
     text-align: left; font-size: 0.66rem; text-transform: uppercase;
     letter-spacing: 0.04em; color: var(--text-muted);
     padding: 0.3rem 0.7rem 0.3rem 0; border-bottom: 1px solid var(--sx-border, var(--border));
@@ -167,7 +169,7 @@
         <div><div class="certd-field__label">Customer</div><div class="certd-field__value">{{ device.customer_name }}</div></div>
         <div><div class="certd-field__label">Order</div><div class="certd-field__value">{{ device.order_number }}</div></div>
         <div><div class="certd-field__label">Due date</div><div class="certd-field__value">{{ device.due_date }}</div></div>
-        <div><div class="certd-field__label">Stage</div><div class="certd-field__value">{{ device.current_stage }}</div></div>
+        <div><div class="certd-field__label">Stage</div><div class="certd-field__value">{{ device.current_stage | stage_label }}</div></div>
       </div>
     </div>
 
@@ -214,7 +216,7 @@
           <div class="certd-checks">
             {% for key, label in qa_checks %}
             <label class="certd-check">
-              <input type="checkbox" data-qa="{{ key }}" onchange="certdSyncCheckAll()"> {{ label }}
+              <input type="checkbox" data-qa="{{ key }}"{% if qa_prefill and qa_prefill.checklist.get(key, {}).get('checked') %} checked{% endif %} onchange="certdSyncCheckAll()"> {{ label }}
             </label>
             {% endfor %}
           </div>
@@ -225,18 +227,19 @@
           </div>
           <div id="certd-comp-rows">
             {% for t in comp_types %}
+            {% set pc = qa_prefill.comp_by_type.get(t) if qa_prefill else None %}
             <div class="certd-comp-row" data-type="{{ t }}">
               <span class="certd-comp-type-label">{{ t|upper }}</span>
-              <input type="text" class="certd-comp-model" placeholder="Model">
-              <span class="certd-comp-ok"><input type="checkbox" class="certd-comp-okbox" checked></span>
+              <input type="text" class="certd-comp-model" placeholder="Model" value="{{ pc.model if pc else '' }}">
+              <span class="certd-comp-ok"><input type="checkbox" class="certd-comp-okbox"{% if not pc or pc.ok %} checked{% endif %}></span>
             </div>
             {% endfor %}
           </div>
 
           <div class="certd-field__label" style="margin:1.1rem 0 0.4rem 0;">License counts</div>
           <div class="certd-lic">
-            <div><label>Assigned</label><input type="number" id="certd-lic-assigned" min="0" value="0"></div>
-            <div><label>Ordered</label><input type="number" id="certd-lic-ordered" min="0" value="0"></div>
+            <div><label>Assigned</label><input type="number" id="certd-lic-assigned" min="0" value="{{ qa_prefill.license.get('assigned', 0) if qa_prefill else 0 }}"></div>
+            <div><label>Ordered</label><input type="number" id="certd-lic-ordered" min="0" value="{{ qa_prefill.license.get('ordered', 0) if qa_prefill else 0 }}"></div>
           </div>
 
           <div>
@@ -299,6 +302,7 @@
     <div class="certd-panel">
       <div class="certd-panel__head">Certification History</div>
       {% if history %}
+      <div class="certd-hist-wrap">
       <table class="certd-hist-table">
         <thead>
           <tr><th>Reason</th><th>QA</th><th>Hardware</th><th>Cert status</th><th>By</th><th>When</th><th>Report</th></tr>
@@ -306,16 +310,17 @@
         <tbody>
           {% for h in history %}
           <tr>
-            <td>{{ h.reason }}</td>
-            <td><span class="certd-badge certd-badge--{{ h.qa_status }}">{{ h.qa_status }}</span></td>
-            <td><span class="certd-badge certd-badge--{{ h.hw_status }}">{{ h.hw_status }}</span></td>
-            <td><span class="certd-badge certd-badge--{{ h.cert_status }}">{{ h.cert_status }}</span></td>
+            <td>{{ h.reason | capitalize }}</td>
+            <td><span class="certd-badge certd-badge--{{ h.qa_status }}">{{ h.qa_status | capitalize }}</span></td>
+            <td><span class="certd-badge certd-badge--{{ h.hw_status }}">{{ h.hw_status | capitalize }}</span></td>
+            <td><span class="certd-badge certd-badge--{{ h.cert_status }}">{{ h.cert_status | capitalize }}</span></td>
             <td>{{ h.certified_by }}</td>
             <td>{{ h.certified_at }}</td><td>{% if h.cert_status in ['certified', 'failed'] %}<a href="{{ base_path }}/fulfillment/certifications/{{ h.id }}/report" target="_blank" rel="noopener">PDF</a>{% else %}-{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+      </div>
       {% else %}
       <div class="certd-hist-empty">No certification attempts yet for this serial.</div>
       {% endif %}
