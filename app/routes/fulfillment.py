@@ -40,12 +40,22 @@ templates = Jinja2Templates(
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
 
-# Friendly stage labels for the build-cert screens: the shared STAGE_LABELS map (which already
-# gives HW Check, Reg'd, etc). Display only - it never mutates the stored stage value.
+# Full-word stage labels for the WIDE build-cert surfaces (list + detail). The shared
+# STAGE_LABELS map stays abbreviated for the narrow Kanban columns; this build-cert-only map is
+# preferred by the stage_label filter. Display only - it never mutates the stored stage value.
+# hw_check intentionally stays the abbreviated "HW Check" (its permanent form).
+_BUILD_STAGE_FULL = {
+    "registered": "Registered",
+    "certified": "Certified",
+    "sw_version": "SW Version",
+    "pva_events": "PVA/Events",
+}
+
+
 def _stage_label(value):
     if not value:
         return "-"
-    return STAGE_LABELS.get(value) or str(value).replace("_", " ").title()
+    return _BUILD_STAGE_FULL.get(value) or STAGE_LABELS.get(value) or str(value).replace("_", " ").title()
 
 
 templates.env.filters["stage_label"] = _stage_label

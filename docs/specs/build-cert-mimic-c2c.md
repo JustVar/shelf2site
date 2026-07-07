@@ -78,3 +78,17 @@ Next free migration number is **061** (053/054 = installation_certification; 055
 - Edit shared CSS rules for one board (add new classes).
 - Chain the two remote pushes.
 - Commit+sync after every sub-slice — only at the 2 consolidation points.
+
+## B6 - Full stage labels on the wide build-cert surfaces (follow-up, shipped after B5)
+
+The build-cert list + detail are wide tables, so they show FULL-WORD stage labels while the narrow Kanban keeps its abbreviations.
+
+**Not responsive.** Full-word widths were measured against the build-cert STAGE column at ~14 inch laptop width: the column has ~138px available and every full word fits with headroom (Hardware Check 94px, Registered 63px, Certified 51px). So NO breakpoints, dual-form DOM, or media queries - this is a pure per-surface label choice.
+
+**Design.** A build-cert-only `_BUILD_STAGE_FULL` map lives next to `_stage_label` in `app/routes/fulfillment.py`; the `stage_label` Jinja filter PREFERS it, then falls back:
+
+    _stage_label(value) = _BUILD_STAGE_FULL.get(value) or STAGE_LABELS.get(value) or value.replace("_", " ").title()
+
+Full forms (build-cert surfaces only): `registered -> Registered`, `certified -> Certified`, `sw_version -> SW Version`, `pva_events -> PVA/Events`. `hw_check` STAYS `HW Check` (its permanent form; do not expand it to "Hardware Check"). Stages already full in `STAGE_LABELS` (staged / building / licensed) need no override.
+
+**Untouched (do not modify).** `STAGE_LABELS` (models.py) stays abbreviated - the narrow Kanban (`fulfillment.html` JS via the `stage_labels` context) and provisioning (`_get_stage_label`, a separate resolver) depend on it. Display only; stored stage values are never mutated.
