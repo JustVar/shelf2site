@@ -1935,7 +1935,6 @@ class BuildCertification(Base):
     qa_checklist = Column(JSONB, nullable=True)
     certified_by = Column(String(128), nullable=True)
     co_certified_by = Column(String(128), nullable=True)
-    checklist_file_path = Column(String(512), nullable=True)
     certified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     oem_serial      = Column(String(64), nullable=True)
@@ -1947,6 +1946,11 @@ class BuildCertification(Base):
     customer_name   = Column(String(256), nullable=True)
     order_number    = Column(String(64), nullable=True)
     sku             = Column(String(128), nullable=True)
+    # C2C-mimic cancel event fields (migration 061): a cancel is a NEW append-only
+    # row with cert_status='cancelled' carrying these; certify rows leave them NULL.
+    cancel_reason = Column(Text, nullable=True)
+    cancelled_by = Column(String(128), nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
 
 
 class BuildCertificationFile(Base):
@@ -1956,6 +1960,7 @@ class BuildCertificationFile(Base):
     build_certification_id = Column(
         Integer, ForeignKey("build_certification.id", ondelete="CASCADE"), nullable=False
     )
+    kind = Column(String(16), nullable=False, server_default="source")   # 'source' | 'composite'
     oem_serial = Column(String(64), nullable=True)
     original_name = Column(String(512), nullable=False)
     stored_name = Column(String(512), nullable=False)
