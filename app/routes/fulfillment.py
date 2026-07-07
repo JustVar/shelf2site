@@ -1221,7 +1221,7 @@ def certification_detail(
     hw_done = bool(open_cert and open_cert.hw_status == "complete")
     # No open attempt + a terminal latest row -> a finished device (gate re-cert behind a button).
     latest_terminal = bool(
-        open_cert is None and history_rows and history_rows[0].cert_status in ("certified", "failed")
+        open_cert is None and history_rows and history_rows[0].cert_status in ("certified", "failed", "cancelled")
     )
     latest_cert_status = history_rows[0].cert_status if history_rows else None
     # Signers for the open attempt panels (done-by-X states).
@@ -1758,3 +1758,66 @@ async def close_cert_device(
 
     return {"ok": True, "prov_id": prov.id,
             "completed_at": (prov.completed_at.isoformat() if prov.completed_at else None)}
+
+
+@router.post("/fulfillment/certifications/{prov_id}/cancel")
+async def cancel_cert_device(
+    prov_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Cancel a certified build: append a NEW cancelled attempt (reason + who + when).
+
+    Append-only: the prior certified attempt stays frozen (never mutated). cert_status is a
+    free varchar, so 'cancelled' needs no schema change. The close-gate (latest must be
+    certified) then blocks re-closing until a re-certification opens a fresh attempt.
+    """
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    if not prov:
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
+    if prov.device_table != "edge_boxes":
+        return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
+
+    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
+    if not eb:
+        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
+
+    body = await request.json()
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        return JSONResponse(status_code=400, content={"detail": "A cancellation reason is required"})
+
+    # gate: only a currently-certified build (latest attempt certified) can be cancelled
+    latest = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == eb.serial)
+        .order_by(BuildCertification.created_at.desc())
+        .first()
+    )
+    if latest is None or latest.cert_status != "certified":
+        return JSONResponse(status_code=409, content={
+            "detail": "Only a currently-certified build can be cancelled"
+        })
+
+    # append a NEW cancelled attempt; the prior certified attempt stays frozen
+    event = BuildCertification(
+        device_provisioning_id=prov.id,
+        oem_serial=eb.serial,
+        device_uuid=latest.device_uuid,
+        sku=latest.sku,
+        customer_name=latest.customer_name,
+        order_number=latest.order_number,
+        qa_status=latest.qa_status,
+        hw_status=latest.hw_status,
+        cert_status="cancelled",
+        reason=latest.reason or "initial",
+        cancel_reason=reason,
+        cancelled_by=user.display_name,
+        cancelled_at=datetime.utcnow(),
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    return {"ok": True, "cert_id": event.id, "cert_status": "cancelled"}

@@ -116,6 +116,7 @@
   .certd-result { font-size: 0.92rem; border-radius: 8px; padding: 0.85rem 1rem; }
   .certd-result--certified { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
   .certd-result--failed { color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
+  .certd-result--cancelled { color: var(--text-muted, #94a3b8); background: rgba(148,163,184,0.12); border: 1px solid rgba(148,163,184,0.3); }
 
   .certd-file-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.84rem; }
   .certd-file-row a { color: var(--cert-emerald, #10b981); text-decoration: none; }
@@ -141,6 +142,7 @@
   .certd-badge--pending { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); }
   .certd-badge--certified { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.12); }
   .certd-badge--failed { color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.12); }
+  .certd-badge--cancelled { color: var(--text-muted, #94a3b8); background: rgba(148,163,184,0.15); }
   .certd-badge--complete { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.12); }
   .certd-hist-empty { font-size: 0.84rem; color: var(--text-muted); padding: 0.5rem 0; }
 </style>
@@ -179,6 +181,15 @@
           {% if latest_cert_status == 'certified' and not is_complete and user and user.has_provisioning_manage %}
           <button type="button" class="certd-submit" style="margin-top:0.9rem;" id="certd-close-btn" onclick="certdCloseDevice()">Build Certification &amp; Close</button>
           <div class="certd-msg" id="certd-close-msg"></div>
+          <button type="button" class="certd-addbtn" style="margin-top:0.6rem;" id="certd-cancel-btn" onclick="certdRevealCancel()">Cancel certification</button>
+          <div id="certd-cancel-box" style="display:none; margin-top:0.6rem;">
+            <input type="text" id="certd-cancel-reason" placeholder="Reason for cancellation" style="width:100%; box-sizing:border-box; padding:0.4rem 0.5rem; font-size:0.85rem;">
+            <div style="margin-top:0.4rem; display:flex; gap:0.5rem;">
+              <button type="button" class="certd-addbtn" onclick="certdHideCancel()">Back</button>
+              <button type="button" class="certd-submit" onclick="certdSubmitCancel()">Confirm cancellation</button>
+            </div>
+            <div class="certd-msg" id="certd-cancel-msg"></div>
+          </div>
           {% elif is_complete %}
           <div class="certd-done" style="margin-top:0.9rem;">&#10003; Closed{% if completed_at %} on {{ completed_at }}{% endif %}. This device has left the board.</div>
           {% else %}
@@ -441,6 +452,47 @@
     } catch (e) {
       msg.textContent = 'Network error: ' + e.message; msg.className = 'certd-msg err';
       btn.disabled = false;
+    }
+  }
+
+  function certdRevealCancel() {
+    var box = document.getElementById('certd-cancel-box');
+    var btn = document.getElementById('certd-cancel-btn');
+    if (box) box.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    var r = document.getElementById('certd-cancel-reason');
+    if (r) r.focus();
+  }
+
+  function certdHideCancel() {
+    var box = document.getElementById('certd-cancel-box');
+    var btn = document.getElementById('certd-cancel-btn');
+    if (box) box.style.display = 'none';
+    if (btn) btn.style.display = '';
+    var r = document.getElementById('certd-cancel-reason');
+    if (r) r.value = '';
+  }
+
+  async function certdSubmitCancel() {
+    var reason = (document.getElementById('certd-cancel-reason').value || '').trim();
+    var msg = document.getElementById('certd-cancel-msg');
+    if (!reason) { msg.textContent = 'Enter a reason for the cancellation.'; msg.className = 'certd-msg err'; return; }
+    msg.textContent = 'Cancelling...'; msg.className = 'certd-msg';
+    try {
+      var resp = await fetch(window.BASE_PATH + '/fulfillment/certifications/' + CERTD_PROV_ID + '/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason })
+      });
+      var data = await resp.json();
+      if (resp.ok && data.ok) {
+        msg.textContent = 'Certification cancelled.'; msg.className = 'certd-msg ok';
+        setTimeout(function () { window.location.reload(); }, 700);
+      } else {
+        msg.textContent = data.detail || 'Cancel failed.'; msg.className = 'certd-msg err';
+      }
+    } catch (e) {
+      msg.textContent = 'Network error: ' + e.message; msg.className = 'certd-msg err';
     }
   }
 
