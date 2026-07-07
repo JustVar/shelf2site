@@ -4904,3 +4904,4 @@ body.sx-nav-collapsed .sx-nav__subgroup-content .sx-nav__link {
 .rcpt-fname { font-size: 0.82rem; color: var(--text-muted); font-family: var(--sx-font-mono, monospace); }
 .rcpt-embed { width: 100%; height: 720px; border: 1px solid var(--sx-border, var(--border)); border-radius: 8px; }
 .rcpt-embed-img { max-width: 100%; border: 1px solid var(--sx-border, var(--border)); border-radius: 8px; }
+.rcpt-replace { margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--sx-border, var(--border)); display: flex; flex-direction: column; gap: 0.35rem; }

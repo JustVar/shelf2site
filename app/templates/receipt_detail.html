@@ -67,6 +67,14 @@
     {% else %}
     <div class="rcpt-muted">No file attached to this receipt.</div>
     {% endif %}
+    <form class="rcpt-replace" method="post" enctype="multipart/form-data" action="{{ base_path }}/receipts/{{ r.id }}/replace-file">
+      <input type="hidden" name="csrf_token" value="{{ request.session.get('csrf_token', '') }}">
+      <label class="rcpt-flabel" for="rcpt-replace-input">Replace file</label>
+      <div class="rcpt-fileactions">
+        <input id="rcpt-replace-input" type="file" name="receipt_file" accept=".jpg,.jpeg,.png,.heic,.pdf,.eml,.msg,.html">
+        <button type="submit" class="rcpt-btn rcpt-btn--pri">Replace file</button>
+      </div>
+    </form>
   </div>
 
 </div>

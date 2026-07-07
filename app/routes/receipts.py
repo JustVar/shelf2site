@@ -5,19 +5,24 @@ items, and view or download the uploaded receipt file. Every route is gated to f
 users (require_financial). Read-only: no create/edit/delete, no customer invoicing/pricing.
 """
 
+import os
+import uuid
 from datetime import date as _date
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..audit import log_event
 from ..auth import require_financial, User
 from ..config import settings
+from ..csrf import require_csrf
 from ..database import get_db
 from ..models import Item, ItemReceipt, ReceiptItem, VendorProfile
+from .intake import ALLOWED_RECEIPT_EXTENSIONS, RECEIPT_STORAGE_PATH
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -156,7 +161,7 @@ def receipt_detail(
         "created_at": rec.created_at,
         "has_file": bool(rec.file_path),
         "file_is_pdf": fp.endswith(".pdf"),
-        "file_is_image": fp.endswith((".png", ".jpg", ".jpeg", ".heic")),
+        "file_is_image": fp.endswith((".png", ".jpg", ".jpeg")),
     }
     return templates.TemplateResponse(
         "receipt_detail.html", {"request": request, "user": user, "r": header, "lines": lines}
@@ -177,8 +182,67 @@ def receipt_file(
     path = Path(rec.file_path)
     if not path.exists():
         return HTMLResponse("The receipt file is missing on disk.", status_code=404)
+    # Preview PDF + web images inline; force download for everything else (heic that browsers
+    # cannot render, and .eml/.msg/.html which must never render inside the app origin).
+    disposition = "inline" if path.suffix.lower() in (".pdf", ".jpg", ".jpeg", ".png") else "attachment"
     return FileResponse(
         path=str(path),
         filename=(rec.original_filename or path.name),
-        content_disposition_type="inline",
+        content_disposition_type=disposition,
     )
+
+
+@router.post("/receipts/{receipt_id}/replace-file")
+async def receipt_replace_file(
+    receipt_id: int,
+    request: Request,
+    receipt_file: UploadFile = File(default=None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_financial),
+    _csrf: str = Depends(require_csrf),
+):
+    """Replace a receipt's uploaded file (overwrite). Finance + CSRF gated. Mirrors intake's save
+    and validation, deletes the old file AFTER commit (containment-guarded), and writes one
+    audit-log entry. The old file is discarded - the audit line records the event, not the file."""
+    rec = db.query(ItemReceipt).filter(ItemReceipt.id == receipt_id).first()
+    if not rec:
+        return HTMLResponse("Receipt not found.", status_code=404)
+
+    if not (receipt_file and receipt_file.filename):
+        return RedirectResponse(f"{BP}/receipts/{receipt_id}?toast=No+file+selected", status_code=303)
+
+    ext = Path(receipt_file.filename).suffix.lower()
+    if ext not in ALLOWED_RECEIPT_EXTENSIONS:
+        return RedirectResponse(f"{BP}/receipts/{receipt_id}?toast=Unsupported+file+type", status_code=303)
+
+    # save the new file with the intake naming scheme
+    unique_name = f"receipt_{_date.today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
+    saved_path = os.path.join(RECEIPT_STORAGE_PATH, unique_name)
+    os.makedirs(RECEIPT_STORAGE_PATH, exist_ok=True)
+    content = await receipt_file.read()
+    with open(saved_path, "wb") as fh:
+        fh.write(content)
+
+    old_path = rec.file_path
+    rec.file_path = saved_path
+    rec.original_filename = receipt_file.filename
+    db.commit()
+
+    # delete the old file AFTER commit, only when it resolves inside the storage root and exists
+    if old_path:
+        try:
+            op = Path(old_path).resolve()
+            root = Path(RECEIPT_STORAGE_PATH).resolve()
+            if root in op.parents and op.exists():
+                op.unlink(missing_ok=True)
+        except Exception:
+            pass  # a stale old file is harmless - never fail the request on cleanup
+
+    log_event(
+        db, "receipt_file_replaced",
+        request=request, user_id=user.id,
+        target_table="receipts", target_id=rec.id, action="update",
+        details=f"Replaced file for receipt #{rec.id}: {rec.original_filename}",
+    )
+
+    return RedirectResponse(f"{BP}/receipts/{receipt_id}?toast=Receipt+file+replaced", status_code=303)
