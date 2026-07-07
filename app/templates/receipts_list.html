@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Receipts - Asset Tracker{% endblock %}
+
+{% block content %}
+<div class="fulfillment-page">
+<div class="rcpt-page">
+
+  <div class="rcpt-head">
+    <span class="rcpt-title">Receipts</span>
+    <span class="rcpt-count">{{ total }} receipt{{ '' if total == 1 else 's' }}</span>
+  </div>
+  <div class="rcpt-sub">Procurement receipts captured at intake. Read-only - the dollar figures live inside the uploaded file.</div>
+
+  <form class="rcpt-filters" method="get" action="{{ base_path }}/receipts">
+    <div class="rcpt-filter">
+      <label>From</label>
+      <input type="date" name="date_from" value="{{ f.date_from }}">
+    </div>
+    <div class="rcpt-filter">
+      <label>To</label>
+      <input type="date" name="date_to" value="{{ f.date_to }}">
+    </div>
+    <div class="rcpt-filter">
+      <label>Vendor</label>
+      <select name="vendor">
+        <option value="">All vendors</option>
+        {% for v in vendor_options %}
+        <option value="{{ v.value }}" {% if f.vendor == v.value %}selected{% endif %}>{{ v.label }}</option>
+        {% endfor %}
+        {% if has_unknown_vendor %}
+        <option value="unknown" {% if f.vendor == 'unknown' %}selected{% endif %}>Unknown</option>
+        {% endif %}
+      </select>
+    </div>
+    <div class="rcpt-filter">
+      <label>Record type</label>
+      <select name="record_type">
+        <option value="">All types</option>
+        {% for rt in record_type_options %}
+        <option value="{{ rt }}" {% if f.record_type == rt %}selected{% endif %}>{{ rt|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="rcpt-filter rcpt-filter--actions">
+      <button type="submit" class="rcpt-btn rcpt-btn--pri">Apply</button>
+      <a class="rcpt-btn" href="{{ base_path }}/receipts">Clear</a>
+    </div>
+  </form>
+
+  {% if rows %}
+  <div class="rcpt-table-wrap">
+    <table class="rcpt-table">
+      <thead>
+        <tr>
+          <th>Date</th><th>Vendor</th><th>Type</th><th>PO</th><th>Line items</th><th>File</th><th>Added by</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="rcpt-row" onclick="rcptOpen('{{ r.id }}')">
+          <td>{{ r.transaction_date.strftime('%Y-%m-%d') if r.transaction_date else '-' }}</td>
+          <td>{{ r.vendor_name or 'Unknown' }}</td>
+          <td>{{ r.record_type|capitalize if r.record_type else '-' }}</td>
+          <td>{{ r.purchase_order or '-' }}</td>
+          <td>{{ r.line_count }}</td>
+          <td>{% if r.has_file %}<span class="rcpt-fileflag" title="File attached">&#128206;</span>{% else %}<span class="rcpt-muted">-</span>{% endif %}</td>
+          <td class="rcpt-muted">{{ r.created_by or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rcpt-empty">No receipts match these filters.</div>
+  {% endif %}
+
+</div>
+</div>
+
+<script>
+  var rcptOpen = function (id) { window.location.href = "{{ base_path }}/receipts/" + id; };
+</script>
+{% endblock %}

@@ -260,6 +260,14 @@
             <span class="sx-nav__label">Procurement</span>
           </a>
           {% endif %}
+          {% if user.has_financial_access %}
+          <a href="{{ base_path }}/receipts"
+             class="sx-nav__link {% if '/receipts' in request.url.path %}sx-nav__link--active{% endif %}"
+             data-label="Receipts">
+            {{ icon('procurement', size=14) }}
+            <span class="sx-nav__label">Receipts</span>
+          </a>
+          {% endif %}
           {% if user.has_system_admin %}
           <a href="{{ base_path }}/admin/storage"
              class="sx-nav__link {% if '/admin/storage' in request.url.path %}sx-nav__link--active{% endif %}"

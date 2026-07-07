@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Receipt {{ r.id }} - Asset Tracker{% endblock %}
+
+{% block content %}
+<div class="fulfillment-page">
+<div class="rcpt-page">
+
+  <a class="rcpt-back" href="{{ base_path }}/receipts">&larr; Back to receipts</a>
+
+  <div class="rcpt-head">
+    <span class="rcpt-title">Receipt #{{ r.id }}</span>
+    {% if r.record_type %}<span class="rcpt-pill">{{ r.record_type|capitalize }}</span>{% endif %}
+  </div>
+
+  <div class="rcpt-panel">
+    <div class="rcpt-panel__head">Receipt details</div>
+    <div class="rcpt-grid">
+      <div><div class="rcpt-flabel">Transaction date</div><div class="rcpt-fvalue">{{ r.transaction_date.strftime('%Y-%m-%d') if r.transaction_date else '-' }}</div></div>
+      <div><div class="rcpt-flabel">Vendor</div><div class="rcpt-fvalue">{{ r.vendor_name or 'Unknown' }}</div></div>
+      <div><div class="rcpt-flabel">Purchase order</div><div class="rcpt-fvalue">{{ r.purchase_order or '-' }}</div></div>
+      <div><div class="rcpt-flabel">Record type</div><div class="rcpt-fvalue">{{ r.record_type|capitalize if r.record_type else '-' }}</div></div>
+      <div><div class="rcpt-flabel">Added by</div><div class="rcpt-fvalue">{{ r.created_by or '-' }}</div></div>
+      <div><div class="rcpt-flabel">Added on</div><div class="rcpt-fvalue">{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else '-' }}</div></div>
+    </div>
+    {% if r.notes %}<div class="rcpt-notes"><div class="rcpt-flabel">Notes</div><div class="rcpt-fvalue">{{ r.notes }}</div></div>{% endif %}
+  </div>
+
+  <div class="rcpt-panel">
+    <div class="rcpt-panel__head">Line items ({{ lines|length }})</div>
+    {% if lines %}
+    <div class="rcpt-table-wrap">
+      <table class="rcpt-table">
+        <thead><tr><th>Item</th><th>Serial</th><th>Qty</th><th>Notes</th></tr></thead>
+        <tbody>
+          {% for l in lines %}
+          <tr>
+            <td>{{ l.item_name or ('Item #' ~ l.item_id) }}</td>
+            <td class="rcpt-mono">{{ l.item_sn or '-' }}</td>
+            <td>{{ l.quantity }}</td>
+            <td class="rcpt-muted">{{ l.notes or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="rcpt-empty">This receipt has no line items.</div>
+    {% endif %}
+  </div>
+
+  <div class="rcpt-panel">
+    <div class="rcpt-panel__head">Receipt file</div>
+    {% if r.has_file %}
+    <div class="rcpt-fileactions">
+      <span class="rcpt-fname">{{ r.original_filename or 'file' }}</span>
+      <a class="rcpt-btn rcpt-btn--pri" href="{{ base_path }}/receipts/{{ r.id }}/file" download="{{ r.original_filename or 'receipt' }}">Download</a>
+      <a class="rcpt-btn" href="{{ base_path }}/receipts/{{ r.id }}/file" target="_blank" rel="noopener">Open in new tab</a>
+    </div>
+    {% if r.file_is_pdf %}
+    <embed class="rcpt-embed" src="{{ base_path }}/receipts/{{ r.id }}/file" type="application/pdf">
+    {% elif r.file_is_image %}
+    <img class="rcpt-embed-img" src="{{ base_path }}/receipts/{{ r.id }}/file" alt="Receipt {{ r.id }} file">
+    {% else %}
+    <div class="rcpt-muted">Preview not available for this file type - use Download or Open in new tab.</div>
+    {% endif %}
+    {% else %}
+    <div class="rcpt-muted">No file attached to this receipt.</div>
+    {% endif %}
+  </div>
+
+</div>
+</div>
+{% endblock %}
