@@ -1060,7 +1060,6 @@ def _apply_cert_half(db, prov, eb, co, half, fields, signer):
         cert.hardware_validation = hv
         cert.license_counts = {"assigned": fields["license_assigned"], "ordered": fields["license_ordered"]}
         cert.certified_by = signer
-        cert.certified_at = now
         cert.qa_status = "complete"
     else:  # hw
         hv = dict(cert.hardware_validation or {})
@@ -1073,6 +1072,9 @@ def _apply_cert_half(db, prov, eb, co, half, fields, signer):
     # gate: if both halves now complete, compute terminal cert_status
     if cert.qa_status == "complete" and cert.hw_status == "complete":
         cert.cert_status = _compute_cert_gate(cert)
+        # certified_at means finalize/certification time (C2C-mimic), set only when the
+        # attempt actually certifies; a 'failed' attempt carries no certification timestamp.
+        cert.certified_at = now if cert.cert_status == "certified" else None
 
     db.commit()
     db.refresh(cert)
