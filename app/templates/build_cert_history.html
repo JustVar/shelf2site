@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Build certification history {{ serial }} - Asset Tracker{% endblock %}
+
+{% block head %}
+<style>
+  .bch-page { max-width: 940px; margin: 0 auto; padding: 1.25rem 0 3rem; }
+  .bch-back { display: inline-block; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted, #94a3b8); text-decoration: none; }
+  .bch-back:hover { color: var(--text, #e2e8f0); }
+  .bch-title { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.25rem; color: var(--text, #e2e8f0); }
+  .bch-title__serial { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--cert-emerald, #10b981); }
+  .bch-count { font-size: 0.82rem; color: var(--text-muted, #94a3b8); margin-bottom: 1.5rem; }
+
+  .bch-tl { list-style: none; margin: 0; padding: 0; position: relative; }
+  .bch-tl::before { content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px; background: var(--border, #334155); }
+  .bch-ev { position: relative; padding: 0 0 0.6rem 2rem; }
+  .bch-dot { position: absolute; left: 0; top: 12px; width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--card-bg, #0f172a); box-sizing: content-box; z-index: 1; background: var(--text-muted, #94a3b8); }
+  .bch-dot--certified { background: var(--fl-green, #10b981); }
+  .bch-dot--failed { background: var(--fl-red, #ef4444); }
+  .bch-dot--cancelled { background: var(--text-muted, #94a3b8); }
+  .bch-dot--pending { background: var(--fl-amber, #f59e0b); }
+
+  .bch-card { background: var(--sx-surface, var(--card-bg, #0f172a)); border: 1px solid var(--border, #334155); border-radius: 10px; }
+  .bch-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.7rem 1rem; cursor: pointer; user-select: none; }
+  .bch-badge { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; padding: 0.15rem 0.5rem; border-radius: 999px; }
+  .bch-badge--certified { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.12); }
+  .bch-badge--failed { color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.12); }
+  .bch-badge--cancelled { color: var(--text-muted, #94a3b8); background: rgba(148,163,184,0.15); }
+  .bch-badge--pending { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); }
+  .bch-when { font-size: 0.82rem; color: var(--text-muted, #94a3b8); }
+  .bch-reason { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: rgba(148,163,184,0.12); color: var(--text-muted, #94a3b8); }
+  .bch-chev { margin-left: auto; color: var(--text-muted, #94a3b8); font-size: 0.7rem; transition: transform 0.15s ease; }
+  .bch-ev.is-open .bch-chev { transform: rotate(180deg); }
+
+  .bch-body { display: none; padding: 0 1rem 0.85rem; border-top: 1px solid var(--border, #334155); }
+  .bch-ev.is-open .bch-body { display: block; padding-top: 0.7rem; }
+  .bch-signers { font-size: 0.9rem; color: var(--text, #e2e8f0); margin-bottom: 0.2rem; }
+  .bch-half { font-size: 0.72rem; padding: 0.08rem 0.4rem; border-radius: 4px; }
+  .bch-half--complete { color: var(--fl-green, #10b981); background: rgba(16,185,129,0.12); }
+  .bch-half--pending { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); }
+  .bch-meta { font-size: 0.82rem; color: var(--text-muted, #94a3b8); margin: 0.25rem 0 0.35rem; }
+  .bch-cancelreason { font-size: 0.85rem; color: var(--fl-red, #ef4444); background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 6px; padding: 0.4rem 0.6rem; margin: 0.35rem 0; }
+  .bch-files { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .bch-file { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; text-decoration: none; padding: 0.25rem 0.55rem; border-radius: 6px; color: var(--text, #e2e8f0); background: var(--card-bg, #0f172a); border: 1px solid var(--border, #334155); }
+  .bch-file:hover { border-color: var(--cert-emerald, #10b981); }
+  .bch-file--report { color: var(--cert-emerald, #10b981); border-color: rgba(16,185,129,0.4); font-weight: 600; }
+  .bch-nofiles { font-size: 0.8rem; color: var(--text-muted, #94a3b8); font-style: italic; }
+  .bch-empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted, #94a3b8); border: 1px dashed var(--border, #334155); border-radius: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fulfillment-page">
+<div class="bch-page">
+
+  <a class="bch-back" href="{{ base_path }}/fulfillment/certifications{% if back_prov_id %}/{{ back_prov_id }}{% endif %}">&larr; Back to certification</a>
+
+  <h1 class="bch-title">Build certification history
+    <span class="bch-title__serial">{{ serial or 'no serial' }}</span>
+  </h1>
+  <div class="bch-count">{{ events|length }} attempt{{ '' if events|length == 1 else 's' }} for this Edge Box &middot; latest expanded, click any row to toggle</div>
+
+  {% if events %}
+  <ul class="bch-tl">
+    {% for e in events %}
+    <li class="bch-ev{% if loop.first %} is-open{% endif %}">
+      <span class="bch-dot bch-dot--{{ e.cert_status }}"></span>
+      <div class="bch-card">
+        <div class="bch-head" onclick="bchToggle(this)">
+          <span class="bch-badge bch-badge--{{ e.cert_status }}">{{ e.cert_status | capitalize }}</span>
+          {% if e.cert_status == 'certified' %}
+            <span class="bch-when">{{ e.certified_at.strftime('%Y-%m-%d %H:%M UTC') if e.certified_at else '—' }}</span>
+          {% elif e.cert_status == 'cancelled' %}
+            <span class="bch-when">{{ e.cancelled_at.strftime('%Y-%m-%d %H:%M UTC') if e.cancelled_at else '—' }}</span>
+          {% else %}
+            <span class="bch-when">{{ e.created_at.strftime('%Y-%m-%d %H:%M UTC') if e.created_at else '—' }}</span>
+          {% endif %}
+          {% if e.reason %}<span class="bch-reason">{{ e.reason | capitalize }}</span>{% endif %}
+          <span class="bch-chev" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="bch-body">
+          {% if e.cert_status == 'cancelled' %}
+          <div class="bch-signers">Cancelled by {{ e.cancelled_by or 'unknown' }}</div>
+          {% else %}
+          <div class="bch-signers">
+            QA <span class="bch-half bch-half--{{ e.qa_status }}">{{ e.qa_status | capitalize }}</span>{% if e.qa_signer %} by {{ e.qa_signer }}{% endif %}
+            &middot;
+            Hardware <span class="bch-half bch-half--{{ e.hw_status }}">{{ e.hw_status | capitalize }}</span>{% if e.hw_signer %} by {{ e.hw_signer }}{% endif %}
+          </div>
+          {% endif %}
+          <div class="bch-meta">Attempt #{{ e.id }} &middot; {{ e.order_number or 'no order' }}{% if e.customer_name %} &middot; {{ e.customer_name }}{% endif %}</div>
+          {% if e.cert_status == 'cancelled' and e.cancel_reason %}
+          <div class="bch-cancelreason">Reason: {{ e.cancel_reason }}</div>
+          {% endif %}
+          <div class="bch-files">
+            {% if e.composite %}
+            <a class="bch-file bch-file--report" href="{{ base_path }}/fulfillment/certifications/files/{{ e.composite.id }}" target="_blank" rel="noopener">Report PDF</a>
+            {% elif e.cert_status != 'cancelled' %}
+            <a class="bch-file bch-file--report" href="{{ base_path }}/fulfillment/certifications/{{ e.id }}/report" target="_blank" rel="noopener">Report PDF</a>
+            {% endif %}
+            {% for s in e.sources %}
+            <a class="bch-file" href="{{ base_path }}/fulfillment/certifications/files/{{ s.id }}" target="_blank" rel="noopener">{{ s.name }}</a>
+            {% endfor %}
+            {% if not e.composite and not e.sources and e.cert_status == 'cancelled' %}
+            <span class="bch-nofiles">No files on this event.</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="bch-empty">No certification attempts for this serial yet.</div>
+  {% endif %}
+
+</div>
+</div>
+
+<script>
+  function bchToggle(el) {
+    var ev = el && el.closest ? el.closest('.bch-ev') : null;
+    if (ev) { ev.classList.toggle('is-open'); }
+  }
+</script>
+{% endblock %}

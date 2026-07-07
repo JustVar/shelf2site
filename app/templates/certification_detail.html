@@ -156,6 +156,7 @@
 
     <h1 class="certd-title">Certify <span class="certd-title__serial">{{ device.serial }}</span></h1>
     <div class="certd-sub">{{ device.customer_name }} &middot; {{ device.order_number }} &middot; {{ device.sku }}</div>
+    {% if device.serial %}<a class="certd-back" style="margin-top:0.2rem;" href="{{ base_path }}/fulfillment/certifications/history/{{ device.serial }}">View history &rarr;</a>{% endif %}
 
     <div class="certd-panel">
       <div class="certd-panel__head">Device Information</div>

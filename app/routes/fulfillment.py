@@ -1078,6 +1078,15 @@ def _apply_cert_half(db, prov, eb, co, half, fields, signer):
 
     db.commit()
     db.refresh(cert)
+
+    # persist the composite report PDF for a finalized+certified attempt (B4). AFTER commit so a
+    # render failure cannot roll back the sign-off; wrapped so a composite failure never 500s the
+    # sign-off - the attempt stays certified and the composite is regenerable.
+    if cert.cert_status == "certified":
+        try:
+            _generate_build_composite(db, cert, eb)
+        except Exception:
+            db.rollback()
     return cert, None
 
 
@@ -1650,6 +1659,7 @@ def _build_cert_report_pdf(db, cert, eb):
     files = (
         db.query(BuildCertificationFile)
         .filter(BuildCertificationFile.build_certification_id == cert.id)
+        .filter(BuildCertificationFile.kind == "source")
         .order_by(BuildCertificationFile.uploaded_at.asc())
         .all()
     )
@@ -1676,6 +1686,47 @@ def _build_cert_report_pdf(db, cert, eb):
     out = doc.tobytes()
     doc.close()
     return out
+
+
+def _generate_build_composite(db, cert, eb):
+    """Build + persist the composite report PDF for a finalized attempt as a kind='composite'
+    BuildCertificationFile (bytes on disk under CERT_UPLOAD_DIR). Idempotent: drops any prior
+    composite for this attempt first. Includes a live-render self-check so a bad font token or
+    render error raises HERE, not at py_compile."""
+    for old in (db.query(BuildCertificationFile)
+                .filter(BuildCertificationFile.build_certification_id == cert.id,
+                        BuildCertificationFile.kind == "composite").all()):
+        try:
+            (Path(settings.CERT_UPLOAD_DIR) / (old.oem_serial or "unknown") / old.stored_name).unlink(missing_ok=True)
+        except Exception:
+            pass
+        db.delete(old)
+    pdf_bytes = _build_cert_report_pdf(db, cert, eb)
+    # live-render self-check: re-open the bytes and touch every page
+    check = fitz.open(stream=pdf_bytes, filetype="pdf")
+    if check.page_count < 1:
+        check.close()
+        raise ValueError("composite has no pages")
+    for p in check:
+        p.get_text()
+    check.close()
+    serial = (eb.serial if eb else None) or cert.oem_serial or "unknown"
+    serial_dir = Path(settings.CERT_UPLOAD_DIR) / serial
+    serial_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.pdf"
+    with open(serial_dir / stored_name, "wb") as fh:
+        fh.write(pdf_bytes)
+    db.add(BuildCertificationFile(
+        build_certification_id=cert.id,
+        oem_serial=serial,
+        kind="composite",
+        original_name=f"cert_composite_{serial}_{cert.id}.pdf",
+        stored_name=stored_name,
+        content_type="application/pdf",
+        size_bytes=len(pdf_bytes),
+        uploaded_by=cert.certified_by or "system",
+    ))
+    db.commit()
 
 
 @router.get("/fulfillment/certifications/{cert_id}/report")
@@ -1917,3 +1968,61 @@ async def recertify_device(
     db.refresh(new_cert)
 
     return {"ok": True, "cert_id": new_cert.id, "cert_status": "pending"}
+
+
+@router.get("/fulfillment/certifications/history/{serial}", response_class=HTMLResponse)
+def cert_history(
+    serial: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Per-serial build-certification timeline: every attempt for one Edge Box serial, newest
+    first, each linking to its composite report + source files, with both signers and reason."""
+    attempts = (
+        db.query(BuildCertification)
+        .filter(BuildCertification.oem_serial == serial)
+        .order_by(BuildCertification.created_at.desc())
+        .all()
+    )
+    att_ids = [a.id for a in attempts]
+    files_by_cert = {}
+    if att_ids:
+        for f in (
+            db.query(BuildCertificationFile)
+            .filter(BuildCertificationFile.build_certification_id.in_(att_ids))
+            .order_by(BuildCertificationFile.uploaded_at.asc(), BuildCertificationFile.id.asc())
+            .all()
+        ):
+            files_by_cert.setdefault(f.build_certification_id, []).append(f)
+    events = []
+    for a in attempts:
+        afiles = files_by_cert.get(a.id, [])
+        composite = next((f for f in afiles if f.kind == "composite"), None)
+        sources = [f for f in afiles if f.kind == "source"]
+        events.append({
+            "id": a.id,
+            "cert_status": a.cert_status,
+            "qa_status": a.qa_status,
+            "hw_status": a.hw_status,
+            "reason": a.reason,
+            "qa_signer": a.certified_by,
+            "hw_signer": a.co_certified_by,
+            "certified_at": a.certified_at,
+            "cancelled_by": a.cancelled_by,
+            "cancelled_at": a.cancelled_at,
+            "cancel_reason": a.cancel_reason,
+            "created_at": a.created_at,
+            "customer_name": a.customer_name,
+            "order_number": a.order_number,
+            "composite": ({"id": composite.id, "name": composite.original_name} if composite else None),
+            "sources": [{"id": f.id, "name": f.original_name} for f in sources],
+        })
+    back_prov_id = attempts[0].device_provisioning_id if attempts else None
+    return templates.TemplateResponse("build_cert_history.html", {
+        "request": request,
+        "user": user,
+        "serial": serial,
+        "events": events,
+        "back_prov_id": back_prov_id,
+    })

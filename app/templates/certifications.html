@@ -159,7 +159,7 @@
                       {% for d in devices %}
                       <tr class="cert-row"
                           data-search="{{ (d.serial ~ ' ' ~ d.order_number ~ ' ' ~ cust_key ~ ' ' ~ sku_key) | lower }}">
-                        <td class="cert-table__serial"><a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/{{ d.prov_id }}">{{ d.serial }}</a></td>
+                        <td class="cert-table__serial"><a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/{{ d.prov_id }}">{{ d.serial }}</a>{% if d.serial %} <a class="cert-serial-link" href="{{ base_path }}/fulfillment/certifications/history/{{ d.serial }}" style="margin-left:0.5rem; font-size:0.72rem; opacity:0.7;">history</a>{% endif %}</td>
                         <td>{{ d.order_number }}</td>
                         <td class="cert-table__stage">{{ d.current_stage }}</td>
                         <td>
