@@ -154,11 +154,6 @@
     background: rgba(0, 0, 0, 0.05);
     color: #374151;
 }
-[data-theme="light"] .sx-nav__logo-horiz,
-[data-theme="light"] .sx-nav__logo-icon {
-    mix-blend-mode: normal;
-    filter: brightness(0) saturate(100%) invert(18%) sepia(10%) saturate(500%) hue-rotate(180deg);
-}
 [data-theme="light"] .sx-nav__header {
     border-bottom-color: #d1d5db;
 }
@@ -2724,11 +2719,10 @@ thead th:nth-child(1) {
 .sx-nav__logo-horiz {
   height: 38px; width: auto; max-width: 190px;
   object-fit: contain; object-position: left center;
-  mix-blend-mode: screen;
 }
 .sx-nav__logo-icon {
   width: 34px; height: 34px;
-  object-fit: contain; mix-blend-mode: screen;
+  object-fit: contain;
 }
 .sx-nav__toggle-btn {
   background: none; border: 1px solid transparent;
