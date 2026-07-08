@@ -36,10 +36,20 @@
   // "/" focuses the search box, but only on pages that have one.
   document.addEventListener("keydown", function (e) {
     if (e.key !== "/" || isTyping() || hasModifier(e)) return;
-    var input = document.getElementById("db-search-input");
+    var input = document.getElementById("db-search-input") ||
+                document.getElementById("cb-search");
     if (input) {
       e.preventDefault();
       input.focus();
+    }
+  });
+
+  // Escape blurs a focused search box (dashboard + fulfillment).
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    var el = document.activeElement;
+    if (el && (el.id === "db-search-input" || el.id === "cb-search")) {
+      el.blur();
     }
   });
 
