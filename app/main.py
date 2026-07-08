@@ -243,7 +243,7 @@ async def auth_redirect_middleware(request: Request, call_next):
     # Password expiry (session-anchored, no DB per request). password_expires_at is set at
     # login; when it passes, flag the session so the forced-change redirect below fires, and
     # expose the remaining days to the warning banner.
-    if user_id and not request.session.get("must_change_password"):
+    if settings.PASSWORD_MAX_AGE_DAYS > 0 and user_id and not request.session.get("must_change_password"):
         _pexp = request.session.get("password_expires_at")
         if _pexp:
             try:

@@ -40,8 +40,13 @@ class Settings:
 
     # Password expiry policy - 6-month rotation with a 7-day warning. Reuses the existing
     # must_change_password forced-change flow; display/enforcement only.
-    PASSWORD_MAX_AGE_DAYS: int = int(os.getenv("PASSWORD_MAX_AGE_DAYS", "180"))
+    # Password expiry DISABLED per NIST Rev 4 (no mandatory periodic rotation). 0 = disabled;
+    # set this > 0 to re-enable the rotation. The forced-change machinery (admin reset) is unaffected.
+    PASSWORD_MAX_AGE_DAYS: int = int(os.getenv("PASSWORD_MAX_AGE_DAYS", "0"))
     PASSWORD_WARN_DAYS: int = int(os.getenv("PASSWORD_WARN_DAYS", "7"))
+    # NIST policy: length + an offline breached/common-password blocklist (no composition rules).
+    PASSWORD_MIN_LENGTH: int = int(os.getenv("PASSWORD_MIN_LENGTH", "15"))
+    PASSWORD_BLOCKLIST_PATH: str = os.getenv("PASSWORD_BLOCKLIST_PATH", "data/security/password-blocklist.txt")
 
     # Slack webhook (optional, for team channel alerts)
     SLACK_WEBHOOK_URL: str = os.getenv("SLACK_WEBHOOK_URL", "")

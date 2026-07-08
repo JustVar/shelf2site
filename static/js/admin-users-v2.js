@@ -624,12 +624,22 @@
     document.getElementById('users-count-inactive').textContent = USERS.filter(u => !u.is_active).length;
   }
 
-  // ---- Init ----
-  document.addEventListener('DOMContentLoaded', () => {
+  // ---- Init (boost-aware, idempotent) ----
+  // hx-boost swaps the <body> without a full reload, so DOMContentLoaded never re-fires and the
+  // render/count build never ran on boosted navigation. Run the per-page init on the initial load
+  // AND after every htmx swap. The idempotency flag lives on #users-grid, which is fresh on every
+  // boost swap: a re-executed script or a full load (where both paths can fire) is deduped, while a
+  // newly swapped-in page always re-initializes. var USERS/DEPARTMENTS/DEPARTMENTS_FULL are
+  // re-injected by the inline template script before htmx:load fires, so they are in scope here.
+  function initUsersPage() {
+    const grid = document.getElementById('users-grid');
+    if (!grid) return;                          // not the users page (htmx:load fires for any swap)
+    if (grid.dataset.usersInit === '1') return; // already initialized this DOM instance
     if (typeof USERS === 'undefined') {
       console.error('USERS global not defined — admin_users.html template did not inject it.');
       return;
     }
+    grid.dataset.usersInit = '1';
     updateCounts();
     renderCards(USERS);
     populateDepartmentOptions();
@@ -641,12 +651,6 @@
     document.getElementById('user-drawer-close').addEventListener('click', closeDrawer);
     document.getElementById('user-drawer-overlay').addEventListener('click', closeDrawer);
     document.getElementById('user-drawer-cancel').addEventListener('click', closeDrawer);
-
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && document.getElementById('user-drawer').classList.contains('sx-drawer--open')) {
-        closeDrawer();
-      }
-    });
 
     document.getElementById('user-drawer-save').addEventListener('click', () => {
       if (currentEditUserId == null) saveDrawerAdd();
@@ -666,5 +670,31 @@
         openDrawerForEdit(uid);
       }
     }
-  });
+  }
+
+  // Document-level listeners must bind exactly once: `document` is NOT replaced by a boost swap, so
+  // re-running init would stack duplicates. Guard on window so it survives boosts and any
+  // re-execution of this script.
+  function bindUsersGlobalOnce() {
+    if (window.__adminUsersGlobalBound) return;
+    window.__adminUsersGlobalBound = true;
+
+    // Esc closes the drawer (null-guarded: the drawer only exists on the users page).
+    document.addEventListener('keydown', (ev) => {
+      const drawer = document.getElementById('user-drawer');
+      if (ev.key === 'Escape' && drawer && drawer.classList.contains('sx-drawer--open')) {
+        closeDrawer();
+      }
+    });
+
+    // Re-init when htmx swaps in new content (hx-boost navigation to the users page).
+    document.addEventListener('htmx:load', initUsersPage);
+  }
+
+  bindUsersGlobalOnce();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initUsersPage);
+  } else {
+    initUsersPage();
+  }
 })();

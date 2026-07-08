@@ -8,8 +8,10 @@ from fastapi import Depends, HTTPException, Request, status
 import bcrypt
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .database import get_db
 from .models import User
+from .password_blocklist import is_blocked
 
 
 # ---------------------------------------------------------------------------
@@ -27,20 +29,15 @@ def verify_password(plain: str, hashed: str) -> bool:
 def validate_password_strength(password: str) -> str | None:
     """Return an error message if the password is too weak, or None if it passes.
 
-    Rules:
-    - At least 12 characters
-    - At least one uppercase letter (A-Z)
-    - At least one lowercase letter (a-z)
-    - At least one digit (0-9)
+    NIST SP 800-63B Rev 4: favor length over composition and screen against a breached/common
+    blocklist. No composition (upper/lower/digit) rules.
+    - At least PASSWORD_MIN_LENGTH characters
+    - Not in the offline breached/common-password blocklist
     """
-    if len(password) < 12:
-        return "Password must be at least 12 characters."
-    if not any(c.isupper() for c in password):
-        return "Password must contain at least one uppercase letter."
-    if not any(c.islower() for c in password):
-        return "Password must contain at least one lowercase letter."
-    if not any(c.isdigit() for c in password):
-        return "Password must contain at least one number."
+    if len(password) < settings.PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters."
+    if is_blocked(password):
+        return "This password has appeared in known breaches or is too common. Choose a different one."
     return None
 
 

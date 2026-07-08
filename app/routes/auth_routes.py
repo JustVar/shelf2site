@@ -112,7 +112,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
 
     # Password expiry: anchor the expiry moment in the session for the near-free middleware
     # check, and force a change now if the password is already past its max age.
-    if user.password_changed_at is not None:
+    if settings.PASSWORD_MAX_AGE_DAYS > 0 and user.password_changed_at is not None:
         expires_at = user.password_changed_at + timedelta(days=settings.PASSWORD_MAX_AGE_DAYS)
         request.session["password_expires_at"] = expires_at.isoformat()
         if datetime.utcnow() >= expires_at and not user.must_change_password:

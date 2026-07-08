@@ -109,7 +109,7 @@
       <div class="sx-drawer-section-label" id="ud-password-label">Password</div>
       <div class="sx-drawer-field" id="ud-password-add-mode" style="display:none;">
         <label class="sx-drawer-field-label" for="ud-password-input">Initial password</label>
-        <input type="text" id="ud-password-input" autocomplete="off" placeholder="≥12 chars · upper + lower + digit">
+        <input type="text" id="ud-password-input" autocomplete="off" placeholder="≥15 chars, not a common/breached password">
         <div class="sx-drawer-field-hint">Admin tells the user this in person/Slack — no email sent yet.</div>
       </div>
       <div class="sx-drawer-field" id="ud-password-edit-mode" style="display:none;">
@@ -128,10 +128,10 @@
 </aside>
 
 <script>
-const USERS = {{ users_json | tojson }};
-const DEPARTMENTS = {{ departments_json | tojson }};
-const DEPARTMENTS_FULL = {{ departments_full_json | tojson }};
+var USERS = {{ users_json | tojson }};
+var DEPARTMENTS = {{ departments_json | tojson }};
+var DEPARTMENTS_FULL = {{ departments_full_json | tojson }};
 </script>
 
-<script src="{{ base_path }}/static/js/admin-users-v2.js?v=20260515c"></script>
+<script src="{{ base_path }}/static/js/admin-users-v2.js?v=20260708a"></script>
 {% endblock %}
