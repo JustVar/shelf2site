@@ -6,8 +6,10 @@
 {% block head %}
 <style>
 /* ── Fulfillment page — scoped custom properties ─────────────────── */
-.fulfillment-page {
-  /* Restyle pilot: neutral charcoal surfaces + mauve blush accent (locked tokens) */
+.fulfillment-page.fl-restyle {
+  /* Restyle pilot: neutral charcoal surfaces + mauve blush accent (locked tokens).
+     Scoped to .fl-restyle so a stale head style after boosted navigation cannot
+     retint other pages whose root div also carries .fulfillment-page. */
   /* surfaces */
   --bg: #0B0D12;
   --bg-header: #08090D;
@@ -62,7 +64,7 @@
   font-size: 13px;
   display: flex; flex-direction: column; gap: 1rem;
 }
-[data-theme="light"] .fulfillment-page {
+[data-theme="light"] .fulfillment-page.fl-restyle {
   --bg: #F5F6F8;
   --bg-header: #FFFFFF;
   --sidebar-bg: #ECEEF2;
@@ -582,7 +584,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 }
 /* in-flow page content must paint above the fixed z-0 background layer */
 .fl-header, #board-inhouse, #board-oem { position: relative; z-index: 1; }
-#maintenance-banner, .pwd-warn-banner { position: relative; z-index: 1; }
+#maintenance-banner, .pwd-warn-banner, .topbar { position: relative; z-index: 1; }
 
 /* ── Duotone icon system (two-layer SVG colored by --duo-c) ────────── */
 .duo .b { opacity: 0.28; }
@@ -615,7 +617,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .fl-hero::before, .fl-hero::after {
     content: ''; position: absolute; inset: -1px; border-radius: 14px;
     padding: 1px; pointer-events: none; opacity: 0; transition: opacity .4s;
-    background: conic-gradient(from var(--a),
+    background: conic-gradient(from var(--a, 0deg),
         transparent 0turn, transparent .55turn,
         var(--glow-color) .70turn, transparent .85turn, transparent 1turn);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -695,21 +697,25 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .fl-btn:hover { background: var(--accent-border); }
 .fl-btn.active { background: var(--accent-border); color: var(--text); }
 .fl-btn svg { opacity: .7; }
-.mode-toggle { border-color: var(--border); }
-.mode-btn.active { background: var(--accent-primary-dim); color: var(--accent-primary-l); }
-[data-theme="light"] .mode-btn.active { color: var(--accent-primary); }
+.fl-restyle .mode-toggle { border-color: var(--border); }
+.fl-restyle .mode-btn.active { background: var(--accent-primary-dim); color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .mode-btn.active { color: var(--accent-primary); }
 
 /* ── Pipeline tabs: quiet, blush active underline ──────────────────── */
 .fl-tab { font-weight: 600; }
 .fl-tab.active { border-bottom-color: var(--accent-primary); }
 
 /* ── Search: hover border, blush focus ring, keycap highlight ──────── */
-.cb-search-wrap { transition: border-color .25s, box-shadow .25s; }
-.cb-search-wrap:hover { border-color: var(--accent-border); }
-.cb-search-wrap:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
+.fl-restyle .cb-search-wrap { transition: border-color .25s, box-shadow .25s; }
+.fl-restyle .cb-search-wrap:hover { border-color: var(--accent-border); }
+.fl-restyle .cb-search-wrap:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
 .fl-key { font-family: var(--sx-font-mono); font-size: 11px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; flex-shrink: 0; transition: border-color .2s, color .2s; }
-.cb-search-wrap:focus-within .fl-key { border-color: var(--accent-primary); color: var(--accent-primary-l); }
-[data-theme="light"] .cb-search-wrap:focus-within .fl-key { color: var(--accent-primary); }
+.fl-restyle .cb-search-wrap:focus-within .fl-key { border-color: var(--accent-primary); color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .cb-search-wrap:focus-within .fl-key { color: var(--accent-primary); }
+
+/* Flat search-all mode: the legacy #kanban-ih.flat reveal shows this chip
+   so intermixed results still name their stage; muted chip look. */
+.fl-ocard .o-stage-chip { font-size: 10px; font-weight: 600; color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; letter-spacing: .04em; }
 </style>
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
@@ -721,7 +727,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 {% set col_labels = {'new': 'Approved PO', 'sourcing': 'Sourcing', 'building': 'Building', 'testing': 'Validation', 'shipped': 'Shipping'} %}
 {% set col_dots = {'new': 'var(--accent-blue-l)', 'sourcing': 'var(--fl-amber)', 'building': '#60a5fa', 'testing': 'var(--fl-purple)', 'shipped': 'var(--fl-orange)'} %}
 
-<div class="fulfillment-page">
+<div class="fulfillment-page fl-restyle">
 
 <!-- Animated background: decorative only, sits under all content -->
 <div class="fl-bg" aria-hidden="true">
@@ -907,6 +913,8 @@ if (!window.__flBgSpotBound) {
                 <span class="fl-mchip">{{ g.sku }}</span>
                 {% if g.order_type %}<span class="fl-mchip">{{ order_types.get(g.order_type, g.order_type) }}</span>{% endif %}
                 {% if g.is_sensitive and can_see_sensitive %}<span class="fl-mchip">Sensitive</span>{% endif %}
+                {% if g.intended_qty is defined %}<span class="fl-mchip">{{ g.intended_qty }} Intended</span>{% endif %}
+                <span class="o-stage-chip">{{ tlabel }}</span>
             </span>
             <span class="fl-due">
                 {% if g.due_date %}
@@ -915,7 +923,6 @@ if (!window.__flBgSpotBound) {
                 {% elif _dd == 0 %}{{ fl_icon('clock', 'mute', 13) }}Due Today
                 {% elif _dd == 1 %}{{ fl_icon('clock', 'mute', 13) }}Due Tomorrow
                 {% else %}{{ fl_icon('clock', 'mute', 13) }}Due in {{ _dd }} Days{% endif %}
-                {% elif g.intended_qty is defined %}{{ fl_icon('box', 'mute', 13) }}{{ g.intended_qty }} Intended
                 {% endif %}
             </span>
         </div>

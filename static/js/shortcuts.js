@@ -38,7 +38,7 @@
     if (e.key !== "/" || isTyping() || hasModifier(e)) return;
     var input = document.getElementById("db-search-input") ||
                 document.getElementById("cb-search");
-    if (input) {
+    if (input && input.offsetParent !== null) {
       e.preventDefault();
       input.focus();
     }
