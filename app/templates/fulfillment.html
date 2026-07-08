@@ -171,6 +171,50 @@
   .fl-hero.stat-on::before, .fl-hero.stat-on::after { animation: none; }
 }
 
+/* ── Body cards: flat, quiet, lit top edge (no gradients, no glow) ─── */
+.fl-card { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; transition: border-color .2s, background .2s, transform .2s, box-shadow .2s; }
+.fl-card:hover { border-color: var(--border-hover); border-top-color: var(--card-edge); background: var(--card-bg-hover); transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+
+/* ── In-house order card anatomy ───────────────────────────────────── */
+.fl-ocard { padding: 14px; overflow: visible; }
+.fl-ocard::before { display: none; } /* legacy left urgency bar */
+.fl-otop { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.fl-otitle { font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--text); }
+.fl-badge { font-size: 10px; font-weight: 700; letter-spacing: 1px; border-radius: 6px; padding: 2px 8px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
+.fl-badge.warn { color: var(--fl-amber); background: var(--amber-dim); border: 1px solid var(--fl-amber); }
+.fl-badge.urg { color: var(--fl-red); background: var(--red-dim); border: 1px solid var(--fl-red); }
+.fl-badge.ok { color: var(--fl-green); background: var(--green-dim); border: 1px solid var(--fl-green); }
+.fl-osub { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 8px 0 12px; flex-wrap: wrap; }
+.fl-osub-l { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fl-ochip { font-family: var(--sx-font-mono); font-size: 11px; color: var(--accent-primary-l); background: var(--accent-primary-dim); border: 1px solid var(--accent-primary); border-radius: 6px; padding: 2px 8px; }
+[data-theme="light"] .fl-ochip { color: var(--accent-primary); }
+.fl-mchip { font-size: 10px; font-weight: 600; color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; letter-spacing: .04em; }
+.fl-due { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+/* ── Stage tracker: green done, blush current pulse, quiet future ──── */
+.fl-stage { display: flex; align-items: center; margin-bottom: 12px; }
+.fl-sdot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--border); }
+.fl-sdot svg { width: 10px; height: 10px; }
+.fl-sdot.done { background: var(--fl-green); }
+.fl-sdot.cur { background: var(--accent-primary); animation: fl-spulse 2s infinite; }
+@keyframes fl-spulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(194,158,155,0.5); } 50% { box-shadow: 0 0 0 5px rgba(194,158,155,0); } }
+.fl-sline { flex: 1; height: 2px; background: var(--border); }
+.fl-sline.done { background: var(--fl-green); }
+.fl-sline.half { background: linear-gradient(90deg, var(--fl-green), var(--accent-primary)); }
+
+/* ── Card footer: first-name owner left, action right ──────────────── */
+.fl-ofoot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; gap: 8px; }
+.fl-ofoot .o-owner { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-muted); margin: 0; opacity: 1; }
+.fl-obtn { border: 1px solid var(--accent-border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 600; color: var(--accent-primary-l); background: var(--accent-primary-dim); transition: transform .15s, background .2s; }
+[data-theme="light"] .fl-obtn { color: var(--accent-primary); }
+.fl-obtn:hover { background: var(--accent-border); }
+.fl-obtn:active { transform: scale(0.96); }
+.fl-obtn.ready { background: var(--green-dim); border-color: var(--fl-green); color: var(--fl-green); }
+.fl-obtn.ready:hover { background: rgba(1,181,116,0.25); }
+@media (prefers-reduced-motion: reduce) {
+  .fl-sdot.cur { animation: none; }
+}
+
 /* ── Page header ─────────────────────────────────────────────────── */
 .fl-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .fl-header h1 { margin-bottom: 0.15rem; font-size: 1.25rem; }
@@ -808,51 +852,52 @@ if (!window.__flBgSpotBound) {
     {% for tkey, tlabel, tcolor in _btabs %}
     {% set tgroups = fulfillment_groups | selectattr("tab", "equalto", tkey) | list %}
     {% for g in tgroups %}
-    <div class="o-card" data-tab="{{ g.tab }}"
-         {% if g.tab != "queued" %}data-tint="{% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}"{% endif %}
-         style="--urg:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency == "overdue" %}var(--fl-red){% elif g.urgency in ("critical", "soon") %}var(--fl-amber){% else %}var(--accent-blue){% endif %};"
+    <div class="o-card fl-card fl-ocard" data-tab="{{ g.tab }}"
          data-num="{{ g.order_number }}" data-name="{{ g.customer_name | e }}"
          data-search="{{ g.order_number }} {{ g.customer_name | e }} {{ g.sku }} {{ g.sales_engineer or "" }}"
          onclick="window.location.href=&#39;{{ base_path }}/orders/{{ g.order_id }}&#39;">
-        <div class="oc-head">
-            <div class="oc-head-l">
-                <span class="o-sku">{{ g.sku }}</span>
-                <div class="o-name">{{ g.customer_name }}</div>
-            </div>
-            <div class="oc-head-r">
-                <span class="o-avatar" style="background:{{ g.se_color }};" title="{{ g.sales_engineer or "Unassigned" }}">{{ g.se_initials }}</span>
-                {% if g.tab != "queued" %}<span class="o-dot" style="background:{% if g.tab == "ready_for_handoff" %}var(--fl-green){% elif g.urgency in ("overdue", "critical") %}var(--fl-orange){% else %}var(--accent-blue){% endif %};"></span>{% endif %}
-            </div>
+        <div class="fl-otop">
+            <div class="fl-otitle">{{ g.customer_name }}</div>
+            {% if g.tab == "ready_for_handoff" %}
+            <span class="fl-badge ok"><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>READY</span>
+            {% elif g.urgency == "overdue" %}
+            <span class="fl-badge urg">OVERDUE</span>
+            {% elif g.urgency == "critical" %}
+            <span class="fl-badge warn">HIGH PRIORITY</span>
+            {% endif %}
         </div>
-        <div class="o-owner"><span>{{ g.sales_engineer or "Unassigned" }}</span></div>
-        <div class="oc-meta">
-            <span class="o-stage-chip" style="color:{{ tcolor }};">{{ tlabel }}</span>
-            <span class="o-id">{{ g.order_number }}</span>
-            {% if g.due_date %}<span class="oc-date">Due {{ g.due_date.strftime("%b %d") }}</span>{% endif %}
-            {% if g.tab != "queued" %}<span class="o-pill {% if g.tab == "ready_for_handoff" %}ready{% elif g.urgency in ("overdue", "critical") %}high{% else %}normal{% endif %}">{% if g.tab == "ready_for_handoff" %}Ready{% elif g.urgency in ("overdue", "critical") %}High Priority{% else %}Normal{% endif %}</span>{% endif %}
-            {% if g.is_sensitive and can_see_sensitive %}<span class="badge-sensitive">Sensitive</span>{% endif %}
-            {% if g.order_type %}<span class="order-type-badge order-type-badge--{{ g.order_type }}">{{ order_types.get(g.order_type, g.order_type) }}</span>{% endif %}
+        <div class="fl-osub">
+            <span class="fl-osub-l">
+                <span class="fl-ochip">{{ g.order_number }}</span>
+                <span class="fl-mchip">{{ g.sku }}</span>
+                {% if g.order_type %}<span class="fl-mchip">{{ order_types.get(g.order_type, g.order_type) }}</span>{% endif %}
+                {% if g.is_sensitive and can_see_sensitive %}<span class="fl-mchip">Sensitive</span>{% endif %}
+            </span>
+            <span class="fl-due">
+                {% if g.due_date %}
+                {% set _dd = (g.due_date - today).days %}
+                {% if _dd < 0 %}{{ fl_icon('alert', 'mute', 13) }}{{ -_dd }} Day{{ 's' if _dd != -1 else '' }} Late
+                {% elif _dd == 0 %}{{ fl_icon('clock', 'mute', 13) }}Due Today
+                {% elif _dd == 1 %}{{ fl_icon('clock', 'mute', 13) }}Due Tomorrow
+                {% else %}{{ fl_icon('clock', 'mute', 13) }}Due in {{ _dd }} Days{% endif %}
+                {% elif g.intended_qty is defined %}{{ fl_icon('box', 'mute', 13) }}{{ g.intended_qty }} Intended
+                {% endif %}
+            </span>
         </div>
         {% if g.stage_states %}
-        <div class="oc-track-lbl">Stage Persistence</div>
-        <div class="oc-track">
+        <div class="fl-stage">
             {% for st in g.stage_states %}
-            <span class="oc-stage {{ st.state }}">
-                {% if st.state == "done" %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
-                {% elif st.state == "current" %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
-                {% else %}<svg class="oc-ic" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>{% endif %}
-                {{ st.label }}
-            </span>
+            {% if not loop.first %}<span class="fl-sline {% if st.state == 'done' %}done{% elif st.state == 'current' %}half{% endif %}"></span>{% endif %}
+            <span class="fl-sdot {% if st.state == 'done' %}done{% elif st.state == 'current' %}cur{% endif %}" title="{{ st.label }}">{% if st.state == "done" %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-8" fill="none" stroke="var(--on-accent)" stroke-width="3" stroke-linecap="round"/></svg>{% endif %}</span>
             {% endfor %}
         </div>
-        {% else %}
-        <div class="oc-meta">
-            <span class="o-chip">{{ g.intended_qty }} intended</span>
+        {% endif %}
+        <div class="fl-ofoot">
+            <span class="o-owner">{{ fl_icon('user', 'mute', 14) }}<span data-member="{{ (g.sales_engineer or 'Unassigned') | lower | replace(' ', '_') }}">{{ (g.sales_engineer or "Unassigned").split()[0] }}</span></span>
+            {% if g.tab == "ready_for_handoff" %}
+            <button class="fl-obtn ready" onclick="event.stopPropagation();">Build Certification &amp; Close</button>
+            {% endif %}
         </div>
-        {% endif %}
-        {% if g.tab == "ready_for_handoff" %}
-        <button class="oc-cert-btn" onclick="event.stopPropagation();">Build Certification &amp; Close</button>
-        {% endif %}
     </div>
     {% endfor %}
     {% endfor %}
@@ -2512,7 +2557,7 @@ function recomputeVisibility() {
         }
         if (matches && coverageSelected.size && card.closest('#kanban-ih')) {
             var sp = card.querySelector('.o-owner span');
-            var k = (sp ? sp.textContent : '').trim().toLowerCase().replace(/\s+/g, '_');
+            var k = sp ? (sp.getAttribute('data-member') || sp.textContent.trim().toLowerCase().replace(/\s+/g, '_')) : '';
             matches = coverageSelected.has(k);
         }
         var cardTab = card.dataset.tab;
