@@ -215,6 +215,12 @@
   .fl-sdot.cur { animation: none; }
 }
 
+/* ── Deployment + recently completed cards: flat body treatment ────── */
+.fl-dcard { padding: 14px; overflow: visible; }
+.fl-dcard::before { display: none; } /* legacy left urgency bar */
+.fl-dcard .o-id { font-family: var(--sx-font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0; color: var(--accent-primary-l); background: var(--accent-primary-dim); border: 1px solid var(--accent-primary); border-radius: 6px; padding: 2px 8px; opacity: 1; display: inline-block; }
+[data-theme="light"] .fl-dcard .o-id { color: var(--accent-primary); }
+
 /* ── Page header ─────────────────────────────────────────────────── */
 .fl-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .fl-header h1 { margin-bottom: 0.15rem; font-size: 1.25rem; }
@@ -549,8 +555,9 @@ select.o-btn option { background: var(--card-bg, #1e2130); color: var(--text, #e
 .ms-done .ms-dot { background: var(--fl-green); border-color: var(--fl-green); }
 .ms-done .ms-lbl { color: var(--fl-green); opacity: 0.75; }
 .ms-line.ms-done { background: var(--fl-green); }
-.ms-now .ms-dot { background: var(--accent-blue); border-color: var(--accent-blue); box-shadow: 0 0 0 3px var(--accent-blue-dim); }
-.ms-now .ms-lbl { color: var(--accent-blue-l); opacity: 0.8; }
+.ms-now .ms-dot { background: var(--accent-primary); border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); }
+.ms-now .ms-lbl { color: var(--accent-primary-l); opacity: 0.9; }
+[data-theme="light"] .ms-now .ms-lbl { color: var(--accent-primary); }
 
 /* ── OEM tag ─────────────────────────────────────────────────────── */
 .oem-tag { font-size: 9px; font-weight: 700; background: rgba(249,115,22,.1); color: #fb923c; border: 1px solid rgba(249,115,22,.25); padding: 2px 7px; border-radius: 4px; }
@@ -927,10 +934,9 @@ if (!window.__flBgSpotBound) {
     <div class="bld-grid" id="kanban-deploy">
         {% for status in ['scheduled', 'in_transit', 'on_site', 'installing'] %}
         {% for dr in deploy_columns[status] %}
-                <div class="o-card"
+                <div class="o-card fl-card fl-dcard"
                      data-dep-id="{{ dr.id }}" data-dep-status="{{ status }}" data-dep-tab="{% if status in ['on_site', 'installing'] %}onsite_installing{% else %}{{ status }}{% endif %}" data-order-id="{{ dr.customer_order_id or '' }}"
-                     data-search="{{ dr.order_number or '' }} {{ dr.customer_name or '' }} {{ dr.site_name or '' }} {{ dr.se_name or '' }}"
-                     style="--urg:{% if dr.scheduled_date and dr.scheduled_date < today %}var(--fl-red){% elif dr.scheduled_date and (dr.scheduled_date - today).days <= 7 %}var(--fl-amber){% else %}{{ deploy_dot_colors[status] }}{% endif %};">
+                     data-search="{{ dr.order_number or '' }} {{ dr.customer_name or '' }} {{ dr.site_name or '' }} {{ dr.se_name or '' }}">
                     <div class="o-top">
                         <span class="o-id">{{ dr.order_number or 'No Order' }}</span>
                     </div>
@@ -1010,10 +1016,9 @@ if (!window.__flBgSpotBound) {
         <div class="bld-grid deploy-recent-grid">
             {% set status = 'complete' %}
             {% for dr in deploy_columns['complete'] %}
-                <div class="o-card"
+                <div class="o-card fl-card fl-dcard"
                      data-dep-id="{{ dr.id }}" data-dep-status="{{ status }}" data-order-id="{{ dr.customer_order_id or '' }}"
-                     data-search="{{ dr.order_number or '' }} {{ dr.customer_name or '' }} {{ dr.site_name or '' }} {{ dr.se_name or '' }}"
-                     style="--urg:{% if dr.scheduled_date and dr.scheduled_date < today %}var(--fl-red){% elif dr.scheduled_date and (dr.scheduled_date - today).days <= 7 %}var(--fl-amber){% else %}{{ deploy_dot_colors[status] }}{% endif %};">
+                     data-search="{{ dr.order_number or '' }} {{ dr.customer_name or '' }} {{ dr.site_name or '' }} {{ dr.se_name or '' }}">
                     <div class="o-top">
                         <span class="o-id">{{ dr.order_number or 'No Order' }}</span>
                     </div>
