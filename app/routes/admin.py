@@ -47,7 +47,7 @@ def _perm_label(val):
     return {"inherit": "Inherit", "grant": "Granted", "block": "Revoked"}.get(val, str(val))
 
 
-# Permission → audit log target_tables mapping (for team-scoped audit filtering)
+# Permission → audit log target_tables mapping (for area-scoped audit filtering)
 PERM_AUDIT_TABLES = {
     "can_view_financial": ("procurement",),
     "can_manage_warranty": ("device_warranties", "warranty_claims"),
@@ -1185,7 +1185,7 @@ def toggle_sensitive_customers_permission(
 
 
 # ---------------------------------------------------------------------------
-# Team Assignment
+# Department Assignment
 # ---------------------------------------------------------------------------
 
 @router.post("/api/admin/users/{user_id}/department")
@@ -1195,7 +1195,7 @@ async def assign_user_department(
     db: Session = Depends(get_db),
     user: User = Depends(require_user_manager),
 ):
-    """Assign a user to a team (or remove from team with team_id=null)."""
+    """Assign a user to a department (or remove from department with department_id=null)."""
     target = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not target:
         return JSONResponse(status_code=404, content={"error": "User not found"})
@@ -1235,17 +1235,6 @@ async def assign_user_department(
     })
 
 
-@router.post("/api/admin/users/{user_id}/team")
-async def assign_user_team_legacy(
-    user_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user_manager),
-):
-    """Legacy alias for /api/admin/users/{id}/department — will be dropped after U3 stabilizes."""
-    return await assign_user_department(user_id=user_id, request=request, db=db, user=user)
-
-
 # ---------------------------------------------------------------------------
 # User profile self-update (email for Slack auto-match)
 # ---------------------------------------------------------------------------
@@ -1269,7 +1258,7 @@ async def update_user_self(
 
 
 # ---------------------------------------------------------------------------
-# Team Management
+# Department Management
 # ---------------------------------------------------------------------------
 
 @router.patch("/api/admin/users/{user_id}")
@@ -1486,22 +1475,13 @@ def department_management_page(
     })
 
 
-@router.get("/admin/teams")
-def admin_teams_redirect(
-    request: Request,
-    user: User = Depends(require_user_manager),
-):
-    """Legacy alias for /admin/departments — will be dropped after U3 stabilizes."""
-    return RedirectResponse(f"{BP}/admin/departments", status_code=302)
-
-
 @router.post("/admin/departments/add")
 async def add_department(
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_user_manager),
 ):
-    """Create a new team."""
+    """Create a new department."""
     body = await request.json()
     name = (body.get("name") or "").strip()
     description = (body.get("description") or "").strip()
@@ -1529,16 +1509,6 @@ async def add_department(
     )
 
     return JSONResponse(content={"status": "created", "department_id": dept.id, "name": dept.name})
-
-
-@router.post("/admin/teams/add")
-async def add_team_legacy(
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user_manager),
-):
-    """Legacy alias for /admin/departments/add — will be dropped after U3 stabilizes."""
-    return await add_department(request=request, db=db, user=user)
 
 
 @router.put("/api/admin/departments/{department_id}")
@@ -1578,17 +1548,6 @@ async def update_department(
     return JSONResponse(content={"status": "updated", "department_id": dept.id, "name": dept.name})
 
 
-@router.put("/api/admin/teams/{team_id}")
-async def update_team_legacy(
-    team_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user_manager),
-):
-    """Legacy alias for /api/admin/departments/{id} — will be dropped after U3 stabilizes."""
-    return await update_department(department_id=team_id, request=request, db=db, user=user)
-
-
 @router.delete("/api/admin/departments/{department_id}")
 def delete_department(
     department_id: int,
@@ -1622,17 +1581,6 @@ def delete_department(
     return JSONResponse(content={"status": "deleted", "name": dept_name, "members_unassigned": member_count})
 
 
-@router.delete("/api/admin/teams/{team_id}")
-def delete_team_legacy(
-    team_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user_manager),
-):
-    """Legacy alias for /api/admin/departments/{id} — will be dropped after U3 stabilizes."""
-    return delete_department(department_id=team_id, request=request, db=db, user=user)
-
-
 @router.post("/api/admin/departments/{department_id}/permissions")
 async def update_department_permissions(
     department_id: int,
@@ -1652,12 +1600,10 @@ async def update_department_permissions(
     for col in perm_cols:
         if col in body:
             raw = body[col]
-            # Legacy admin-teams.html sends booleans; U3's rebuild can send
-            # 'grant'/'block' directly. Accept either wire shape.
-            if isinstance(raw, str) and raw in ('grant', 'block'):
-                new_val = raw
-            else:
-                new_val = 'grant' if bool(raw) else 'block'
+            # Wire format is 'grant'/'block' strings (U3 rebuild); ignore anything else.
+            if raw not in ('grant', 'block'):
+                continue
+            new_val = raw
             old_val = getattr(dept, col)
             if old_val != new_val:
                 setattr(dept, col, new_val)
@@ -1711,17 +1657,6 @@ def admin_release_department_lock(
     return JSONResponse(content={"status": "unlocked"})
 
 
-@router.post("/api/admin/teams/{team_id}/permissions")
-async def update_team_permissions_legacy(
-    team_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user_manager),
-):
-    """Legacy alias for /api/admin/departments/{id}/permissions — will be dropped after U3 stabilizes."""
-    return await update_department_permissions(department_id=team_id, request=request, db=db, user=user)
-
-
 # ---------------------------------------------------------------------------
 # Audit Log Viewer
 # ---------------------------------------------------------------------------
@@ -1746,7 +1681,7 @@ def audit_log_page(
     if user_filter:
         query = query.filter(AuditLog.user_id == int(user_filter))
 
-    # Team-scoped audit: non-admin users only see entries for their permitted areas
+    # Area-scoped audit: non-admin users only see entries for their permitted areas
     is_full_admin = user.role in ("justin_admin", "system_admin", "admin")
     has_explicit_audit = user.can_view_audit_log is True  # explicit override, not inherited
     if not is_full_admin and not has_explicit_audit:
