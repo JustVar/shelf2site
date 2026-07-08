@@ -2,7 +2,7 @@
 
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -110,6 +110,18 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
         details=f"{user.display_name} logged in",
     )
 
+    # Password expiry: anchor the expiry moment in the session for the near-free middleware
+    # check, and force a change now if the password is already past its max age.
+    if user.password_changed_at is not None:
+        expires_at = user.password_changed_at + timedelta(days=settings.PASSWORD_MAX_AGE_DAYS)
+        request.session["password_expires_at"] = expires_at.isoformat()
+        if datetime.utcnow() >= expires_at and not user.must_change_password:
+            user.must_change_password = True
+            db.commit()
+            request.session["must_change_password"] = True
+    else:
+        request.session.pop("password_expires_at", None)
+
     # Redirect to password change if required
     if user.must_change_password:
         return RedirectResponse(f"{BP}/change-password", status_code=302)
@@ -123,10 +135,17 @@ def change_password_page(
     user: User = Depends(get_current_user),
 ):
     """Render the password change page."""
+    reason = (
+        "expired"
+        if user.password_changed_at is not None
+        and (datetime.utcnow() - user.password_changed_at).days >= settings.PASSWORD_MAX_AGE_DAYS
+        else "temporary"
+    )
     return templates.TemplateResponse("change_password.html", {
         "request": request,
         "user": user,
         "forced": user.must_change_password,
+        "reason": reason,
         "error": None,
         "success": None,
     })
@@ -144,12 +163,20 @@ async def change_password_submit(
     new_password = form.get("new_password", "")
     confirm_password = form.get("confirm_password", "")
 
+    reason = (
+        "expired"
+        if user.password_changed_at is not None
+        and (datetime.utcnow() - user.password_changed_at).days >= settings.PASSWORD_MAX_AGE_DAYS
+        else "temporary"
+    )
+
     # Validate current password
     if not verify_password(current_password, user.password_hash):
         return templates.TemplateResponse("change_password.html", {
             "request": request,
             "user": user,
             "forced": user.must_change_password,
+            "reason": reason,
             "error": "Current password is incorrect.",
             "success": None,
         }, status_code=400)
@@ -161,6 +188,7 @@ async def change_password_submit(
             "request": request,
             "user": user,
             "forced": user.must_change_password,
+            "reason": reason,
             "error": strength_error,
             "success": None,
         }, status_code=400)
@@ -170,6 +198,7 @@ async def change_password_submit(
             "request": request,
             "user": user,
             "forced": user.must_change_password,
+            "reason": reason,
             "error": "New passwords do not match.",
             "success": None,
         }, status_code=400)
@@ -179,6 +208,7 @@ async def change_password_submit(
             "request": request,
             "user": user,
             "forced": user.must_change_password,
+            "reason": reason,
             "error": "New password must be different from your current password.",
             "success": None,
         }, status_code=400)
@@ -191,6 +221,10 @@ async def change_password_submit(
 
     # Clear the session flag so middleware stops redirecting
     request.session["must_change_password"] = False
+    # Re-anchor the expiry so the now-stale session expiry does not re-trigger the redirect
+    request.session["password_expires_at"] = (
+        user.password_changed_at + timedelta(days=settings.PASSWORD_MAX_AGE_DAYS)
+    ).isoformat()
 
     log_event(
         db, "password_changed",

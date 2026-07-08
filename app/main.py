@@ -14,6 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .config import settings
 from .sidebar_cache import get_sidebar_counts
 from .database import create_all_tables
+from datetime import datetime
 from app import csrf
 from .routes import (
     admin, api, auth_routes, bulk,
@@ -238,6 +239,23 @@ async def auth_redirect_middleware(request: Request, call_next):
     # Issue a CSRF token for any authenticated session (covers live sessions too).
     if user_id:
         csrf.ensure_token(request)
+
+    # Password expiry (session-anchored, no DB per request). password_expires_at is set at
+    # login; when it passes, flag the session so the forced-change redirect below fires, and
+    # expose the remaining days to the warning banner.
+    if user_id and not request.session.get("must_change_password"):
+        _pexp = request.session.get("password_expires_at")
+        if _pexp:
+            try:
+                _secs = (datetime.fromisoformat(_pexp) - datetime.utcnow()).total_seconds()
+                if _secs <= 0:
+                    request.session["must_change_password"] = True
+                else:
+                    _days = (int(_secs) + 86399) // 86400
+                    if _days <= settings.PASSWORD_WARN_DAYS:
+                        request.state.pwd_warn_days = _days
+            except (ValueError, TypeError):
+                pass
 
     # Force password change redirect: only allow /change-password and /logout
     if user_id and request.session.get("must_change_password"):

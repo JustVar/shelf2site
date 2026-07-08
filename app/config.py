@@ -38,6 +38,11 @@ class Settings:
     # Keep False for LAN-only HTTP deployment and for E2E tests.
     HTTPS_ONLY: bool = os.getenv("HTTPS_ONLY", "false").lower() == "true"
 
+    # Password expiry policy - 6-month rotation with a 7-day warning. Reuses the existing
+    # must_change_password forced-change flow; display/enforcement only.
+    PASSWORD_MAX_AGE_DAYS: int = int(os.getenv("PASSWORD_MAX_AGE_DAYS", "180"))
+    PASSWORD_WARN_DAYS: int = int(os.getenv("PASSWORD_WARN_DAYS", "7"))
+
     # Slack webhook (optional, for team channel alerts)
     SLACK_WEBHOOK_URL: str = os.getenv("SLACK_WEBHOOK_URL", "")
     # Separate webhook for E2E test notifications (private channel, only Justin)

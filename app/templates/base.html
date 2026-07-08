@@ -412,6 +412,12 @@
         </div>
 
         <main>
+            {% if user and request.state.pwd_warn_days %}
+            <div class="pwd-warn-banner">
+              Your password expires in {{ request.state.pwd_warn_days }} day{{ 's' if request.state.pwd_warn_days != 1 else '' }}.
+              <a class="pwd-warn-banner__link" href="{{ base_path }}/change-password">Change it now.</a>
+            </div>
+            {% endif %}
             {% block content %}{% endblock %}
             <script>
             (function() {
