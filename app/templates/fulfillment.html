@@ -131,6 +131,46 @@
 .duo path, .duo circle, .duo rect { fill: var(--duo-c); }
 .duo .s { fill: none; stroke: var(--duo-c); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
+/* ── Hero metric tiles: the ONLY glowing elements on the page ──────── */
+@property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+#board-inhouse .cmd-band { background: transparent; border: none; border-radius: 0; flex-direction: column; align-items: stretch; gap: 14px; }
+#board-inhouse .cb-stats { border-right: none; border-bottom: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+#board-inhouse .cb-tools { border-left: none; background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 10px 16px; }
+.fl-hero {
+    position: relative; border-radius: 14px; padding: 16px;
+    background: var(--hero-grad); border: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 12px; min-width: 0; cursor: pointer;
+}
+.fl-hairline {
+    position: absolute; top: 0; left: 10%; right: 35%; height: 1px; transition: opacity .4s;
+    background: linear-gradient(90deg, transparent, var(--glow-color), transparent);
+    box-shadow: 0 0 12px 1px var(--glow-soft);
+}
+.fl-hero::before, .fl-hero::after {
+    content: ''; position: absolute; inset: -1px; border-radius: 14px;
+    padding: 1px; pointer-events: none; opacity: 0; transition: opacity .4s;
+    background: conic-gradient(from var(--a),
+        transparent 0turn, transparent .55turn,
+        var(--glow-color) .70turn, transparent .85turn, transparent 1turn);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.fl-hero::after { filter: blur(5px); }
+.fl-hero:hover::before, .fl-hero:hover::after,
+.fl-hero.stat-on::before, .fl-hero.stat-on::after { opacity: 1; animation: fl-lap 2.8s linear infinite; }
+.fl-hero:hover .fl-hairline, .fl-hero.stat-on .fl-hairline { opacity: 0; }
+@keyframes fl-lap { to { --a: 1turn; } }
+.fl-hero .m-label { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+.fl-hero .m-value { font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: var(--text); }
+.fl-hero .m-value-sub { font-size: 15px; font-weight: 600; color: var(--text-muted); }
+.fl-hero .m-sub { font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 5px; }
+.fl-hero .m-icon { flex-shrink: 0; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .fl-hero:hover::before, .fl-hero:hover::after,
+  .fl-hero.stat-on::before, .fl-hero.stat-on::after { animation: none; }
+}
+
 /* ── Page header ─────────────────────────────────────────────────── */
 .fl-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .fl-header h1 { margin-bottom: 0.15rem; font-size: 1.25rem; }
@@ -671,25 +711,41 @@ if (!window.__flBgSpotBound) {
 <!-- ── COMMAND BAND ──────────────────────────────────────────────── -->
 <div class="cmd-band">
     <div class="cb-stats">
-        <div class="cb-stat cbs-blue" id="stat-active" onclick="handleStatClick('active')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#127CA3" stroke-width="2" style="margin-bottom:2px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-            <div class="cb-stat-num">{{ total_active }}</div>
-            <div class="cb-stat-lbl">Active</div>
+        <div class="fl-hero" id="stat-active" onclick="handleStatClick('active')" style="--glow-color:var(--fl-green); --glow-soft:rgba(1,181,116,0.55);">
+            <div class="fl-hairline"></div>
+            <div>
+                <div class="m-label">Active</div>
+                <div class="m-value">{{ total_active }}</div>
+                <div class="m-sub" style="color:var(--fl-green);">{{ columns['shipped'] | length }} Shipping</div>
+            </div>
+            {{ fl_icon('chart', 'green', 38, 'm-icon') }}
         </div>
-        <div class="cb-stat cbs-red" id="stat-overdue" onclick="handleStatClick('overdue')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="margin-bottom:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <div class="cb-stat-num" {% if overdue_count > 0 %}style="color:var(--fl-red);"{% endif %}>{{ overdue_count }}</div>
-            <div class="cb-stat-lbl">Overdue</div>
+        <div class="fl-hero" id="stat-overdue" onclick="handleStatClick('overdue')" style="--glow-color:var(--fl-red); --glow-soft:rgba(227,26,26,0.55);">
+            <div class="fl-hairline"></div>
+            <div>
+                <div class="m-label">Overdue</div>
+                <div class="m-value">{{ overdue_count }}</div>
+                <div class="m-sub" style="color:{% if overdue_count > 0 %}var(--fl-red){% else %}var(--fl-green){% endif %};">{% if overdue_count > 0 %}Needs Triage{% else %}All Clear{% endif %}</div>
+            </div>
+            {{ fl_icon('alert', 'red', 38, 'm-icon') }}
         </div>
-        <div class="cb-stat cbs-amber" id="stat-duesoon" onclick="handleStatClick('duesoon')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="margin-bottom:2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <div class="cb-stat-num" {% if due_soon_count > 0 %}style="color:var(--fl-amber);"{% endif %}>{{ due_soon_count }}</div>
-            <div class="cb-stat-lbl">Due Soon</div>
+        <div class="fl-hero" id="stat-duesoon" onclick="handleStatClick('duesoon')" style="--glow-color:var(--fl-amber); --glow-soft:rgba(255,181,71,0.55);">
+            <div class="fl-hairline"></div>
+            <div>
+                <div class="m-label">Due Soon</div>
+                <div class="m-value">{{ due_soon_count }}</div>
+                <div class="m-sub" style="color:var(--fl-amber);">Next 7 Days</div>
+            </div>
+            {{ fl_icon('clock', 'amber', 38, 'm-icon') }}
         </div>
-        <div class="cb-stat cbs-green" id="stat-stock" onclick="handleStatClick('stock')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" style="margin-bottom:2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-            <div class="cb-stat-num" style="color:var(--fl-green);">{{ stock_available }}<span class="sub">&thinsp;/{{ stock_total }}</span></div>
-            <div class="cb-stat-lbl">Stock</div>
+        <div class="fl-hero" id="stat-stock" onclick="handleStatClick('stock')" style="--glow-color:var(--accent-primary-l); --glow-soft:rgba(227,203,199,0.55);">
+            <div class="fl-hairline"></div>
+            <div>
+                <div class="m-label">Stock</div>
+                <div class="m-value">{{ stock_available }}<span class="m-value-sub">&thinsp;/{{ stock_total }}</span></div>
+                <div class="m-sub" style="color:var(--accent-primary);">{{ stock_total - stock_available }} Reserved</div>
+            </div>
+            {{ fl_icon('box', 'blush', 38, 'm-icon') }}
         </div>
     </div>
     <div class="cb-tools">
