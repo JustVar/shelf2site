@@ -1,0 +1,62 @@
+{#
+  Duotone icon macro for the fulfillment restyle design language.
+
+  Usage (import INSIDE the block that uses it - Jinja block scoping):
+      {% from "_fl_icons.html" import fl_icon %}
+      {{ fl_icon('box', 'green', 38) }}
+
+  Each icon is a 24px viewBox with two layers:
+      class="b"  base silhouette, rendered at 0.28 opacity
+      class="s"  accent stroke detail, full opacity
+  Both layers are colored by var(--duo-c), set by the st-c-* color class
+  (green | amber | red | blush | info | mute). CSS lives in the page that
+  imports this file (see fulfillment.html "Duotone icon system" section).
+
+  The macro name fl_icon is distinct from the icon() template global
+  registered by the app (see app/main.py) - do not rename either.
+#}
+{% macro fl_icon(name, color='mute', size=24, cls='') -%}
+<svg class="duo st-c-{{ color }}{% if cls %} {{ cls }}{% endif %}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+{%- if name == 'box' -%}
+<path class="b" d="M12 2 21 7v10l-9 5-9-5V7z"/><path class="s" d="M12 2 21 7l-9 5-9-5zM12 12v10"/>
+{%- elif name == 'truck' -%}
+<path class="b" d="M2 6h11v9H2z"/><path class="s" d="M13 9h4l3 3v3h-3M2 15h1m9 0h1"/><circle class="s" cx="7" cy="17" r="1.8"/><circle class="s" cx="17" cy="17" r="1.8"/>
+{%- elif name == 'clock' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M12 7v5l3.5 2.5"/>
+{%- elif name == 'alert' -%}
+<path class="b" d="M12 3 22 20H2z"/><path class="s" d="M12 10v4"/><circle cx="12" cy="17" r="1"/>
+{%- elif name == 'clipboard-check' -%}
+<rect class="b" x="5" y="4" width="14" height="17" rx="2"/><path class="s" d="m9 13 2.2 2.2L15.5 11"/>
+{%- elif name == 'plus' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M12 8v8M8 12h8"/>
+{%- elif name == 'check' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="m8 12.5 2.5 2.5L16 9.5"/>
+{%- elif name == 'x' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="m9 9 6 6M15 9l-6 6"/>
+{%- elif name == 'search' -%}
+<circle class="b" cx="10.5" cy="10.5" r="7"/><path class="s" d="M15.5 15.5 21 21M10.5 6.5a4 4 0 0 0-4 4"/>
+{%- elif name == 'filter' -%}
+<path class="b" d="M3 5h18l-7 8v6l-4-2v-4z"/><path class="s" d="M3 5h18l-7 8v6l-4-2v-4z"/>
+{%- elif name == 'user' -%}
+<circle class="b" cx="12" cy="8" r="4"/><path class="s" d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/>
+{%- elif name == 'users' -%}
+<circle class="b" cx="9" cy="8" r="3.5"/><path class="s" d="M2.5 19c1.2-3 3.5-4.5 6.5-4.5s5.3 1.5 6.5 4.5M16 4.5a3.5 3.5 0 0 1 0 7M21.5 19c-.8-2.2-2.2-3.6-4.2-4.2"/>
+{%- elif name == 'arrow-right' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M8 12h8m-3.5-3.5L16 12l-3.5 3.5"/>
+{%- elif name == 'fingerprint' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M9 14a3 3 0 0 1 6 0M6.5 14a5.5 5.5 0 0 1 11 0M12 5.5A8.5 8.5 0 0 1 20.5 14"/>
+{%- elif name == 'chart' -%}
+<rect class="b" x="3" y="3" width="18" height="18" rx="4"/><path class="s" d="M6 13h3l2-5 3 8 2-4h2"/>
+{%- elif name == 'activity' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M7 12h2l1.5-3.5 3 7L15 12h2"/>
+{%- elif name == 'settings' -%}
+<circle class="b" cx="12" cy="12" r="8"/><circle class="s" cx="12" cy="12" r="3"/><path class="s" d="M12 4v2.5M12 17.5V20M4 12h2.5M17.5 12H20M6.4 6.4l1.8 1.8M15.8 15.8l1.8 1.8M17.6 6.4l-1.8 1.8M8.2 15.8l-1.8 1.8"/>
+{%- elif name == 'upload' -%}
+<rect class="b" x="4" y="3" width="16" height="18" rx="2"/><path class="s" d="M12 16V8M8.5 11.5 12 8l3.5 3.5"/>
+{%- elif name == 'tray' -%}
+<rect class="b" x="4" y="6" width="16" height="12" rx="2"/><path class="s" d="M4 10h16M8 15h4"/>
+{%- else -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M12 8v5"/><circle cx="12" cy="16.5" r="1"/>
+{%- endif -%}
+</svg>
+{%- endmacro %}

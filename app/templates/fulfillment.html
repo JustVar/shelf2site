@@ -119,6 +119,18 @@
 .fl-header, #board-inhouse, #board-oem { position: relative; z-index: 1; }
 #maintenance-banner, .pwd-warn-banner { position: relative; z-index: 1; }
 
+/* ── Duotone icon system (two-layer SVG colored by --duo-c) ────────── */
+.duo .b { opacity: 0.28; }
+.st-c-green { --duo-c: var(--fl-green); }
+.st-c-amber { --duo-c: var(--fl-amber); }
+.st-c-red { --duo-c: var(--fl-red); }
+.st-c-blush { --duo-c: var(--accent-primary-l); }
+[data-theme="light"] .st-c-blush { --duo-c: var(--accent-primary); }
+.st-c-info { --duo-c: var(--info); }
+.st-c-mute { --duo-c: var(--text-muted); }
+.duo path, .duo circle, .duo rect { fill: var(--duo-c); }
+.duo .s { fill: none; stroke: var(--duo-c); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
 /* ── Page header ─────────────────────────────────────────────────── */
 .fl-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .fl-header h1 { margin-bottom: 0.15rem; font-size: 1.25rem; }
@@ -586,6 +598,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 {% endblock %}
 
 {% block content %}
+{% from "_fl_icons.html" import fl_icon %}
 {# ── Template variable setup ────────────────────────────────────── #}
 {% set col_labels = {'new': 'Approved PO', 'sourcing': 'Sourcing', 'building': 'Building', 'testing': 'Validation', 'shipped': 'Shipping'} %}
 {% set col_dots = {'new': 'var(--accent-blue-l)', 'sourcing': 'var(--fl-amber)', 'building': '#60a5fa', 'testing': 'var(--fl-purple)', 'shipped': 'var(--fl-orange)'} %}
