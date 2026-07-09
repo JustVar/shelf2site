@@ -4,21 +4,24 @@
 {% block nav_search %}active{% endblock %}
 
 {% block content %}
+<div class="search-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="page-header fl-lift">
 <h1>Global Search</h1>
 <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
     Search across all 16 device categories simultaneously.
 </p>
+</div>
 
 <!-- Search Input -->
-<div class="search-bar-container" style="margin-bottom: 1.5rem;">
+<div class="search-bar-container fl-lift" style="margin-bottom: 1.5rem;">
     <div style="display: flex; align-items: center; gap: 0.5rem; max-width: 600px;">
         <input type="search"
                id="global-search-input"
                placeholder="Search by name, serial, MAC, IP, vendor, location, notes..."
                autofocus
                style="flex: 1; padding: 0.7rem 1rem; font-size: 1rem;">
-        <button type="button" id="search-clear-btn"
-                style="display:none; background:none; border:1px solid var(--border); border-radius:4px; padding:0.4rem 0.8rem; color:var(--text-muted); cursor:pointer; font-size:0.85rem;">
+        <button type="button" id="search-clear-btn" class="fl-btn" style="display:none;">
             Clear
         </button>
         <span id="search-spinner" style="display:none; color: var(--text-muted); white-space: nowrap;">Searching...</span>
@@ -26,18 +29,19 @@
 </div>
 
 <!-- Result Count -->
-<div id="search-result-count" style="display: none; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+<div id="search-result-count" class="fl-lift" style="display: none; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
     <strong id="search-count-value">0</strong> results found
 </div>
 
 <!-- Search Results -->
-<div class="table-section">
+<div class="table-section fl-lift">
     <div id="search-results" style="overflow-x: auto;">
         <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
             Type at least 2 characters to search across all device categories.
         </div>
     </div>
 </div>
+</div>{# /search-page.fl-restyle #}
 
 {% endblock %}
 

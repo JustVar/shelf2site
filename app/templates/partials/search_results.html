@@ -3,8 +3,7 @@
 <!-- Category summary badges -->
 <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
     {% for table_name, cat in categories.items() %}
-    <span class="badge-category">
-        <span class="cat-dot" style="background: {{ cat.color }};"></span>
+    <span class="inv-cat-pill" style="background: {{ cat.color }}22; color: {{ cat.color }};">
         {{ cat.display_name }}
         <span style="font-weight: 700;">{{ cat.count }}</span>
     </span>
@@ -14,7 +13,7 @@
     </span>
 </div>
 
-<table>
+<table class="fl-table">
     <thead>
         <tr>
             <th>Category</th>
@@ -30,16 +29,18 @@
         {% for row in results %}
         <tr data-device-id="{{ row.id }}">
             <td>
-                <span class="badge-category">
-                    <span class="cat-dot" style="background: {{ row.color }};"></span>
+                <span class="inv-cat-pill" style="background: {{ row.color }}22; color: {{ row.color }};">
                     {{ row.category }}
                 </span>
             </td>
-            <td>{{ row.name }}</td>
-            <td>{{ row.serial }}</td>
-            <td>{{ row.status }}</td>
-            <td style="font-family: monospace;">{{ row.mac_address }}</td>
-            <td>{{ row.location }}</td>
+            <td class="fl-cell-name">{{ row.name }}</td>
+            <td class="fl-cell-sub">{{ row.serial }}</td>
+            <td>
+                {% set st = row.status | lower | replace(' ', '') | replace('-', '') %}
+                <span class="inv-status inv-status--{{ st }}">{{ row.status }}</span>
+            </td>
+            <td class="fl-cell-sub">{{ row.mac_address }}</td>
+            <td class="fl-cell-mut">{{ row.location }}</td>
             <td>
                 <a href="{{ base_path }}/items/{{ row.id }}/edit" class="btn-edit" title="Open item details">
                     <svg viewBox="0 0 24 24" width="14" height="14">

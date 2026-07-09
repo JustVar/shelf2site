@@ -11,7 +11,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
 from ..models import Item, ItemLocation
-from .dashboard import CATEGORY_COLORS, category_display
+from .dashboard import FL_CATEGORY_COLORS, category_display
 _COLOR_FALLBACK = "#888888"
 
 router = APIRouter()
@@ -79,7 +79,7 @@ def search_results_partial(
     for item in matches:
         cat = str(item.item_category) if item.item_category else None
         display_name = category_display(cat) if cat else "-"
-        color = CATEGORY_COLORS.get(cat, _COLOR_FALLBACK)
+        color = FL_CATEGORY_COLORS.get(cat, _COLOR_FALLBACK)
         key = cat or "unknown"
         if key not in category_counts:
             category_counts[key] = {
