@@ -726,6 +726,8 @@
   --flc-on-accent: #17222E;
   --flc-amber: #FFB547;
   --flc-amber-dim: rgba(255,181,71,0.12);
+  --flc-card: #151821;
+  --flc-card-edge: rgba(255,255,255,0.10);
 }
 [data-theme="light"] {
   --flc-accent: #85605E;
@@ -735,6 +737,8 @@
   --flc-on-accent: #FFFFFF;
   --flc-amber: #C07220;
   --flc-amber-dim: rgba(192,114,32,0.12);
+  --flc-card: #FFFFFF;
+  --flc-card-edge: rgba(255,255,255,0.9);
 }
 .sx-nav { border-right: 1px solid var(--sx-border); }
 .sx-nav__section-label { color: var(--sx-gray-dim); letter-spacing: .1em; }
@@ -770,6 +774,64 @@
 [data-theme="light"] .sx-nav__avatar { background: var(--flc-accent-dim); color: var(--flc-accent); border-color: var(--flc-accent-border); }
 [data-theme="light"] .sx-nav__footer-btn:hover .duo { --duo-c: var(--flc-accent); }
 [data-theme="light"] .sx-nav__toggle-btn:hover { color: var(--flc-accent); background: var(--flc-accent-dim); }
+
+/* ── Collapsed rail v2 (approved mock 2026-07-09): top-level icons only,
+   hairline dividers (the section labels already render as 1px rules when
+   collapsed - main.css), admin group flyout, amber triage dot. All three
+   collapsed selector variants are handled where first paint matters:
+   html.sx-nav-pre-collapsed persists for the whole session when the nav
+   starts collapsed, so it out-specifics naive .sx-nav--collapsed rules. */
+/* At the 60px steady state nothing needs clipping, and unclipping lets the
+   attr(data-label) hover tooltips actually render (they were silently cut
+   off by the nav overflow before - pre-existing; labels are display none
+   the moment the collapsed class lands, so nothing leaks mid-transition). */
+.sx-nav.sx-nav--collapsed,
+html.sx-nav-pre-collapsed #sx-nav { overflow: visible; }
+.sx-nav--collapsed .sx-nav__links,
+html.sx-nav-pre-collapsed .sx-nav__links { overflow-y: visible; }
+.sx-nav--collapsed .sx-nav__section-header,
+html.sx-nav-pre-collapsed .sx-nav__section-header { justify-content: center; padding: 7px 0; margin: 1px 6px; width: auto; border-radius: 6px; }
+.sx-nav--collapsed .sx-nav__section,
+html.sx-nav-pre-collapsed .sx-nav__section { border-top: 1px solid var(--sx-border-soft, #2A2933); margin-top: 5px; padding-top: 4px; }
+.sx-nav--collapsed .sx-nav__section:has(.sx-nav__link--active) .sx-nav__section-header,
+html.sx-nav-pre-collapsed .sx-nav__section:has(.sx-nav__link--active) .sx-nav__section-header { background: var(--flc-accent-dim); }
+.sx-nav--collapsed .sx-nav__section:has(.sx-nav__link--active) .sx-nav__section-header .duo,
+html.sx-nav-pre-collapsed .sx-nav__section:has(.sx-nav__link--active) .sx-nav__section-header .duo { --duo-c: var(--flc-accent); }
+
+/* Triage alert: the count chip becomes a 7px amber dot when collapsed. It
+   must stay the SAME element (#sx-nav-triage-badge) because realtime.js SSE
+   writes its textContent and inline display per event; font-size 0 hides the
+   number. The ring uses the nav surface value (light redefines --dark). */
+.sx-nav--collapsed .sx-nav__badge,
+html.sx-nav-pre-collapsed .sx-nav__badge {
+  display: block; position: absolute; top: 4px; right: 14px;
+  width: 7px; height: 7px; padding: 0; border: none; border-radius: 50%;
+  background: var(--flc-amber); box-shadow: 0 0 0 2px var(--dark, #2F2E37);
+  font-size: 0; line-height: 0; color: transparent; overflow: hidden; min-width: 0;
+}
+
+/* Admin flyout panel: fl-restyle.js clones the always-rendered section
+   content into this body-mounted fixed panel (escapes the .sx-nav overflow
+   clip). z 500 sits above the nav (100) and drawers (401), below modals
+   (1000) and tours (1100+). Subgroup headers become static labels. */
+.fl-nav-flyout {
+  position: fixed; z-index: 500;
+  min-width: 208px; max-width: 264px;
+  max-height: calc(100vh - 16px); overflow-y: auto;
+  background: var(--flc-card);
+  border: 1px solid var(--sx-border, #33323E); border-top-color: var(--flc-card-edge);
+  border-radius: 12px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+}
+[data-theme="light"] .fl-nav-flyout { box-shadow: 0 12px 32px rgba(27,32,40,0.18); }
+.fl-nav-flyout .sx-nav__section-content,
+.fl-nav-flyout .sx-nav__subgroup-content { display: block; max-height: none; overflow: visible; }
+.fl-nav-flyout .sx-nav__subgroup-header { display: flex; pointer-events: none; padding: 8px 10px 3px; }
+.fl-nav-flyout .sx-nav__subgroup-chev { display: none; }
+.fl-nav-flyout .sx-nav__link { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 1px 0; border-radius: 8px; }
+.fl-nav-flyout .sx-nav__subgroup-content .sx-nav__link { padding-left: 10px; }
+.fl-nav-flyout .sx-nav__label,
+html.sx-nav-pre-collapsed .fl-nav-flyout .sx-nav__label { display: inline; }
 
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is

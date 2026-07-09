@@ -72,7 +72,7 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="{{ base_path }}/static/js/toast.js"></script>
   <script src="{{ base_path }}/static/js/shortcuts.js?v=20260709c"></script>
-    <script src="{{ base_path }}/static/js/fl-restyle.js?v=20260709c"></script>
+    <script src="{{ base_path }}/static/js/fl-restyle.js?v=20260710b"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -963,6 +963,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         document.querySelectorAll('.sx-nav__section-header').forEach(function (h) {
           h.addEventListener('click', function () {
+            // Collapsed rail clicks open the flyout instead; toggling the
+            // hidden accordion here would flip its expanded-mode state.
+            if (document.body.classList.contains('sx-nav-collapsed')) return;
             h.closest('.sx-nav__section').classList.toggle('sx-nav__section--expanded');
           });
         });

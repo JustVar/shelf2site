@@ -4316,18 +4316,17 @@ select.itk-input{cursor:pointer}
   padding-left: 28px;
 }
 
-body.sx-nav-collapsed .sx-nav__subgroup-header,
-body.sx-nav-collapsed .sx-nav__chev,
-body.sx-nav-collapsed .sx-nav__subgroup-chev {
+body.sx-nav-collapsed .sx-nav .sx-nav__subgroup-header,
+body.sx-nav-collapsed .sx-nav .sx-nav__chev,
+body.sx-nav-collapsed .sx-nav .sx-nav__subgroup-chev {
   display: none;
 }
-body.sx-nav-collapsed .sx-nav__section-content,
-body.sx-nav-collapsed .sx-nav__subgroup-content {
-  max-height: none;
-  overflow: visible;
-}
-body.sx-nav-collapsed .sx-nav__subgroup-content .sx-nav__link {
-  padding-left: 12px;
+/* Collapsed rail shows top-level items only; grouped content opens in the
+   flyout (fl-restyle.css chrome section + fl-restyle.js). Scoped to .sx-nav
+   so the body-mounted flyout clone is unaffected by these hides. */
+body.sx-nav-collapsed .sx-nav .sx-nav__section-content,
+body.sx-nav-collapsed .sx-nav .sx-nav__subgroup-content {
+  display: none;
 }
 
 /* -----------------------------------------------------------
