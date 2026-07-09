@@ -3,6 +3,7 @@
 {% block title %}C2C Cameras - Asset Tracker{% endblock %}
 
 {% block content %}
+{% from "_fl_icons.html" import fl_icon %}
 {#
   C2C camera board (option D, slice 4 board render).
   Renders inside .fulfillment-page for consistency with the fulfillment surface.
@@ -11,7 +12,8 @@
   The Certify / View buttons are placeholders this slice; the certify modal + JS
   are wired in the next slice.
 #}
-<div class="fulfillment-page">
+<div class="fulfillment-page fl-restyle">
+{% include "_fl_bg.html" %}
 <div class="c2c-page">
 
   <div class="c2c-page__header">
@@ -19,25 +21,37 @@
       <h1>C2C Camera Certification</h1>
       <p>Assign Cloud2 cameras for an order, then certify each one.</p>
     </div>
-    <button type="button" class="c2c-acquire-btn" onclick="openC2cAcquire(null, null)">+ Assign camera</button>
+    <button type="button" class="fl-cta" onclick="openC2cAcquire(null, null)">+ Assign Camera</button>
   </div>
 
   {# ── metric cards ── #}
   <div class="c2c-metrics">
-    <div class="c2c-metric">
-      <div class="c2c-metric__label">Needed</div>
-      <div class="c2c-metric__num">{{ metrics.needed }}</div>
-      <div class="c2c-metric__sub">C2C cams required across orders</div>
+    <div class="fl-hero" style="--glow-color:var(--info); --glow-soft:rgba(0,117,255,0.45);">
+      <div class="fl-hairline"></div>
+      <div>
+        <div class="m-label">Needed</div>
+        <div class="m-value">{{ metrics.needed }}</div>
+        <div class="m-sub" style="color:var(--info);">Required Across Orders</div>
+      </div>
+      {{ fl_icon('clipboard-check', 'info', 38, 'm-icon') }}
     </div>
-    <div class="c2c-metric c2c-metric--certified">
-      <div class="c2c-metric__label">Assigned</div>
-      <div class="c2c-metric__num">{{ metrics.acquired }}</div>
-      <div class="c2c-metric__sub"><b class="ok">{{ metrics.certified }}</b> certified &middot; <b class="wait">{{ metrics.pending }}</b> pending</div>
+    <div class="fl-hero" style="--glow-color:var(--fl-green); --glow-soft:rgba(1,181,116,0.55);">
+      <div class="fl-hairline"></div>
+      <div>
+        <div class="m-label">Assigned</div>
+        <div class="m-value">{{ metrics.acquired }}</div>
+        <div class="m-sub"><span style="color:var(--fl-green);">{{ metrics.certified }} Certified</span><span style="color:var(--text-muted);">&nbsp;&middot;&nbsp;</span><span style="color:var(--fl-amber);">{{ metrics.pending }} Pending</span></div>
+      </div>
+      {{ fl_icon('check', 'green', 38, 'm-icon') }}
     </div>
-    <div class="c2c-metric">
-      <div class="c2c-metric__label">Available in stock</div>
-      <div class="c2c-metric__num">{{ metrics.available }}</div>
-      <div class="c2c-metric__sub">Unlinked camera_c2c inventory</div>
+    <div class="fl-hero" style="--glow-color:var(--accent-primary-l); --glow-soft:rgba(227,203,199,0.55);">
+      <div class="fl-hairline"></div>
+      <div>
+        <div class="m-label">Available in Stock</div>
+        <div class="m-value">{{ metrics.available }}</div>
+        <div class="m-sub" style="color:var(--accent-primary);">Unlinked C2C Stock</div>
+      </div>
+      {{ fl_icon('box', 'blush', 38, 'm-icon') }}
     </div>
   </div>
 
@@ -45,15 +59,15 @@
   {% if orders %}
   <div class="c2c-orders">
     {% for o in orders %}
-    <div class="c2c-order-row">
-      <span class="c2c-order-row__id">{{ o.order_number }}</span>
-      {% if o.order_type %}<span class="order-type-badge order-type-badge--{{ o.order_type }}">{{ order_types.get(o.order_type, o.order_type) if order_types else o.order_type }}</span>{% endif %}
+    <div class="c2c-order-row fl-card">
+      <span class="fl-ochip">{{ o.order_number }}</span>
+      {% if o.order_type %}<span class="fl-mchip">{{ order_types.get(o.order_type, o.order_type) if order_types else o.order_type }}</span>{% endif %}
       <span class="c2c-order-row__cust">{{ o.customer_name }}</span>
-      <span class="c2c-order-row__counts">{{ o.acquired }}/{{ o.needed }} assigned &middot; {{ o.certified }} certified</span>
-      {% if o.order_complete %}<span class="c2c-flag c2c-flag--complete">Complete</span>{% endif %}
-      {% if o.shortfall %}<span class="c2c-flag c2c-flag--short">{{ o.shortfall }} short</span>{% endif %}
-      {% if o.over_acquired %}<span class="c2c-flag c2c-flag--over">{{ o.over_acquired }} over-assigned</span>{% endif %}
-      {% if o.shortfall %}<button type="button" class="c2c-order-row__acquire" onclick="openC2cAcquire({{ o.order_id }}, '{{ o.order_number }}')">Assign</button>{% endif %}
+      <span class="c2c-order-row__counts">{{ o.acquired }}/{{ o.needed }} Assigned &middot; {{ o.certified }} Certified</span>
+      {% if o.order_complete %}<span class="fl-badge ok">Complete</span>{% endif %}
+      {% if o.shortfall %}<span class="fl-badge urg">{{ o.shortfall }} Short</span>{% endif %}
+      {% if o.over_acquired %}<span class="fl-badge warn">{{ o.over_acquired }} Over-Assigned</span>{% endif %}
+      {% if o.shortfall %}<button type="button" class="fl-btn" onclick="openC2cAcquire({{ o.order_id }}, '{{ o.order_number }}')">Assign</button>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -64,16 +78,20 @@
     <div class="c2c-section__head">Awaiting Certification ({{ pending_cams|length }})</div>
     <div class="c2c-grid">
       {% for cam in pending_cams %}
-      <div class="c2c-cam">
-        <div class="c2c-cam__head">
-          <span class="c2c-sku">{{ cam.brand_sku or 'no SKU' }}</span>
-          {% if cam.cert_status == 'cancelled' %}<span class="c2c-pill c2c-pill--pending" style="color:#ef4444; background:rgba(239,68,68,0.12);">Cancelled</span>{% else %}<span class="c2c-pill c2c-pill--pending">Pending</span>{% endif %}
+      <div class="c2c-cam fl-card">
+        <div class="fl-otop">
+          <div class="fl-otitle">{{ cam.item_name or 'Camera' }}</div>
+          {% if cam.cert_status == 'cancelled' %}<span class="fl-badge urg">CANCELLED</span>{% else %}<span class="fl-badge warn">PENDING</span>{% endif %}
         </div>
-        <div class="c2c-cam__name">{{ cam.item_name or 'Camera' }}</div>
-        <div class="c2c-cam__serial">{{ cam.item_sn or 'no serial' }}</div>
-        <div class="c2c-cam__meta">{{ cam.order_number or 'no order' }}{% if cam.customer_name %} &middot; {{ cam.customer_name }}{% endif %}</div>
-        <button type="button" class="c2c-cam__btn" onclick="openC2cCertify('{{ cam.provisioning_id }}')">{% if cam.cert_status == 'cancelled' %}Re-certify{% else %}Certify{% endif %}</button>
-        <a href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}" style="display:block; margin-top:0.4rem; font-size:0.78rem; color:#94a3b8; text-decoration:none;">View history &rarr;</a>
+        <div class="fl-osub-l">
+          <span class="fl-ochip">{{ cam.brand_sku or 'No SKU' }}</span>
+          <span class="fl-mchip">{{ cam.item_sn or 'No Serial' }}</span>
+        </div>
+        <div class="c2c-cam__meta">{{ cam.order_number or 'No Order' }}{% if cam.customer_name %} &middot; {{ cam.customer_name }}{% endif %}</div>
+        <div class="fl-ofoot">
+          <a class="c2c-cam__history" href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}">View History &rarr;</a>
+          <button type="button" class="fl-obtn ready" onclick="openC2cCertify('{{ cam.provisioning_id }}')">{% if cam.cert_status == 'cancelled' %}Re-Certify{% else %}Certify{% endif %}</button>
+        </div>
       </div>
       {% else %}
       <div class="c2c-empty">No cameras awaiting certification.</div>
@@ -86,16 +104,20 @@
     <div class="c2c-section__head">Certified ({{ certified_cams|length }})</div>
     <div class="c2c-grid">
       {% for cam in certified_cams %}
-      <div class="c2c-cam is-certified">
-        <div class="c2c-cam__head">
-          <span class="c2c-sku">{{ cam.brand_sku or 'no SKU' }}</span>
-          <span class="c2c-pill c2c-pill--certified">Certified</span>
+      <div class="c2c-cam is-certified fl-card">
+        <div class="fl-otop">
+          <div class="fl-otitle">{{ cam.item_name or 'Camera' }}</div>
+          <span class="fl-badge ok">CERTIFIED</span>
         </div>
-        <div class="c2c-cam__name">{{ cam.item_name or 'Camera' }}</div>
-        <div class="c2c-cam__serial">{{ cam.item_sn or 'no serial' }}</div>
-        <div class="c2c-cam__meta">{{ cam.order_number or 'no order' }}{% if cam.certified_by %} &middot; by {{ cam.certified_by }}{% endif %}</div>
-        <button type="button" class="c2c-cam__btn c2c-cam__btn--view" onclick="openC2cCertify('{{ cam.provisioning_id }}')">View</button>
-        <a href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}" style="display:block; margin-top:0.4rem; font-size:0.78rem; color:#94a3b8; text-decoration:none;">View history &rarr;</a>
+        <div class="fl-osub-l">
+          <span class="fl-ochip">{{ cam.brand_sku or 'No SKU' }}</span>
+          <span class="fl-mchip">{{ cam.item_sn or 'No Serial' }}</span>
+        </div>
+        <div class="c2c-cam__meta">{{ cam.order_number or 'No Order' }}{% if cam.certified_by %} &middot; by {{ cam.certified_by }}{% endif %}</div>
+        <div class="fl-ofoot">
+          <a class="c2c-cam__history" href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}">View History &rarr;</a>
+          <button type="button" class="fl-obtn" onclick="openC2cCertify('{{ cam.provisioning_id }}')">View</button>
+        </div>
       </div>
       {% else %}
       <div class="c2c-empty">No certified cameras yet.</div>
@@ -103,7 +125,6 @@
     </div>
   </div>
 
-</div>
 </div>
 
 {# ── certify modal ── #}
@@ -570,4 +591,5 @@ function c2cAcquireSubmit() {
   });
 }
 </script>
+</div>{# /fulfillment-page.fl-restyle #}
 {% endblock %}
