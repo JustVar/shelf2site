@@ -129,9 +129,6 @@
 .fl-restyle .fl-bg-spot { position: absolute; inset: 0; background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 30%), var(--spot), transparent 70%); }
 @keyframes fl-drift1 { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(130px, 70px); } }
 @keyframes fl-drift2 { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(-110px, -60px); } }
-@media (prefers-reduced-motion: reduce) {
-  .fl-restyle .fl-bg-blob1, .fl-restyle .fl-bg-blob2 { animation: none; }
-}
 /* Base chrome must paint above the fixed z-0 background. :has() scopes the
    lift to pages that actually opted in; without :has() support the lift is
    skipped there (background may cover the mobile topbar on such browsers). */
@@ -185,10 +182,6 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .fl-hero .m-value-sub { font-size: 15px; font-weight: 600; color: var(--text-muted); }
 .fl-restyle .fl-hero .m-sub { font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 5px; }
 .fl-restyle .fl-hero .m-icon { flex-shrink: 0; margin-top: 4px; }
-@media (prefers-reduced-motion: reduce) {
-  .fl-restyle .fl-hero:hover::before, .fl-restyle .fl-hero:hover::after,
-  .fl-restyle .fl-hero.stat-on::before, .fl-restyle .fl-hero.stat-on::after { animation: none; }
-}
 
 /* ── Body cards: flat, quiet, lit top edge (no gradients, no glow) ─────── */
 .fl-restyle .fl-card { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; transition: border-color .2s, background .2s, transform .2s, box-shadow .2s; }
@@ -220,9 +213,6 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .fl-sline { flex: 1; height: 2px; background: var(--border); }
 .fl-restyle .fl-sline.done { background: var(--fl-green); }
 .fl-restyle .fl-sline.half { background: linear-gradient(90deg, var(--fl-green), var(--accent-primary)); }
-@media (prefers-reduced-motion: reduce) {
-  .fl-restyle .fl-sdot.cur { animation: none; }
-}
 
 /* ── Card footer: first-name owner left, action right ──────────────────── */
 .fl-restyle .fl-ofoot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; gap: 8px; }
@@ -305,3 +295,17 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 /* ── Destructive tint button (Delete and friends) ──────────────────────── */
 .fl-restyle .fl-obtn.danger { background: var(--red-dim); border-color: var(--fl-red); color: var(--fl-red); }
 .fl-restyle .fl-obtn.danger:hover { background: rgba(255,107,107,0.25); }
+
+/* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
+   Static affordances stay; the resting hairline remains visible and is
+   forced back on hover/stat-on since the lap ring cannot appear.
+   (fl-restyle.js also skips its mousemove binding under this media.) ──── */
+@media (prefers-reduced-motion: reduce) {
+  .fl-restyle .fl-bg-blob { animation: none; }
+  .fl-restyle .fl-bg-spot { display: none; }
+  .fl-restyle .fl-hero::before, .fl-restyle .fl-hero::after,
+  .fl-restyle .fl-hero:hover::before, .fl-restyle .fl-hero:hover::after,
+  .fl-restyle .fl-hero.stat-on::before, .fl-restyle .fl-hero.stat-on::after { animation: none; opacity: 0 !important; }
+  .fl-restyle .fl-hero:hover .fl-hairline, .fl-restyle .fl-hero.stat-on .fl-hairline { opacity: 1; }
+  .fl-restyle .fl-sdot.cur { animation: none; }
+}

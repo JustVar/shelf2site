@@ -7,6 +7,7 @@
 (function () {
   "use strict";
   if (window.__flBgSpotBound) return;
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   window.__flBgSpotBound = true;
   document.addEventListener("mousemove", function (e) {
     var el = document.getElementById("fl-bg-spot");
