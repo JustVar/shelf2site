@@ -667,6 +667,16 @@
 .fl-restyle .btn-ocr-fill:hover { opacity: 1; filter: brightness(1.06); }
 .fl-restyle .success-icon { background: var(--green-dim); color: var(--fl-green); border: 1px solid var(--fl-green); }
 
+/* ── Error page (permission denied) ── */
+.fl-restyle .error-page__inner { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 14px; padding: 32px 28px; }
+.fl-restyle .error-page__icon { background: var(--accent-primary-dim); color: var(--accent-primary-l); border: 1px solid var(--accent-border); }
+[data-theme="light"] .fl-restyle .error-page__icon { color: var(--accent-primary); }
+.fl-restyle .error-page__btn { border-radius: 8px; background: var(--accent-primary-dim); border: 1px solid var(--accent-border); color: var(--accent-primary-l); font-weight: 600; }
+[data-theme="light"] .fl-restyle .error-page__btn { color: var(--accent-primary); }
+.fl-restyle .error-page__btn:hover { background: var(--accent-border); color: var(--text); border-color: var(--accent-border); }
+.fl-restyle .error-page__btn--primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--on-accent); }
+.fl-restyle .error-page__btn--primary:hover { background: var(--accent-primary); filter: brightness(1.06); color: var(--on-accent); }
+
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:

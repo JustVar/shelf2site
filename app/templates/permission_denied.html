@@ -2,6 +2,9 @@
 {% block title %}Access denied - Asset Tracker{% endblock %}
 
 {% block content %}
+<div class="denied-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div class="error-page">
   <div class="error-page__inner">
     <div class="error-page__icon">{{ icon('lock', size=32) }}</div>
@@ -27,4 +30,6 @@
     </div>
   </div>
 </div>
+</div>
+</div>{# /denied-page.fl-restyle #}
 {% endblock %}
