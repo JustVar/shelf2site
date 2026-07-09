@@ -4,16 +4,19 @@
 {% block content %}
 {% from 'partials/icons.html' import icon %}
 
-<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-  <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0">Intake — New Item</h1>
+<div class="intake-page fl-restyle">
+{% include "_fl_bg.html" %}
+
+<div class="page-header fl-lift" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  <h1 style="font-size:1.25rem;font-weight:600;color:var(--text);margin:0">Intake — New Item</h1>
   <a href="{{ base_path }}/inventory/" class="inv-btn">← Back to Inventory</a>
 </div>
 
 {% if error %}
-<div class="itk-error">{{ error }}</div>
+<div class="itk-error fl-lift">{{ error }}</div>
 {% endif %}
 
-<form method="post" action="{{ base_path }}/intake" enctype="multipart/form-data" class="itk-form">
+<form method="post" action="{{ base_path }}/intake" enctype="multipart/form-data" class="itk-form fl-lift">
 
   <!-- ── Section 1: Basic Info ── -->
   <div class="itk-section">
@@ -236,4 +239,5 @@ function toggleReceipt() {
   }
 }
 </script>
+</div>{# /intake-page.fl-restyle #}
 {% endblock %}
