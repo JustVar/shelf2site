@@ -14,8 +14,9 @@
 
     #map {
         flex: 1;
-        border-radius: 8px;
+        border-radius: 12px;
         border: 1px solid var(--border);
+        border-top-color: var(--card-edge);
         z-index: 1;
         background: var(--bg);  /* Match theme instead of white */
     }
@@ -24,7 +25,8 @@
         width: 350px;
         background: var(--card-bg);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-top-color: var(--card-edge);
+        border-radius: 12px;
         padding: 1rem;
         overflow-y: auto;
     }
@@ -39,13 +41,15 @@
         border: 1px solid var(--border);
         background: var(--bg);
         color: var(--text);
-        border-radius: 4px;
+        border-radius: 8px;
         font-size: 0.9rem;
+        transition: border-color .2s, box-shadow .2s;
     }
 
     .search-box input:focus {
         outline: none;
-        border-color: var(--info);
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px var(--accent-primary-dim);
     }
 
     .filter-group {
@@ -69,6 +73,7 @@
         width: 16px;
         height: 16px;
         cursor: pointer;
+        accent-color: var(--accent-primary);
     }
 
     .filter-checkbox label {
@@ -78,17 +83,22 @@
 
     .clear-filters {
         padding: 0.4rem 0.8rem;
-        background: var(--primary);
-        border: none;
-        border-radius: 4px;
-        color: var(--text);
+        background: var(--accent-primary-dim);
+        border: 1px solid var(--accent-border);
+        border-radius: 8px;
+        color: var(--accent-primary-l);
+        font-weight: 600;
         font-size: 0.8rem;
         cursor: pointer;
         margin-top: 0.5rem;
     }
+    [data-theme="light"] .map-page .clear-filters {
+        color: var(--accent-primary);
+    }
 
     .clear-filters:hover {
-        opacity: 0.8;
+        background: var(--accent-border);
+        color: var(--text);
     }
 
     #sidebar h3 {
@@ -129,9 +139,10 @@
     }
 
     .unmapped-item {
-        background: var(--primary);
+        background: var(--bg);
+        border: 1px solid var(--border);
         padding: 0.5rem 0.8rem;
-        border-radius: 4px;
+        border-radius: 8px;
         margin-bottom: 0.4rem;
         font-size: 0.85rem;
     }
@@ -163,7 +174,24 @@
     }
 
     .maplibregl-popup-close-button:hover {
-        background: var(--primary);
+        background: var(--accent-primary-dim);
+    }
+
+    /* map zoom controls on the card surface */
+    .maplibregl-ctrl-group {
+        background: var(--card-bg) !important;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .maplibregl-ctrl-group button + button {
+        border-top: 1px solid var(--border) !important;
+    }
+    .maplibregl-ctrl button .maplibregl-ctrl-icon {
+        filter: invert(0.7);
+    }
+    [data-theme="light"] .maplibregl-ctrl button .maplibregl-ctrl-icon {
+        filter: none;
     }
 
     .maplibregl-popup-tip {
@@ -176,7 +204,10 @@
     }
 
     .popup-content strong {
-        color: var(--info);
+        color: var(--accent-primary-l);
+    }
+    [data-theme="light"] .popup-content strong {
+        color: var(--accent-primary);
     }
 
     .popup-content .status-badge {
@@ -202,6 +233,9 @@
 {% endblock %}
 
 {% block content %}
+<div class="map-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Edge Box Deployment Map</h1>
 
 <div id="map-container">
@@ -291,6 +325,8 @@
         {% endif %}
     </div>
 </div>
+</div>
+</div>{# /map-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}
