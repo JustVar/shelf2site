@@ -658,6 +658,20 @@
 .sx-nav__toggle-btn { color: var(--sx-gray); }
 .sx-nav__toggle-btn:hover { color: var(--flc-accent-l); background: var(--flc-accent-dim); }
 
+/* light-theme twins: main.css ships [data-theme="light"] .sx-nav*
+   overrides that would out-specific the rules above in light mode */
+[data-theme="light"] .sx-nav__link { color: var(--sx-gray); }
+[data-theme="light"] .sx-nav__link:hover { background: rgba(27,32,40,0.06); color: var(--sx-white); }
+[data-theme="light"] .sx-nav__link--active { background: var(--flc-accent-dim); color: var(--flc-accent); }
+[data-theme="light"] .sx-nav__link--active:hover { background: var(--flc-accent-dim); color: var(--flc-accent); }
+[data-theme="light"] .sx-nav__link--active .sx-nav__label { color: var(--flc-accent); }
+[data-theme="light"] .sx-nav__link--active .duo { --duo-c: var(--flc-accent); }
+[data-theme="light"] .sx-nav__link--active::before { background: var(--flc-accent); }
+[data-theme="light"] .sx-nav__badge { background: var(--flc-amber-dim); color: var(--flc-amber); border-color: var(--flc-amber); }
+[data-theme="light"] .sx-nav__avatar { background: var(--flc-accent-dim); color: var(--flc-accent); border-color: var(--flc-accent-border); }
+[data-theme="light"] .sx-nav__footer-btn:hover .duo { --duo-c: var(--flc-accent); }
+[data-theme="light"] .sx-nav__toggle-btn:hover { color: var(--flc-accent); background: var(--flc-accent-dim); }
+
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
    forced back on hover/stat-on since the lap ring cannot appear.
