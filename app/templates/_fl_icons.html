@@ -55,6 +55,56 @@
 <rect class="b" x="4" y="3" width="16" height="18" rx="2"/><path class="s" d="M12 16V8M8.5 11.5 12 8l3.5 3.5"/>
 {%- elif name == 'tray' -%}
 <rect class="b" x="4" y="6" width="16" height="12" rx="2"/><path class="s" d="M4 10h16M8 15h4"/>
+{%- elif name == 'dashboard' -%}
+<rect class="b" x="3" y="3" width="8" height="8" rx="2"/><rect class="b" x="13" y="13" width="8" height="8" rx="2"/><path class="s" d="M13 3h8v8h-8zM3 13h8v8H3z" fill="none"/>
+{%- elif name == 'inventory' -%}
+<path class="b" d="M12 2 21 7v10l-9 5-9-5V7z"/><path class="s" d="M12 2 21 7l-9 5-9-5zM12 12v10"/>
+{%- elif name == 'triage' -%}
+<path class="b" d="M12 3 22 20H2z"/><path class="s" d="M12 10v4"/><circle cx="12" cy="17" r="1"/>
+{%- elif name == 'receive' -%}
+<rect class="b" x="4" y="6" width="16" height="12" rx="2"/><path class="s" d="M4 10h16M8 15h4"/>
+{%- elif name == 'camera' -%}
+<rect class="b" x="2" y="7" width="13" height="10" rx="2"/><path class="s" d="M15 10.5 21 7v10l-6-3.5"/>
+{%- elif name == 'history' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M12 7v5l3.5 2.5"/>
+{%- elif name == 'lock' -%}
+<rect class="b" x="5" y="10" width="14" height="11" rx="2"/><path class="s" d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/>
+{%- elif name == 'departments' -%}
+<circle class="b" cx="9" cy="8" r="3.5"/><path class="s" d="M2.5 19c1.2-3 3.5-4.5 6.5-4.5s5.3 1.5 6.5 4.5M16 4.5a3.5 3.5 0 0 1 0 7M21.5 19c-.8-2.2-2.2-3.6-4.2-4.2"/>
+{%- elif name == 'audit' -%}
+<rect class="b" x="4" y="3" width="16" height="18" rx="2"/><path class="s" d="M8 8h8M8 12h8M8 16h4"/>
+{%- elif name == 'book' -%}
+<path class="b" d="M4 4h13a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path class="s" d="M20 17H7a3 3 0 0 0-3 3M8 8h8"/>
+{%- elif name == 'network' -%}
+<circle class="b" cx="12" cy="6" r="3"/><path class="s" d="M12 9v4M6 19v-2a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v2"/><circle class="s" cx="6" cy="19" r="1.6"/><circle class="s" cx="18" cy="19" r="1.6"/>
+{%- elif name == 'procurement' -%}
+<path class="b" d="M6 7h13l-1.5 8H8z"/><path class="s" d="M3 4h2l3 11h10"/><circle class="s" cx="10" cy="19.5" r="1.4"/><circle class="s" cx="17" cy="19.5" r="1.4"/>
+{%- elif name == 'map' -%}
+<path class="b" d="M3 6 9 4l6 2 6-2v14l-6 2-6-2-6 2z"/><path class="s" d="M9 4v14M15 6v14"/>
+{%- elif name == 'nas' -%}
+<rect class="b" x="3" y="4" width="18" height="7" rx="2"/><rect class="b" x="3" y="13" width="18" height="7" rx="2"/><path class="s" d="M7 7.5h.01M7 16.5h.01M12 7.5h4M12 16.5h4"/>
+{%- elif name == 'mail' -%}
+<rect class="b" x="3" y="5" width="18" height="14" rx="2"/><path class="s" d="m4 7 8 6 8-6"/>
+{%- elif name == 'bell' -%}
+<path class="b" d="M12 3a6 6 0 0 1 6 6c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6a6 6 0 0 1 6-6z"/><path class="s" d="M10 19a2 2 0 0 0 4 0"/>
+{%- elif name == 'zendesk' -%}
+<circle class="b" cx="12" cy="11" r="8"/><path class="s" d="M6 11a6 6 0 0 1 12 0M6 11v3a2 2 0 0 0 2 2M18 11v3a2 2 0 0 1-2 2h-3"/>
+{%- elif name == 'intune' -%}
+<path class="b" d="M7 17a5 5 0 0 1-.8-9.9A6 6 0 0 1 18 8.5 4.5 4.5 0 0 1 17.5 17z"/><path class="s" d="M12 11v6m-2.5-2 2.5 2.5L14.5 15"/>
+{%- elif name == 'wrench' -%}
+<path class="b" d="M20.5 6.5a5.5 5.5 0 0 1-7.6 6.7L7 19.1a2 2 0 0 1-2.8-2.8l5.9-5.9a5.5 5.5 0 0 1 6.7-7.6L13.5 6l4.5 4.5z"/><path class="s" d="M13.5 6 17 2.5M18 10.5 21.5 7"/>
+{%- elif name == 'sun' -%}
+<circle class="b" cx="12" cy="12" r="4.5"/><path class="s" d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>
+{%- elif name == 'password' -%}
+<circle class="b" cx="8" cy="14" r="5"/><path class="s" d="M11.5 10.5 20 2M16 6l3 3M13 9l2 2"/>
+{%- elif name == 'logout' -%}
+<path class="b" d="M4 3h8v18H4z"/><path class="s" d="M15 8l5 4-5 4M20 12h-9"/>
+{%- elif name == 'help' -%}
+<circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M9.5 9a2.5 2.5 0 1 1 3.8 2.1c-.8.5-1.3 1-1.3 1.9"/><circle cx="12" cy="16.5" r="1"/>
+{%- elif name == 'chevrRight' -%}
+<path class="s" d="m9 5 7 7-7 7"/>
+{%- elif name == 'chevrLeft' -%}
+<path class="s" d="M15 5 8 12l7 7"/>
 {%- else -%}
 <circle class="b" cx="12" cy="12" r="9"/><path class="s" d="M12 8v5"/><circle cx="12" cy="16.5" r="1"/>
 {%- endif -%}

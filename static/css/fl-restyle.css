@@ -10,7 +10,7 @@
    3. Lift the page's own in-flow content wrappers above the background
       layer in the page's CSS: position: relative; z-index: 1;
       (see fulfillment.html for the pattern). Base chrome (topbar, banners)
-      is lifted below via body:has(.fl-restyle).
+      is lifted below unconditionally (chrome section).
    4. Icons: {% from "_fl_icons.html" import fl_icon %} inside the block
       that uses them (Jinja block scoping).
 
@@ -131,12 +131,9 @@
 .fl-restyle .fl-bg-spot { position: absolute; inset: 0; background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 30%), var(--spot), transparent 70%); }
 @keyframes fl-drift1 { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(130px, 70px); } }
 @keyframes fl-drift2 { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(-110px, -60px); } }
-/* Base chrome must paint above the fixed z-0 background. :has() scopes the
-   lift to pages that actually opted in; without :has() support the lift is
-   skipped there (background may cover the mobile topbar on such browsers). */
-body:has(.fl-restyle) #maintenance-banner,
-body:has(.fl-restyle) .pwd-warn-banner,
-body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
+/* Base chrome paints above the fixed z-0 background. Unconditional since
+   the chrome restyle applies app-wide (was body:has-scoped pre-chrome). */
+#maintenance-banner, .pwd-warn-banner, .topbar { position: relative; z-index: 1; }
 
 /* ── Duotone icon system (two-layer SVG colored by --duo-c) ────────────── */
 /* Unscoped by design: emitted only by the fl_icon macro (_fl_icons.html);
@@ -616,6 +613,50 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .badge-success { background: var(--green-dim); color: var(--fl-green); border-color: var(--fl-green); }
 .fl-restyle .badge-warning { background: var(--amber-dim); color: var(--fl-amber); border-color: var(--fl-amber); }
 .fl-restyle .badge-danger { background: var(--red-dim); color: var(--fl-red); border-color: var(--fl-red); }
+
+/* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
+   Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
+   non-opted pages' content tokens stay untouched. Toasts need no rules:
+   toast.js styles inline via theme vars and its per-type border already
+   is the status tint edge. ─────────────────────────────────────────── */
+:root {
+  --flc-accent: #C29E9B;
+  --flc-accent-l: #E3CBC7;
+  --flc-accent-dim: rgba(194,158,155,0.12);
+  --flc-accent-border: rgba(194,158,155,0.45);
+  --flc-on-accent: #17222E;
+  --flc-amber: #FFB547;
+  --flc-amber-dim: rgba(255,181,71,0.12);
+}
+[data-theme="light"] {
+  --flc-accent: #85605E;
+  --flc-accent-l: #C29E9B;
+  --flc-accent-dim: rgba(133,96,94,0.10);
+  --flc-accent-border: rgba(133,96,94,0.40);
+  --flc-on-accent: #FFFFFF;
+  --flc-amber: #C07220;
+  --flc-amber-dim: rgba(192,114,32,0.12);
+}
+.sx-nav { border-right: 1px solid var(--sx-border); }
+.sx-nav__section-label { color: var(--sx-gray-dim); letter-spacing: .1em; }
+.sx-nav__link { position: relative; color: var(--sx-gray); }
+.sx-nav__link:hover { background: rgba(148,163,184,0.07); color: var(--sx-white); }
+.sx-nav__link .duo { flex-shrink: 0; }
+.sx-nav__link--active { background: var(--flc-accent-dim); color: var(--flc-accent-l); }
+.sx-nav__link--active:hover { background: var(--flc-accent-dim); color: var(--flc-accent-l); }
+.sx-nav__link--active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; border-radius: 1px; background: var(--flc-accent); }
+.sx-nav__link--active .duo { --duo-c: var(--flc-accent-l); }
+.sx-nav__link--active .sx-nav__label { color: var(--flc-accent-l); }
+.sx-nav__badge { background: var(--flc-amber-dim); color: var(--flc-amber); border: 1px solid var(--flc-amber); border-radius: 6px; }
+.sx-nav__chev .duo, .sx-nav__subgroup-chev .duo { --duo-c: var(--sx-gray-dim); }
+.sx-nav__avatar { background: var(--flc-accent-dim); color: var(--flc-accent-l); border: 1px solid var(--flc-accent-border); }
+.sx-nav__user-name { color: var(--sx-white); font-weight: 500; }
+.sx-nav__user-role { color: var(--sx-gray-dim); font-family: var(--sx-font-mono); font-size: 10px; }
+.sx-nav__footer-btn { color: var(--sx-gray); }
+.sx-nav__footer-btn:hover { color: var(--sx-white); }
+.sx-nav__footer-btn:hover .duo { --duo-c: var(--flc-accent-l); }
+.sx-nav__toggle-btn { color: var(--sx-gray); }
+.sx-nav__toggle-btn:hover { color: var(--flc-accent-l); background: var(--flc-accent-dim); }
 
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is

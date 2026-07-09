@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% from "_fl_icons.html" import fl_icon %}
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
@@ -71,7 +72,7 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="{{ base_path }}/static/js/toast.js"></script>
   <script src="{{ base_path }}/static/js/shortcuts.js?v=20260709c"></script>
-    <script src="{{ base_path }}/static/js/fl-restyle.js?v=20260709b"></script>
+    <script src="{{ base_path }}/static/js/fl-restyle.js?v=20260709c"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -86,7 +87,7 @@
                alt="the company" class="sx-nav__logo-horiz"
                onerror="this.style.display='none'">
           <button class="sx-nav__toggle-btn" onclick="sxNavCollapse()" title="Collapse sidebar">
-            {{ icon('chevrLeft', size=13) }}
+            {{ fl_icon('chevrLeft', 'mute', 13) }}
           </button>
         </div>
         <div class="sx-nav__header-collapsed">
@@ -94,7 +95,7 @@
                alt="Company" class="sx-nav__logo-icon"
                onerror="this.style.display='none'">
           <button class="sx-nav__toggle-btn" onclick="sxNavExpand()" title="Expand sidebar">
-            {{ icon('chevrRight', size=13) }}
+            {{ fl_icon('chevrRight', 'mute', 13) }}
           </button>
         </div>
       </div>
@@ -107,21 +108,21 @@
         <a href="{{ base_path }}/dashboard"
            class="sx-nav__link {% if 'dashboard' in request.url.path and 'triage' not in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Dashboard">
-          {{ icon('dashboard', size=14) }}
+          {{ fl_icon('dashboard', 'mute', 16) }}
           <span class="sx-nav__label">Dashboard</span>
         </a>
 
         <a href="{{ base_path }}/inventory/"
            class="sx-nav__link {% if '/inventory' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Inventory">
-          {{ icon('inventory', size=14) }}
+          {{ fl_icon('inventory', 'mute', 16) }}
           <span class="sx-nav__label">Inventory</span>
         </a>
 
         <a href="{{ base_path }}/triage/"
            class="sx-nav__link {% if '/triage' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Asset Triage">
-          {{ icon('triage', size=14) }}
+          {{ fl_icon('triage', 'mute', 16) }}
           <span class="sx-nav__label">Asset Triage</span>
           <span class="sx-nav__badge" id="sx-nav-triage-badge"
                 style="{% if not request.state.triage_count or request.state.triage_count <= 0 %}display:none{% endif %}">{{ request.state.triage_count or 0 }}</span>
@@ -130,7 +131,7 @@
         <a href="{{ base_path }}/search"
            class="sx-nav__link {% if '/search' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Search">
-          {{ icon('search', size=14) }}
+          {{ fl_icon('search', 'mute', 16) }}
           <span class="sx-nav__label">Search</span>
         </a>
 
@@ -142,7 +143,7 @@
         <a href="{{ base_path }}/intake"
            class="sx-nav__link {% if '/intake' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Intake">
-          {{ icon('receive', size=14) }}
+          {{ fl_icon('receive', 'mute', 16) }}
           <span class="sx-nav__label">Intake</span>
         </a>
 
@@ -151,7 +152,7 @@
         <a href="{{ base_path }}/map/"
            class="sx-nav__link {% if '/map' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Edge Box Map">
-          {{ icon('map', size=14) }}
+          {{ fl_icon('map', 'mute', 16) }}
           <span class="sx-nav__label">Edge Box Map</span>
         </a>
         {% endif %} #}
@@ -164,14 +165,14 @@
         <a href="{{ base_path }}/fulfillment/c2c"
            class="sx-nav__link {% if '/fulfillment/c2c' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="C2C Cameras">
-          {{ icon('camera', size=14) }}
+          {{ fl_icon('camera', 'mute', 16) }}
           <span class="sx-nav__label">C2C Cameras</span>
         </a>
 
         <a href="{{ base_path }}/fulfillment/pilots-due-back"
            class="sx-nav__link {% if '/fulfillment/pilots-due-back' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Pilots Due Back">
-          {{ icon('history', size=14) }}
+          {{ fl_icon('history', 'mute', 16) }}
           <span class="sx-nav__label">Pilots Due Back</span>
         </a>
         {% endif %}
@@ -186,29 +187,29 @@
 
   <div class="sx-nav__section" data-section="admin">
     <button type="button" class="sx-nav__section-header" data-label="Admin">
-      {{ icon('lock', size=14) }}
+      {{ fl_icon('lock', 'mute', 16) }}
       <span class="sx-nav__label">Admin</span>
-      <span class="sx-nav__chev">{{ icon('chevrRight', size=10) }}</span>
+      <span class="sx-nav__chev">{{ fl_icon('chevrRight', 'mute', 10) }}</span>
     </button>
     <div class="sx-nav__section-content">
 
       {% if _people_visible %}
       <div class="sx-nav__subgroup" data-subgroup="people">
         <button type="button" class="sx-nav__subgroup-header">
-          <span class="sx-nav__subgroup-chev">{{ icon('chevrRight', size=9) }}</span>
+          <span class="sx-nav__subgroup-chev">{{ fl_icon('chevrRight', 'mute', 9) }}</span>
           <span class="sx-nav__subgroup-label">People</span>
         </button>
         <div class="sx-nav__subgroup-content">
           <a href="{{ base_path }}/admin/users"
              class="sx-nav__link {% if '/admin/users' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Users">
-            {{ icon('user', size=14) }}
+            {{ fl_icon('user', 'mute', 16) }}
             <span class="sx-nav__label">Users</span>
           </a>
           <a href="{{ base_path }}/admin/departments"
              class="sx-nav__link {% if '/admin/departments' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Departments">
-            {{ icon('departments', size=14) }}
+            {{ fl_icon('departments', 'mute', 16) }}
             <span class="sx-nav__label">Departments</span>
           </a>
         </div>
@@ -218,7 +219,7 @@
       {% if _data_visible %}
       <div class="sx-nav__subgroup" data-subgroup="data">
         <button type="button" class="sx-nav__subgroup-header">
-          <span class="sx-nav__subgroup-chev">{{ icon('chevrRight', size=9) }}</span>
+          <span class="sx-nav__subgroup-chev">{{ fl_icon('chevrRight', 'mute', 9) }}</span>
           <span class="sx-nav__subgroup-label">Data &amp; logs</span>
         </button>
         <div class="sx-nav__subgroup-content">
@@ -226,7 +227,7 @@
           <a href="{{ base_path }}/admin/audit"
              class="sx-nav__link {% if '/admin/audit' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Audit log">
-            {{ icon('book', size=14) }}
+            {{ fl_icon('book', 'mute', 16) }}
             <span class="sx-nav__label">Audit log</span>
           </a>
           {% endif %}
@@ -234,7 +235,7 @@
           <a href="{{ base_path }}/admin/errors"
              class="sx-nav__link {% if '/admin/errors' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Error log">
-            {{ icon('audit', size=14) }}
+            {{ fl_icon('audit', 'mute', 16) }}
             <span class="sx-nav__label">Error log</span>
           </a>
           {% endif %}
@@ -242,7 +243,7 @@
           <a href="{{ base_path }}/admin/oui"
              class="sx-nav__link {% if '/admin/oui' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="OUI reference">
-            {{ icon('network', size=14) }}
+            {{ fl_icon('network', 'mute', 16) }}
             <span class="sx-nav__label">OUI reference</span>
           </a>
           {% endif %}
@@ -250,7 +251,7 @@
           <a href="{{ base_path }}/admin/part-numbers"
              class="sx-nav__link {% if '/admin/part-numbers' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Part Numbers">
-            {{ icon('network', size=14) }}
+            {{ fl_icon('network', 'mute', 16) }}
             <span class="sx-nav__label">Part Numbers</span>
           </a>
           {% endif %}
@@ -258,7 +259,7 @@
           <a href="{{ base_path }}/admin/procurement"
              class="sx-nav__link {% if '/admin/procurement' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Procurement">
-            {{ icon('procurement', size=14) }}
+            {{ fl_icon('procurement', 'mute', 16) }}
             <span class="sx-nav__label">Procurement</span>
           </a>
           {% endif %}
@@ -266,7 +267,7 @@
           <a href="{{ base_path }}/receipts"
              class="sx-nav__link {% if '/receipts' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Receipts">
-            {{ icon('procurement', size=14) }}
+            {{ fl_icon('procurement', 'mute', 16) }}
             <span class="sx-nav__label">Receipts</span>
           </a>
           {% endif %}
@@ -274,7 +275,7 @@
           <a href="{{ base_path }}/admin/storage"
              class="sx-nav__link {% if '/admin/storage' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Storage">
-            {{ icon('nas', size=14) }}
+            {{ fl_icon('nas', 'mute', 16) }}
             <span class="sx-nav__label">Storage</span>
           </a>
           {% endif %}
@@ -285,32 +286,32 @@
       {% if _integ_visible %}
       <div class="sx-nav__subgroup" data-subgroup="integrations">
         <button type="button" class="sx-nav__subgroup-header">
-          <span class="sx-nav__subgroup-chev">{{ icon('chevrRight', size=9) }}</span>
+          <span class="sx-nav__subgroup-chev">{{ fl_icon('chevrRight', 'mute', 9) }}</span>
           <span class="sx-nav__subgroup-label">Integrations</span>
         </button>
         <div class="sx-nav__subgroup-content">
           <a href="{{ base_path }}/admin/intune"
              class="sx-nav__link {% if '/admin/intune' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Intune">
-            {{ icon('intune', size=14) }}
+            {{ fl_icon('intune', 'mute', 16) }}
             <span class="sx-nav__label">Intune</span>
           </a>
           <a href="{{ base_path }}/admin/notifications"
              class="sx-nav__link {% if '/admin/notifications' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Notifications">
-            {{ icon('mail', size=14) }}
+            {{ fl_icon('mail', 'mute', 16) }}
             <span class="sx-nav__label">Notifications</span>
           </a>
           <a href="{{ base_path }}/admin/spreadsheet-sync"
              class="sx-nav__link {% if '/admin/spreadsheet-sync' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Spreadsheet sync">
-            {{ icon('upload', size=14) }}
+            {{ fl_icon('upload', 'mute', 16) }}
             <span class="sx-nav__label">Spreadsheet sync</span>
           </a>
           <a href="{{ base_path }}/admin/zendesk"
              class="sx-nav__link {% if '/admin/zendesk' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Zendesk">
-            {{ icon('zendesk', size=14) }}
+            {{ fl_icon('zendesk', 'mute', 16) }}
             <span class="sx-nav__label">Zendesk</span>
           </a>
         </div>
@@ -320,14 +321,14 @@
       {% if _sys_visible %}
       <div class="sx-nav__subgroup" data-subgroup="system">
         <button type="button" class="sx-nav__subgroup-header">
-          <span class="sx-nav__subgroup-chev">{{ icon('chevrRight', size=9) }}</span>
+          <span class="sx-nav__subgroup-chev">{{ fl_icon('chevrRight', 'mute', 9) }}</span>
           <span class="sx-nav__subgroup-label">System</span>
         </button>
         <div class="sx-nav__subgroup-content">
           <a href="{{ base_path }}/admin/maintenance"
              class="sx-nav__link {% if '/admin/maintenance' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Maintenance">
-            {{ icon('wrench', size=14) }}
+            {{ fl_icon('wrench', 'mute', 16) }}
             <span class="sx-nav__label">Maintenance</span>
           </a>
         </div>
@@ -358,18 +359,18 @@
           {% if false %}
           <button type="button" id="notif-bell-btn" class="sx-nav__footer-btn"
                   title="Alerts" onclick="toggleNotificationPanel()">
-            {{ icon('bell', size=13) }}
+            {{ fl_icon('bell', 'mute', 13) }}
             <span>Alerts</span>
             <span class="notif-badge" id="notif-badge" style="display:none">0</span>
           </button>
           {% endif %}
           <button type="button" id="help-tours-btn" class="sx-nav__footer-btn" title="Tours">
-            {{ icon('help', size=13) }}
+            {{ fl_icon('help', 'mute', 13) }}
             <span>Tours</span>
           </button>
           <button type="button" id="theme-toggle" class="sx-nav__footer-btn"
                   onclick="toggleTheme()" title="Toggle theme">
-            {{ icon('sun', size=13) }}
+            {{ fl_icon('sun', 'mute', 13) }}
             <span>Theme</span>
           </button>
           {% if user %}
@@ -377,13 +378,13 @@
           {# hx-boost on the <nav> would swap only <main>, leaving the wrong   #}
           {# sidenav rendered. Opt out so the browser does a full navigation.  #}
           <a href="{{ base_path }}/change-password" class="sx-nav__footer-btn" title="Password" hx-boost="false">
-            {{ icon('password', size=13) }}
+            {{ fl_icon('password', 'mute', 13) }}
             <span>Password</span>
           </a>
           <form method="post" action="{{ base_path }}/logout" class="sx-nav__footer-form" hx-boost="false">
             <input type="hidden" name="csrf_token" value="{{ request.session.get('csrf_token', '') }}">
             <button type="submit" class="sx-nav__footer-btn" title="Logout">
-            {{ icon('logout', size=13) }}
+            {{ fl_icon('logout', 'mute', 13) }}
             <span>Logout</span>
             </button>
           </form>
