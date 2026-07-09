@@ -644,6 +644,29 @@
    switched states without touching the tab mechanism. ── */
 .warranty-page.fl-restyle { --accent: var(--accent-primary); }
 
+/* ── Receive page. receive.css ships bare selectors that link after this
+   sheet; the .fl-restyle scope out-specifics them, and the kit hover forms
+   carry :not(:disabled) for the ties. Token remaps drive the ocr accents
+   and validation colors; --primary is deliberately NOT remapped because
+   receive.css also uses it as a surface color. Scanner overlay css is
+   functional (always dark camera ui) and stays untouched. ── */
+.receive-page.fl-restyle { --accent: var(--accent-primary); --danger: var(--fl-red); --success: var(--fl-green); }
+.receive-page.fl-restyle { --mode-on-bg: var(--accent-primary-dim); --mode-on-fg: var(--accent-primary-l); }
+[data-theme="light"] .receive-page.fl-restyle { --mode-on-fg: var(--accent-primary); }
+.fl-restyle .receive-step { border-top-color: var(--card-edge); border-radius: 12px; box-shadow: none; }
+.fl-restyle .receive-step h2 { color: var(--text-muted); }
+.fl-restyle .btn-primary:hover:not(:disabled) { background: var(--accent-primary); filter: brightness(1.06); }
+.fl-restyle .checkbox-label input[type="checkbox"] { accent-color: var(--accent-primary); }
+.fl-restyle .photo-upload-label { border-radius: 10px; }
+.fl-restyle .photo-upload-label:hover { border-color: var(--accent-primary); color: var(--text); }
+.fl-restyle .sub-form { background: var(--bg); }
+.fl-restyle .ocr-results-card { background: var(--bg); border-radius: 10px; }
+.fl-restyle .ocr-field { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; }
+.fl-restyle .ocr-value { font-family: var(--sx-font-mono); }
+.fl-restyle .btn-ocr-fill { color: var(--on-accent); border-radius: 6px; }
+.fl-restyle .btn-ocr-fill:hover { opacity: 1; filter: brightness(1.06); }
+.fl-restyle .success-icon { background: var(--green-dim); color: var(--fl-green); border: 1px solid var(--fl-green); }
+
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:

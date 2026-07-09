@@ -38,12 +38,15 @@
 {% endblock %}
 
 {% block content %}
+<div class="receive-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1 class="page-title">Receive &amp; Scan</h1>
 
 <!-- Mode Toggle -->
 <div class="mode-toggle" style="display: flex; gap: 0; margin-bottom: 1rem; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);">
     <button class="mode-btn active" id="mode-receive-btn" onclick="setMode('receive')"
-            style="flex: 1; padding: 0.6rem 1rem; font-size: 0.88rem; font-weight: 600; border: none; cursor: pointer; background: var(--primary, #157ca4); color: #fff; transition: background 0.15s;">
+            style="flex: 1; padding: 0.6rem 1rem; font-size: 0.88rem; font-weight: 600; border: none; cursor: pointer; background: var(--mode-on-bg, var(--primary, #157ca4)); color: var(--mode-on-fg, #fff); transition: background 0.15s;">
         Receive New Device
     </button>
     <button class="mode-btn" id="mode-assign-btn" onclick="setMode('assign')"
@@ -104,7 +107,7 @@
     <h2>2. Scan Barcode</h2>
     <div id="scanner-container">
         <div class="scanner-buttons" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-            <button class="btn btn-primary" id="start-scan-btn" onclick="startScanner()">
+            <button class="btn" id="start-scan-btn" onclick="startScanner()">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right:4px;vertical-align:middle;">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2"/>
                     <circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -112,7 +115,7 @@
                 Start Camera
             </button>
             <label class="quick-mode-toggle" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; color: var(--text-muted); user-select: none;">
-                <input type="checkbox" id="quick-mode-cb" style="accent-color: var(--primary);">
+                <input type="checkbox" id="quick-mode-cb" style="accent-color: var(--accent, var(--primary));">
                 Quick Mode
                 <span title="Scan → auto-submit recognized devices → scan next. Keeps camera running." style="cursor: help; opacity: 0.6;">(?)</span>
             </label>
@@ -124,7 +127,7 @@
             <input type="text" id="manual-serial" placeholder="Type or paste serial number"
                    onkeydown="if(event.key==='Enter')processManualSerial()">
         </div>
-        <button class="btn btn-primary" onclick="processManualSerial()">Look Up</button>
+        <button class="btn" onclick="processManualSerial()">Look Up</button>
     </div>
     <div id="scan-result" style="display: none;"></div>
 </div>
@@ -261,7 +264,7 @@
         <input type="checkbox" id="direct-to-inventory" checked>
         Add directly to inventory (skip review queue)
     </label>
-    <button class="btn btn-success btn-submit" onclick="submitDevice()">
+    <button class="btn btn-primary btn-submit" onclick="submitDevice()">
         Submit Device
     </button>
 </div>
@@ -298,7 +301,7 @@
     </p>
     <div id="assign-scanner-container">
         <div class="scanner-buttons">
-            <button class="btn btn-primary" id="assign-start-scan-btn" onclick="assignStartScanner()">
+            <button class="btn" id="assign-start-scan-btn" onclick="assignStartScanner()">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right:4px;vertical-align:middle;">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2"/>
                     <circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -313,7 +316,7 @@
             <input type="text" id="assign-serial" placeholder="Type or paste drive serial number"
                    onkeydown="if(event.key==='Enter')assignLookupDrive()">
         </div>
-        <button class="btn btn-primary" onclick="assignLookupDrive()">Look Up</button>
+        <button class="btn" onclick="assignLookupDrive()">Look Up</button>
     </div>
     <div id="assign-scan-result" style="display: none;"></div>
 </div>
@@ -347,6 +350,8 @@
 
 </div><!-- /assign-mode -->
 
+</div>
+</div>{# /receive-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}
@@ -373,15 +378,15 @@ function setMode(mode) {
     if (mode === 'receive') {
         receiveDiv.style.display = 'block';
         assignDiv.style.display = 'none';
-        receiveBtn.style.background = 'var(--primary, #157ca4)';
-        receiveBtn.style.color = '#fff';
+        receiveBtn.style.background = 'var(--mode-on-bg, var(--primary, #157ca4))';
+        receiveBtn.style.color = 'var(--mode-on-fg, #fff)';
         assignBtn.style.background = 'var(--card-bg)';
         assignBtn.style.color = 'var(--text)';
     } else {
         receiveDiv.style.display = 'none';
         assignDiv.style.display = 'block';
-        assignBtn.style.background = 'var(--primary, #157ca4)';
-        assignBtn.style.color = '#fff';
+        assignBtn.style.background = 'var(--mode-on-bg, var(--primary, #157ca4))';
+        assignBtn.style.color = 'var(--mode-on-fg, #fff)';
         receiveBtn.style.background = 'var(--card-bg)';
         receiveBtn.style.color = 'var(--text)';
     }
@@ -680,7 +685,7 @@ function displayOcrResults(ocr) {
     }
 
     html += '</div>';
-    html += '<button class="btn btn-sm btn-primary" onclick="fillAllOcrFields()" style="margin-top: 0.5rem;">Auto-Fill All Fields</button>';
+    html += '<button class="btn btn-sm" onclick="fillAllOcrFields()" style="margin-top: 0.5rem;">Auto-Fill All Fields</button>';
 
     results.innerHTML = html;
 }
