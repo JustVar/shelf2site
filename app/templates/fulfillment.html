@@ -483,9 +483,23 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
      base-chrome lifts ship in fl-restyle.css via body:has(.fl-restyle))
    - command band layout: metric grid row + tools card below ===== */
 .fl-header, #board-inhouse, #board-oem { position: relative; z-index: 1; }
-#board-inhouse .cmd-band { background: transparent; border: none; border-radius: 0; flex-direction: column; align-items: stretch; gap: 14px; }
-#board-inhouse .cb-stats { border-right: none; border-bottom: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+#board-inhouse .cmd-band, #board-oem .cmd-band { background: transparent; border: none; border-radius: 0; flex-direction: column; align-items: stretch; gap: 14px; }
+#board-inhouse .cb-stats, #board-oem .cb-stats { border-right: none; border-bottom: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
 #board-inhouse .cb-tools { border-left: none; background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 10px 16px; }
+#board-oem .fl-hero { cursor: default; }
+#kanban-oem .fl-otop, #kanban-oem .fl-ofoot { flex-wrap: wrap; } /* 5-col grid is narrow */
+/* modal + wizard surfaces: neutral, lit top edge, blush controls, no glow */
+.fl-restyle .fl-modal { border-radius: 16px; border-top-color: var(--card-edge); }
+.fl-restyle .fl-modal-overlay { background: rgba(8,9,13,0.6); }
+.fl-restyle .modal-head { border-bottom-color: var(--border); }
+.fl-restyle .modal-btn-pri { background: var(--accent-primary); color: var(--on-accent); border-radius: 8px; }
+.fl-restyle .modal-btn-pri:hover { background: var(--accent-primary); filter: brightness(1.06); }
+.fl-restyle .modal-btn-sec { color: var(--accent-primary-l); background: var(--accent-primary-dim); border-color: var(--accent-border); border-radius: 8px; }
+[data-theme="light"] .fl-restyle .modal-btn-sec { color: var(--accent-primary); }
+.fl-restyle .modal-btn-sec:hover { background: var(--accent-border); color: var(--text); }
+.fl-restyle .modal-close:hover { background: var(--accent-primary-dim); color: var(--accent-primary-l); border-color: var(--accent-border); }
+.fl-restyle .sp-field-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+.fl-restyle .dm-step.dm-active .dm-step-num { background: var(--accent-primary); color: var(--on-accent); }
 </style>
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
@@ -926,8 +940,24 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 <div id="board-oem" style="display:none;">
     <div class="cmd-band">
         <div class="cb-stats">
-            <div class="cb-stat cbs-blue"><div class="cb-stat-num">{{ oem_active }}</div><div class="cb-stat-lbl">Active POs</div></div>
-            <div class="cb-stat"><div class="cb-stat-num">{{ oem_total }}</div><div class="cb-stat-lbl">Total POs</div></div>
+            <div class="fl-hero" style="--glow-color:var(--info); --glow-soft:rgba(0,117,255,0.45);">
+                <div class="fl-hairline"></div>
+                <div>
+                    <div class="m-label">Active POs</div>
+                    <div class="m-value">{{ oem_active }}</div>
+                    <div class="m-sub" style="color:var(--info);">Open With Vendors</div>
+                </div>
+                {{ fl_icon('truck', 'info', 38, 'm-icon') }}
+            </div>
+            <div class="fl-hero" style="--glow-color:var(--accent-primary-l); --glow-soft:rgba(227,203,199,0.55);">
+                <div class="fl-hairline"></div>
+                <div>
+                    <div class="m-label">Total POs</div>
+                    <div class="m-value">{{ oem_total }}</div>
+                    <div class="m-sub" style="color:var(--accent-primary);">All Time</div>
+                </div>
+                {{ fl_icon('chart', 'blush', 38, 'm-icon') }}
+            </div>
         </div>
     </div>
 
@@ -935,7 +965,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;margin-top:24px;">
         <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fl-t2);">OEM Pipeline</span>
         {% if user and user.has_provisioning_manage %}
-        <button class="cb-tool-btn" onclick="openOemModal()">+ New OEM PO</button>
+        <button class="fl-btn" onclick="openOemModal()">+ New OEM PO</button>
         {% endif %}
     </div>
     <div class="pipe-filter-bar" id="pfb-oem">
@@ -960,41 +990,43 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             <div class="k-body">
                 {% if oem_columns[status] %}
                 {% for po in oem_columns[status] %}
-                <div class="o-card oem-card"
-                     data-search="{{ po.vendor_name or '' }} {{ po.sku or '' }} {{ po.po_number or '' }} {{ po.customer_order_number or '' }} {{ po.customer_name or '' }}"
-                     style="--urg:{% if po.expected_delivery and po.expected_delivery < today %}var(--fl-red){% elif po.expected_delivery and (po.expected_delivery - today).days <= 7 %}var(--fl-amber){% else %}var(--accent-blue){% endif %};">
-                    <div class="o-top">
-                        <span class="o-id">{{ po.po_number or 'No PO#' }}</span>
-                        {% if po.customer_order_number %}
-                        <span class="badge b-blue">{{ po.customer_order_number }}</span>
-                        {% else %}
-                        <span class="badge b-gray">Unlinked</span>
+                <div class="o-card oem-card fl-card fl-ocard"
+                     data-search="{{ po.vendor_name or '' }} {{ po.sku or '' }} {{ po.po_number or '' }} {{ po.customer_order_number or '' }} {{ po.customer_name or '' }}">
+                    <div class="fl-otop">
+                        <div class="fl-otitle">{{ po.vendor_name }}</div>
+                        {% if po.expected_delivery and po.expected_delivery < today %}
+                        <span class="fl-badge urg">OVERDUE</span>
+                        {% elif po.expected_delivery and (po.expected_delivery - today).days <= 7 %}
+                        <span class="fl-badge warn">DUE SOON</span>
                         {% endif %}
                     </div>
-                    <div class="o-name">{{ po.vendor_name }}</div>
-                    {% if po.customer_name %}
-                    <div class="o-owner">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        <span>{{ po.customer_name }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="o-meta">
-                        <span class="o-chip">{{ po.qty_received }}/{{ po.qty_ordered }} {{ po.sku }}</span>
-                        {% if po.expected_delivery %}
-                        <span class="o-chip {% if po.expected_delivery < today %}urg{% elif (po.expected_delivery - today).days <= 7 %}warn{% endif %}">
-                            Due {{ po.expected_delivery.strftime('%b %d') }}
+                    <div class="fl-osub">
+                        <span class="fl-osub-l">
+                            <span class="fl-ochip">{{ po.po_number or 'No PO#' }}</span>
+                            <span class="fl-mchip">{{ po.customer_order_number or 'Unlinked' }}</span>
+                            <span class="fl-mchip">{{ po.qty_received }}/{{ po.qty_ordered }} {{ po.sku }}</span>
                         </span>
-                        {% endif %}
+                        <span class="fl-due">
+                            {% if po.expected_delivery %}
+                            {% set _ed = (po.expected_delivery - today).days %}
+                            {% if _ed < 0 %}{{ fl_icon('alert', 'mute', 13) }}{{ -_ed }} Day{{ 's' if _ed != -1 else '' }} Late
+                            {% elif _ed == 0 %}{{ fl_icon('clock', 'mute', 13) }}Due Today
+                            {% elif _ed == 1 %}{{ fl_icon('clock', 'mute', 13) }}Due Tomorrow
+                            {% else %}{{ fl_icon('clock', 'mute', 13) }}Due in {{ _ed }} Days{% endif %}
+                            {% endif %}
+                        </span>
                     </div>
                     {% if po.notes %}
-                    <div class="o-owner" style="margin-top:4px;">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <div class="o-owner" style="margin-bottom:8px;">
+                        {{ fl_icon('clipboard-check', 'mute', 13) }}
                         <span style="color:var(--text-muted);font-style:italic;">{{ po.notes|truncate(60) }}</span>
                     </div>
                     {% endif %}
-                    {% if user and user.has_provisioning_manage %}
-                    <div class="o-actions">
-                        <button class="o-btn" onclick="openOemModal('{{ po.customer_order_id }}', '{{ po.customer_order_number }}', {
+                    <div class="fl-ofoot">
+                        <span class="o-owner">{{ fl_icon('user', 'mute', 14) }}<span>{{ po.customer_name or 'No Customer' }}</span></span>
+                        {% if user and user.has_provisioning_manage %}
+                        <span style="display:flex;gap:6px;">
+                        <button class="fl-obtn" onclick="openOemModal('{{ po.customer_order_id }}', '{{ po.customer_order_number }}', {
                             id: {{ po.id }}, customer_order_id: {{ po.customer_order_id or 'null' }},
                             vendor_name: '{{ po.vendor_name|e }}', sku: '{{ po.sku|e }}',
                             po_number: {{ ('\"' ~ po.po_number ~ '\"') if po.po_number else 'null' }},
@@ -1006,9 +1038,10 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                             customer_order_number: {{ ('\"' ~ po.customer_order_number ~ '\"') if po.customer_order_number else 'null' }},
                             customer_name: {{ ('\"' ~ po.customer_name|e ~ '\"') if po.customer_name else 'null' }}
                         })">Edit</button>
-                        <button class="o-btn o-btn-danger" onclick="deleteOemPo({{ po.customer_order_id }}, {{ po.id }})">Delete</button>
+                        <button class="fl-obtn danger" onclick="deleteOemPo({{ po.customer_order_id }}, {{ po.id }})">Delete</button>
+                        </span>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
                 {% endfor %}
                 {% else %}
@@ -1020,8 +1053,6 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         {% endfor %}
     </div>
 </div>
-
-</div>{# end fulfillment-page #}
 
 <!-- ══════════════════ OVERLAY ════════════════════════════════════ -->
 <div class="overlay" id="overlay"></div>
@@ -3070,4 +3101,5 @@ document.addEventListener('DOMContentLoaded', function() {
     switchDeployTab('scheduled');
 });
 </script>
+</div>{# end fulfillment-page.fl-restyle #}
 {% endblock %}
