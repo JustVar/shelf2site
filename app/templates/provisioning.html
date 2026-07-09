@@ -4,6 +4,9 @@
 {% block nav_fulfillment %}active{% endblock %}
 
 {% block content %}
+<div class="prov-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Edge Box Provisioning</h1>
 <p style="color: var(--text-muted); margin-top: -0.5rem; margin-bottom: 1rem; font-size: 0.88rem;">
     Track edge box deployment stages for pilot and customer sale installations.
@@ -109,7 +112,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
         </a>
-        {% if can_manage %}<button class="btn btn-success" onclick="openCreateModal()">+ New Provisioning</button>{% endif %}
+        {% if can_manage %}<button class="btn btn-primary" onclick="openCreateModal()">+ New Provisioning</button>{% endif %}
     </div>
 </div>
 
@@ -384,9 +387,12 @@
     color: var(--text);
 }
 .view-toggle-btn.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
+    background: var(--accent-primary-dim);
+    color: var(--accent-primary-l);
+    border-color: var(--accent-border);
+}
+[data-theme="light"] .view-toggle-btn.active {
+    color: var(--accent-primary);
 }
 .view-toggle-btn svg {
     flex-shrink: 0;
@@ -531,7 +537,8 @@
 .edit-modal-content {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-top-color: var(--card-edge);
+    border-radius: 16px;
     padding: 1.5rem;
     width: 480px;
     max-width: 95vw;
@@ -722,6 +729,8 @@
         <div id="edit-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
     </div>
 </div>
+</div>
+</div>{# /prov-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

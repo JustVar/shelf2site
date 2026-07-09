@@ -47,12 +47,12 @@
 }
 .pipeline-stage-box.completed {
     border-color: var(--success, #27ae60);
-    background: rgba(39, 174, 96, 0.08);
+    background: var(--green-dim, rgba(39, 174, 96, 0.08));
 }
 .pipeline-stage-box.current {
-    border-color: var(--info, #3498db);
-    background: rgba(52, 152, 219, 0.08);
-    box-shadow: 0 0 12px rgba(52, 152, 219, 0.3);
+    border-color: var(--accent-primary, var(--info, #3498db));
+    background: var(--accent-primary-dim, rgba(52, 152, 219, 0.08));
+    box-shadow: 0 0 12px var(--accent-border, rgba(52, 152, 219, 0.3));
     animation: pulse-box 2s ease-in-out infinite;
 }
 .pipeline-stage-box.future {
@@ -60,8 +60,8 @@
 }
 
 @keyframes pulse-box {
-    0%, 100% { box-shadow: 0 0 8px rgba(52, 152, 219, 0.2); }
-    50% { box-shadow: 0 0 18px rgba(52, 152, 219, 0.45); }
+    0%, 100% { box-shadow: 0 0 8px var(--accent-primary-dim, rgba(52, 152, 219, 0.2)); }
+    50% { box-shadow: 0 0 18px var(--accent-border, rgba(52, 152, 219, 0.45)); }
 }
 
 .pipeline-stage-label {
@@ -87,7 +87,7 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--info, #3498db);
+    background: var(--accent-primary, var(--info, #3498db));
     animation: pulse-dot 1.5s ease-in-out infinite;
 }
 @keyframes pulse-dot {
@@ -239,6 +239,9 @@
 {% endblock %}
 
 {% block content %}
+<div class="provd-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <!-- Back link + Title -->
 <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
     <a href="{{ base_path }}/provisioning/" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Provisioning Queue</a>
@@ -576,7 +579,7 @@
             {% endif %}
             {% if can_manage %}
             <button class="btn btn-sm" onclick="toggleEditMode()" style="margin-top: 0.5rem;">Edit Details</button>
-            <button class="btn btn-sm" onclick="deleteProvisioning({{ rec.id }})" style="color: var(--danger, #e74c3c); margin-top: 0.25rem;">Delete Record</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteProvisioning({{ rec.id }})" style="margin-top: 0.25rem;">Delete Record</button>
             {% endif %}
             <!-- Watch / Unwatch button -->
             <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
@@ -613,6 +616,8 @@
         </div>
     </div>
 </div>
+</div>
+</div>{# /provd-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

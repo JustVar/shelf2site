@@ -627,6 +627,8 @@
 .fl-restyle .btn-danger { background: var(--red-dim); border: 1px solid var(--fl-red); color: var(--fl-red); }
 .fl-restyle .btn-danger:hover:not(:disabled) { background: var(--red-dim); color: var(--fl-red); filter: brightness(1.12); }
 [data-theme="light"] .fl-restyle .btn-danger, [data-theme="light"] .fl-restyle .btn-danger:hover:not(:disabled) { color: var(--fl-red); }
+.fl-restyle .btn-warning { background: var(--amber-dim); border: 1px solid var(--fl-amber); color: var(--fl-amber); }
+[data-theme="light"] .fl-restyle .btn-warning { color: var(--fl-amber); }
 .fl-restyle .btn-success { background: var(--green-dim); border: 1px solid var(--fl-green); color: var(--fl-green); }
 .fl-restyle .btn-success:hover:not(:disabled) { background: var(--green-dim); color: var(--fl-green); filter: brightness(1.12); }
 [data-theme="light"] .fl-restyle .btn-success, [data-theme="light"] .fl-restyle .btn-success:hover:not(:disabled) { color: var(--fl-green); }
@@ -676,6 +678,14 @@
 .fl-restyle .error-page__btn:hover { background: var(--accent-border); color: var(--text); border-color: var(--accent-border); }
 .fl-restyle .error-page__btn--primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--on-accent); }
 .fl-restyle .error-page__btn--primary:hover { background: var(--accent-primary); filter: brightness(1.06); color: var(--on-accent); }
+
+/* ── Provisioning pages. Their kits live in template style blocks on the
+   generic legacy tokens, so the page scope remaps those tokens onto the
+   fl set; the kanban columns take the lit edge. ── */
+.prov-page.fl-restyle, .provd-page.fl-restyle { --bg-elevated: var(--card-bg); --border-color: var(--border); --primary: var(--accent-primary); --bg-hover: var(--card-bg-hover); --danger: var(--fl-red); --warning: var(--fl-amber); --success: var(--fl-green); }
+.fl-restyle .pipeline-column { border-top-color: var(--card-edge); border-radius: 12px; }
+.fl-restyle .summary-card { border-top-color: var(--card-edge); border-radius: 12px; }
+.fl-restyle .summary-card.attention { border-color: var(--fl-amber); }
 
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
