@@ -28,7 +28,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
 from ..models import Item, ItemPartNumber
-from .dashboard import CATEGORY_COLORS, ALL_CATEGORIES, category_display
+from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, _clean_str, _safe_int, _safe_float, _safe_date,
     _normalize_mac, _get_locations,
@@ -266,7 +266,7 @@ def triage_page(
         "sort": sort,
         "total_items": total_items,
         "total_pages": total_pages,
-        "category_colors": CATEGORY_COLORS,
+        "category_colors": FL_CATEGORY_COLORS,
         "category_display": category_display,
         "locations_for_bulk": _get_locations(db),
         "statuses_for_bulk": STATUSES,

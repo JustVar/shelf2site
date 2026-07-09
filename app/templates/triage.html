@@ -8,15 +8,18 @@
 {% block content %}
 {% from 'partials/icons.html' import icon %}
 
-<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem">
+<div class="triage-page fl-restyle">
+{% include "_fl_bg.html" %}
+
+<div class="page-header fl-lift" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem">
   <div>
-    <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0 0 4px 0">Asset triage</h1>
-    <div style="font-size:12px;color:var(--sx-gray)">Items missing role-required fields</div>
+    <h1 style="font-size:1.25rem;font-weight:600;color:var(--text);margin:0 0 4px 0">Asset Triage</h1>
+    <div style="font-size:12px;color:var(--text-muted)">Items missing role-required fields</div>
   </div>
 </div>
 
 <!-- Tabs -->
-<div class="trg-tabs">
+<div class="trg-tabs fl-lift">
   {% for key, cfg in roles.items() %}
   <a href="{{ base_path }}/triage/?role={{ key }}&sort={{ sort }}&per_page={{ per_page }}&page=1"
      class="trg-tab {% if role == key %}trg-tab--active{% endif %}">
@@ -27,9 +30,9 @@
 </div>
 
 <!-- Controls -->
-<div class="trg-controls">
+<div class="trg-controls fl-lift">
   <div style="display:flex;align-items:center;gap:8px">
-    <label for="trg-sort" style="font-size:11px;color:var(--sx-gray);text-transform:uppercase;letter-spacing:.05em">Sort</label>
+    <label for="trg-sort" style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Sort</label>
     <select id="trg-sort" class="inv-select">
       <option value="modified_desc" {% if sort == 'modified_desc' %}selected{% endif %}>Last modified (new first)</option>
       <option value="modified_asc" {% if sort == 'modified_asc' %}selected{% endif %}>Last modified (old first)</option>
@@ -40,7 +43,7 @@
     </select>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
-    <label for="trg-per-page" style="font-size:11px;color:var(--sx-gray);text-transform:uppercase;letter-spacing:.05em">Per page</label>
+    <label for="trg-per-page" style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Per page</label>
     <select id="trg-per-page" class="inv-select">
       <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
       <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
@@ -50,7 +53,7 @@
 </div>
 
 <!-- Bulk actions -->
-<div id="trg-bulk-bar" class="trg-bulk-bar" style="display:none">
+<div id="trg-bulk-bar" class="trg-bulk-bar fl-lift" style="display:none">
   <div class="trg-bulk-left">
     <span class="trg-bulk-count-wrap"><span id="trg-bulk-count">0</span> selected</span>
     <button type="button" class="trg-bulk-clear" onclick="trgClearSelection()">Clear</button>
@@ -87,12 +90,12 @@
 </div>
 
 <!-- Table -->
-<div class="inv-table-wrap">
-  <table class="inv-table trg-table" style="min-width:900px">
+<div class="inv-table-wrap fl-lift">
+  <table class="inv-table trg-table fl-table" style="min-width:900px">
     <thead>
       <tr>
         <th class="sx-stick-left sx-stick-left--checkbox" style="width:30px">
-          <input type="checkbox" id="trg-select-all" onclick="trgToggleSelectAll(this)" aria-label="Select all">
+          <input type="checkbox" class="inv-cb" id="trg-select-all" onclick="trgToggleSelectAll(this)" aria-label="Select all">
         </th>
         <th class="sx-stick-left sx-stick-left--chevron" style="width:30px"></th>
         <th class="sx-stick-left sx-stick-left--id" style="width:50px">ID</th>
@@ -109,15 +112,15 @@
         {% set union_gaps = entry.union_gaps %}
         <tr class="trg-row" data-item-id="{{ itm.id }}" onclick="trgHandleRowClick(event, {{ itm.id }})">
           <td class="sx-stick-left sx-stick-left--checkbox">
-            <input type="checkbox" class="trg-row-select" value="{{ itm.id }}" onclick="trgOnRowCheckboxChange(event)" aria-label="Select item {{ itm.id }}">
+            <input type="checkbox" class="inv-cb trg-row-select" value="{{ itm.id }}" onclick="trgOnRowCheckboxChange(event)" aria-label="Select item {{ itm.id }}">
           </td>
           <td class="sx-stick-left sx-stick-left--chevron">
             <button type="button" class="trg-chevron" aria-label="Toggle details">▶</button>
           </td>
-          <td class="sx-stick-left sx-stick-left--id" style="font-size:11px;color:var(--sx-gray);font-family:var(--sx-font-mono)">{{ itm.id }}</td>
+          <td class="sx-stick-left sx-stick-left--id fl-cell-sub">{{ itm.id }}</td>
           <td class="sx-stick-left sx-stick-left--primary">
-            <div style="font-weight:500;color:var(--sx-white)">{{ itm.item_name or '—' }}</div>
-            <div style="font-size:11px;color:var(--sx-gray)">{{ itm.item_sn or '—' }}</div>
+            <div class="fl-cell-name">{{ itm.item_name or '—' }}</div>
+            <div class="fl-cell-sub">{{ itm.item_sn or '—' }}</div>
           </td>
           <td>
             {% set cat_str = itm.item_category|string if itm.item_category else None %}
@@ -127,7 +130,7 @@
               {{ category_display(cat_str) }}
             </span>
             {% else %}
-            <span style="color:var(--sx-gray)">—</span>
+            <span style="color:var(--text-muted)">—</span>
             {% endif %}
           </td>
           <td>
@@ -193,7 +196,7 @@
 
 <!-- Pagination -->
 {% if total_pages > 1 %}
-<div class="trg-pagination">
+<div class="trg-pagination fl-lift">
   <div class="inv-page-info">
     Showing {{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total_items] | min }} of {{ total_items }}
   </div>
@@ -645,4 +648,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+</div>{# /triage-page.fl-restyle #}
 {% endblock %}
