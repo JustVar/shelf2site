@@ -638,6 +638,12 @@
 .fl-restyle .modal .form-group input, .fl-restyle .modal .form-group select, .fl-restyle .modal .form-group textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
 .fl-restyle .modal .form-group input:focus, .fl-restyle .modal .form-group select:focus, .fl-restyle .modal .form-group textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
 
+/* ── Warranty page. The scope tabs are styled inline in markup and JS via
+   var(--accent, ...); remapping the token inside the page scope makes the
+   active tab underline follow the blush accent in both static and JS
+   switched states without touching the tab mechanism. ── */
+.warranty-page.fl-restyle { --accent: var(--accent-primary); }
+
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:

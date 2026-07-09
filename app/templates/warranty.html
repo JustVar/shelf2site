@@ -4,11 +4,14 @@
 {% block nav_warranty %}active{% endblock %}
 
 {% block content %}
+<div class="warranty-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Warranty & RMA Tracking</h1>
 
 <!-- Alerts -->
 {% if expiring_count > 0 %}
-<div class="alert-banner" style="border-left-color: #FFD700;">
+<div class="alert-banner">
     <span class="icon">!</span>
     <span>
         <strong>{{ expiring_count }} warrant{{ 'ies' if expiring_count != 1 else 'y' }}</strong>
@@ -17,7 +20,7 @@
 </div>
 {% endif %}
 {% if internal_overdue > 0 %}
-<div class="alert-banner" style="border-left-color: #e94560;">
+<div class="alert-banner alert-danger">
     <span class="icon">!</span>
     <span>
         <strong>{{ internal_overdue }} internal loaner{{ 's' if internal_overdue != 1 else '' }}</strong>
@@ -587,6 +590,8 @@
         </form>
     </div>
 </div>
+</div>
+</div>{# /warranty-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}
