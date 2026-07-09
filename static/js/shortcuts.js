@@ -25,7 +25,7 @@
   };
 
   document.addEventListener("keydown", function (e) {
-    if (isTyping() || hasModifier(e)) return;
+    if (window.SX_SHORTCUTS_DISABLED || isTyping() || hasModifier(e)) return;
     var path = NAV[e.key.toLowerCase()];
     if (path) {
       e.preventDefault();
@@ -43,7 +43,7 @@
 
   // "/" focuses the search box, but only on pages that have one.
   document.addEventListener("keydown", function (e) {
-    if (e.key !== "/" || isTyping() || hasModifier(e)) return;
+    if (window.SX_SHORTCUTS_DISABLED || e.key !== "/" || isTyping() || hasModifier(e)) return;
     var input = document.getElementById("db-search-input") ||
                 document.getElementById("cb-search");
     if (input && input.offsetParent !== null) {

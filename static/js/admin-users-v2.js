@@ -86,6 +86,7 @@
       procurement_admin: 'Procurement admin',
       editor: 'Editor',
       viewer: 'Viewer',
+  map_kiosk: 'Map kiosk',
     };
     return map[role] || role;
   }

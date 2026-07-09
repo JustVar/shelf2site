@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% set _kiosk = user and user.role == 'map_kiosk' %}
 {% from "_fl_icons.html" import fl_icon %}
 <html lang="en" data-theme="dark">
 <head>
@@ -71,13 +72,15 @@
     <script src="{{ base_path }}/static/js/guide.js?v=20260602b"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="{{ base_path }}/static/js/toast.js"></script>
-  <script src="{{ base_path }}/static/js/shortcuts.js?v=20260709c"></script>
+  <script src="{{ base_path }}/static/js/shortcuts.js?v=20260710a"></script>
     <script src="{{ base_path }}/static/js/fl-restyle.js?v=20260710b"></script>
     {% block head %}{% endblock %}
+{% if _kiosk %}<script>window.SX_SHORTCUTS_DISABLED = true;</script>{% endif %}
 </head>
-<body>
+<body{% if _kiosk %} class="kiosk-mode"{% endif %}>
     <!-- Sidebar Navigation -->
     {% from 'partials/icons.html' import icon %}
+    {% if not _kiosk %}
     <nav class="sx-nav" id="sx-nav" hx-boost="true" hx-target="main" hx-select="main" hx-swap="innerHTML">
 
       <!-- Header -->
@@ -396,9 +399,11 @@
 
     <!-- Mobile sidebar overlay -->
     <div id="sidebar-overlay" class="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+    {% endif %}
 
     <!-- Main Content -->
     <div class="main-wrapper">
+        {% if not _kiosk %}
         <header class="topbar">
             <button class="hamburger" onclick="toggleMobileSidebar()">
                 <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -413,6 +418,7 @@
             <span id="maintenance-countdown" style="font-size:0.8rem; color: var(--text-muted);"></span>
             <button onclick="document.getElementById('maintenance-banner').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;line-height:1;padding:0 0 0 0.5rem;" title="Dismiss">✕</button>
         </div>
+        {% endif %}
 
         <main>
             {% if user and request.state.pwd_warn_days %}

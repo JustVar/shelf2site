@@ -775,6 +775,11 @@
 [data-theme="light"] .sx-nav__footer-btn:hover .duo { --duo-c: var(--flc-accent); }
 [data-theme="light"] .sx-nav__toggle-btn:hover { color: var(--flc-accent); background: var(--flc-accent-dim); }
 
+/* Kiosk chrome: the map kiosk role renders no sidebar or topbar; the
+   pre-collapsed twin keeps first paint correct when the browser last saw
+   a collapsed rail. */
+body.kiosk-mode, html.sx-nav-pre-collapsed body.kiosk-mode { grid-template-columns: 1fr; }
+
 /* ── Collapsed rail v2 (approved mock 2026-07-09): top-level icons only,
    hairline dividers (the section labels already render as 1px rules when
    collapsed - main.css), admin group flyout, amber triage dot. All three

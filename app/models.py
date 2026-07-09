@@ -586,7 +586,7 @@ class User(Base):
 
     @property
     def has_map_access(self):
-        return self.is_editor_or_above or self._resolve_perm("can_access_map")
+        return self.role == "map_kiosk" or self.is_editor_or_above or self._resolve_perm("can_access_map")
 
     @property
     def has_disposal_access(self):

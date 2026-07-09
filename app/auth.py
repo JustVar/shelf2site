@@ -89,7 +89,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 ADMIN_LEVEL_ROLES = ("justin_admin", "system_admin", "admin", "ceo")
-VALID_ROLES = ("justin_admin", "system_admin", "ceo", "admin", "warranty_admin", "trials_admin", "procurement_admin", "editor", "viewer")
+VALID_ROLES = ("justin_admin", "system_admin", "ceo", "admin", "warranty_admin", "trials_admin", "procurement_admin", "editor", "viewer", "map_kiosk")
 SUB_ADMIN_ROLES = ("warranty_admin", "trials_admin", "procurement_admin")
 ROLE_DISPLAY = {
     "justin_admin": "Super Admin",
@@ -101,11 +101,12 @@ ROLE_DISPLAY = {
     "procurement_admin": "Procurement Admin",
     "editor": "Editor",
     "viewer": "Viewer",
+    "map_kiosk": "Map Kiosk",
 }
 ROLE_TIER = {
     "justin_admin": 5, "system_admin": 4, "ceo": 4, "admin": 3,
     "warranty_admin": 2, "trials_admin": 2, "procurement_admin": 2,
-    "editor": 1, "viewer": 0,
+    "editor": 1, "viewer": 0, "map_kiosk": 0,
 }
 
 

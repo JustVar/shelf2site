@@ -126,6 +126,10 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
     if user.must_change_password:
         return RedirectResponse(f"{BP}/change-password", status_code=302)
 
+    # Kiosk sessions land directly on the map
+    if user.role == "map_kiosk":
+        return RedirectResponse(f"{BP}/map/", status_code=302)
+
     return RedirectResponse(f"{BP}/dashboard", status_code=302)
 
 
