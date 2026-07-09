@@ -21,7 +21,7 @@ from ..models import (
     ItemComponentHistory, ItemMaintenanceLog,
 )
 from ..locks import get_lock
-from .dashboard import CATEGORY_COLORS, ALL_CATEGORIES, category_display
+from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, ALLOWED_RECEIPT_EXTENSIONS, RECEIPT_STORAGE_PATH,
     _get_locations, _get_categories, _normalize_mac,
@@ -151,7 +151,7 @@ def item_detail_page(
         "locations": locations,
         "categories": categories,
         "statuses": STATUSES,
-        "color": CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+        "color": FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         "category_display": category_display(item.item_category) if item.item_category else "\u2014",
         "attribute_fields": attributes_for(item.item_category),
         "receipts": receipts,
@@ -246,7 +246,7 @@ async def item_update(
             "locations": locations,
             "categories": categories,
             "statuses": STATUSES,
-            "color": CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+            "color": FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
             "category_display": category_display(item.item_category) if item.item_category else "\u2014",
             "attribute_fields": attributes_for(item.item_category),
             "receipts": receipts,

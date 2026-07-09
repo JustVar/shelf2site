@@ -4,8 +4,11 @@
 {% block content %}
 {% from 'partials/icons.html' import icon %}
 
+<div class="item-detail-page fl-restyle">
+{% include "_fl_bg.html" %}
+
 <!-- Header -->
-<div class="dtl-header">
+<div class="dtl-header fl-lift">
   <div class="dtl-header-left">
     <a href="{{ base_path }}/inventory/" class="dtl-back" title="Back to Inventory">← Inventory</a>
     <h1 class="dtl-title">{{ item.item_name or 'Unnamed Item' }}</h1>
@@ -20,7 +23,7 @@
       {% if edit_mode %}
       <a href="{{ base_path }}/items/{{ item.id }}" class="inv-btn">Cancel</a>
       {% else %}
-      <a href="{{ base_path }}/items/{{ item.id }}?edit=1" class="dtl-edit-btn">Edit</a>
+      <a href="{{ base_path }}/items/{{ item.id }}?edit=1" class="fl-cta">Edit</a>
       {% endif %}
     {% endif %}
   </div>
@@ -28,7 +31,7 @@
 
 <!-- Lock indicator — shown when another user is viewing/editing this item.
      ID format must match locks.js: resource_key with ':' replaced by '-'. -->
-<div id="lock-indicator-items-{{ item.id }}" class="lock-indicator" style="display:none"></div>
+<div id="lock-indicator-items-{{ item.id }}" class="lock-indicator fl-lift" style="display:none"></div>
 
 {% if error %}
 <div class="itk-error">{{ error }}</div>
@@ -36,7 +39,7 @@
 
 {% if edit_mode %}
 <!-- ═══════════ EDIT MODE ═══════════ -->
-<form method="post" action="{{ base_path }}/items/{{ item.id }}" class="itk-form">
+<form method="post" action="{{ base_path }}/items/{{ item.id }}" class="itk-form fl-lift">
 
   <div class="itk-section">
     <div class="itk-section-title">Basic Information</div>
@@ -182,7 +185,7 @@
 
 {% else %}
 <!-- ═══════════ READ MODE ═══════════ -->
-<div class="dtl-content">
+<div class="dtl-content fl-lift">
 
   <!-- Details -->
   <div class="dtl-section">
@@ -388,7 +391,7 @@
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button type="button" class="inv-btn" onclick="toggleAddReceipt()">Cancel</button>
-        <button type="submit" class="itk-submit" style="padding:6px 16px;font-size:12px">Upload Receipt</button>
+        <button type="submit" class="fl-btn" style="padding:6px 16px;font-size:12px">Upload Receipt</button>
       </div>
     </form>
     {% endif %}
@@ -428,7 +431,7 @@
     <div class="dtl-section-title">Component History</div>
     {% if components %}
     <div class="dtl-table-wrap">
-      <table class="dtl-table">
+      <table class="dtl-table fl-table">
         <thead>
           <tr>
             <th>Action</th>
@@ -461,7 +464,7 @@
     <div class="dtl-section-title">Maintenance Log</div>
     {% if maintenance %}
     <div class="dtl-table-wrap">
-      <table class="dtl-table">
+      <table class="dtl-table fl-table">
         <thead>
           <tr>
             <th>Type</th>
@@ -583,4 +586,5 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+</div>{# /item-detail-page.fl-restyle #}
 {% endblock %}

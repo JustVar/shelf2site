@@ -233,7 +233,7 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 [data-theme="light"] .fl-restyle .fl-dcard .o-id { color: var(--accent-primary); }
 
 /* ── Header controls: one loud CTA, quiet blush tints for the rest ─────── */
-.fl-restyle .fl-cta { background: var(--accent-primary); color: var(--on-accent); border: none; border-radius: 10px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: transform .15s, box-shadow .2s; }
+.fl-restyle .fl-cta { background: var(--accent-primary); color: var(--on-accent); border: none; border-radius: 10px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: transform .15s, box-shadow .2s; }
 .fl-restyle .fl-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(194,158,155,0.30); }
 .fl-restyle .fl-cta:active { transform: translateY(0); }
 .fl-restyle .fl-btn { display: inline-flex; align-items: center; gap: 5px; background: var(--accent-primary-dim); border: 1px solid var(--accent-border); color: var(--accent-primary-l); font-family: inherit; font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
@@ -491,6 +491,31 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .trg-qv-btn--primary:hover { background: var(--accent-primary); filter: brightness(1.06); color: var(--on-accent); }
 .fl-restyle .trg-qv-body input, .fl-restyle .trg-qv-body select, .fl-restyle .trg-qv-body textarea { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
 .fl-restyle .trg-qv-body input:focus, .fl-restyle .trg-qv-body select:focus, .fl-restyle .trg-qv-body textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+
+/* ── Item detail polish (view + edit; dtl-* and itk-* kits) ──────────── */
+.fl-restyle .dtl-back { color: var(--text-muted); }
+.fl-restyle .dtl-back:hover { color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .dtl-back:hover { color: var(--accent-primary); }
+.fl-restyle .dtl-title { color: var(--text); }
+.fl-restyle .dtl-section, .fl-restyle .itk-section { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; }
+.fl-restyle .dtl-section-title, .fl-restyle .itk-section-title { color: var(--text-muted); }
+.fl-restyle .dtl-label { font-size: 11px; letter-spacing: .06em; color: var(--text-muted); }
+.fl-restyle .dtl-value { font-size: 13px; color: var(--text); }
+.fl-restyle .dtl-empty { color: var(--text-muted); }
+.fl-restyle .itk-label { color: var(--text-muted); }
+.fl-restyle .itk-input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); transition: border-color .2s, box-shadow .2s; }
+.fl-restyle .itk-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); }
+.fl-restyle .itk-submit { background: var(--accent-primary); color: var(--on-accent); border-radius: 8px; }
+.fl-restyle .itk-submit:hover { opacity: 1; filter: brightness(1.06); }
+.fl-restyle .itk-error { background: var(--red-dim); border: 1px solid var(--fl-red); border-radius: 10px; color: var(--fl-red); }
+.fl-restyle .itk-hint { color: var(--text-muted); }
+.fl-restyle .itk-receipt-toggle { color: var(--text-muted); }
+.fl-restyle .itk-receipt-toggle:hover { color: var(--text); }
+.fl-restyle .dtl-receipt-row:hover { background: var(--card-bg-hover); }
+/* presence banner: locks.js-built content, info/danger tint variants */
+.fl-restyle .lock-indicator { border-radius: 12px; }
+.fl-restyle .lock-soft { background: rgba(0,117,255,0.08); border: 1px solid var(--info); color: var(--info); }
+.fl-restyle .lock-hard { background: var(--red-dim); border: 1px solid var(--fl-red); color: var(--fl-red); }
 
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
