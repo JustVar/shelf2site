@@ -708,6 +708,11 @@
 .sites-page.fl-restyle, .sited-page.fl-restyle, .vendors-page.fl-restyle, .vendorp-page.fl-restyle, .vendord-page.fl-restyle { --success: var(--fl-green); --warning: var(--fl-amber); --danger: var(--fl-red); }
 .fl-restyle .stat-box { border-top-color: var(--card-edge); border-radius: 10px; }
 
+/* ── Trials and review queue pages ── */
+.trials-page.fl-restyle, .review-page.fl-restyle { --warning: var(--fl-amber); --success: var(--fl-green); --danger: var(--fl-red); }
+.fl-restyle .badge-pending { background: var(--amber-dim); color: var(--fl-amber); border: 1px solid var(--fl-amber); }
+.fl-restyle .table-override-select { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:

@@ -4,6 +4,9 @@
 {% block nav_review %}active{% endblock %}
 
 {% block content %}
+<div class="review-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Review Queue</h1>
 
 <!-- Summary Cards -->
@@ -112,6 +115,8 @@
         </table>
     </div>
 </div>
+</div>
+</div>{# /review-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}
