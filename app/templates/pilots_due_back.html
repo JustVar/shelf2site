@@ -1,24 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Pilots Due Back - Asset Tracker{% endblock %}
 {% block content %}
-<div class="fulfillment-page pilots-page">
-  <div class="pilots-header">
+<div class="fulfillment-page pilots-page fl-restyle">
+{% include "_fl_bg.html" %}
+  <div class="pilots-header fl-lift">
     <h1 class="pilots-header__title">Pilots Due Back</h1>
     <div class="pilots-header__counts">
-      <span class="pilots-count pilots-count--overdue">{{ counts.overdue }} overdue</span>
-      <span class="pilots-count pilots-count--due-soon">{{ counts.due_soon }} due soon</span>
+      <span class="pilots-count pilots-count--overdue">{{ counts.overdue }} Overdue</span>
+      <span class="pilots-count pilots-count--due-soon">{{ counts.due_soon }} Due Soon</span>
     </div>
   </div>
 
   {% if orders %}
-  <div class="pilots-list">
+  <div class="pilots-list fl-lift">
     {% for o in orders %}
-    <div class="pilots-card pilots-card--{{ o.status }}">
+    <div class="pilots-card fl-card pilots-card--{{ o.status }}">
       <div class="pilots-card__head">
-        <span class="pilots-card__id">{{ o.order_number }}</span>
-        <span class="order-type-badge order-type-badge--{{ o.order_type }}">{{ order_types.get(o.order_type, o.order_type) }}</span>
+        <span class="fl-ochip">{{ o.order_number }}</span>
+        <span class="fl-mchip">{{ order_types.get(o.order_type, o.order_type) }}</span>
         <span class="pilots-card__cust">{{ o.customer_name }}</span>
-        <span class="pilots-status pilots-status--{{ o.status }}">{{ o.status.replace('-', ' ') }}</span>
+        <span class="pilots-status pilots-status--{{ o.status }}">{{ o.status.replace('-', ' ') | title }}</span>
         <span class="pilots-card__meta">Due {{ o.expected_return or '—' }} &middot; {{ o.returned }} of {{ o.acquired }} returned</span>
         {% if o.still_out %}
         <button type="button" class="pilots-btn pilots-btn--all" onclick="pilotsMarkAll({{ o.order_id }}, '{{ o.order_number }}')">Mark all returned</button>
@@ -42,9 +43,8 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="pilots-empty">No loan cameras are currently out. All pilots have been returned.</div>
+  <div class="pilots-empty fl-lift">No loan cameras are currently out. All pilots have been returned.</div>
   {% endif %}
-</div>
 
 <!-- Mark all returned confirm dialog (in-app; reuses the C2C modal chrome) -->
 <div class="c2c-modal-overlay" id="pilots-confirm-overlay" onclick="pilotsConfirmClose()"></div>
@@ -96,4 +96,5 @@ function pilotsConfirmGo() {
   if (oid !== null) { _pilotsPost("{{ base_path }}/fulfillment/c2c/order/" + oid + "/return-all"); }
 }
 </script>
+</div>{# /fulfillment-page.pilots-page.fl-restyle #}
 {% endblock %}

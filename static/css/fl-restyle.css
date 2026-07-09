@@ -517,6 +517,18 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .lock-soft { background: rgba(0,117,255,0.08); border: 1px solid var(--info); color: var(--info); }
 .fl-restyle .lock-hard { background: var(--red-dim); border: 1px solid var(--fl-red); color: var(--fl-red); }
 
+/* ── Pilots due back polish ─────────────────────────────────────────── */
+.fl-restyle .pilots-card { border-left-width: 1px; border-top-color: var(--card-edge); border-radius: 12px; }
+.fl-restyle .pilots-card--overdue, .fl-restyle .pilots-card--due-soon, .fl-restyle .pilots-card--on-loan { border-left-color: var(--border); }
+.fl-restyle .pilots-count--overdue, .fl-restyle .pilots-status--overdue { background: var(--red-dim); border-color: var(--fl-red); }
+.fl-restyle .pilots-count--due-soon, .fl-restyle .pilots-status--due-soon { background: var(--amber-dim); border-color: var(--fl-amber); }
+.fl-restyle .pilots-status--on-loan { color: var(--text-muted); background: transparent; border-color: var(--border); }
+.fl-restyle .pilots-btn { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .pilots-btn { color: var(--accent-primary); }
+.fl-restyle .pilots-btn:hover { background: var(--accent-border); border-color: var(--accent-border); color: var(--text); }
+.fl-restyle .pilots-cam__sn { font-family: var(--sx-font-mono); }
+.fl-restyle .pilots-empty { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 2rem 1rem; text-align: center; }
+
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
    forced back on hover/stat-on since the lap ring cannot appear.
