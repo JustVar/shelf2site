@@ -4,6 +4,9 @@
 {% block nav_fulfillment %}active{% endblock %}
 
 {% block content %}
+<div class="orderd-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
     <a href="{{ base_path }}/orders/" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">&larr; Orders</a>
 </div>
@@ -28,8 +31,8 @@
     {% if user.has_provisioning_manage %}
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button class="btn btn-sm" onclick="openEditModal()">Edit Order</button>
-        <button class="btn btn-sm" onclick="updateStatus()" style="color:var(--info,#3498db); border-color:var(--info,#3498db);">Update Status</button>
-        <button class="btn btn-sm" onclick="deleteOrder()" style="color:var(--danger,#e74c3c); border-color:var(--danger,#e74c3c);">Delete</button>
+        <button class="btn btn-sm" onclick="updateStatus()">Update Status</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteOrder()">Delete</button>
     </div>
     {% endif %}
 </div>
@@ -529,6 +532,8 @@
     <option value="EDGE300-680TB-Z2">300 ch · 680TB · RAID-Z2 · 4U</option>
 </datalist>
 {% endif %}
+</div>
+</div>{# /orderd-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

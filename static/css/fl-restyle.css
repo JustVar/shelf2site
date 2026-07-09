@@ -687,6 +687,19 @@
 .fl-restyle .summary-card { border-top-color: var(--card-edge); border-radius: 12px; }
 .fl-restyle .summary-card.attention { border-color: var(--fl-amber); }
 
+/* ── Order detail modal kit. The legacy modal-box class ships no base
+   styles (its page kit was lost when the orders list page was retired),
+   so the fl language provides the card. ── */
+.fl-restyle .modal-box { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 16px; padding: 1.25rem; box-shadow: 0 6px 18px rgba(0,0,0,0.30); }
+.fl-restyle .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.fl-restyle .modal-header h2 { color: var(--text); font-size: 1.05rem; margin: 0; }
+.fl-restyle .modal-close { background: var(--accent-primary-dim); color: var(--accent-primary-l); border: 1px solid var(--accent-border); border-radius: 8px; width: 28px; height: 28px; cursor: pointer; }
+[data-theme="light"] .fl-restyle .modal-close { color: var(--accent-primary); }
+.fl-restyle .modal-close:hover { background: var(--accent-border); color: var(--text); }
+.orderd-page.fl-restyle { --accent: var(--accent-primary); }
+.orderd-page.fl-restyle a { color: var(--accent-primary-l); }
+[data-theme="light"] .orderd-page.fl-restyle a { color: var(--accent-primary); }
+
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:

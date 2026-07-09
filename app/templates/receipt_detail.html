@@ -3,7 +3,9 @@
 {% block title %}Receipt {{ r.id }} - Asset Tracker{% endblock %}
 
 {% block content %}
-<div class="fulfillment-page">
+<div class="fulfillment-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div class="rcpt-page">
 
   <a class="rcpt-back" href="{{ base_path }}/receipts">&larr; Back to receipts</a>
@@ -79,4 +81,5 @@
 
 </div>
 </div>
+</div>{# /fulfillment-page.fl-restyle #}
 {% endblock %}
