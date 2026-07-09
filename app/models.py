@@ -2037,3 +2037,30 @@ class C2CCertificationFile(Base):
     size_bytes = Column(Integer, nullable=True)
     uploaded_by = Column(String(128), nullable=True)
     uploaded_at = Column(DateTime, nullable=False, server_default=func.now())
+
+# ----
+# Map visibility curation (Migration 062)
+# ----
+class MapVisibility(Base):
+    """Server-side map curation flags (deployment map redesign).
+
+    level: customer | site | unit. key is the normalized identity:
+    customers/sites use lower(trim(free-text name)) because customer and
+    site are strings across the schema, not tables; units use
+    'item:{id}' / 'edge_box:{id}' because item_schema items carry no
+    per-unit map flag column (legacy edge_boxes.show_on_map is honored
+    in addition). Presence of a row means HIDDEN; unhide deletes it.
+    Read through app/map_visibility.py, never directly in routes.
+    """
+    __tablename__ = "map_visibility"
+    __table_args__ = (
+        UniqueConstraint("level", "key", name="uq_map_visibility_level_key"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    level = Column(String(16), nullable=False)
+    key = Column(String(512), nullable=False)
+    label = Column(String(512), nullable=True)
+    hidden_by = Column(String(128), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
