@@ -236,16 +236,38 @@ async def auth_redirect_middleware(request: Request, call_next):
     path = request.url.path
     # Strip ROOT_PATH prefix so checks work for both direct and proxied requests
     rel = path[len(BP):] if path.startswith(BP) else path
-    public_prefixes = ("/login", "/static", "/events/stream")
+    public_prefixes = ("/login", "/static")
     if any(rel.startswith(p) for p in public_prefixes):
+        return await call_next(request)
+
+    # Check session
+    user_id = request.session.get("session_user_id")
+
+    # Map kiosk confinement runs BEFORE the API and SSE passthroughs - the
+    # lock is only as strong as its position in this chain. A kiosk session
+    # may reach the map, its data feed, logout and the forced password
+    # change flow; API paths answer 403 JSON, everything else bounces to
+    # the map. Reads the session role set at login (stale until re-login on
+    # role change, the same trade-off the forced-change gate makes).
+    if user_id and request.session.get("role") == "map_kiosk":
+        _kiosk_allowed = ("/map", "/logout", "/change-password")
+        if not any(rel == a or rel.startswith(a + "/") for a in _kiosk_allowed):
+            if rel.startswith("/api/") or rel.startswith("/events/"):
+                return JSONResponse(status_code=403, content={"detail": "Map kiosk sessions are restricted to the map"})
+            return RedirectResponse(f"{BP}/map/", status_code=302)
+        # Sliding session for wall displays: mutating the session re-issues
+        # the cookie with a fresh max_age. Throttled to once per hour.
+        _hour = int(datetime.utcnow().timestamp() // 3600)
+        if request.session.get("kiosk_ts") != _hour:
+            request.session["kiosk_ts"] = _hour
+
+    # SSE endpoint authenticates its own session (and rejects kiosks)
+    if rel.startswith("/events/stream"):
         return await call_next(request)
 
     # Let API endpoints return 401 instead of redirect
     if rel.startswith("/api/"):
         return await call_next(request)
-
-    # Check session
-    user_id = request.session.get("session_user_id")
 
     # The map data feed behaves like an API for session expiry: JSON 401 so
     # the client can prompt re-login instead of parsing a redirected HTML
@@ -282,21 +304,6 @@ async def auth_redirect_middleware(request: Request, call_next):
         allowed = ("/change-password", "/logout")
         if not any(rel.startswith(a) for a in allowed):
             return RedirectResponse(f"{BP}/change-password", status_code=302)
-
-    # Map kiosk role: server-side allowlist. A kiosk session may reach the
-    # map, its data feed, logout and the forced password-change flow -
-    # every other path lands back on the map (302, no 403 wandering).
-    # Reads the session role set at login; a role change applies at the
-    # next login, the same trade-off the forced-change gate makes.
-    if user_id and request.session.get("role") == "map_kiosk":
-        _kiosk_allowed = ("/map", "/logout", "/change-password")
-        if not any(rel == a or rel.startswith(a + "/") for a in _kiosk_allowed):
-            return RedirectResponse(f"{BP}/map/", status_code=302)
-        # Sliding session for wall displays: mutating the session re-issues
-        # the cookie with a fresh max_age. Throttled to once per hour.
-        _hour = int(datetime.utcnow().timestamp() // 3600)
-        if request.session.get("kiosk_ts") != _hour:
-            request.session["kiosk_ts"] = _hour
 
     return await call_next(request)
 

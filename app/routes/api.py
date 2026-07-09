@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor, ADMIN_LEVEL_ROLES, User
+from ..auth import get_current_user, require_editor, require_viewer, ADMIN_LEVEL_ROLES, User
 from ..database import get_db
 from ..models import TABLE_MODELS, compute_completeness, AuditLog
 from ..validation import validate_mac_address, validate_serial_number
@@ -20,6 +20,7 @@ def list_devices(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
+    user: User = Depends(require_viewer),
 ):
     """List devices from a specific inventory table."""
     model = TABLE_MODELS.get(table_name)
@@ -180,7 +181,7 @@ def get_global_audit_log(
 
 
 @router.get("/stats")
-def inventory_stats(db: Session = Depends(get_db)):
+def inventory_stats(db: Session = Depends(get_db), user: User = Depends(require_viewer)):
     """Overall inventory statistics."""
     stats = {}
     total = 0
@@ -205,7 +206,7 @@ def inventory_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/vendors")
-def get_vendors(db: Session = Depends(get_db)):
+def get_vendors(db: Session = Depends(get_db), user: User = Depends(require_viewer)):
     """Get list of unique vendors from all inventory tables."""
     from sqlalchemy import distinct
 

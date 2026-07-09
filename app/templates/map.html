@@ -246,7 +246,6 @@
     var STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
     var STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
     var MODE_PROP = { deal: "dealColor", unit: "utColor", status: "statusColor" };
-    var MODE_KEY = { deal: "deal", unit: "category", status: "stSlug" };
 
     var allFeatures = [];
     var meta = null;
@@ -292,6 +291,7 @@
 
     // Dominant-class cluster color: nested case comparing per-class counters.
     function dominantExpr(classes, colorOf, counterPrefix) {
+        if (!classes.length) return "#97A3B6";
         var expr = ["case"];
         for (var i = 0; i < classes.length; i++) {
             var cond = ["all"];
@@ -331,7 +331,10 @@
     }
 
     function addSourceAndLayers() {
-        if (map.getSource("units")) return;
+        // meta gates everything: clusterProperties needs the color dicts.
+        // When the map wins the race against /map/data, reloadData adds
+        // the source once meta lands.
+        if (!meta || map.getSource("units")) return;
         map.addSource("units", {
             type: "geojson",
             data: fc(filteredFeatures()),
@@ -372,6 +375,12 @@
     function refreshSource() {
         if (!mapReady || !map.getSource("units")) return;
         map.getSource("units").setData(fc(filteredFeatures()));
+    }
+
+    function syncControls() {
+        renderDealBars();
+        renderUnitChips();
+        renderLegend();
     }
 
     function setMode(next) {
@@ -420,8 +429,8 @@
             row.appendChild(el("span", "n", String(counts[cls] || 0)));
             row.addEventListener("click", function () {
                 excluded.deal[cls] = !excluded.deal[cls];
-                row.classList.toggle("dim", !!excluded.deal[cls]);
                 refreshSource();
+                syncControls();
             });
             wrap.appendChild(row);
         });
@@ -438,8 +447,8 @@
             chip.appendChild(document.createTextNode(meta.labels.unit[cat] + " (" + (meta.unitCounts[cat] || 0) + ")"));
             chip.addEventListener("click", function () {
                 excluded.unit[cat] = !excluded.unit[cat];
-                chip.classList.toggle("on", !excluded.unit[cat]);
                 refreshSource();
+                syncControls();
             });
             wrap.appendChild(chip);
         });
@@ -497,9 +506,8 @@
             row.appendChild(el("span", null, e.label));
             row.addEventListener("click", function () {
                 excluded[e.bucket][e.key] = !excluded[e.bucket][e.key];
-                row.classList.toggle("dim", !!excluded[e.bucket][e.key]);
                 refreshSource();
-                if (e.bucket === "deal") renderDealBars();
+                syncControls();
             });
             wrap.appendChild(row);
         });
@@ -531,11 +539,12 @@
         document.getElementById("mp-nl-count").textContent = nl.count;
         var list = document.getElementById("mp-nl-list");
         list.textContent = "";
+        if (nl.count > 12) list.appendChild(el("div", "mp-nl", "Showing 12 of " + nl.count));
         nl.items.slice(0, 12).forEach(function (u) {
             var row = el("div", "mp-nl-row");
             row.appendChild(el("span", null, u.label));
             if (u.serial) row.appendChild(el("span", "mono", u.serial));
-            if (CAN_EDIT) {
+            if (CAN_EDIT && u.hasLocation) {
                 var btn = el("button", "mp-fixbtn", "Fix");
                 btn.type = "button";
                 var form = el("div", "mp-fixform");
@@ -546,7 +555,6 @@
                 form.appendChild(lat); form.appendChild(lng); form.appendChild(go);
                 btn.addEventListener("click", function () { form.classList.toggle("open"); });
                 go.addEventListener("click", function () {
-                    if (!u.hasLocation) { alert("Assign the item to a location first; coordinates live on the location."); return; }
                     postJSON("{{ base_path }}/map/set-location",
                              { kind: u.kind, id: u.id, lat: parseFloat(lat.value), lng: parseFloat(lng.value) })
                         .then(function (r) { if (r && r.error) alert(r.error); else reloadData(); });
@@ -639,7 +647,10 @@
             body: JSON.stringify(body),
         }).then(function (r) {
             if (r.status === 401) { document.getElementById("mp-relogin").classList.add("open"); return null; }
-            return r.json();
+            return r.json().then(function (j) {
+                if (!r.ok && j && (j.error || j.detail)) alert(j.error || j.detail);
+                return j;
+            });
         });
     }
 
@@ -654,11 +665,22 @@
             var sc = {};
             allFeatures.forEach(function (f) {
                 var p = f.properties;
-                if (!p.status) return;
-                sc[p.stSlug] = sc[p.stSlug] || { slug: p.stSlug, label: p.status, color: p.statusColor, count: 0 };
+                var label = p.status || "No status";
+                sc[p.stSlug] = sc[p.stSlug] || { slug: p.stSlug, label: label, color: p.statusColor, count: 0 };
                 sc[p.stSlug].count += 1;
             });
+            var newSlugs = Object.keys(sc).sort().join(",");
             statusClassCache = Object.keys(sc).map(function (k) { return sc[k]; });
+            // clusterProperties are frozen at source creation: when the
+            // status vocabulary changes across reloads, rebuild the source
+            // so status-mode dominant coloring stays correct.
+            if (mapReady && map.getSource("units") && window.__mpSlugs !== newSlugs) {
+                ["clusters", "cluster-count", "unit-dots"].forEach(function (l) {
+                    if (map.getLayer(l)) map.removeLayer(l);
+                });
+                map.removeSource("units");
+            }
+            window.__mpSlugs = newSlugs;
             renderMetrics();
             renderDealBars();
             renderUnitChips();
@@ -666,7 +688,12 @@
             renderHidden();
             renderNeedsLocation();
             renderLegend();
-            refreshSource();
+            if (mapReady && !map.getSource("units")) {
+                addSourceAndLayers();
+                setMode(mode);
+            } else {
+                refreshSource();
+            }
         }).catch(function (err) { console.error("map data load failed:", err); });
     }
 
@@ -679,9 +706,10 @@
 
     map.on("click", "clusters", function (e) {
         var f = map.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
+        if (!f) return;
         map.getSource("units").getClusterExpansionZoom(f.properties.cluster_id).then(function (zoom) {
             map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 0.5 });
-        });
+        }).catch(function () {}); // stale cluster id after a setData: ignore
     });
     map.on("click", "unit-dots", function (e) {
         showPopup(e.features[0], e.features[0].geometry.coordinates.slice());

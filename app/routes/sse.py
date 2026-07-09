@@ -304,6 +304,9 @@ async def event_stream(request: Request):
         user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
         if user is None:
             raise HTTPException(status_code=401)
+        if user.role == "map_kiosk":
+            # Wall displays get the map only - no live inventory feed
+            raise HTTPException(status_code=403)
     finally:
         db.close()
 

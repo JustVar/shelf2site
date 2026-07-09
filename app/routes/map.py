@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
@@ -180,7 +181,25 @@ def _collect_units(db, user):
     can_sensitive = user.has_sensitive_customers_access
     by_item, by_edge = _deal_maps(db)
     features = []
-    item_serials = set()
+
+    # Legacy rows load first so migrated items can (a) suppress their twin
+    # via the serial dedup and (b) inherit the twin's order linkage. The
+    # dedup set is built BEFORE any visibility check: hiding a migrated
+    # item must never resurrect its legacy twin.
+    legacy = (
+        db.query(EdgeBox)
+        .filter(
+            EdgeBox.geo_lat.isnot(None),
+            EdgeBox.geo_lng.isnot(None),
+            EdgeBox.show_on_map.is_(True),
+        )
+        .all()
+    )
+    eb_by_serial = {}
+    for eb in legacy:
+        sn = (eb.serial or "").strip().lower()
+        if sn:
+            eb_by_serial[sn] = eb
 
     items = (
         db.query(Item, ItemLocation)
@@ -193,16 +212,25 @@ def _collect_units(db, user):
         )
         .all()
     )
+    item_serials = set()
     for item, loc in items:
+        sn = (item.item_sn or "").strip().lower()
+        if item.item_category == "edge_box" and sn:
+            item_serials.add(sn)
+
+    for item, loc in items:
+        sn = (item.item_sn or "").strip().lower()
         link = by_item.get(item.id)
-        deal, provenance, deal_link = _classify(link)
+        if link is None and sn and sn in eb_by_serial:
+            # Migrated unit: its provisioning rows still point at the
+            # legacy edge_boxes id - inherit that order linkage.
+            link = by_edge.get(eb_by_serial[sn].id)
+        deal, provenance, _l = _classify(link)
         customer = (link.customer_name if link else None) or loc.customer
         site = loc.nickname
         if not unit_visible(hidden, f"item:{item.id}", customer, site,
                             bool(link and link.is_sensitive), can_sensitive):
             continue
-        if item.item_category == "edge_box" and item.item_sn:
-            item_serials.add((item.item_sn or "").strip().lower())
         features.append(_feature(
             f"item:{item.id}", "item", loc.geo_lng, loc.geo_lat,
             item.item_name, item.item_sn, item.item_category,
@@ -212,18 +240,10 @@ def _collect_units(db, user):
             f"{BP}/items/{item.id}",
         ))
 
-    legacy = (
-        db.query(EdgeBox)
-        .filter(
-            EdgeBox.geo_lat.isnot(None),
-            EdgeBox.geo_lng.isnot(None),
-            EdgeBox.show_on_map.is_(True),
-        )
-        .all()
-    )
     for eb in legacy:
-        if (eb.serial or "").strip().lower() in item_serials:
-            continue  # migrated: the item-schema twin already rendered
+        sn = (eb.serial or "").strip().lower()
+        if sn and sn in item_serials:
+            continue  # migrated: the item-schema twin owns this unit
         link = by_edge.get(eb.id)
         deal, provenance, _l = _classify(link, eb.deployment_type)
         customer = (link.customer_name if link else None) or eb.customer
@@ -240,8 +260,12 @@ def _collect_units(db, user):
     return features, hidden, by_item, by_edge
 
 
-def _needs_location(db):
-    """Units that could be mapped but lack coordinates."""
+def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
+    """Mappable units lacking coordinates. Editor-facing: the payload gates
+    this behind is_editor_or_above, and the same visibility rules apply so
+    curated-away or sensitive units never leak through the rail card.
+    Scope: deployed or order-linked units (the card exists to surface
+    deployed-but-unmapped units, not internal shelf stock)."""
     out = []
     items = (
         db.query(Item)
@@ -255,6 +279,13 @@ def _needs_location(db):
         .all()
     )
     for it in items:
+        link = by_item.get(it.id)
+        if link is None and str(it.item_status or "") != "Deployed":
+            continue
+        if not unit_visible(hidden, f"item:{it.id}",
+                            link.customer_name if link else None, None,
+                            bool(link and link.is_sensitive), can_sensitive):
+            continue
         out.append({
             "kind": "item", "id": it.id,
             "label": it.item_name or f"Item #{it.id}",
@@ -271,6 +302,11 @@ def _needs_location(db):
         .all()
     )
     for eb in legacy:
+        link = by_edge.get(eb.id)
+        if not unit_visible(hidden, f"edge_box:{eb.id}",
+                            (link.customer_name if link else None) or eb.customer,
+                            eb.site_name, bool(link and link.is_sensitive), can_sensitive):
+            continue
         out.append({
             "kind": "edge_box", "id": eb.id,
             "label": eb.org or eb.serial or f"Edge box #{eb.id}",
@@ -312,8 +348,11 @@ def map_data(request: Request, db: Session = Depends(get_db),
         if p["status"]:
             status_counts[p["status"]] = status_counts.get(p["status"], 0) + 1
         if p["customer"]:
-            customers.add(norm_key(p["customer"]))
-            cust_units[p["customer"]] = cust_units.get(p["customer"], 0) + 1
+            ck = norm_key(p["customer"])
+            customers.add(ck)
+            if ck not in cust_units:
+                cust_units[ck] = {"label": p["customer"], "n": 0}
+            cust_units[ck]["n"] += 1
         if p["site"]:
             sites.add(norm_key(p["site"]))
     # new-in-30-days: order-linked units whose provisioning row was created
@@ -329,8 +368,8 @@ def map_data(request: Request, db: Session = Depends(get_db),
     due_30 = 0
     for o in pilots["orders"]:
         er = o.get("expected_return")
-        if er and (er - today).days <= 30:
-            due_30 += 1
+        if o.get("order_type") == "pilot" and er and (er - today).days <= 30:
+            due_30 += 1  # includes already-overdue pilots: still due back
     tnb_month = sum(
         1 for o in pilots["orders"]
         if o.get("order_type") == "try_and_buy"
@@ -354,8 +393,14 @@ def map_data(request: Request, db: Session = Depends(get_db),
         "unassigned": deal_counts["unassigned"],
         "new_30": new30,
     }
-    top_customers = sorted(cust_units.items(), key=lambda kv: -kv[1])[:5]
-    needs = _needs_location(db)
+    top_customers = [
+        [v["label"], v["n"]]
+        for v in sorted(cust_units.values(), key=lambda v: -v["n"])[:5]
+    ]
+    can_edit = bool(user.is_editor_or_above)
+    hidden_sets = load_hidden(db)
+    needs = _needs_location(db, by_item, by_edge, hidden_sets,
+                            user.has_sensitive_customers_access) if can_edit else []
 
     payload = {
         "type": "FeatureCollection",
@@ -366,7 +411,7 @@ def map_data(request: Request, db: Session = Depends(get_db),
             "unitCounts": unit_counts,
             "statusCounts": status_counts,
             "topCustomers": top_customers,
-            "needsLocation": {"count": len(needs), "items": needs[:50]},
+            "needsLocation": {"count": len(needs), "items": needs[:50]},  # editor-only: [] otherwise
             "colors": {"deal": DEAL_COLORS, "unit": UNIT_COLORS, "status": STATUS_COLORS},
             "labels": {"deal": DEAL_LABELS, "unit": UNIT_LABELS},
             "canEdit": bool(user.is_editor_or_above),
@@ -392,16 +437,26 @@ async def map_visibility_toggle(request: Request, db: Session = Depends(get_db),
         return JSONResponse(status_code=400, content={"error": "level must be customer|site|unit and key is required"})
     if level in ("customer", "site"):
         key = norm_key(key)
+    key = key[:512]
+    if label:
+        label = label[:512]
     existing = db.query(MapVisibility).filter(
         MapVisibility.level == level, MapVisibility.key == key).first()
+    changed = False
     if hide and existing is None:
         db.add(MapVisibility(level=level, key=key, label=label, hidden_by=user.username))
+        changed = True
     elif not hide and existing is not None:
         db.delete(existing)
-    db.commit()
-    log_event(db, "map_visibility", request=request, user_id=user.id,
-              target_table="map_visibility", action="hide" if hide else "unhide",
-              details=f"{level} {label or key} {'hidden from' if hide else 'restored to'} the map")
+        changed = True
+    if changed:
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()  # concurrent hide of the same key: already done
+        log_event(db, "map_visibility", request=request, user_id=user.id,
+                  target_table="map_visibility", action="hide" if hide else "unhide",
+                  details=f"{level} {label or key} {'hidden from' if hide else 'restored to'} the map")
     return JSONResponse({"status": "ok", "level": level, "key": key, "hidden": hide})
 
 
@@ -420,21 +475,33 @@ async def map_set_location(request: Request, db: Session = Depends(get_db),
         return JSONResponse(status_code=400, content={"error": "id, lat and lng are required"})
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         return JSONResponse(status_code=400, content={"error": "coordinates out of range"})
+    # Fix-only semantics: this endpoint fills MISSING coordinates. It never
+    # overwrites existing ones (no other coordinate editor exists yet, so an
+    # overwrite would be irreversible) and never flips an explicit
+    # show_on_map=False on legacy rows (that boolean is the privacy control).
     if kind == "edge_box":
         eb = db.query(EdgeBox).filter(EdgeBox.id == unit_id).first()
         if not eb:
             return JSONResponse(status_code=404, content={"error": "edge box not found"})
-        eb.geo_lat, eb.geo_lng, eb.show_on_map = lat, lng, True
+        if eb.geo_lat is not None and eb.geo_lng is not None:
+            return JSONResponse(status_code=400, content={"error": "this unit already has coordinates"})
+        eb.geo_lat, eb.geo_lng = lat, lng
         target = eb.serial or f"edge box {unit_id}"
     elif kind == "item":
         item = db.query(Item).filter(Item.id == unit_id).first()
         if not item:
             return JSONResponse(status_code=404, content={"error": "item not found"})
+        if str(item.item_category or "") not in PRODUCT_CATEGORIES:
+            return JSONResponse(status_code=400, content={"error": "only product units appear on the map"})
         if item.location_id is None:
             return JSONResponse(status_code=400, content={
                 "error": "assign the item to a location first; coordinates live on the location"})
         loc = db.query(ItemLocation).filter(ItemLocation.id == item.location_id).first()
-        loc.geo_lat, loc.geo_lng, loc.show_on_map = lat, lng, True
+        if loc.geo_lat is not None and loc.geo_lng is not None:
+            return JSONResponse(status_code=400, content={
+                "error": "this location already has coordinates (shared by all items there)"})
+        loc.geo_lat, loc.geo_lng = lat, lng
+        loc.show_on_map = True  # first geocode implies mapping intent
         target = item.item_sn or f"item {unit_id}"
     else:
         return JSONResponse(status_code=400, content={"error": "kind must be item or edge_box"})
