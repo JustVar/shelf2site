@@ -9,7 +9,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
 from ..models import Item, ItemLocation
-from .dashboard import CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
+from .dashboard import CATEGORY_COLORS, FL_CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
 from .intake import _get_locations as _get_locations_active, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
 from .dashboard import category_display as _cat_display
 from .checkout import _active_users
@@ -42,14 +42,14 @@ def _get_tile_stats(db: Session) -> list[dict]:
     )
     counts = {str(cat): cnt for cat, cnt in raw if cat}
     total = sum(counts.values())
-    tiles = [{"name": "all", "display": "All Items", "count": total, "color": "#BCBEC0"}]
+    tiles = [{"name": "all", "display": "All Items", "count": total, "color": "#C29E9B"}]
     for cat in ALL_CATEGORIES:
         if counts.get(cat, 0) > 0:
             tiles.append({
                 "name": cat,
                 "display": category_display(cat),
                 "count": counts.get(cat, 0),
-                "color": CATEGORY_COLORS.get(cat, "#888888"),
+                "color": FL_CATEGORY_COLORS.get(cat, "#888888"),
             })
     return tiles
 
@@ -139,7 +139,7 @@ def inventory_page(
             "location":     loc_map.get(item.location_id, "—"),
             "sku":          item.brand_sku or "—",
             "last_updated": item.last_updated,
-            "color":        CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+            "color":        FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         })
 
     _log.warning(f"TIMING total before render: {_time.time()-_t0:.3f}s")
@@ -189,7 +189,7 @@ def quick_view(
         "location": loc_map.get(item.location_id, "—"),
         "locations": locations,
         "statuses": STATUSES,
-        "color":    CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+        "color":    FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         "category_display": category_display(item.item_category) if item.item_category else "—",
         "edit_mode": edit == "1",
     })
@@ -246,7 +246,7 @@ def quick_view_save(
         "location": loc_map.get(item.location_id, "—"),
         "locations": locations,
         "statuses": STATUSES,
-        "color":    CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+        "color":    FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         "category_display": category_display(item.item_category) if item.item_category else "—",
         "edit_mode": False,
     })

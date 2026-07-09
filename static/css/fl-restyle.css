@@ -362,6 +362,94 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .pfb-stage.pf-on .pfb-num { background: var(--accent-primary-dim); color: var(--accent-primary-l); }
 [data-theme="light"] .fl-restyle .pfb-stage.pf-on .pfb-num { color: var(--accent-primary); }
 
+/* ── fl-filter-tiles: mini filter tiles with a static category-hued
+   hairline (50 percent strength at rest, full strength + glow + stronger
+   border when active). Set the hue per tile via --tile-hue. ──────────── */
+.fl-restyle .fl-filter-tiles { display: flex; flex-wrap: wrap; gap: 8px; }
+.fl-restyle .fl-ftile { position: relative; overflow: hidden; background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 10px; padding: 10px 14px; min-width: 96px; display: flex; flex-direction: column; gap: 2px; text-decoration: none; transition: border-color .2s, background .2s; }
+.fl-restyle .fl-ftile:hover { border-color: var(--border-hover); background: var(--card-bg-hover); }
+.fl-restyle .fl-ftile-hairline { position: absolute; top: 0; left: 12%; right: 30%; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tile-hue) 50%, transparent), transparent); }
+.fl-restyle .fl-ftile--active { border-color: color-mix(in srgb, var(--tile-hue) 55%, var(--border)); background: var(--card-bg-hover); }
+.fl-restyle .fl-ftile--active .fl-ftile-hairline { background: linear-gradient(90deg, transparent, var(--tile-hue), transparent); box-shadow: 0 0 12px 1px color-mix(in srgb, var(--tile-hue) 55%, transparent); }
+.fl-restyle .fl-ftile-count { font-size: 18px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.fl-restyle .fl-ftile-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+
+/* ── fl-table: body-card table kit. Add fl-table to the <table> whose
+   wrapper is a body card; cell type classes: fl-cell-name (500 weight),
+   fl-cell-sub (mono muted, under the name), fl-cell-mut (muted),
+   fl-cell-date (muted mono). Selected rows wash blush via :has(). ────── */
+.fl-restyle .inv-table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; }
+.fl-restyle .fl-table th { color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--card-bg); }
+.fl-restyle .fl-table td { border-bottom: 1px solid var(--border); color: var(--text); }
+.fl-restyle .fl-table tbody tr:hover { background: var(--card-bg-hover); }
+.fl-restyle .fl-table tbody tr:hover .sx-stick-left,
+.fl-restyle .fl-table tbody tr:hover .sx-stick-right { background: var(--card-bg-hover); }
+.fl-restyle .fl-table .sx-stick-left, .fl-restyle .fl-table .sx-stick-right { background: var(--card-bg); }
+.fl-restyle .fl-table tbody tr:has(.row-cb:checked) { background: rgba(194,158,155,0.07); }
+.fl-restyle .fl-table tbody tr:has(.row-cb:checked) .sx-stick-left,
+.fl-restyle .fl-table tbody tr:has(.row-cb:checked) .sx-stick-right { background: color-mix(in srgb, var(--card-bg), var(--accent-primary) 7%); }
+.fl-restyle .fl-cell-name { font-weight: 500; color: var(--text); }
+.fl-restyle .fl-cell-sub { font-size: 11px; color: var(--text-muted); font-family: var(--sx-font-mono); }
+.fl-restyle .fl-cell-mut { font-size: 12px; color: var(--text-muted); }
+.fl-restyle .fl-cell-date { font-size: 11px; color: var(--text-muted); font-family: var(--sx-font-mono); }
+
+/* checkboxes: 13px rounded squares, blush fill, on-accent check/dash */
+.fl-restyle .inv-cb { appearance: none; -webkit-appearance: none; width: 13px; height: 13px; border: 1px solid var(--text-muted); border-radius: 4px; background: transparent; cursor: pointer; position: relative; vertical-align: middle; }
+.fl-restyle .inv-cb:checked, .fl-restyle .inv-cb:indeterminate { background: var(--accent-primary); border-color: var(--accent-primary); }
+.fl-restyle .inv-cb:checked::after { content: ''; position: absolute; left: 3.5px; top: 0.5px; width: 4px; height: 8px; border: solid var(--on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.fl-restyle .inv-cb:indeterminate::after { content: ''; position: absolute; left: 2.5px; top: 5px; width: 6px; height: 2px; background: var(--on-accent); }
+
+/* status pills: alert statuses tinted, neutral statuses plain muted text */
+.fl-restyle .inv-status { background: transparent; color: var(--text-muted); padding: 0; border-radius: 0; font-size: 12px; }
+.fl-restyle .inv-status--deployed, .fl-restyle .inv-status--pending,
+.fl-restyle .inv-status--checkedout, .fl-restyle .inv-status--undeployable { font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 8px; }
+.fl-restyle .inv-status--deployed { color: var(--fl-green); background: var(--green-dim); border: 1px solid var(--fl-green); }
+.fl-restyle .inv-status--pending, .fl-restyle .inv-status--checkedout { color: var(--fl-amber); background: var(--amber-dim); border: 1px solid var(--fl-amber); }
+.fl-restyle .inv-status--undeployable { color: var(--fl-red); background: var(--red-dim); border: 1px solid var(--fl-red); }
+
+/* search + selects + inputs + buttons on the filter row */
+.fl-restyle .inv-search { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; transition: border-color .25s, box-shadow .25s; }
+.fl-restyle .inv-search:hover { border-color: var(--accent-border); }
+.fl-restyle .inv-search:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
+.fl-restyle .inv-search input { color: var(--text); }
+.fl-restyle .inv-select, .fl-restyle .inv-input { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+.fl-restyle .inv-select:focus, .fl-restyle .inv-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+.fl-restyle .inv-btn { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); font-weight: 600; }
+[data-theme="light"] .fl-restyle .inv-btn { color: var(--accent-primary); }
+.fl-restyle .inv-btn:hover { background: var(--accent-border); color: var(--text); border-color: var(--accent-border); }
+
+/* bulk bar: blush-bordered band, tint trigger, panel menu, blush apply */
+.fl-restyle .inv-bulk-bar { background: var(--card-bg); border: 1px solid var(--accent-border); border-radius: 12px; }
+.fl-restyle .inv-bulk-left { color: var(--text); }
+.fl-restyle .inv-bulk-count-wrap { font-weight: 500; }
+.fl-restyle .inv-bulk-clear { color: var(--text-muted); }
+.fl-restyle .inv-bulk-clear:hover { color: var(--text); }
+.fl-restyle .inv-bulk-menu-trigger { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); font-weight: 600; }
+[data-theme="light"] .fl-restyle .inv-bulk-menu-trigger { color: var(--accent-primary); }
+.fl-restyle .inv-bulk-menu-trigger:hover { background: var(--accent-border); border-color: var(--accent-border); color: var(--text); }
+.fl-restyle .inv-bulk-menu-caret { color: inherit; }
+.fl-restyle .inv-bulk-menu { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 10px; box-shadow: var(--card-shadow-hover); }
+.fl-restyle .inv-bulk-menu-item { color: var(--text); }
+.fl-restyle .inv-bulk-menu-item:hover { background: var(--card-bg-hover); }
+.fl-restyle .inv-bulk-action-label { color: var(--text-muted); }
+.fl-restyle .inv-bulk-cancel-action { color: var(--text-muted); }
+.fl-restyle .inv-bulk-cancel-action:hover { color: var(--text); }
+.fl-restyle .inv-bulk-apply { background: var(--accent-primary); color: var(--on-accent); border: none; border-radius: 8px; font-weight: 600; }
+.fl-restyle .inv-bulk-apply:hover:not(:disabled) { background: var(--accent-primary); filter: brightness(1.06); }
+
+/* pagination + empty state + quick view surface */
+.fl-restyle .inv-page-info { color: var(--text-muted); }
+.fl-restyle .inv-page-btn { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+.fl-restyle .inv-page-btn:hover { border-color: var(--accent-border); }
+.fl-restyle .inv-page-btn--active { border-color: var(--accent-primary); background: var(--accent-primary-dim); color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .inv-page-btn--active { color: var(--accent-primary); }
+.fl-restyle .inv-empty { color: var(--text-muted); }
+.fl-restyle .inv-empty a { color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .inv-empty a { color: var(--accent-primary); }
+.fl-restyle .qv-panel { background: var(--card-bg); border-left: 1px solid var(--border); }
+.fl-restyle .qv-header { border-bottom: 1px solid var(--border); }
+.fl-restyle .qv-title { color: var(--text); }
+
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
    forced back on hover/stat-on since the lap ring cannot appear.

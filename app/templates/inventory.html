@@ -8,25 +8,28 @@
 {% block content %}
 {% from 'partials/icons.html' import icon %}
 
-<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-  <h1 style="font-size:1.25rem;font-weight:600;color:var(--sx-white);margin:0">Inventory</h1>
-  <div style="font-size:12px;color:var(--sx-gray)">{{ total_count }} item{{ 's' if total_count != 1 }}</div>
+<div class="inventory-page fl-restyle">
+{% include "_fl_bg.html" %}
+
+<div class="page-header fl-lift" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  <h1 style="font-size:1.25rem;font-weight:600;color:var(--text);margin:0">Inventory</h1>
+  <div style="font-size:12px;color:var(--text-muted)">{{ total_count }} item{{ 's' if total_count != 1 }}</div>
 </div>
 
 <!-- Category Tiles -->
-<div class="inv-tiles">
+<div class="inv-tiles fl-filter-tiles fl-lift">
   {% for tile in tiles %}
   <a href="{{ base_path }}/inventory?category={{ tile.name }}{% if status %}&status={{ status }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
-     class="inv-tile {% if category == tile.name %}inv-tile--active{% endif %}">
-    <div class="inv-tile__accent" style="background:{{ tile.color }}"></div>
-    <div class="inv-tile__count">{{ tile.count }}</div>
-    <div class="inv-tile__label">{{ tile.display }}</div>
+     class="inv-tile fl-ftile{% if category == tile.name %} inv-tile--active fl-ftile--active{% endif %}" style="--tile-hue:{{ tile.color }}">
+    <div class="fl-ftile-hairline"></div>
+    <div class="inv-tile__count fl-ftile-count">{{ tile.count }}</div>
+    <div class="inv-tile__label fl-ftile-label">{{ tile.display }}</div>
   </a>
   {% endfor %}
 </div>
 
 <!-- Filters -->
-<div class="inv-filters">
+<div class="inv-filters fl-lift">
   <div class="inv-search">
     {{ icon('search', size=13) }}
     <input type="text" id="inv-search-input" placeholder="Search name, serial, SKU..." value="{{ q }}" autocomplete="off">
@@ -49,7 +52,7 @@
 </div>
 
 <!-- Bulk Action Bar (kebab-menu pattern, mirrors Triage) -->
-<div id="inv-bulk-bar" class="inv-bulk-bar" style="display:none">
+<div id="inv-bulk-bar" class="inv-bulk-bar fl-lift" style="display:none">
   <div class="inv-bulk-left">
     <span class="inv-bulk-count-wrap"><span id="inv-bulk-count">0</span> selected</span>
     <button type="button" class="inv-bulk-clear" onclick="invClearSelection()">Clear</button>
@@ -87,8 +90,8 @@
 </div>
 
 <!-- Table -->
-<div class="inv-table-wrap">
-  <table class="inv-table" style="min-width:1000px">
+<div class="inv-table-wrap fl-lift">
+  <table class="inv-table fl-table" style="min-width:1000px">
     <thead>
       <tr>
         <th class="sx-stick-left sx-stick-left--checkbox"><input type="checkbox" class="inv-cb" id="select-all" onclick="invToggleSelectAll(this)"></th>
@@ -109,8 +112,8 @@
             <input type="checkbox" class="inv-cb row-cb" value="{{ row.id }}" onclick="invOnRowCheckboxChange(event)">
           </td>
           <td class="sx-stick-left sx-stick-left--primary">
-            <div style="font-weight:500;color:var(--sx-white)">{{ row.name }}</div>
-            <div style="font-size:11px;color:var(--sx-gray)">{{ row.sn }}</div>
+            <div class="fl-cell-name">{{ row.name }}</div>
+            <div class="fl-cell-sub">{{ row.sn }}</div>
           </td>
           <td>
             <span class="inv-cat-pill" style="background:{{ row.color }}22;color:{{ row.color }}">
@@ -121,9 +124,9 @@
             {% set s = row.status | lower | replace(' ', '') | replace('-', '') %}
             <span class="inv-status inv-status--{{ s }}">{{ row.status }}</span>
           </td>
-          <td style="font-size:12px;color:var(--sx-gray)">{{ row.location }}</td>
-          <td style="font-size:12px;color:var(--sx-gray)">{{ row.sku }}</td>
-          <td style="font-size:11px;color:var(--sx-gray)">
+          <td class="fl-cell-mut">{{ row.location }}</td>
+          <td class="fl-cell-mut">{{ row.sku }}</td>
+          <td class="fl-cell-date">
             {{ row.last_updated.strftime('%b %d, %Y') if row.last_updated else '—' }}
           </td>
           <td class="sx-stick-right sx-stick-right--actions" style="text-align:right">
@@ -151,7 +154,7 @@
 
 <!-- Pagination -->
 {% if total_pages > 1 %}
-<div class="inv-pagination">
+<div class="inv-pagination fl-lift">
   <div class="inv-page-info">
     Showing {{ (current_page - 1) * 50 + 1 }}–{{ [current_page * 50, total_count] | min }} of {{ total_count }}
   </div>
@@ -573,4 +576,5 @@ function applyFilters() {
   window.location.href = url.toString();
 }
 </script>
+</div>{# /inventory-page.fl-restyle #}
 {% endblock %}
