@@ -77,6 +77,9 @@
 {% endblock %}
 
 {% block content %}
+<div class="vendorp-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <!-- Back link -->
 <div style="margin-bottom: 0.5rem;">
     <a href="{{ base_path }}/vendors/" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Vendor Profiles</a>
@@ -348,6 +351,8 @@
     </div>
 </div>
 {% endif %}
+</div>
+</div>{# /vendorp-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

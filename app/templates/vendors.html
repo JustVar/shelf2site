@@ -4,6 +4,9 @@
 {% block nav_vendors %}active{% endblock %}
 
 {% block content %}
+<div class="vendors-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
     <h1>Vendor Profiles</h1>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -246,6 +249,8 @@
         </form>
     </div>
 </div>
+</div>
+</div>{# /vendors-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

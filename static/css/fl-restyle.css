@@ -700,6 +700,14 @@
 .orderd-page.fl-restyle a { color: var(--accent-primary-l); }
 [data-theme="light"] .orderd-page.fl-restyle a { color: var(--accent-primary); }
 
+/* ── Sites and vendors pages. modal-content is a third legacy modal
+   shell with no base styles anywhere, so the fl kit provides the card;
+   quality ring and status colors remap through the page scope. ── */
+.fl-restyle .modal-content { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 16px; padding: 1.25rem; box-shadow: 0 6px 18px rgba(0,0,0,0.30); }
+.fl-restyle .modal-header h3 { color: var(--text); margin: 0; }
+.sites-page.fl-restyle, .sited-page.fl-restyle, .vendors-page.fl-restyle, .vendorp-page.fl-restyle, .vendord-page.fl-restyle { --success: var(--fl-green); --warning: var(--fl-amber); --danger: var(--fl-red); }
+.fl-restyle .stat-box { border-top-color: var(--card-edge); border-radius: 10px; }
+
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:

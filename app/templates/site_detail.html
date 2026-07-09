@@ -4,6 +4,9 @@
 {% block nav_sites %}active{% endblock %}
 
 {% block content %}
+<div class="sited-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
     <a href="{{ base_path }}/sites/" style="color: var(--text-muted); text-decoration: none;">&larr; All Sites</a>
     <h1 style="margin: 0;">{{ site.name }}</h1>
@@ -281,6 +284,8 @@
         <div id="edit-site-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>
 </div>
+</div>
+</div>{# /sited-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}
