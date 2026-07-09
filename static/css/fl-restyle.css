@@ -578,6 +578,34 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .users-btn--danger { background: var(--red-dim); border-color: var(--fl-red); color: var(--fl-red); }
 .fl-restyle .users-btn--danger:hover { background: rgba(255,107,107,0.25); color: var(--fl-red); }
 
+/* ── Admin data and log pages kit (audit, errors, oui, part numbers,
+   procurement, receipts, storage). Plain data tables + generic legacy
+   classes, all scoped so non-opted pages keep the old look. ─────────── */
+.fl-restyle .table-section table th, .fl-restyle .sx-table th, .fl-restyle .rcpt-table th { color: var(--text-muted); border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; background: var(--card-bg); }
+.fl-restyle .table-section table td, .fl-restyle .sx-table td, .fl-restyle .rcpt-table td { border-bottom: 1px solid var(--border); color: var(--text); }
+.fl-restyle .table-section table tbody tr:hover, .fl-restyle .sx-table tbody tr:hover, .fl-restyle .rcpt-table tbody tr:hover { background: var(--card-bg-hover); }
+.fl-restyle .rcpt-table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; }
+.fl-restyle .btn, .fl-restyle .rcpt-btn, .fl-restyle .btn-page { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); font-weight: 600; }
+[data-theme="light"] .fl-restyle .btn, [data-theme="light"] .fl-restyle .rcpt-btn, [data-theme="light"] .fl-restyle .btn-page { color: var(--accent-primary); }
+.fl-restyle .btn:hover, .fl-restyle .rcpt-btn:hover, .fl-restyle .btn-page:hover { background: var(--accent-border); color: var(--text); }
+.fl-restyle .btn-primary, .fl-restyle .btn.btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--on-accent); }
+.fl-restyle .btn-primary:hover { background: var(--accent-primary); filter: brightness(1.06); color: var(--on-accent); }
+.fl-restyle .btn-page.active { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--on-accent); }
+.fl-restyle .summary-card, .fl-restyle .card { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; }
+.fl-restyle .filter-group label, .fl-restyle .form-group label { color: var(--text-muted); }
+.fl-restyle .filter-group input, .fl-restyle .filter-group select,
+.fl-restyle .form-group input, .fl-restyle .form-group select { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+.fl-restyle .filter-group input:focus, .fl-restyle .filter-group select:focus,
+.fl-restyle .form-group input:focus, .fl-restyle .form-group select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+.fl-restyle .badge { background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; font-weight: 600; font-family: var(--sx-font-mono); }
+.fl-restyle .badge--danger { background: var(--red-dim); color: var(--fl-red); border-color: var(--fl-red); }
+.fl-restyle .sx-pill, .fl-restyle .sx-pill--blue, .fl-restyle .sx-pill--purple { background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; }
+.fl-restyle .action-badge { font-family: var(--sx-font-mono); background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; }
+.fl-restyle .action-badge.delete { background: var(--red-dim); color: var(--fl-red); border-color: var(--fl-red); }
+.fl-restyle .no-results, .fl-restyle .loading, .fl-restyle .rcpt-muted { color: var(--text-muted); }
+.fl-restyle .timestamp { font-family: var(--sx-font-mono); color: var(--text-muted); }
+.fl-restyle .alert-banner { background: var(--amber-dim); border: 1px solid var(--fl-amber); border-radius: 12px; color: var(--fl-amber); }
+
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
    forced back on hover/stat-on since the lap ring cannot appear.

@@ -3,6 +3,9 @@
 {% block title %}Part Numbers - Asset Tracker{% endblock %}
 
 {% block content %}
+<div class="partnums-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Part Numbers</h1>
 <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
     The Company SKU catalog. SKUs defined here are the managed vocabulary that
@@ -180,6 +183,8 @@
         <div id="pn-edit-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>
 </div>
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

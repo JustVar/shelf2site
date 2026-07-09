@@ -4,6 +4,9 @@
 {% block nav_admin %}{% endblock %}
 
 {% block content %}
+<div class="storage-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Storage Monitor</h1>
 <p class="subtitle">Photo storage usage and disk space monitoring</p>
 
@@ -158,4 +161,6 @@ details[open] summary {
 }
 </style>
 
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}

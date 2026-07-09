@@ -4,6 +4,9 @@
 {% block nav_admin_oui %}active{% endblock %}
 
 {% block content %}
+<div class="oui-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>OUI Reference</h1>
 <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
     Auto-populated reference of all hardware manufacturers detected in your inventory.
@@ -175,6 +178,8 @@
         <div id="edit-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>
 </div>
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

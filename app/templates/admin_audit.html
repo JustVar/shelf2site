@@ -4,6 +4,9 @@
 {% block nav_admin_audit %}active{% endblock %}
 
 {% block content %}
+<div class="audit-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Audit Log</h1>
 
 <!-- Filters -->
@@ -59,7 +62,7 @@
                 <tr>
                     <td style="white-space: nowrap;">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') if e.timestamp else '-' }}</td>
                     <td>{{ users_map.get(e.user_id, 'System') if e.user_id else 'System' }}</td>
-                    <td><span class="badge badge-count">{{ e.event_type }}</span></td>
+                    <td><span class="badge badge-count{% if 'failed' in e.event_type or 'deleted' in e.event_type %} badge--danger{% endif %}">{{ e.event_type }}</span></td>
                     <td>{{ e.action or '-' }}</td>
                     <td>
                         {% if e.target_table %}
@@ -89,6 +92,8 @@
 <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">
     Showing most recent 500 entries.
 </p>
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

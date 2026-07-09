@@ -4,6 +4,9 @@
 {% block nav_admin_procurement %}active{% endblock %}
 
 {% block content %}
+<div class="procurement-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
     <h1 style="margin: 0;">Procurement & Vendor Analytics</h1>
     <div style="display: flex; gap: 0.5rem;">
@@ -231,4 +234,6 @@
     </div>
 </div>
 
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}

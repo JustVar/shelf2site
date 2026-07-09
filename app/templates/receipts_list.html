@@ -3,6 +3,9 @@
 {% block title %}Receipts - Asset Tracker{% endblock %}
 
 {% block content %}
+<div class="receipts-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div class="fulfillment-page">
 <div class="rcpt-page">
 
@@ -81,4 +84,6 @@
 <script>
   var rcptOpen = function (id) { window.location.href = "{{ base_path }}/receipts/" + id; };
 </script>
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}
