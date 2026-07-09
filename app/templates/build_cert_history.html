@@ -50,7 +50,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="fulfillment-page">
+<div class="fulfillment-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div class="bch-page">
 
   <a class="bch-back" href="{{ base_path }}/fulfillment/certifications{% if back_prov_id %}/{{ back_prov_id }}{% endif %}">&larr; Back to certification</a>
@@ -116,6 +118,7 @@
 
 </div>
 </div>
+</div>{# /fulfillment-page.fl-restyle #}
 
 <script>
   function bchToggle(el) {

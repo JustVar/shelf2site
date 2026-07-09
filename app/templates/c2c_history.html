@@ -70,7 +70,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="fulfillment-page">
+<div class="fulfillment-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div class="c2ch-page">
 
   <a class="c2ch-back" href="{{ base_path }}/fulfillment/c2c">&larr; Back to C2C cameras</a>
@@ -140,4 +142,5 @@
 
 </div>
 </div>
+</div>{# /fulfillment-page.fl-restyle #}
 {% endblock %}

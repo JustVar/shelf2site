@@ -126,6 +126,7 @@
   .certd-upload input[type=file] { font-size: 0.8rem; color: var(--text-muted); }
 
   .certd-hist-table { width: 100%; border-collapse: collapse; }
+  .certd-hist-table thead th { background: transparent; }
   .certd-hist-wrap { overflow-x: auto; }
   .certd-hist-table th {
     white-space: nowrap;
@@ -151,7 +152,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="fulfillment-page">
+<div class="fulfillment-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
   <div class="certd-page">
 
     <a class="certd-back" href="{{ base_path }}/fulfillment/certifications">&larr; Back to certifications</a>
@@ -328,6 +331,7 @@
 
   </div>
 </div>
+</div>{# /fulfillment-page.fl-restyle #}
 
 <script>
   var CERTD_PROV_ID = {{ device.prov_id }};

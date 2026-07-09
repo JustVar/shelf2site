@@ -56,6 +56,7 @@
   }
 
   .cert-table { width: 100%; border-collapse: collapse; }
+  .cert-table thead th { background: transparent; }
   .cert-table th {
     text-align: left; font-size: 0.68rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.04em;
@@ -116,7 +117,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="fulfillment-page">
+<div class="fulfillment-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
   <div class="cert-page">
 
     <div class="cert-page__header">
@@ -188,6 +191,7 @@
 
   </div>
 </div>
+</div>{# /fulfillment-page.fl-restyle #}
 
 <script>
   function certFilter(q) {
