@@ -2520,13 +2520,6 @@ thead th:nth-child(1) {
     opacity: 0.7;
 }
 
-.pfb-connector {
-    flex: 1;
-    height: 1px;
-    background: var(--border-subtle);
-    min-width: 10px;
-}
-
 /* ── Command band / Pipeline responsive ────────────────────────── */
 @media (max-width: 1280px) {
     .cb-tools { display: none; }
@@ -4615,13 +4608,6 @@ body.sx-nav-collapsed .sx-nav__subgroup-content .sx-nav__link {
   padding: 0.5rem 0.65rem; outline: none;
 }
 .c2c-panel__select:focus { border-color: var(--fl-green, #10b981); }
-.c2c-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.c2c-chip {
-  font-size: 0.76rem; font-weight: 600; padding: 0.3rem 0.75rem;
-  border-radius: 16px; border: 1px solid var(--border);
-}
-.c2c-chip--active { color: #fff; background: var(--fl-green, #10b981); border-color: transparent; }
-.c2c-chip--disabled { color: var(--text-muted); background: transparent; opacity: 0.55; cursor: not-allowed; }
 
 /* ============================================================
    Order-type badge - order classification (sale / pilot / try_and_buy / demo;
