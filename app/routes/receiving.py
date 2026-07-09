@@ -204,7 +204,7 @@ async def submit_device(
     # Validate MAC addresses if provided
     validation_errors = {}
     for mac_field in ["mac_address", "mac_address_1", "mac_address_2"]:
-        mac_value = body.get(mac_field, "").strip()
+        mac_value = (body.get(mac_field) or "").strip()
         if mac_value:
             mac_valid, mac_result = validate_mac_address(mac_value)
             if not mac_valid:
@@ -278,7 +278,7 @@ async def submit_device(
 
     # Route to pending review queue
     pending = PendingDevice(
-        mac_address=body.get("mac_address", body.get("mac_address_1", f"intake-{serial}")),
+        mac_address=body.get("mac_address") or body.get("mac_address_1") or f"intake-{serial}",
         hostname=None,  # Hostname is for network-discovered devices only
         manufacturer=body.get("manufacturer", ""),
         suggested_table=target_table or "network_equipment",
