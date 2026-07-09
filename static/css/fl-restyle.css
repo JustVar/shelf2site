@@ -296,6 +296,20 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .fl-obtn.danger { background: var(--red-dim); border-color: var(--fl-red); color: var(--fl-red); }
 .fl-restyle .fl-obtn.danger:hover { background: rgba(255,107,107,0.25); }
 
+/* ── Pipeline filter bar (pfb): quiet banner, tint active state.
+   Scoped so non-opted boards keep the legacy v2 look; each page opt-in
+   brings this along automatically. Inactive dot colors stay server-fed
+   (informational, small doses). ─────────────────────────────────────── */
+.fl-restyle .pipe-filter-bar { border-radius: 12px; border-top-color: var(--card-edge); }
+.fl-restyle .pfb-header { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; }
+.fl-restyle .pfb-title { color: var(--text-muted); font-weight: 700; letter-spacing: .06em; }
+.fl-restyle .pfb-stage.pf-on { background: var(--accent-primary-dim); }
+.fl-restyle .pfb-stage.pf-on .pfb-dot { background: var(--accent-primary); border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); }
+.fl-restyle .pfb-stage.pf-on .pfb-lbl { color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .pfb-stage.pf-on .pfb-lbl { color: var(--accent-primary); }
+.fl-restyle .pfb-stage.pf-on .pfb-num { background: var(--accent-primary-dim); color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .pfb-stage.pf-on .pfb-num { color: var(--accent-primary); }
+
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
    forced back on hover/stat-on since the lap ring cannot appear.
