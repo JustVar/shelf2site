@@ -158,7 +158,6 @@ def inventory_page(
         "location":     location,
         "q":            q,
         "page":         "inventory",
-        "category_colors": CATEGORY_COLORS,
         "users":        [{"id": u.id, "display_name": u.display_name} for u in _active_users(db)],
     })
 
