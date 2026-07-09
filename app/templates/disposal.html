@@ -4,11 +4,14 @@
 {% block nav_disposal %}active{% endblock %}
 
 {% block content %}
+<div class="disposal-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Disposal & End-of-Life</h1>
 
 <!-- Pending Sanitization Alert -->
 {% if pending_sanitization > 0 %}
-<div class="alert-banner" style="border-left-color: #FFD700;">
+<div class="alert-banner">
     <span class="icon">!</span>
     <span>
         <strong>{{ pending_sanitization }} device{{ 's' if pending_sanitization != 1 else '' }}</strong>
@@ -78,7 +81,7 @@
                     <td>
                         <button class="btn btn-sm" onclick="openEditDispositionModal({{ item.disposition.id }})">Edit</button>
                         {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
-                        <button class="btn btn-sm" style="color: #FF4444;" onclick="deleteDisposition({{ item.disposition.id }})">Delete</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteDisposition({{ item.disposition.id }})">Delete</button>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -280,6 +283,8 @@
         </form>
     </div>
 </div>
+</div>
+</div>{# /disposal-page.fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

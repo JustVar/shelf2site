@@ -614,6 +614,30 @@
 .fl-restyle .badge-warning { background: var(--amber-dim); color: var(--fl-amber); border-color: var(--fl-amber); }
 .fl-restyle .badge-danger { background: var(--red-dim); color: var(--fl-red); border-color: var(--fl-red); }
 
+/* ── Flow pages + generic legacy-kit twins (modal, btn variants, inline alerts).
+   Consumers: disposal, warranty, receive (opt-in), and the already-opted
+   admin oui / part numbers / spreadsheet sync pages, whose danger and
+   success buttons this aligns with the tint rule (never solid red).
+   Scoped under .fl-restyle: unopted pages keep the legacy look. ── */
+.fl-restyle .modal { border-radius: 16px; border-top-color: var(--card-edge); }
+.fl-restyle .modal h3 { color: var(--text); }
+.fl-restyle .btn-secondary { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .btn-secondary { color: var(--accent-primary); }
+.fl-restyle .btn-secondary:hover:not(:disabled) { background: var(--accent-border); color: var(--text); }
+.fl-restyle .btn-danger { background: var(--red-dim); border: 1px solid var(--fl-red); color: var(--fl-red); }
+.fl-restyle .btn-danger:hover:not(:disabled) { background: var(--red-dim); color: var(--fl-red); filter: brightness(1.12); }
+[data-theme="light"] .fl-restyle .btn-danger, [data-theme="light"] .fl-restyle .btn-danger:hover:not(:disabled) { color: var(--fl-red); }
+.fl-restyle .btn-success { background: var(--green-dim); border: 1px solid var(--fl-green); color: var(--fl-green); }
+.fl-restyle .btn-success:hover:not(:disabled) { background: var(--green-dim); color: var(--fl-green); filter: brightness(1.12); }
+[data-theme="light"] .fl-restyle .btn-success, [data-theme="light"] .fl-restyle .btn-success:hover:not(:disabled) { color: var(--fl-green); }
+.fl-restyle .alert { border-radius: 10px; }
+.fl-restyle .alert-info { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); color: var(--text); }
+.fl-restyle .alert-success { background: var(--green-dim); border: 1px solid var(--fl-green); color: var(--fl-green); }
+.fl-restyle .alert-warning { background: var(--amber-dim); border: 1px solid var(--fl-amber); color: var(--fl-amber); }
+.fl-restyle .alert-danger { background: var(--red-dim); border: 1px solid var(--fl-red); color: var(--fl-red); }
+.fl-restyle .modal .form-group input, .fl-restyle .modal .form-group select, .fl-restyle .modal .form-group textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+.fl-restyle .modal .form-group input:focus, .fl-restyle .modal .form-group select:focus, .fl-restyle .modal .form-group textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:
