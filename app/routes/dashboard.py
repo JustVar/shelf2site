@@ -44,6 +44,19 @@ CATEGORY_COLORS = {
     "cloud_box":       "#7B68EE",
 }
 
+# fl-restyle palette for opted-in pages (dashboard today; propagation pages
+# import this as they opt in). Non-opted pages keep CATEGORY_COLORS above.
+FL_CATEGORY_COLORS = {
+    **CATEGORY_COLORS,
+    "camera":        "#A492D6",
+    "computer":      "#0075FF",
+    "gpu":           "#FF6B6B",
+    "storage_drive": "#FFB547",
+    "edge_box":      "#2CD9FF",
+    "camera_c2c":    "#01B574",
+    "cloud_box":     "#7FA3CE",
+}
+
 ALL_CATEGORIES = list(CATEGORY_COLORS.keys())
 
 PRODUCT_CATEGORIES = ["edge_box", "cloud_box", "camera_c2c"]
@@ -146,7 +159,7 @@ def dashboard(
             "display": category_display(cat),
             "count":   counts_map.get(cat, 0),
             "pct":     round(counts_map.get(cat, 0) / total_for_pct * 100, 1),
-            "color":   CATEGORY_COLORS.get(cat, "#888888"),
+            "color":   FL_CATEGORY_COLORS.get(cat, "#888888"),
         }
         for cat in ALL_CATEGORIES
         if counts_map.get(cat, 0) > 0
@@ -168,7 +181,7 @@ def dashboard(
             "status":       str(item.item_status) if item.item_status else "—",
             "last_updated": item.last_updated,
             "is_new":       item.created_at == item.last_updated,
-            "color":        CATEGORY_COLORS.get(str(item.item_category), "#888888"),
+            "color":        FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         }
         for item in recent_items
     ]

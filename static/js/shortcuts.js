@@ -29,7 +29,15 @@
     var path = NAV[e.key.toLowerCase()];
     if (path) {
       e.preventDefault();
-      window.location.href = window.BP + path;
+      // Flash the matching quick-action row when one exists (fl-restyle
+      // rail), then navigate; instant navigation on pages without a rail.
+      var row = document.querySelector('.db-action[data-key="' + e.key.toLowerCase() + '"]');
+      if (row) {
+        row.classList.add("flash");
+        setTimeout(function () { window.location.href = window.BP + path; }, 150);
+      } else {
+        window.location.href = window.BP + path;
+      }
     }
   });
 

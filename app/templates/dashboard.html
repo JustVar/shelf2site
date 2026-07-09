@@ -5,83 +5,76 @@
 
 {% block content %}
 {% from 'partials/icons.html' import icon %}
+{% from "_fl_icons.html" import fl_icon %}
+
+<div class="dashboard-page fl-restyle">
+{% include "_fl_bg.html" %}
 
 <!-- Search -->
-<div class="db-search" onclick="document.getElementById('db-search-input').focus()">
+<div class="db-search fl-lift" onclick="document.getElementById('db-search-input').focus()">
   {{ icon('search', size=14) }}
   <input id="db-search-input" type="text" placeholder="Search or press / to jump here..." autocomplete="off">
   <span class="db-search-hint">/</span>
 </div>
 
-<!-- Hero Row -->
-<div class="db-hero">
-  <div class="db-hero-cell">
-    <div class="db-hero-n">{{ total_items }}</div>
-    <div class="db-hero-l">Total items</div>
+<!-- Hero Row: three fl-hero tiles -->
+<div class="db-hero fl-lift">
+  <div class="fl-hero" style="--glow-color:var(--accent-primary-l); --glow-soft:rgba(227,203,199,0.55);">
+    <div class="fl-hairline"></div>
+    <div>
+      <div class="m-label">Total Items</div>
+      <div class="m-value">{{ total_items }}</div>
+      <div class="m-sub" style="color:var(--accent-primary);">{{ category_counts|length }} Categories</div>
+    </div>
+    {{ fl_icon('box', 'blush', 38, 'm-icon') }}
   </div>
-
-  <div class="db-hero-cell">
-    <div class="db-hero-l" style="margin-bottom:8px">Deployed</div>
-    <div class="db-deployed-row">
-      <div class="db-deployed-label">Edge Box</div>
-      <div class="db-deployed-n" style="color:#378ADD">{{ deployed.edge_box }}</div>
+  <div class="fl-hero" style="--glow-color:var(--fl-green); --glow-soft:rgba(1,181,116,0.55);">
+    <div class="fl-hairline"></div>
+    <div>
+      <div class="m-label">Deployed</div>
+      <div class="m-value">{{ deployed.edge_box + deployed.cloud_box + deployed.camera_c2c }}</div>
+      <div class="m-sub"><span style="color:var(--info-2);">{{ deployed.edge_box }} Edge</span><span style="color:var(--text-muted);">&nbsp;&middot;&nbsp;</span><span style="color:#7FA3CE;">{{ deployed.cloud_box }} Cloud</span><span style="color:var(--text-muted);">&nbsp;&middot;&nbsp;</span><span style="color:var(--fl-green);">{{ deployed.camera_c2c }} C2C</span></div>
     </div>
-    <div class="db-deployed-row">
-      <div class="db-deployed-label">Cloud Box</div>
-      <div class="db-deployed-n" style="color:#7B68EE">{{ deployed.cloud_box }}</div>
-    </div>
-    <div class="db-deployed-row">
-      <div class="db-deployed-label">C2C</div>
-      <div class="db-deployed-n" style="color:#1D9E75">{{ deployed.camera_c2c }}</div>
-    </div>
+    {{ fl_icon('check', 'green', 38, 'm-icon') }}
   </div>
-
-  <div class="db-hero-cell">
-    <div class="db-hero-l" style="margin-bottom:8px">Ready to Deploy</div>
-    <div class="db-deployed-row">
-      <div class="db-deployed-label">Edge Box</div>
-      <div class="db-deployed-n" style="color:#378ADD">{{ ready.edge_box }}</div>
+  <div class="fl-hero" style="--glow-color:var(--info); --glow-soft:rgba(0,117,255,0.45);">
+    <div class="fl-hairline"></div>
+    <div>
+      <div class="m-label">Ready to Deploy</div>
+      <div class="m-value">{{ ready.edge_box + ready.cloud_box + ready.camera_c2c }}</div>
+      <div class="m-sub"><span style="color:var(--info-2);">{{ ready.edge_box }} Edge</span><span style="color:var(--text-muted);">&nbsp;&middot;&nbsp;</span><span style="color:#7FA3CE;">{{ ready.cloud_box }} Cloud</span><span style="color:var(--text-muted);">&nbsp;&middot;&nbsp;</span><span style="color:var(--fl-green);">{{ ready.camera_c2c }} C2C</span></div>
     </div>
-    <div class="db-deployed-row">
-      <div class="db-deployed-label">Cloud Box</div>
-      <div class="db-deployed-n" style="color:#7B68EE">{{ ready.cloud_box }}</div>
-    </div>
-    <div class="db-deployed-row">
-      <div class="db-deployed-label">C2C</div>
-      <div class="db-deployed-n" style="color:#1D9E75">{{ ready.camera_c2c }}</div>
-    </div>
+    {{ fl_icon('truck', 'info', 38, 'm-icon') }}
   </div>
-
-
 </div>
 
 <!-- Pilots due back (loan returns, sub-slice 5) -->
-<a href="{{ base_path }}/fulfillment/pilots-due-back" class="db-pilots{% if pilots_overdue %} db-pilots--alert{% endif %}">
-  <div class="db-pilots__title">Pilots due back</div>
-  <div class="db-pilots__nums">
-    <span class="db-pilots__stat db-pilots__stat--overdue"><b>{{ pilots_overdue }}</b> overdue</span>
-    <span class="db-pilots__stat db-pilots__stat--due-soon"><b>{{ pilots_due_soon }}</b> due soon</span>
+<a href="{{ base_path }}/fulfillment/pilots-due-back" class="fl-banner fl-lift{% if pilots_overdue %} urg{% elif pilots_due_soon %} warn{% endif %}">
+  <div class="fl-banner-title">Pilots Due Back</div>
+  <div class="fl-banner-stats">
+    <span><b style="color:var(--fl-red);">{{ pilots_overdue }}</b> Overdue</span>
+    <span><b style="color:var(--fl-amber);">{{ pilots_due_soon }}</b> Due Soon</span>
   </div>
 </a>
 
 <!-- Composition Bar -->
 {% if category_counts %}
-<div class="db-comp">
+<div class="db-comp fl-card fl-lift">
   <div class="db-panel-title">
-    Inventory composition
-    <span style="font-size:11px;color:var(--sx-gray)">Click segment to filter</span>
+    Inventory Composition
+    <span style="font-size:11px;color:var(--text-muted)">Click Segment To Filter</span>
   </div>
-  <div class="db-comp-bar">
+  <div class="fl-comp-bar">
     {% for cat in category_counts %}
     <a href="{{ base_path }}/inventory/?category={{ cat.name }}"
-       class="db-comp-seg" style="width:{{ cat.pct }}%;background:{{ cat.color }}"
+       class="fl-comp-seg" style="width:{{ cat.pct }}%;background:{{ cat.color }}"
        title="{{ cat.display }}: {{ cat.count }}"></a>
     {% endfor %}
   </div>
-  <div class="db-comp-legend">
+  <div class="fl-comp-legend">
     {% for cat in category_counts %}
-    <a href="{{ base_path }}/inventory/?category={{ cat.name }}" class="db-comp-leg-item">
-      <div class="db-comp-leg-dot" style="background:{{ cat.color }}"></div>
+    <a href="{{ base_path }}/inventory/?category={{ cat.name }}" class="fl-comp-leg-item">
+      <span class="fl-comp-leg-dot" style="background:{{ cat.color }}"></span>
       {{ cat.display }} {{ cat.count }}
     </a>
     {% endfor %}
@@ -90,36 +83,36 @@
 {% endif %}
 
 <!-- Main Layout -->
-<div class="db-main">
+<div class="db-main fl-lift">
   <div class="db-left">
 
     <!-- Status Panels -->
     <div class="db-status-grid">
       {% set product_labels = {"edge_box": "Edge Box", "cloud_box": "Cloud Box", "camera_c2c": "Camera 2 Cloud"} %}
       {% for cat in product_categories %}
-      <div class="db-panel">
+      <div class="db-panel fl-card">
         <div class="db-status-title">{{ product_labels[cat] }}</div>
         <div class="db-row">
-          <div class="db-row-l"><div class="db-dot" style="background:#F0A500"></div>Pending</div>
-          <div class="db-row-n" style="color:#F0A500">{{ product_status[cat].pending }}</div>
+          <div class="db-row-l"><div class="db-dot" style="background:var(--fl-amber)"></div>Pending</div>
+          <div class="db-row-n" style="color:var(--fl-amber)">{{ product_status[cat].pending }}</div>
         </div>
         <div class="db-row">
-          <div class="db-row-l"><div class="db-dot" style="background:var(--sx-gray)"></div>Unassigned</div>
-          <div class="db-row-n" style="color:var(--sx-gray)">{{ product_status[cat].unassigned }}</div>
+          <div class="db-row-l"><div class="db-dot" style="background:var(--text-muted)"></div>Unassigned</div>
+          <div class="db-row-n" style="color:var(--text-muted)">{{ product_status[cat].unassigned }}</div>
         </div>
         <div class="db-row">
-          <div class="db-row-l"><div class="db-dot" style="background:var(--sx-red)"></div>Un-deployable</div>
-          <div class="db-row-n" style="color:var(--sx-red)">{{ product_status[cat].un_deployable }}</div>
+          <div class="db-row-l"><div class="db-dot" style="background:var(--fl-red)"></div>Un-deployable</div>
+          <div class="db-row-n" style="color:var(--fl-red)">{{ product_status[cat].un_deployable }}</div>
         </div>
       </div>
       {% endfor %}
     </div>
 
     <!-- Recent Activity -->
-    <div class="db-panel">
+    <div class="db-panel fl-card">
       <div class="db-panel-title">
-        Recent activity
-        <a href="{{ base_path }}/inventory" class="db-panel-link">View all →</a>
+        Recent Activity
+        <a href="{{ base_path }}/inventory" class="db-panel-link">View All →</a>
       </div>
       {% if recent_activity %}
         {% for item in recent_activity %}
@@ -129,9 +122,9 @@
           </span>
           <span class="db-rec-text">{{ item.name }}</span>
           {% if item.is_new %}
-          <span class="db-rec-badge" style="background:var(--sx-green-dim);color:var(--sx-green)">New</span>
+          <span class="fl-mchip" style="color:var(--fl-green);border-color:var(--fl-green);background:var(--green-dim);">New</span>
           {% else %}
-          <span class="db-rec-badge" style="background:var(--sx-blue-dim);color:var(--sx-blue-light)">Edit</span>
+          <span class="fl-mchip">Edit</span>
           {% endif %}
           <span class="db-rec-time">{{ item.last_updated }}</span>
         </a>
@@ -148,32 +141,33 @@
   <div class="db-right">
 
     <!-- Quick Actions -->
-    <div class="db-panel">
-      <div class="db-panel-title">Quick actions</div>
-      <a href="{{ base_path }}/intake" class="db-action">
-        <div class="db-action-icon" style="background:var(--sx-blue-dim);color:var(--sx-blue)">+</div>
-        <span class="db-action-text">Add item</span>
+    <div class="db-panel fl-card">
+      <div class="db-panel-title">Quick Actions</div>
+      <a href="{{ base_path }}/intake" class="db-action fl-card" data-key="n">
+        {{ fl_icon('plus', 'blush', 20) }}
+        <span class="db-action-text">Add Item</span>
         <span class="db-action-key">N</span>
       </a>
-      <a href="{{ base_path }}/checkout" class="db-action">
-        <div class="db-action-icon" style="background:var(--sx-green-dim);color:var(--sx-green)">✓</div>
-        <span class="db-action-text">Check out</span>
+      <a href="{{ base_path }}/checkout" class="db-action fl-card" data-key="o">
+        {{ fl_icon('check', 'green', 20) }}
+        <span class="db-action-text">Check Out</span>
         <span class="db-action-key">O</span>
       </a>
-      <a href="{{ base_path }}/checkin" class="db-action">
-        <div class="db-action-icon" style="background:var(--sx-amber-dim);color:var(--sx-amber)">↩</div>
-        <span class="db-action-text">Check in</span>
+      <a href="{{ base_path }}/checkin" class="db-action fl-card" data-key="i">
+        {{ fl_icon('tray', 'info', 20) }}
+        <span class="db-action-text">Check In</span>
         <span class="db-action-key">I</span>
       </a>
-      <a href="{{ base_path }}/triage" class="db-action">
-        <div class="db-action-icon" style="background:var(--sx-red-dim);color:var(--sx-red)">!</div>
+      <a href="{{ base_path }}/triage" class="db-action fl-card" data-key="t">
+        {{ fl_icon('alert', 'red', 20) }}
         <span class="db-action-text">Triage</span>
         <span class="db-action-key">T</span>
       </a>
       {% if user.has_system_admin %}
-      <a href="{{ base_path }}/admin/spreadsheet-sync" class="db-action">
-        <div class="db-action-icon" style="background:rgba(124,77,255,.12);color:#7C4DFF">↑</div>
-        <span class="db-action-text">Import spreadsheet</span>
+      <a href="{{ base_path }}/admin/spreadsheet-sync" class="db-action fl-card">
+        {{ fl_icon('upload', 'amber', 20) }}
+        <span class="db-action-text">Import Spreadsheet</span>
+        <span class="db-action-key">&uarr;</span>
       </a>
       {% endif %}
     </div>
@@ -181,6 +175,7 @@
 
   </div>
 </div>
+</div>{# /dashboard-page.fl-restyle #}
 
 {% endblock %}
 

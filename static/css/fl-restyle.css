@@ -81,6 +81,8 @@
   --cert-emerald: var(--fl-green);
 }
 [data-theme="light"] .fl-restyle {
+  /* info-2 doubles as text color in light (cyan fails contrast on white) */
+  --info-2: var(--info);
   --bg: #F5F6F8;
   --bg-header: #FFFFFF;
   --sidebar-bg: #ECEEF2;
@@ -295,6 +297,56 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 /* ── Destructive tint button (Delete and friends) ──────────────────────── */
 .fl-restyle .fl-obtn.danger { background: var(--red-dim); border-color: var(--fl-red); color: var(--fl-red); }
 .fl-restyle .fl-obtn.danger:hover { background: rgba(255,107,107,0.25); }
+
+/* ── fl-lift: generic content lift above the fixed background layer.
+   Pages without fixed-position top-level elements can put this class on
+   each content block instead of maintaining an id list. ─────────────── */
+.fl-restyle .fl-lift { position: relative; z-index: 1; }
+
+/* ── fl-banner: full-width status band (quiet by default, warn = amber
+   tint, urg = red tint). Counts keep their own status colors. ───────── */
+.fl-restyle .fl-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 10px 16px; margin-bottom: 1rem; text-decoration: none; color: var(--text); transition: border-color .2s, background .2s; }
+.fl-restyle .fl-banner:hover { border-color: var(--border-hover); background: var(--card-bg-hover); }
+.fl-restyle .fl-banner.warn { background: var(--amber-dim); border-color: var(--fl-amber); }
+.fl-restyle .fl-banner.urg { background: var(--red-dim); border-color: var(--fl-red); }
+.fl-restyle .fl-banner-title { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+.fl-restyle .fl-banner-stats { display: flex; gap: 18px; font-size: 12px; color: var(--text-muted); align-items: baseline; }
+.fl-restyle .fl-banner-stats b { font-size: 16px; font-weight: 700; }
+
+/* ── fl-comp-bar: clickable composition bar + legend (inside a body
+   card). Segment colors are data-fed; .active marks a live filter. ──── */
+.fl-restyle .fl-comp-bar { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
+.fl-restyle .fl-comp-seg { display: block; height: 100%; transition: filter .15s; }
+.fl-restyle .fl-comp-seg:hover { filter: brightness(1.18); }
+.fl-restyle .fl-comp-seg.active { box-shadow: inset 0 0 0 2px var(--card-edge); }
+.fl-restyle .fl-comp-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.fl-restyle .fl-comp-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); text-decoration: none; }
+.fl-restyle .fl-comp-leg-item:hover { color: var(--text); }
+.fl-restyle .fl-comp-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── Dashboard polish over the legacy db-* kit (scoped, kit untouched) ── */
+.fl-restyle .db-search { transition: border-color .25s, box-shadow .25s; }
+.fl-restyle .db-search:hover { border-color: var(--accent-border); }
+.fl-restyle .db-search:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
+.fl-restyle .db-search-hint { transition: border-color .2s, color .2s; }
+.fl-restyle .db-search:focus-within .db-search-hint { border-color: var(--accent-primary); color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .db-search:focus-within .db-search-hint { color: var(--accent-primary); }
+.fl-restyle .db-hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; background: transparent; border-radius: 0; overflow: visible; }
+.fl-restyle .db-hero .fl-hero { cursor: default; }
+.fl-restyle .db-panel-title, .fl-restyle .db-status-title { color: var(--text-muted); }
+.fl-restyle .db-row, .fl-restyle .db-rec { border-bottom-color: var(--border); }
+.fl-restyle .db-row-l, .fl-restyle .db-rec-text, .fl-restyle .db-action-text { color: var(--text); }
+.fl-restyle .db-rec:hover { background: var(--card-bg-hover); }
+.fl-restyle .db-rec-time { font-family: var(--sx-font-mono); color: var(--text-muted); }
+.fl-restyle .db-panel-link { color: var(--text-muted); }
+.fl-restyle .db-panel-link:hover { color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .db-panel-link:hover { color: var(--accent-primary); }
+.fl-restyle .db-action { margin-bottom: 8px; padding: 10px 12px; }
+.fl-restyle .db-action-key { font-family: var(--sx-font-mono); color: var(--text-muted); background: transparent; border: 1px solid var(--border); transition: border-color .2s, color .2s, transform .15s; }
+.fl-restyle .db-action:hover .db-action-key { border-color: var(--accent-primary); color: var(--accent-primary-l); transform: translateY(-1px); }
+[data-theme="light"] .fl-restyle .db-action:hover .db-action-key { color: var(--accent-primary); }
+.fl-restyle .db-action.flash { background: var(--accent-primary-dim); border-color: var(--accent-primary); }
+.fl-restyle .db-action.flash .db-action-key { border-color: var(--accent-primary); color: var(--accent-primary-l); transform: scale(1.15); }
 
 /* ── Pipeline filter bar (pfb): quiet banner, tint active state.
    Scoped so non-opted boards keep the legacy v2 look; each page opt-in
