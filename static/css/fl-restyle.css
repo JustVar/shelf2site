@@ -529,6 +529,55 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .pilots-cam__sn { font-family: var(--sx-font-mono); }
 .fl-restyle .pilots-empty { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 2rem 1rem; text-align: center; }
 
+/* ── People pages polish (Users + Departments; cards are JS-built) ───── */
+.fl-restyle .users-search, .fl-restyle .depts-search { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); transition: border-color .25s, box-shadow .25s; }
+.fl-restyle .users-search:hover, .fl-restyle .depts-search:hover { border-color: var(--accent-border); }
+.fl-restyle .users-search:focus, .fl-restyle .depts-search:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+.fl-restyle .users-role-filter { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+.fl-restyle .users-role-filter:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+.fl-restyle .users-add-btn, .fl-restyle .depts-add-btn { background: var(--accent-primary); color: var(--on-accent); border: none; border-radius: 10px; font-weight: 600; }
+.fl-restyle .users-add-btn:hover, .fl-restyle .depts-add-btn:hover { background: var(--accent-primary); filter: brightness(1.06); }
+.fl-restyle .users-page__subtitle, .fl-restyle .depts-page__subtitle { color: var(--text-muted); }
+.fl-restyle .users-empty, .fl-restyle .depts-empty { color: var(--text-muted); }
+
+.fl-restyle .user-card, .fl-restyle .dept-card { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; transition: border-color .2s, background .2s, transform .2s, box-shadow .2s; }
+.fl-restyle .user-card:hover, .fl-restyle .dept-card:hover { border-color: var(--border-hover); border-top-color: var(--card-edge); background: var(--card-bg-hover); transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+.fl-restyle .user-card__name { color: var(--text); }
+.fl-restyle .user-card__dept { color: var(--text-muted); }
+.fl-restyle .user-card__status-dot--active { background: var(--fl-green); }
+.fl-restyle .user-card__status-dot--inactive { background: var(--text-muted); }
+/* flat single-hue avatars keyed by role, matching the role chip tints */
+.fl-restyle .user-card__avatar { background: var(--border); color: var(--text-muted); }
+.fl-restyle .user-card__avatar--admin { background: var(--red-dim); color: var(--fl-red); }
+.fl-restyle .user-card__avatar--editor { background: var(--accent-primary-dim); color: var(--accent-primary-l); }
+[data-theme="light"] .fl-restyle .user-card__avatar--editor { color: var(--accent-primary); }
+.fl-restyle .user-card__avatar--viewer { background: var(--border); color: var(--text-muted); }
+.fl-restyle .user-card__tag { border-radius: 6px; font-weight: 600; }
+.fl-restyle .user-card__tag--role-admin { background: var(--red-dim); color: var(--fl-red); border: 1px solid var(--fl-red); }
+.fl-restyle .user-card__tag--role-editor { background: var(--accent-primary-dim); color: var(--accent-primary-l); border: 1px solid var(--accent-border); }
+[data-theme="light"] .fl-restyle .user-card__tag--role-editor { color: var(--accent-primary); }
+.fl-restyle .user-card__tag--role-viewer { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+.fl-restyle .user-card__tag--perm { background: var(--green-dim); color: var(--fl-green); border: 1px solid var(--fl-green); }
+.fl-restyle .dd-members-chip { background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; }
+.fl-restyle .dd-members-empty { color: var(--text-muted); }
+
+/* shared admin drawer kit */
+.fl-restyle .sx-drawer { background: var(--card-bg); border-left: 1px solid var(--border); }
+.fl-restyle .sx-drawer-title { color: var(--text); }
+.fl-restyle .sx-drawer-subtitle, .fl-restyle .sx-drawer-section-label, .fl-restyle .sx-drawer-field-label, .fl-restyle .sx-drawer-field-hint { color: var(--text-muted); }
+.fl-restyle .sx-drawer-header, .fl-restyle .sx-drawer-footer { border-color: var(--border); }
+.fl-restyle .sx-drawer-field input, .fl-restyle .sx-drawer-field select, .fl-restyle .sx-drawer-field textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+.fl-restyle .sx-drawer-field input:focus, .fl-restyle .sx-drawer-field select:focus, .fl-restyle .sx-drawer-field textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+.fl-restyle .sx-drawer-error { background: var(--red-dim); border: 1px solid var(--fl-red); border-radius: 10px; color: var(--fl-red); }
+.fl-restyle .sx-drawer-locked-banner { background: var(--red-dim); border: 1px solid var(--fl-red); border-radius: 10px; color: var(--fl-red); }
+.fl-restyle .users-btn { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); font-weight: 600; }
+[data-theme="light"] .fl-restyle .users-btn { color: var(--accent-primary); }
+.fl-restyle .users-btn:hover { background: var(--accent-border); color: var(--text); }
+.fl-restyle .users-btn--primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--on-accent); }
+.fl-restyle .users-btn--primary:hover { background: var(--accent-primary); filter: brightness(1.06); color: var(--on-accent); }
+.fl-restyle .users-btn--danger { background: var(--red-dim); border-color: var(--fl-red); color: var(--fl-red); }
+.fl-restyle .users-btn--danger:hover { background: rgba(255,107,107,0.25); color: var(--fl-red); }
+
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
    forced back on hover/stat-on since the lap ring cannot appear.

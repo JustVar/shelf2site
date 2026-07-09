@@ -3,8 +3,9 @@
 {% block nav_admin_users %}active{% endblock %}
 
 {% block content %}
-<div class="users-page">
-  <div class="users-page__header">
+<div class="users-page fl-restyle">
+{% include "_fl_bg.html" %}
+  <div class="users-page__header fl-lift">
     <div class="users-page__title">
       <h1>Users</h1>
       <p class="users-page__subtitle"><span id="users-count-active">0</span> active · <span id="users-count-inactive">0</span> inactive</p>
@@ -21,12 +22,11 @@
     </div>
   </div>
 
-  <div id="users-grid" class="users-grid"></div>
+  <div id="users-grid" class="users-grid fl-lift"></div>
 
-  <div id="users-empty" class="users-empty" style="display:none;">
+  <div id="users-empty" class="users-empty fl-lift" style="display:none;">
     <p>No users match your search.</p>
   </div>
-</div>
 
 <!-- Drawer overlay + drawer (skeleton; U2c populates body and wires save) -->
 <div id="user-drawer-overlay" class="sx-drawer-overlay"></div>
@@ -134,4 +134,5 @@ var DEPARTMENTS_FULL = {{ departments_full_json | tojson }};
 </script>
 
 <script src="{{ base_path }}/static/js/admin-users-v2.js?v=20260708a"></script>
+</div>{# /users-page.fl-restyle #}
 {% endblock %}

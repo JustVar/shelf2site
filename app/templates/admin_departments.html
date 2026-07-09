@@ -2,8 +2,9 @@
 {% block title %}Departments - Asset Tracker{% endblock %}
 
 {% block content %}
-<div class="depts-page">
-  <div class="depts-page__header">
+<div class="depts-page fl-restyle">
+{% include "_fl_bg.html" %}
+  <div class="depts-page__header fl-lift">
     <div class="depts-page__title">
       <h1>Departments</h1>
       <p class="depts-page__subtitle"><span id="depts-count">0</span> departments</p>
@@ -14,12 +15,11 @@
     </div>
   </div>
 
-  <div id="depts-grid" class="depts-grid"></div>
+  <div id="depts-grid" class="depts-grid fl-lift"></div>
 
-  <div id="depts-empty" class="depts-empty" style="display:none;">
+  <div id="depts-empty" class="depts-empty fl-lift" style="display:none;">
     <p>No departments match your search.</p>
   </div>
-</div>
 
 <!-- Drawer (skeleton; U3c populates body and wires save/delete) -->
 <div id="dept-drawer-overlay" class="sx-drawer-overlay"></div>
@@ -73,4 +73,5 @@
 const DEPARTMENTS_PAYLOAD = {{ departments_payload | tojson }};
 </script>
 <script src="{{ base_path }}/static/js/admin-departments-v2.js?v=20260515c"></script>
+</div>{# /depts-page.fl-restyle #}
 {% endblock %}
