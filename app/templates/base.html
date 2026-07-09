@@ -53,6 +53,7 @@
     </script>
     <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v=3">
     <link rel="stylesheet" href="{{ base_path }}/static/css/main.css?v={{ request.state.asset_v or '0' }}">
+    <link rel="stylesheet" href="{{ base_path }}/static/css/fl-restyle.css?v={{ request.state.flcss_v or '0' }}">
     <link rel="manifest" href="{{ base_path }}/static/manifest.json">
     <link rel="icon" type="image/png" sizes="96x96" href="{{ base_path }}/static/icons/icon-96.png">
     <link rel="apple-touch-icon" sizes="192x192" href="{{ base_path }}/static/icons/icon-192.png">
@@ -70,6 +71,7 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="{{ base_path }}/static/js/toast.js"></script>
   <script src="{{ base_path }}/static/js/shortcuts.js?v=20260708b"></script>
+    <script src="{{ base_path }}/static/js/fl-restyle.js?v=20260709a"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
