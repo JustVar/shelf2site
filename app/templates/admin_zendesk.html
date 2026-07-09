@@ -4,6 +4,9 @@
 {% block nav_admin %}{% endblock %}
 
 {% block content %}
+<div class="zendesk-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1 style="margin-bottom: 0.25rem;">Zendesk Integration</h1>
 <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
     Connect to your Zendesk instance for ticket tracking and customer context.
@@ -78,6 +81,8 @@
     </div>
 </div>
 {% endif %}
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

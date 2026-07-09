@@ -4,6 +4,9 @@
 {% block nav_admin %}{% endblock %}
 
 {% block content %}
+<div class="spreadsheet-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <h1>Spreadsheet Sync</h1>
 <p class="subtitle">Upload master Excel spreadsheet to sync with database (one-way: spreadsheet → database)</p>
 
@@ -51,6 +54,8 @@
     </div>
 </div>
 
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

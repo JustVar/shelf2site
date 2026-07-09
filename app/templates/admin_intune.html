@@ -4,6 +4,9 @@
 {% block nav_admin %}active{% endblock %}
 
 {% block content %}
+<div class="intune-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
 <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
     <a href="{{ base_path }}/admin/users" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Admin</a>
 </div>
@@ -153,6 +156,8 @@ INTUNE_AUTO_SYNC=true</div>
     </div>
     {% endif %}
 </div>
+</div>{# /fl-lift #}
+</div>{# /fl-restyle #}
 {% endblock %}
 
 {% block scripts %}

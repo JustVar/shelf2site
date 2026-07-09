@@ -581,9 +581,9 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 /* ── Admin data and log pages kit (audit, errors, oui, part numbers,
    procurement, receipts, storage). Plain data tables + generic legacy
    classes, all scoped so non-opted pages keep the old look. ─────────── */
-.fl-restyle .table-section table th, .fl-restyle .sx-table th, .fl-restyle .rcpt-table th { color: var(--text-muted); border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; background: var(--card-bg); }
-.fl-restyle .table-section table td, .fl-restyle .sx-table td, .fl-restyle .rcpt-table td { border-bottom: 1px solid var(--border); color: var(--text); }
-.fl-restyle .table-section table tbody tr:hover, .fl-restyle .sx-table tbody tr:hover, .fl-restyle .rcpt-table tbody tr:hover { background: var(--card-bg-hover); }
+.fl-restyle .table-section table th, .fl-restyle .sx-table th, .fl-restyle .rcpt-table th, .fl-restyle .data-table th { color: var(--text-muted); border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; background: var(--card-bg); }
+.fl-restyle .table-section table td, .fl-restyle .sx-table td, .fl-restyle .rcpt-table td, .fl-restyle .data-table td { border-bottom: 1px solid var(--border); color: var(--text); }
+.fl-restyle .table-section table tbody tr:hover, .fl-restyle .sx-table tbody tr:hover, .fl-restyle .rcpt-table tbody tr:hover, .fl-restyle .data-table tbody tr:hover { background: var(--card-bg-hover); }
 .fl-restyle .rcpt-table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; }
 .fl-restyle .btn, .fl-restyle .rcpt-btn, .fl-restyle .btn-page { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); font-weight: 600; }
 [data-theme="light"] .fl-restyle .btn, [data-theme="light"] .fl-restyle .rcpt-btn, [data-theme="light"] .fl-restyle .btn-page { color: var(--accent-primary); }
@@ -605,6 +605,17 @@ body:has(.fl-restyle) .topbar { position: relative; z-index: 1; }
 .fl-restyle .no-results, .fl-restyle .loading, .fl-restyle .rcpt-muted { color: var(--text-muted); }
 .fl-restyle .timestamp { font-family: var(--sx-font-mono); color: var(--text-muted); }
 .fl-restyle .alert-banner { background: var(--amber-dim); border: 1px solid var(--fl-amber); border-radius: 12px; color: var(--fl-amber); }
+
+/* ── Integrations and system pages (tabs, form controls, log badges) ── */
+.fl-restyle .tabs { border-bottom: 1px solid var(--border); }
+.fl-restyle .tab { color: var(--text-muted); border-bottom: 3px solid transparent; }
+.fl-restyle .tab:hover { color: var(--text); }
+.fl-restyle .tab.active { color: var(--text); border-bottom-color: var(--accent-primary); }
+.fl-restyle .form-control { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+.fl-restyle .form-control:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
+.fl-restyle .badge-success { background: var(--green-dim); color: var(--fl-green); border-color: var(--fl-green); }
+.fl-restyle .badge-warning { background: var(--amber-dim); color: var(--fl-amber); border-color: var(--fl-amber); }
+.fl-restyle .badge-danger { background: var(--red-dim); color: var(--fl-red); border-color: var(--fl-red); }
 
 /* ── Reduced motion: kill drift, lap, pulse and the cursor spotlight.
    Static affordances stay; the resting hairline remains visible and is
