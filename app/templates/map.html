@@ -1,233 +1,132 @@
 {% extends "base.html" %}
 
-{% block title %}Edge Box Map - Asset Tracker{% endblock %}
+{% block title %}Deployment Map - Asset Tracker{% endblock %}
 {% block nav_map %}active{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 <style>
-    #map-container {
-        display: flex;
-        gap: 1rem;
-        height: calc(100vh - 80px);
+    /* ── Redesign (map-redesign-mock-v1): hero strip + chart-as-filter rail
+       + full-bleed GPU map. Colors ride the fl tokens; deal/unit/status
+       hues arrive from the server payload (single vocabulary). ── */
+    .mp-grid {
+        display: grid; grid-template-columns: 300px 1fr;
+        grid-template-rows: auto 1fr; gap: 14px;
+        height: calc(100vh - 120px); min-height: 540px;
     }
+    .mp-metrics { grid-column: 1 / 3; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .mp-hero {
+        position: relative; border-radius: 14px; padding: 12px 16px;
+        background: linear-gradient(127deg, #1C2130 0%, #0F121A 100%);
+        border: 1px solid var(--border); border-top-color: var(--card-edge); overflow: hidden;
+    }
+    [data-theme="light"] .mp-hero { background: linear-gradient(127deg, #FFFFFF 0%, #F2F3F7 100%); }
+    .mp-hairline { position: absolute; top: 0; left: 10%; right: 35%; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--glow), transparent);
+        box-shadow: 0 0 12px 1px var(--glow-soft); }
+    .mp-hero .lbl { font-size: 11px; color: var(--text-muted); }
+    .mp-hero .val { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); font-family: var(--sx-font-display, inherit); }
+    .mp-hero .sub { font-size: 11px; margin-top: 2px; color: var(--text-muted); }
 
-    #map {
-        flex: 1;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        border-top-color: var(--card-edge);
-        z-index: 1;
-        background: var(--bg);  /* Match theme instead of white */
-    }
+    .mp-rail { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; }
+    .mp-card { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 14px; flex-shrink: 0; }
+    .mp-card h3 { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-muted); margin: 0 0 10px; text-transform: uppercase; }
 
-    #sidebar {
-        width: 350px;
-        background: var(--card-bg);
-        border: 1px solid var(--border);
-        border-top-color: var(--card-edge);
-        border-radius: 12px;
-        padding: 1rem;
-        overflow-y: auto;
-    }
+    .mp-search { width: 100%; padding: 0.55rem 0.8rem; font-size: 0.85rem; font-family: inherit;
+        background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+        outline: none; transition: border-color .2s, box-shadow .2s; }
+    .mp-search:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); }
 
-    .search-box {
-        margin-bottom: 1.5rem;
-    }
+    .mp-mode { display: flex; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+    .mp-mode button { flex: 1; border: none; background: none; color: var(--text-muted); border-radius: 7px;
+        font: 500 11px inherit; font-family: inherit; padding: 6px 4px; cursor: pointer; }
+    .mp-mode button.on { background: var(--accent-primary-dim); color: var(--accent-primary-l); }
+    [data-theme="light"] .mp-mode button.on { color: var(--accent-primary); }
 
-    .search-box input {
-        width: 100%;
-        padding: 0.6rem;
-        border: 1px solid var(--border);
-        background: var(--bg);
-        color: var(--text);
-        border-radius: 8px;
-        font-size: 0.9rem;
-        transition: border-color .2s, box-shadow .2s;
-    }
+    .mp-bar { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 7px; cursor: pointer; font-size: 12px; }
+    .mp-bar:hover { background: var(--card-bg-hover); }
+    .mp-bar.dim { opacity: 0.35; }
+    .mp-bar .name { width: 82px; color: var(--text); flex-shrink: 0; }
+    .mp-bar .track { flex: 1; height: 8px; border-radius: 4px; background: rgba(148,163,184,0.10); overflow: hidden; }
+    .mp-bar .fill { height: 100%; border-radius: 4px; display: block; }
+    .mp-bar .n { width: 30px; text-align: right; font-family: var(--sx-font-mono, monospace); font-size: 11px; color: var(--text-muted); }
 
-    .search-box input:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-        box-shadow: 0 0 0 3px var(--accent-primary-dim);
-    }
+    .mp-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mp-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500;
+        border-radius: 7px; padding: 4px 10px; cursor: pointer; border: 1px solid var(--border); color: var(--text-muted); background: none; font-family: inherit; }
+    .mp-chip.on { border-color: var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 12%, transparent); }
+    .mp-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
 
-    .filter-group {
-        margin-bottom: 1.5rem;
-    }
+    .mp-rank { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 2px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .mp-rank:last-child { border-bottom: none; }
+    .mp-rank .n { font-family: var(--sx-font-mono, monospace); color: var(--text-muted); }
 
-    .filter-group h3 {
-        margin-bottom: 0.6rem;
-        font-size: 0.95rem;
-    }
+    .mp-nl { font-size: 12px; color: var(--text-muted); }
+    .mp-nl b { color: var(--fl-amber); font-weight: 600; }
+    .mp-nl-row { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 2px;
+        border-bottom: 1px solid var(--border); color: var(--text-muted); }
+    .mp-nl-row:last-child { border-bottom: none; }
+    .mp-nl-row .mono { font-family: var(--sx-font-mono, monospace); }
+    .mp-fixbtn { margin-left: auto; background: var(--accent-primary-dim); border: 1px solid var(--accent-border);
+        color: var(--accent-primary-l); border-radius: 6px; font-size: 10px; padding: 2px 8px; cursor: pointer; font-family: inherit; }
+    [data-theme="light"] .mp-fixbtn { color: var(--accent-primary); }
+    .mp-fixform { display: none; gap: 6px; margin-top: 8px; }
+    .mp-fixform.open { display: flex; }
+    .mp-fixform input { width: 50%; padding: 4px 6px; font-size: 11px; background: var(--bg);
+        border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--sx-font-mono, monospace); }
 
-    .filter-checkbox {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        margin-bottom: 0.3rem;
-        font-size: 0.85rem;
-    }
+    .mp-hiddenrow { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 2px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    .mp-hiddenrow:last-child { border-bottom: none; }
+    .mp-hiddenrow .lvl { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
 
-    .filter-checkbox input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
-        cursor: pointer;
-        accent-color: var(--accent-primary);
-    }
+    .mp-maparea { position: relative; border-radius: 14px; overflow: hidden;
+        background: var(--bg); border: 1px solid var(--border); border-top-color: var(--card-edge); min-height: 0; }
+    #map { position: absolute; inset: 0; }
 
-    .filter-checkbox label {
-        cursor: pointer;
-        flex: 1;
-    }
+    .mp-legend { position: absolute; left: 14px; bottom: 14px; z-index: 5;
+        background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+        border: 1px solid var(--border); border-top-color: var(--card-edge);
+        border-radius: 10px; padding: 10px 12px; font-size: 11px; }
+    .mp-legend .lg-row { display: flex; align-items: center; gap: 7px; padding: 2px 0; color: var(--text-muted); cursor: pointer; }
+    .mp-legend .lg-row.dim { opacity: 0.35; }
+    .mp-legend .lg-row i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-    .clear-filters {
-        padding: 0.4rem 0.8rem;
-        background: var(--accent-primary-dim);
-        border: 1px solid var(--accent-border);
-        border-radius: 8px;
-        color: var(--accent-primary-l);
-        font-weight: 600;
-        font-size: 0.8rem;
-        cursor: pointer;
-        margin-top: 0.5rem;
-    }
-    [data-theme="light"] .map-page .clear-filters {
-        color: var(--accent-primary);
-    }
+    .mp-relogin { position: absolute; inset: 0; z-index: 20; display: none;
+        align-items: center; justify-content: center; background: color-mix(in srgb, var(--bg) 75%, transparent); }
+    .mp-relogin.open { display: flex; }
+    .mp-relogin .box { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge);
+        border-radius: 12px; padding: 22px 26px; text-align: center; }
+    .mp-relogin a { display: inline-block; margin-top: 10px; background: var(--accent-primary); color: var(--on-accent);
+        border-radius: 8px; padding: 7px 18px; font-weight: 600; text-decoration: none; font-size: 13px; }
 
-    .clear-filters:hover {
-        background: var(--accent-border);
-        color: var(--text);
-    }
+    /* maplibre chrome on card surfaces (kept from the previous slice) */
+    .maplibregl-ctrl-group { background: var(--card-bg) !important; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .maplibregl-ctrl-group button + button { border-top: 1px solid var(--border) !important; }
+    .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(0.7); }
+    [data-theme="light"] .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: none; }
+    .maplibregl-popup-content { background: var(--card-bg) !important; color: var(--text) !important;
+        border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5); min-width: 230px; }
+    .maplibregl-popup-close-button { color: var(--text); font-size: 18px; padding: 0 8px; }
+    .maplibregl-popup-close-button:hover { background: var(--accent-primary-dim); }
+    .maplibregl-popup-tip { border-top-color: var(--card-bg) !important; }
+    .mp-pop .org { font-size: 13px; font-weight: 600; color: var(--text); }
+    .mp-pop .site { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+    .mp-pop .row { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; padding: 3px 0; }
+    .mp-pop .row .k { color: var(--text-muted); }
+    .mp-pop .mono { font-family: var(--sx-font-mono, monospace); }
+    .mp-pop .badge { font-size: 9px; font-weight: 700; letter-spacing: 1px; border-radius: 5px; padding: 2px 7px; border: 1px solid; }
+    .mp-pop .due-warn { color: var(--fl-amber); }
+    .mp-pop .actions { display: flex; gap: 6px; margin-top: 8px; }
+    .mp-pop .actions a, .mp-pop .actions button { flex: 1; text-align: center; font-size: 11px; font-weight: 600;
+        color: var(--accent-primary-l); background: var(--accent-primary-dim); border: 1px solid var(--accent-border);
+        border-radius: 7px; padding: 5px; text-decoration: none; cursor: pointer; font-family: inherit; }
+    [data-theme="light"] .mp-pop .actions a, [data-theme="light"] .mp-pop .actions button { color: var(--accent-primary); }
+    .mp-pop .prov { font-size: 9px; color: var(--text-muted); margin-top: 6px; font-style: italic; }
 
-    #sidebar h3 {
-        margin-bottom: 0.8rem;
-        font-size: 1rem;
-    }
-
-    .stat-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.4rem 0;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .stat-label { color: var(--text-muted); font-size: 0.85rem; }
-    .stat-value { font-weight: 600; }
-
-    .legend {
-        margin: 1rem 0;
-    }
-
-    .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.3rem;
-        font-size: 0.85rem;
-    }
-
-    .legend-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-    }
-
-    .unmapped-list {
-        margin-top: 1rem;
-    }
-
-    .unmapped-item {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        padding: 0.5rem 0.8rem;
-        border-radius: 8px;
-        margin-bottom: 0.4rem;
-        font-size: 0.85rem;
-    }
-
-    .unmapped-item .org {
-        color: var(--text-muted);
-        font-size: 0.75rem;
-    }
-
-    /* MapLibre GL canvas styling */
-    .maplibregl-canvas {
-        background: var(--bg);
-    }
-
-    /* MapLibre popup styling */
-    .maplibregl-popup-content {
-        background: var(--card-bg) !important;
-        color: var(--text) !important;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-
-    .maplibregl-popup-close-button {
-        color: var(--text);
-        font-size: 20px;
-        padding: 0 8px;
-    }
-
-    .maplibregl-popup-close-button:hover {
-        background: var(--accent-primary-dim);
-    }
-
-    /* map zoom controls on the card surface */
-    .maplibregl-ctrl-group {
-        background: var(--card-bg) !important;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    .maplibregl-ctrl-group button + button {
-        border-top: 1px solid var(--border) !important;
-    }
-    .maplibregl-ctrl button .maplibregl-ctrl-icon {
-        filter: invert(0.7);
-    }
-    [data-theme="light"] .maplibregl-ctrl button .maplibregl-ctrl-icon {
-        filter: none;
-    }
-
-    .maplibregl-popup-tip {
-        border-top-color: var(--card-bg) !important;
-    }
-
-    .popup-content {
-        font-size: 0.85rem;
-        line-height: 1.6;
-    }
-
-    .popup-content strong {
-        color: var(--accent-primary-l);
-    }
-    [data-theme="light"] .popup-content strong {
-        color: var(--accent-primary);
-    }
-
-    .popup-content .status-badge {
-        display: inline-block;
-        padding: 1px 6px;
-        border-radius: 3px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .status-Production { background: var(--success); }
-    .status-Pilot { background: var(--warning); color: #000; }
-    .status-Offline { background: var(--danger); }
-    .status-Demo { background: #9b59b6; }
-    .status-Lab { background: var(--info); }
-
-    @media (max-width: 900px) {
-        #map-container { flex-direction: column; height: auto; }
-        #map { height: 400px; }
-        #sidebar { width: 100%; }
+    @media (max-width: 1100px) {
+        .mp-grid { grid-template-columns: 1fr; grid-template-rows: auto auto 480px; height: auto; }
+        .mp-metrics { grid-column: 1; grid-template-columns: repeat(2, 1fr); }
     }
 </style>
 {% endblock %}
@@ -236,95 +135,104 @@
 <div class="map-page fl-restyle">
 {% include "_fl_bg.html" %}
 <div class="fl-lift">
-<h1>Edge Box Deployment Map</h1>
 
-<div id="map-container">
-    <div id="map"></div>
+<div class="mp-grid">
+    <div class="mp-metrics" id="mp-metrics">
+        <div class="mp-hero" style="--glow:#E3CBC7; --glow-soft:rgba(227,203,199,0.55);">
+            <div class="mp-hairline"></div>
+            <div class="lbl">Deployed Units</div>
+            <div class="val" id="m-total">–</div>
+            <div class="sub" id="m-total-sub" style="color:var(--accent-primary-l);"></div>
+        </div>
+        <div class="mp-hero" style="--glow:#01B574; --glow-soft:rgba(1,181,116,0.55);">
+            <div class="mp-hairline"></div>
+            <div class="lbl">Purchased</div>
+            <div class="val" id="m-purchased">–</div>
+            <div class="sub" id="m-purchased-sub" style="color:#01B574;"></div>
+        </div>
+        <div class="mp-hero" style="--glow:#FFB547; --glow-soft:rgba(255,181,71,0.55);">
+            <div class="mp-hairline"></div>
+            <div class="lbl">Pilots</div>
+            <div class="val" id="m-pilots">–</div>
+            <div class="sub" id="m-pilots-sub" style="color:#FFB547;"></div>
+        </div>
+        <div class="mp-hero" style="--glow:#2C9FD9; --glow-soft:rgba(44,159,217,0.55);">
+            <div class="mp-hairline"></div>
+            <div class="lbl">Try &amp; Buy</div>
+            <div class="val" id="m-tnb">–</div>
+            <div class="sub" id="m-tnb-sub" style="color:#2C9FD9;"></div>
+        </div>
+        <div class="mp-hero" style="--glow:#A492D6; --glow-soft:rgba(164,146,214,0.55);">
+            <div class="mp-hairline"></div>
+            <div class="lbl">New (30 Days)</div>
+            <div class="val" id="m-new30">–</div>
+            <div class="sub" id="m-new30-sub" style="color:#A492D6;"></div>
+        </div>
+    </div>
 
-    <div id="sidebar">
-        <!-- Search Box -->
-        <div class="search-box">
-            <h3 style="margin-bottom: 0.5rem;">Search Units</h3>
-            <input type="text" id="search-input" placeholder="Search by serial, org, customer, or site..." />
+    <div class="mp-rail">
+        <div class="mp-card">
+            <input type="text" id="mp-search" class="mp-search" placeholder="Search serial, name, customer, site..." autocomplete="off">
         </div>
 
-        <!-- Status Filters -->
-        <div class="filter-group">
-            <h3>Filter by Status</h3>
-            <div class="filter-checkbox">
-                <input type="checkbox" id="filter-production" value="Production" checked>
-                <label for="filter-production">Production</label>
-            </div>
-            <div class="filter-checkbox">
-                <input type="checkbox" id="filter-pilot" value="Pilot" checked>
-                <label for="filter-pilot">Pilot</label>
-            </div>
-            <div class="filter-checkbox">
-                <input type="checkbox" id="filter-lab" value="Lab" checked>
-                <label for="filter-lab">Lab</label>
-            </div>
-            <div class="filter-checkbox">
-                <input type="checkbox" id="filter-demo" value="Demo" checked>
-                <label for="filter-demo">Demo</label>
-            </div>
-            <div class="filter-checkbox">
-                <input type="checkbox" id="filter-offline" value="Offline" checked>
-                <label for="filter-offline">Offline</label>
-            </div>
-            <button class="clear-filters" onclick="clearFilters()">Clear All Filters</button>
-        </div>
-
-        <h3>Deployment Stats</h3>
-        <div class="stat-row">
-            <span class="stat-label">Showing</span>
-            <span class="stat-value" id="visible-count">{{ mapped_count }}</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Total Mapped</span>
-            <span class="stat-value">{{ mapped_count }}</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Missing Coordinates</span>
-            <span class="stat-value" style="color: var(--warning);">{{ unmapped_count }}</span>
-        </div>
-
-        <div class="legend">
-            <h3>Status Legend</h3>
-            <div class="legend-item">
-                <div class="legend-dot" style="background: #27ae60;"></div>
-                <span>Production</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-dot" style="background: #f39c12;"></div>
-                <span>Customer Lab / Pilot</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-dot" style="background: #3498db;"></div>
-                <span>Company Lab / Inventory</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-dot" style="background: #9b59b6;"></div>
-                <span>Demo Kit</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-dot" style="background: #95a5a6;"></div>
-                <span>Unknown / Other</span>
+        <div class="mp-card">
+            <h3>Color Units By</h3>
+            <div class="mp-mode" id="mp-mode">
+                <button data-mode="deal" type="button">Deal Type</button>
+                <button data-mode="unit" type="button">Unit Type</button>
+                <button data-mode="status" type="button">Status</button>
             </div>
         </div>
 
-        {% if unmapped_boxes %}
-        <div class="unmapped-list">
-            <h3>Needs Location Data ({{ unmapped_count }})</h3>
-            {% for box in unmapped_boxes %}
-            <div class="unmapped-item">
-                <div>{{ box.serial or 'No Serial' }} - {{ box.part_number or 'N/A' }}</div>
-                <div class="org">{{ box.org or 'Unknown Org' }}{% if box.customer %} / {{ box.customer }}{% endif %}</div>
-            </div>
-            {% endfor %}
+        <div class="mp-card">
+            <h3>Deal Type — Click to Filter</h3>
+            <div id="mp-deal-bars"></div>
+        </div>
+
+        <div class="mp-card">
+            <h3>Unit Type</h3>
+            <div class="mp-chips" id="mp-unit-chips"></div>
+        </div>
+
+        <div class="mp-card">
+            <h3>Top Customers by Units</h3>
+            <div id="mp-top-customers"><div class="mp-nl">No customer-linked units yet.</div></div>
+        </div>
+
+        {% if can_edit %}
+        <div class="mp-card" id="mp-hidden-card" style="display:none;">
+            <h3>Hidden (<span id="mp-hidden-count">0</span>)</h3>
+            <div id="mp-hidden-list"></div>
+        </div>
+        {% endif %}
+
+        <div class="mp-card">
+            <div class="mp-nl"><b id="mp-nl-count">0</b> units missing location data</div>
+            <div id="mp-nl-list" style="margin-top:6px;"></div>
+        </div>
+
+        {% if is_kiosk %}
+        <div class="mp-card">
+            <form method="post" action="{{ base_path }}/logout">
+                <input type="hidden" name="csrf_token" value="{{ request.session.get('csrf_token', '') }}">
+                <button type="submit" class="mp-fixbtn" style="width:100%; padding:6px;">Log out</button>
+            </form>
         </div>
         {% endif %}
     </div>
+
+    <div class="mp-maparea">
+        <div id="map"></div>
+        <div class="mp-legend" id="mp-legend"></div>
+        <div class="mp-relogin" id="mp-relogin">
+            <div class="box">
+                <div style="font-size:13px; color:var(--text);">Session expired</div>
+                <a href="{{ base_path }}/login">Log in again</a>
+            </div>
+        </div>
+    </div>
 </div>
+
 </div>
 </div>{# /map-page.fl-restyle #}
 {% endblock %}
@@ -332,197 +240,495 @@
 {% block scripts %}
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+(function () {
+    "use strict";
+    var CAN_EDIT = {{ 'true' if can_edit else 'false' }};
+    var STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+    var STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+    var MODE_PROP = { deal: "dealColor", unit: "utColor", status: "statusColor" };
+    var MODE_KEY = { deal: "deal", unit: "category", status: "stSlug" };
 
-    // Initialize MapLibre GL map with faster zoom/pan
-    const map = new maplibregl.Map({
-        container: 'map',
-        style: currentTheme === 'light'
-            ? 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
-            : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        center: [-96.80, 32.78],  // Dallas, TX
-        zoom: 4,
-        attributionControl: true,
-        // Faster, snappier interactions
-        fadeDuration: 0,           // Instant tile appearance (no fade)
-        doubleClickZoom: true,
-        boxZoom: true,
-        dragRotate: false,         // Disable rotation for simpler UX
-        pitchWithRotate: false,
-        touchZoomRotate: true,
-        cooperativeGestures: false,
+    var allFeatures = [];
+    var meta = null;
+    var mode = localStorage.getItem("map-color-mode") || "deal";
+    if (!MODE_PROP[mode]) mode = "deal";
+    var excluded = { deal: {}, unit: {}, status: {} };
+    var searchTerm = "";
+    var mapReady = false;
+    var statusClassCache = [];
+
+    var theme = document.documentElement.getAttribute("data-theme") || "dark";
+    var map = new maplibregl.Map({
+        container: "map",
+        style: theme === "light" ? STYLE_LIGHT : STYLE_DARK,
+        center: [12, 24],
+        zoom: 1.4,
+        attributionControl: false,
     });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    window._mpMap = map; // debug/gate handle, mirrors window._lockManager precedent
+    var popup = new maplibregl.Popup({ offset: 12, maxWidth: "290px" }); // single reused instance
 
-    // Add navigation controls
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // ── helpers ─────────────────────────────────────────────────────────────
+    function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text !== undefined && text !== null) e.textContent = text; // XSS-safe: text nodes only
+        return e;
+    }
+    function fc(features) { return { type: "FeatureCollection", features: features }; }
 
-    // Make scroll zoom faster (default is 1, higher = faster)
-    map.scrollZoom.setWheelZoomRate(1 / 200);  // Faster trackpad/scroll zoom
-    map.scrollZoom.setZoomRate(1 / 200);
-
-    // Color mapping
-    const colors = {
-        green: '#27ae60',
-        orange: '#f39c12',
-        blue: '#3498db',
-        purple: '#9b59b6',
-        gray: '#95a5a6',
-    };
-
-    // Store all markers and their data
-    let allMarkers = [];
-
-    // Load and display markers
-    fetch('{{ base_path }}/map/data')
-        .then(r => r.json())
-        .then(data => {
-            if (!data.markers || data.markers.length === 0) return;
-
-            const bounds = new maplibregl.LngLatBounds();
-
-            data.markers.forEach(m => {
-                const color = colors[m.color] || colors.gray;
-                const p = m.popup;
-
-                // Create marker element
-                const el = document.createElement('div');
-                el.style.width = '16px';
-                el.style.height = '16px';
-                el.style.background = color;
-                el.style.border = '2px solid #fff';
-                el.style.borderRadius = '50%';
-                el.style.boxShadow = '0 0 6px rgba(0,0,0,0.5)';
-                el.style.cursor = 'pointer';
-
-                // Popup content
-                const statusClass = p.status.replace(/\s+/g, '');
-                const popupHtml = `
-                    <div style="font-size: 0.85rem; line-height: 1.6;">
-                        <strong style="color: var(--info);">${p.org}</strong>
-                        ${p.customer ? `<br>Customer: ${p.customer}` : ''}
-                        ${p.site ? `<br>Site: ${p.site}` : ''}
-                        <br>Serial: <code>${p.serial}</code>
-                        ${p.part_number ? `<br>Part: ${p.part_number}` : ''}
-                        <br>Status: <span class="status-badge status-${statusClass}">${p.status}</span>
-                        ${p.deployment ? `<br>Type: ${p.deployment}` : ''}
-                        ${p.last_updated ? `<br>Updated: ${p.last_updated.split('T')[0]}` : ''}
-                    </div>
-                `;
-
-                // Create marker with popup
-                const marker = new maplibregl.Marker({ element: el })
-                    .setLngLat([m.lng, m.lat])
-                    .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(popupHtml))
-                    .addTo(map);
-
-                // Store marker with its data for filtering
-                allMarkers.push({
-                    marker: marker,
-                    element: el,
-                    data: m,
-                    popup: p,
-                    visible: true
-                });
-
-                // Extend bounds
-                bounds.extend([m.lng, m.lat]);
-            });
-
-            // Fit map to markers
-            map.fitBounds(bounds, { padding: 50 });
-
-            // Set up search and filter listeners
-            setupSearchAndFilter();
-        })
-        .catch(err => console.error('Failed to load map data:', err));
-
-    // Search and filter functionality
-    function setupSearchAndFilter() {
-        const searchInput = document.getElementById('search-input');
-        const filterCheckboxes = document.querySelectorAll('.filter-checkbox input[type="checkbox"]');
-
-        // Search input listener (debounced)
-        let searchTimeout;
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => applyFilters(), 300);
-        });
-
-        // Filter checkbox listeners
-        filterCheckboxes.forEach(cb => {
-            cb.addEventListener('change', applyFilters);
+    function filteredFeatures() {
+        var q = searchTerm.toLowerCase();
+        return allFeatures.filter(function (f) {
+            var p = f.properties;
+            if (excluded.deal[p.deal]) return false;
+            if (excluded.unit[p.category]) return false;
+            if (excluded.status[p.stSlug]) return false;
+            if (!q) return true;
+            return (p.serial + " " + p.name + " " + p.customer + " " + p.site).toLowerCase().indexOf(q) !== -1;
         });
     }
 
-    function applyFilters() {
-        const searchTerm = document.getElementById('search-input').value.toLowerCase();
-        const activeStatuses = Array.from(document.querySelectorAll('.filter-checkbox input[type="checkbox"]:checked'))
-            .map(cb => cb.value);
+    // Dominant-class cluster color: nested case comparing per-class counters.
+    function dominantExpr(classes, colorOf, counterPrefix) {
+        var expr = ["case"];
+        for (var i = 0; i < classes.length; i++) {
+            var cond = ["all"];
+            for (var j = 0; j < classes.length; j++) {
+                if (i === j) continue;
+                cond.push([">=", ["coalesce", ["get", counterPrefix + classes[i]], 0],
+                                 ["coalesce", ["get", counterPrefix + classes[j]], 0]]);
+            }
+            expr.push(cond, colorOf(classes[i]));
+        }
+        expr.push("#97A3B6");
+        return expr;
+    }
 
-        let visibleCount = 0;
-        const visibleBounds = new maplibregl.LngLatBounds();
-        let hasVisibleMarkers = false;
+    function clusterColorExpr() {
+        if (!meta) return "#97A3B6";
+        if (mode === "deal") return dominantExpr(Object.keys(meta.colors.deal), function (c) { return meta.colors.deal[c]; }, "d_");
+        if (mode === "unit") return dominantExpr(Object.keys(meta.colors.unit), function (c) { return meta.colors.unit[c]; }, "u_");
+        return dominantExpr(statusClassCache.map(function (s) { return s.slug; }), function (slug) {
+            var m = statusClassCache.filter(function (s) { return s.slug === slug; })[0];
+            return m ? m.color : "#97A3B6";
+        }, "s_");
+    }
 
-        allMarkers.forEach(item => {
-            const p = item.popup;
+    function clusterProperties() {
+        var props = {};
+        Object.keys(meta.colors.deal).forEach(function (c) {
+            props["d_" + c] = ["+", ["case", ["==", ["get", "deal"], c], 1, 0]];
+        });
+        Object.keys(meta.colors.unit).forEach(function (c) {
+            props["u_" + c] = ["+", ["case", ["==", ["get", "category"], c], 1, 0]];
+        });
+        statusClassCache.forEach(function (s) {
+            props["s_" + s.slug] = ["+", ["case", ["==", ["get", "stSlug"], s.slug], 1, 0]];
+        });
+        return props;
+    }
 
-            // Check if marker matches search term
-            const matchesSearch = !searchTerm ||
-                (p.serial && p.serial.toLowerCase().includes(searchTerm)) ||
-                (p.org && p.org.toLowerCase().includes(searchTerm)) ||
-                (p.customer && p.customer.toLowerCase().includes(searchTerm)) ||
-                (p.site && p.site.toLowerCase().includes(searchTerm));
+    function addSourceAndLayers() {
+        if (map.getSource("units")) return;
+        map.addSource("units", {
+            type: "geojson",
+            data: fc(filteredFeatures()),
+            cluster: true,
+            clusterRadius: 44,
+            clusterMaxZoom: 13,
+            clusterProperties: clusterProperties(),
+        });
+        map.addLayer({
+            id: "clusters", type: "circle", source: "units", filter: ["has", "point_count"],
+            paint: {
+                "circle-color": clusterColorExpr(),
+                "circle-radius": ["step", ["get", "point_count"], 12, 10, 16, 50, 22],
+                "circle-stroke-width": 1.5,
+                "circle-stroke-color": "rgba(11,13,18,0.9)",
+            },
+        });
+        map.addLayer({
+            id: "cluster-count", type: "symbol", source: "units", filter: ["has", "point_count"],
+            layout: {
+                "text-field": ["get", "point_count_abbreviated"],
+                "text-size": 11,
+                "text-font": ["Noto Sans Regular"],
+            },
+            paint: { "text-color": "#0B0D12" },
+        });
+        map.addLayer({
+            id: "unit-dots", type: "circle", source: "units", filter: ["!", ["has", "point_count"]],
+            paint: {
+                "circle-color": ["get", MODE_PROP[mode]],
+                "circle-radius": 5.5,
+                "circle-stroke-width": 1.5,
+                "circle-stroke-color": "rgba(11,13,18,0.9)",
+            },
+        });
+    }
 
-            // Check if marker matches status filter
-            const matchesStatus = activeStatuses.includes(p.status);
+    function refreshSource() {
+        if (!mapReady || !map.getSource("units")) return;
+        map.getSource("units").setData(fc(filteredFeatures()));
+    }
 
-            // Show/hide marker
-            const shouldShow = matchesSearch && matchesStatus;
-            item.element.style.display = shouldShow ? 'block' : 'none';
-            item.visible = shouldShow;
+    function setMode(next) {
+        mode = next;
+        localStorage.setItem("map-color-mode", mode);
+        document.querySelectorAll("#mp-mode button").forEach(function (b) {
+            b.classList.toggle("on", b.getAttribute("data-mode") === mode);
+        });
+        if (mapReady && map.getLayer("unit-dots")) {
+            map.setPaintProperty("unit-dots", "circle-color", ["get", MODE_PROP[mode]]);
+            map.setPaintProperty("clusters", "circle-color", clusterColorExpr());
+        }
+        renderLegend();
+    }
 
-            if (shouldShow) {
-                visibleCount++;
-                visibleBounds.extend([item.data.lng, item.data.lat]);
-                hasVisibleMarkers = true;
+    // ── rail rendering (DOM-built, no innerHTML of server data) ────────────
+    function renderMetrics() {
+        var m = meta.metrics;
+        document.getElementById("m-total").textContent = m.total;
+        document.getElementById("m-total-sub").textContent = m.customers + " Customers · " + m.sites + " Sites";
+        document.getElementById("m-purchased").textContent = m.purchased;
+        document.getElementById("m-purchased-sub").textContent = m.purchased_pct + "% of Fleet";
+        document.getElementById("m-pilots").textContent = m.pilots;
+        document.getElementById("m-pilots-sub").textContent = m.pilots_due_30 + " Due Back in 30 Days";
+        document.getElementById("m-tnb").textContent = m.try_and_buy;
+        document.getElementById("m-tnb-sub").textContent = m.tnb_due_month + " Due Back This Month";
+        document.getElementById("m-new30").textContent = (m.new_30 > 0 ? "+" : "") + m.new_30;
+        document.getElementById("m-new30-sub").textContent = "Order-Linked Units";
+    }
+
+    function renderDealBars() {
+        var wrap = document.getElementById("mp-deal-bars");
+        wrap.textContent = "";
+        var counts = meta.dealCounts;
+        var max = 1;
+        Object.keys(counts).forEach(function (k) { if (counts[k] > max) max = counts[k]; });
+        Object.keys(meta.labels.deal).forEach(function (cls) {
+            var row = el("div", "mp-bar" + (excluded.deal[cls] ? " dim" : ""));
+            row.appendChild(el("span", "name", meta.labels.deal[cls]));
+            var track = el("span", "track");
+            var fill = el("span", "fill");
+            fill.style.width = Math.round((counts[cls] || 0) * 100 / max) + "%";
+            fill.style.background = meta.colors.deal[cls];
+            track.appendChild(fill);
+            row.appendChild(track);
+            row.appendChild(el("span", "n", String(counts[cls] || 0)));
+            row.addEventListener("click", function () {
+                excluded.deal[cls] = !excluded.deal[cls];
+                row.classList.toggle("dim", !!excluded.deal[cls]);
+                refreshSource();
+            });
+            wrap.appendChild(row);
+        });
+    }
+
+    function renderUnitChips() {
+        var wrap = document.getElementById("mp-unit-chips");
+        wrap.textContent = "";
+        Object.keys(meta.labels.unit).forEach(function (cat) {
+            var chip = el("button", "mp-chip" + (excluded.unit[cat] ? "" : " on"));
+            chip.type = "button";
+            chip.style.setProperty("--c", meta.colors.unit[cat]);
+            chip.appendChild(el("i"));
+            chip.appendChild(document.createTextNode(meta.labels.unit[cat] + " (" + (meta.unitCounts[cat] || 0) + ")"));
+            chip.addEventListener("click", function () {
+                excluded.unit[cat] = !excluded.unit[cat];
+                chip.classList.toggle("on", !excluded.unit[cat]);
+                refreshSource();
+            });
+            wrap.appendChild(chip);
+        });
+    }
+
+    function renderTopCustomers() {
+        var wrap = document.getElementById("mp-top-customers");
+        wrap.textContent = "";
+        if (!meta.topCustomers.length) {
+            wrap.appendChild(el("div", "mp-nl", "No customer-linked units yet."));
+            return;
+        }
+        meta.topCustomers.forEach(function (pair) {
+            var row = el("div", "mp-rank");
+            row.appendChild(el("span", null, pair[0]));
+            row.appendChild(el("span", "n", String(pair[1])));
+            row.style.cursor = "pointer";
+            row.title = "Zoom to " + pair[0] + " units";
+            row.addEventListener("click", function () { zoomToCustomer(pair[0]); });
+            wrap.appendChild(row);
+        });
+    }
+
+    function zoomToCustomer(name) {
+        var pts = allFeatures.filter(function (f) { return f.properties.customer === name; });
+        if (!pts.length || !mapReady) return;
+        var bounds = new maplibregl.LngLatBounds();
+        pts.forEach(function (f) { bounds.extend(f.geometry.coordinates); });
+        map.fitBounds(bounds, { padding: 80, maxZoom: 10 });
+    }
+
+    function renderLegend() {
+        var wrap = document.getElementById("mp-legend");
+        if (!meta) return;
+        wrap.textContent = "";
+        var entries;
+        if (mode === "deal") {
+            entries = Object.keys(meta.labels.deal).map(function (c) {
+                return { key: c, bucket: "deal", label: meta.labels.deal[c], color: meta.colors.deal[c] };
+            });
+        } else if (mode === "unit") {
+            entries = Object.keys(meta.labels.unit).map(function (c) {
+                return { key: c, bucket: "unit", label: meta.labels.unit[c], color: meta.colors.unit[c] };
+            });
+        } else {
+            entries = statusClassCache.map(function (s) {
+                return { key: s.slug, bucket: "status", label: s.label + " (" + s.count + ")", color: s.color };
+            });
+        }
+        entries.forEach(function (e) {
+            var row = el("div", "lg-row" + (excluded[e.bucket][e.key] ? " dim" : ""));
+            var dot = el("i");
+            dot.style.background = e.color;
+            row.appendChild(dot);
+            row.appendChild(el("span", null, e.label));
+            row.addEventListener("click", function () {
+                excluded[e.bucket][e.key] = !excluded[e.bucket][e.key];
+                row.classList.toggle("dim", !!excluded[e.bucket][e.key]);
+                refreshSource();
+                if (e.bucket === "deal") renderDealBars();
+            });
+            wrap.appendChild(row);
+        });
+    }
+
+    function renderHidden() {
+        if (!CAN_EDIT || !meta.hidden) return;
+        var card = document.getElementById("mp-hidden-card");
+        var list = document.getElementById("mp-hidden-list");
+        document.getElementById("mp-hidden-count").textContent = meta.hidden.length;
+        card.style.display = meta.hidden.length ? "" : "none";
+        list.textContent = "";
+        meta.hidden.forEach(function (h) {
+            var row = el("div", "mp-hiddenrow");
+            row.appendChild(el("span", "lvl", h.level));
+            row.appendChild(el("span", null, h.label));
+            var btn = el("button", "mp-fixbtn", "Unhide");
+            btn.type = "button";
+            btn.addEventListener("click", function () {
+                postJSON("{{ base_path }}/map/visibility", { level: h.level, key: h.key, hidden: false }).then(reloadData);
+            });
+            row.appendChild(btn);
+            list.appendChild(row);
+        });
+    }
+
+    function renderNeedsLocation() {
+        var nl = meta.needsLocation;
+        document.getElementById("mp-nl-count").textContent = nl.count;
+        var list = document.getElementById("mp-nl-list");
+        list.textContent = "";
+        nl.items.slice(0, 12).forEach(function (u) {
+            var row = el("div", "mp-nl-row");
+            row.appendChild(el("span", null, u.label));
+            if (u.serial) row.appendChild(el("span", "mono", u.serial));
+            if (CAN_EDIT) {
+                var btn = el("button", "mp-fixbtn", "Fix");
+                btn.type = "button";
+                var form = el("div", "mp-fixform");
+                var lat = el("input"); lat.placeholder = "lat"; lat.name = "fix-lat-" + u.kind + u.id;
+                var lng = el("input"); lng.placeholder = "lng"; lng.name = "fix-lng-" + u.kind + u.id;
+                var go = el("button", "mp-fixbtn", "Save");
+                go.type = "button";
+                form.appendChild(lat); form.appendChild(lng); form.appendChild(go);
+                btn.addEventListener("click", function () { form.classList.toggle("open"); });
+                go.addEventListener("click", function () {
+                    if (!u.hasLocation) { alert("Assign the item to a location first; coordinates live on the location."); return; }
+                    postJSON("{{ base_path }}/map/set-location",
+                             { kind: u.kind, id: u.id, lat: parseFloat(lat.value), lng: parseFloat(lng.value) })
+                        .then(function (r) { if (r && r.error) alert(r.error); else reloadData(); });
+                });
+                row.appendChild(btn);
+                var holder = el("div");
+                holder.appendChild(row);
+                holder.appendChild(form);
+                list.appendChild(holder);
+                return;
+            }
+            list.appendChild(row);
+        });
+    }
+
+    // ── popup (single reused instance, DOM-built) ───────────────────────────
+    function popupRow(k, v, cls) {
+        var row = el("div", "row");
+        row.appendChild(el("span", "k", k));
+        row.appendChild(el("span", cls || null, v));
+        return row;
+    }
+
+    function showPopup(feature, lngLat) {
+        var p = feature.properties;
+        var box = el("div", "mp-pop");
+        box.appendChild(el("div", "org", p.customer || p.name || "Unit"));
+        box.appendChild(el("div", "site", [p.site, p.city].filter(Boolean).join(" · ") || p.unitLabel));
+        box.appendChild(popupRow("Unit", p.name || p.unitLabel));
+        if (p.serial) box.appendChild(popupRow("Serial", p.serial, "mono"));
+        var dealRow = el("div", "row");
+        dealRow.appendChild(el("span", "k", "Deal"));
+        var badge = el("span", "badge", p.dealLabel.toUpperCase());
+        badge.style.color = p.dealColor;
+        badge.style.borderColor = p.dealColor;
+        badge.style.background = "color-mix(in srgb, " + p.dealColor + " 12%, transparent)";
+        dealRow.appendChild(badge);
+        box.appendChild(dealRow);
+        if (p.status) box.appendChild(popupRow("Status", p.status));
+        if (p.deployed) box.appendChild(popupRow("Deployed", p.deployed, "mono"));
+        if (p.dueBack) box.appendChild(popupRow("Due Back", p.dueBack, p.dueSoon ? "mono due-warn" : "mono"));
+        var actions = el("div", "actions");
+        if (p.viewUrl) {
+            var a = el("a", null, "View Item →");
+            a.href = p.viewUrl;
+            actions.appendChild(a);
+        }
+        if (CAN_EDIT) {
+            var hide = el("button", null, "Hide unit");
+            hide.type = "button";
+            hide.addEventListener("click", function () {
+                postJSON("{{ base_path }}/map/visibility",
+                         { level: "unit", key: p.id, label: (p.name || p.serial || p.id), hidden: true })
+                    .then(function () { popup.remove(); reloadData(); });
+            });
+            actions.appendChild(hide);
+            if (p.site) {
+                var hs = el("button", null, "Hide site");
+                hs.type = "button";
+                hs.addEventListener("click", function () {
+                    postJSON("{{ base_path }}/map/visibility",
+                             { level: "site", key: p.site, label: p.site, hidden: true })
+                        .then(function () { popup.remove(); reloadData(); });
+                });
+                actions.appendChild(hs);
+            }
+            if (p.customer) {
+                var hc = el("button", null, "Hide customer");
+                hc.type = "button";
+                hc.addEventListener("click", function () {
+                    postJSON("{{ base_path }}/map/visibility",
+                             { level: "customer", key: p.customer, label: p.customer, hidden: true })
+                        .then(function () { popup.remove(); reloadData(); });
+                });
+                actions.appendChild(hc);
+            }
+        }
+        if (actions.childNodes.length) box.appendChild(actions);
+        if (p.provenance === "inferred") {
+            box.appendChild(el("div", "prov", "Deal inferred from legacy deployment type - link an order to confirm."));
+        }
+        popup.setLngLat(lngLat).setDOMContent(box).addTo(map);
+    }
+
+    // ── data ────────────────────────────────────────────────────────────────
+    function postJSON(url, body) {
+        return fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        }).then(function (r) {
+            if (r.status === 401) { document.getElementById("mp-relogin").classList.add("open"); return null; }
+            return r.json();
+        });
+    }
+
+    function reloadData() {
+        return fetch("{{ base_path }}/map/data").then(function (r) {
+            if (r.status === 401) { document.getElementById("mp-relogin").classList.add("open"); return null; }
+            return r.json();
+        }).then(function (data) {
+            if (!data) return;
+            allFeatures = data.features;
+            meta = data.meta;
+            var sc = {};
+            allFeatures.forEach(function (f) {
+                var p = f.properties;
+                if (!p.status) return;
+                sc[p.stSlug] = sc[p.stSlug] || { slug: p.stSlug, label: p.status, color: p.statusColor, count: 0 };
+                sc[p.stSlug].count += 1;
+            });
+            statusClassCache = Object.keys(sc).map(function (k) { return sc[k]; });
+            renderMetrics();
+            renderDealBars();
+            renderUnitChips();
+            renderTopCustomers();
+            renderHidden();
+            renderNeedsLocation();
+            renderLegend();
+            refreshSource();
+        }).catch(function (err) { console.error("map data load failed:", err); });
+    }
+
+    // ── map lifecycle: everything behind load (the old page raced this) ────
+    map.on("load", function () {
+        mapReady = true;
+        addSourceAndLayers();
+        setMode(mode);
+    });
+
+    map.on("click", "clusters", function (e) {
+        var f = map.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
+        map.getSource("units").getClusterExpansionZoom(f.properties.cluster_id).then(function (zoom) {
+            map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 0.5 });
+        });
+    });
+    map.on("click", "unit-dots", function (e) {
+        showPopup(e.features[0], e.features[0].geometry.coordinates.slice());
+    });
+    map.on("mouseenter", "clusters", function () { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "clusters", function () { map.getCanvas().style.cursor = ""; });
+    map.on("mouseenter", "unit-dots", function () { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "unit-dots", function () { map.getCanvas().style.cursor = ""; });
+
+    // Theme swap: setStyle keeps the camera but drops sources/layers; re-add
+    // on style.load with the current data and paint (never rebuild the map).
+    window.addEventListener("themechange", function (e) {
+        var url = e.detail.theme === "light" ? STYLE_LIGHT : STYLE_DARK;
+        // diff:false forces a full style load so style.load reliably fires;
+        // maplibre v4 diff mode can swallow the event and strand our layers.
+        map.setStyle(url, { diff: false });
+        map.once("style.load", function () {
+            addSourceAndLayers();
+            if (map.getLayer("unit-dots")) {
+                map.setPaintProperty("unit-dots", "circle-color", ["get", MODE_PROP[mode]]);
+                map.setPaintProperty("clusters", "circle-color", clusterColorExpr());
             }
         });
-
-        // Update visible count
-        document.getElementById('visible-count').textContent = visibleCount;
-
-        // Auto-zoom to visible markers if search is active
-        if (hasVisibleMarkers && searchTerm) {
-            map.fitBounds(visibleBounds, { padding: 50, maxZoom: 15 });
-        }
-    }
-
-    function clearFilters() {
-        // Clear search box
-        document.getElementById('search-input').value = '';
-
-        // Check all status filters
-        document.querySelectorAll('.filter-checkbox input[type="checkbox"]').forEach(cb => {
-            cb.checked = true;
-        });
-
-        // Reset map view to show all markers
-        applyFilters();
-
-        // Fit to all markers
-        const bounds = new maplibregl.LngLatBounds();
-        allMarkers.forEach(item => {
-            bounds.extend([item.data.lng, item.data.lat]);
-        });
-        map.fitBounds(bounds, { padding: 50 });
-    }
-
-    // Theme switching
-    window.addEventListener('themechange', (e) => {
-        const newStyle = e.detail.theme === 'light'
-            ? 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
-            : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-        map.setStyle(newStyle);
     });
+
+    // ── rail wiring ─────────────────────────────────────────────────────────
+    document.querySelectorAll("#mp-mode button").forEach(function (b) {
+        b.addEventListener("click", function () { setMode(b.getAttribute("data-mode")); });
+    });
+    var searchTimer = null;
+    document.getElementById("mp-search").addEventListener("input", function (e) {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            searchTerm = e.target.value.trim();
+            refreshSource();
+            if (searchTerm && mapReady) {
+                var pts = filteredFeatures();
+                if (pts.length) {
+                    var bounds = new maplibregl.LngLatBounds();
+                    pts.forEach(function (f) { bounds.extend(f.geometry.coordinates); });
+                    map.fitBounds(bounds, { padding: 80, maxZoom: 12 });
+                }
+            }
+        }, 300);
+    });
+
+    reloadData();
+})();
 </script>
 {% endblock %}
