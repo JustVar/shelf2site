@@ -43,7 +43,8 @@ CREATE TYPE public.item_statuses AS ENUM (
     'Un-deployable',
     'Decommissioned',
     'Unassigned',
-    'Checked Out'
+    'Checked Out',
+    'Installed'  -- containment-managed (migration 065)
 );
 
 -- =============================================================================
@@ -185,6 +186,25 @@ CREATE TABLE IF NOT EXISTS item_schema.component_history (
 
 CREATE INDEX IF NOT EXISTS idx_component_history_item   ON item_schema.component_history (item_id);
 CREATE INDEX IF NOT EXISTS idx_component_history_parent ON item_schema.component_history (parent_item_id);
+
+-- THE containment read path (also created by migration 065): latest event per
+-- component, present only while installed/moved. DATE granularity means
+-- same-day event pairs tie-break on id — always (action_date, id).
+CREATE OR REPLACE VIEW item_schema.current_containment AS
+SELECT component_item_id, parent_item_id, slot_label, installed_date, event_id
+FROM (
+    SELECT DISTINCT ON (ch.item_id)
+        ch.item_id      AS component_item_id,
+        ch.parent_item_id,
+        ch.slot_label,
+        ch.action_date  AS installed_date,
+        ch.action,
+        ch.id           AS event_id
+    FROM item_schema.component_history ch
+    ORDER BY ch.item_id, ch.action_date DESC, ch.id DESC
+) latest
+WHERE latest.action IN ('installed', 'moved')
+  AND latest.parent_item_id IS NOT NULL;
 
 -- =============================================================================
 -- RECEIPTS (revised — per transaction, not per item)

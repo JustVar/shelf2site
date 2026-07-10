@@ -17,7 +17,7 @@ from datetime import datetime
 from sqlalchemy import (
     Enum as SAEnum,
     Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, LargeBinary,
-    Numeric, String, Text, UniqueConstraint, func,
+    MetaData, Numeric, String, Table, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import MACADDR
@@ -1741,6 +1741,8 @@ item_statuses_enum = SAEnum(
     'Deployed', 'Ready to Deploy', 'Pending', 'Un-deployable',
     'Decommissioned', 'Unassigned',
     'Checked Out',
+    'Installed',  # containment-managed (migration 065) — set/cleared by the
+                  # install/uninstall routes, absent from hand-edit lists
     name='item_statuses',
     schema='public'
 )
@@ -1749,6 +1751,23 @@ component_actions_enum = SAEnum(
     'installed', 'uninstalled', 'moved',
     name='component_actions',
     schema='public'
+)
+
+# item_schema.current_containment — a SQL VIEW (migration 065), THE read path
+# for containment state: latest component_history event per component, present
+# only while installed/moved. Defined on its OWN MetaData so create_all never
+# tries to create it as a table (fresh DBs get the view from db_init +
+# migration 065). One-hop parent resolution is correct by invariant: units
+# cannot be installed as components, so a parent is never itself contained.
+_containment_view_metadata = MetaData()
+current_containment = Table(
+    "current_containment", _containment_view_metadata,
+    Column("component_item_id", Integer, primary_key=True),
+    Column("parent_item_id", Integer),
+    Column("slot_label", String(100)),
+    Column("installed_date", Date),
+    Column("event_id", Integer),
+    schema="item_schema",
 )
 
 
