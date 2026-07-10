@@ -18,8 +18,11 @@ from ..models import (
     IntakePhoto, Item, NASDevice, NASDrive, PendingDevice, ReceivingEvent,
     Site, TABLE_MODELS, TABLE_DISPLAY_NAMES, User, compute_completeness,
 )
+from sqlalchemy.exc import IntegrityError
+
 from ..validation import validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
 from ..vendor_defaults import lookup_by_serial_prefix
+from .intake import STATUSES as ITEM_INTAKE_STATUSES, _get_locations, create_item
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -103,6 +106,89 @@ def find_serial_anywhere(db: Session, serial: str) -> dict | None:
     return None
 
 
+# H2: legacy scan target tables -> item_schema categories. Scan intake now
+# lands in item_schema.items (the system of record) — never public.*.
+TARGET_TABLE_TO_CATEGORY = {
+    "edge_boxes": "edge_box",
+    "gpus": "gpu",
+    "monitors": "monitor",
+    "computers": "computer",
+    "nucs": "computer",
+    "mobile_devices": "mobile_device",
+    "phones": "mobile_device",
+    "cameras": "camera",
+    "webcams": "camera",
+    "network_equipment": "network",
+    # Provisional: item_categories has no NAS value — QNAP NAS units land as
+    # network appliances until the taxonomy decision (SCANNER_AUDIT H2 note).
+    "nas_devices": "network",
+    "access_control": "access_control",
+    "office_equipment": "office_equipment",
+    "printers": "office_equipment",
+    "ups": "ups",
+    "ram_modules": "ram",
+    "cpus": "cpu",
+    "psus": "psu",
+    "motherboards": "motherboard",
+    "pc_cooling": "cpu_cooler",
+    "pc_accessories": "pc_accessories",
+    "hard_drives": "storage_drive",
+}
+
+# item_status is a Postgres ENUM — legacy receive/quick-mode strings must be
+# translated or the insert fails (audit H2/H6).
+_ITEM_STATUS_VALUES = {
+    "Deployed", "Ready to Deploy", "Pending", "Un-deployable",
+    "Decommissioned", "Unassigned", "Checked Out",
+}
+_STATUS_TRANSLATION = {
+    "received": "Pending",
+    "in storage": "Unassigned",
+    "testing": "Pending",
+    "inventory": "Unassigned",  # old quick-mode hardcode (audit F6)
+}
+
+
+def _resolve_item_status(raw) -> str | None:
+    s = (raw or "").strip()
+    if not s:
+        return None
+    if s in _ITEM_STATUS_VALUES:
+        return s
+    return _STATUS_TRANSLATION.get(s.lower())
+
+
+def _resolve_location_id(db: Session, body: dict):
+    """Resolve the payload's location to a sites row.
+
+    Prefers location_id (the receive form now sends a site select); falls
+    back to case-insensitive name match of legacy free text against active
+    non-customer sites. Returns (location_id, unmatched_text) — unmatched
+    text is preserved in notes by the caller, never silently dropped.
+    """
+    loc_id = body.get("location_id")
+    if loc_id not in (None, ""):
+        try:
+            return int(loc_id), None
+        except (TypeError, ValueError):
+            pass
+    text = (body.get("location") or "").strip()
+    if not text:
+        return None, None
+    site = (
+        db.query(Site)
+        .filter(
+            Site.is_active == True,  # noqa: E712 — SQLAlchemy comparison
+            Site.site_type != "customer_site",
+            func.lower(Site.name) == text.lower(),
+        )
+        .first()
+    )
+    if site:
+        return site.id, None
+    return None, text
+
+
 # ---------------------------------------------------------------------------
 # Page routes
 # ---------------------------------------------------------------------------
@@ -127,6 +213,8 @@ def receive_page(
         "events": events,
         "table_choices": TABLE_DISPLAY_NAMES,
         "preselect_category": category or "",
+        "locations": _get_locations(db),
+        "statuses": ITEM_INTAKE_STATUSES,
     })
 
 
@@ -262,6 +350,16 @@ async def submit_device(
     if not serial_valid:
         return JSONResponse(status_code=400, content={"error": serial_error})
 
+    # H4: server-side dedupe — the client pre-check fails open and is
+    # user-bypassable; enforce here unless the caller explicitly bypasses.
+    if not body.get("bypass_duplicate"):
+        existing = find_serial_anywhere(db, serial)
+        if existing:
+            return JSONResponse(status_code=409, content={
+                "error": f"Serial {serial} already exists in {existing['display_table']}",
+                "duplicate": existing,
+            })
+
     # Validate MAC addresses if provided
     validation_errors = {}
     for mac_field in ["mac_address", "mac_address_1", "mac_address_2"]:
@@ -279,52 +377,110 @@ async def submit_device(
             "field_errors": validation_errors
         })
 
-    if direct and target_table in TABLE_MODELS:
-        model_class = TABLE_MODELS[target_table]
+    if direct:
+        # H2: scan intake lands in item_schema.items — the same destination
+        # and create path as the Intake page (audit F2). Legacy public.*
+        # writes are retired for this flow.
+        item_category = TARGET_TABLE_TO_CATEGORY.get(target_table)
+        if not item_category:
+            return JSONResponse(status_code=400, content={
+                "error": f"Unknown target category '{target_table}'",
+            })
 
-        # Build kwargs from body — only set columns that exist on the model
-        kwargs = {"discovered_by": f"intake:{user.username}"}
-        field_candidates = [
-            "serial", "model", "manufacturer", "location", "status",
-            "mac_address_1", "mac_address_2", "bay_count", "ram_gb",
-            "firmware_version", "assigned_to", "ip_address",
-            "mac_address", "device", "device_name", "notes",
-            "purchase_order",
-            "capacity_gb", "drive_type", "form_factor", "interface", "installed_in",
-            "deployment_type", "part_number", "uuid", "sku_version",
-            "org", "customer", "partner", "site_name", "pilot_type",
-        ]
-        for field in field_candidates:
-            val = body.get(field)
-            if val is not None and hasattr(model_class, field):
-                kwargs[field] = val
-        if event_id and hasattr(model_class, "receiving_event_id"):
-            kwargs["receiving_event_id"] = event_id
+        item_status = _resolve_item_status(body.get("status"))
+        location_id, unmatched_location = _resolve_location_id(db, body)
 
-        device = model_class(**kwargs)
-        device.data_completeness = compute_completeness(device)
-        db.add(device)
-        db.commit()
-        db.refresh(device)
+        notes = (body.get("notes") or "").strip()
+        if unmatched_location:
+            notes = (notes + "\n" if notes else "") + f"Location (as scanned): {unmatched_location}"
 
-        # Update receiving event count
+        # brand_sku is an FK into item_schema.part_numbers — only store a
+        # known SKU; unknown scans go to notes instead of failing the insert.
+        brand_sku = None
+        part_number = (body.get("part_number") or "").strip()
+        if part_number:
+            from ..models import ItemPartNumber
+            known = db.query(ItemPartNumber).filter(
+                func.lower(ItemPartNumber.brand_sku) == part_number.lower()
+            ).first()
+            if known:
+                brand_sku = known.brand_sku
+            else:
+                notes = (notes + "\n" if notes else "") + f"Part number (as scanned): {part_number}"
+
+        # Scan-only extras ride in attributes (keys per app/item_fields.py).
+        attributes = {}
+        for key in ("deployment_type", "form_factor", "sku_version", "customer",
+                    "partner", "capacity_gb", "drive_type", "interface",
+                    "bay_count", "ram_gb", "firmware_version", "org",
+                    "site_name", "pilot_type"):
+            val = body.get(key)
+            if val not in (None, ""):
+                attributes[key] = val
+
+        event = None
         if event_id:
             event = db.query(ReceivingEvent).filter(
                 ReceivingEvent.id == event_id
             ).first()
+
+        receipt = None
+        if event:
+            receipt = {
+                "purchase_order": event.purchase_order,
+                "record_type": "packing_slip",
+                "notes": "Scan intake — receiving event #" + str(event.id)
+                         + (f" ({event.vendor})" if event.vendor else ""),
+            }
+
+        manufacturer = (body.get("manufacturer") or "").strip()
+        model = (body.get("model") or "").strip()
+        item_name = (body.get("device_name") or body.get("device") or "").strip() \
+            or f"{manufacturer} {model}".strip() or serial
+
+        try:
+            item = create_item(
+                db,
+                fields={
+                    "item_name": item_name,
+                    "item_manufacturer": manufacturer,
+                    "item_model": model,
+                    "item_sn": serial,
+                    "item_category": item_category,
+                    "item_status": item_status,
+                    "location_id": location_id,
+                    "department_or_owner": body.get("assigned_to"),
+                    "item_mac_address_1": body.get("mac_address_1") or body.get("mac_address"),
+                    "item_mac_address_2": body.get("mac_address_2"),
+                    "appliance_uuid": body.get("uuid"),
+                    "brand_sku": brand_sku,
+                    "item_vendor": event.vendor if event else None,
+                    "notes": notes,
+                },
+                created_by=user.display_name or user.username,
+                receipt=receipt,
+                attributes=attributes or None,
+            )
             if event:
                 event.received_quantity = (event.received_quantity or 0) + 1
-                db.commit()
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            return JSONResponse(status_code=409, content={
+                "error": f"Database rejected {serial}: a uniqueness constraint "
+                         "matched an existing row (duplicate serial or MAC).",
+            })
+        db.refresh(item)
 
         log_event(
             db, "device_added",
             request=request,
             user_id=user.id,
-            target_table=target_table,
-            target_id=device.id,
+            target_table="items",
+            target_id=item.id,
             action="create",
-            new_values=model_to_dict(device),
-            details=f"Intake scan: added {serial} to {target_table}",
+            new_values=model_to_dict(item),
+            details=f"Intake scan: added {serial} to item_schema.items ({item_category})",
         )
 
         from ..sidebar_cache import invalidate_category_stats, invalidate_triage_cache
@@ -333,8 +489,11 @@ async def submit_device(
 
         return JSONResponse(content={
             "status": "created",
-            "target_table": target_table,
-            "device_id": device.id,
+            "target_table": "items",
+            "display_table": "Inventory Items",
+            "item_category": item_category,
+            "device_id": item.id,
+            "item_url": f"{BP}/items/{item.id}",
         })
 
     # Route to pending review queue
@@ -347,7 +506,14 @@ async def submit_device(
         status="pending",
     )
     db.add(pending)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return JSONResponse(status_code=409, content={
+            "error": f"Database rejected {serial}: a uniqueness constraint "
+                     "matched an existing pending row.",
+        })
     db.refresh(pending)
 
     # Publish SSE event

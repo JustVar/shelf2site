@@ -134,3 +134,91 @@ def test_check_duplicate_sees_item_schema(editor_client, contract_item):
     body = r.json()
     assert body["exists"] is True
     assert body["table"] == "items"
+
+
+# ── H2/H4: scan intake lands in item_schema; server-side dedupe ─────────────
+
+@pytest.fixture
+def cleanup_h2(db):
+    yield
+    ids = [r[0] for r in db.execute(sqltext(
+        "SELECT id FROM item_schema.items WHERE item_sn LIKE 'CONTRACT-TEST-H2%'")).fetchall()]
+    if ids:
+        rec_ids = [r[0] for r in db.execute(sqltext(
+            "SELECT receipt_id FROM item_schema.receipt_items WHERE item_id = ANY(:ids)"),
+            {"ids": ids}).fetchall()]
+        db.execute(sqltext("DELETE FROM item_schema.receipt_items WHERE item_id = ANY(:ids)"), {"ids": ids})
+        if rec_ids:
+            db.execute(sqltext("DELETE FROM item_schema.receipts WHERE id = ANY(:ids)"), {"ids": rec_ids})
+        db.execute(sqltext("DELETE FROM item_schema.items WHERE id = ANY(:ids)"), {"ids": ids})
+    db.execute(sqltext("DELETE FROM receiving_events WHERE vendor = 'CONTRACT-TEST-H2'"))
+    db.commit()
+
+
+def test_direct_intake_lands_in_item_schema(editor_client, db, cleanup_h2):
+    """Audit F2: direct-to-inventory used to write legacy public.* rows that
+    the Inventory page and Global Search never see."""
+    ev = editor_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H2", "purchase_order": "CT-H2-PO", "expected_quantity": 1,
+    }).json()
+    r = editor_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H2-1",
+        "manufacturer": "ContractTestCo",
+        "model": "Model-X",
+        "target_table": "edge_boxes",
+        "status": "Received",
+        "direct_to_inventory": True,
+        "receiving_event_id": ev["event_id"],
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "created"
+    assert body["target_table"] == "items"
+
+    db.commit()
+    row = db.execute(sqltext(
+        "SELECT item_category, item_status, item_name FROM item_schema.items "
+        "WHERE item_sn = 'CONTRACT-TEST-H2-1'")).fetchone()
+    assert row is not None, "item not created in item_schema"
+    assert row[0] == "edge_box"
+    assert row[1] == "Pending", "legacy status 'Received' must translate to the enum"
+
+    rec = db.execute(sqltext("""
+        SELECT r.purchase_order, r.record_type FROM item_schema.receipts r
+        JOIN item_schema.receipt_items ri ON ri.receipt_id = r.id
+        JOIN item_schema.items i ON i.id = ri.item_id
+        WHERE i.item_sn = 'CONTRACT-TEST-H2-1'
+    """)).fetchone()
+    assert rec is not None and rec[0] == "CT-H2-PO" and rec[1] == "packing_slip"
+
+    got = db.execute(sqltext(
+        "SELECT received_quantity FROM receiving_events WHERE id = :i"),
+        {"i": ev["event_id"]}).scalar()
+    assert got == 1
+
+
+def test_duplicate_direct_submit_409s_and_bypass_overrides(editor_client, db, cleanup_h2):
+    """Audit F4: no server-side dedupe existed — duplicates inserted silently."""
+    first = editor_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H2-DUP", "target_table": "gpus",
+        "direct_to_inventory": True,
+    })
+    assert first.status_code == 200, first.text
+
+    second = editor_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H2-DUP", "target_table": "gpus",
+        "direct_to_inventory": True,
+    })
+    assert second.status_code == 409
+    assert second.json()["duplicate"]["table"] == "items"
+
+    forced = editor_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H2-DUP", "target_table": "gpus",
+        "direct_to_inventory": True, "bypass_duplicate": True,
+    })
+    assert forced.status_code == 200, forced.text
+
+    db.commit()
+    n = db.execute(sqltext(
+        "SELECT count(*) FROM item_schema.items WHERE item_sn = 'CONTRACT-TEST-H2-DUP'")).scalar()
+    assert n == 2

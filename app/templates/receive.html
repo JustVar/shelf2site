@@ -224,15 +224,19 @@
     <div class="form-row">
         <div class="form-group">
             <label for="device-location">Location</label>
-            <input type="text" id="device-location" placeholder="Lab, Office, etc.">
+            <select id="device-location">
+                <option value="">&mdash; No location &mdash;</option>
+                {% for loc in locations %}
+                <option value="{{ loc.id }}">{{ loc.name }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="form-group">
             <label for="device-status">Status</label>
             <select id="device-status">
-                <option value="Received">Received</option>
-                <option value="In Storage">In Storage</option>
-                <option value="Deployed">Deployed</option>
-                <option value="Testing">Testing</option>
+                {% for s in statuses %}
+                <option value="{{ s }}"{% if s == 'Pending' %} selected{% endif %}>{{ s }}</option>
+                {% endfor %}
             </select>
         </div>
     </div>
@@ -760,8 +764,12 @@ function closeDuplicateModal() {
 }
 
 function proceedWithDuplicate() {
+    // Hide the modal WITHOUT calling closeDuplicateModal(): that helper
+    // resets bypassDuplicateCheck, which used to clobber this path and
+    // re-show the modal instead of submitting.
+    document.getElementById('duplicate-modal').style.display = 'none';
+    duplicateCheckData = null;
     bypassDuplicateCheck = true;
-    closeDuplicateModal();
     submitDevice(); // Retry submission
 }
 
@@ -866,7 +874,9 @@ async function submitDevice() {
         }
     }
 
-    // Reset bypass flag after use
+    // Snapshot BEFORE resetting — the flag must ride along in the POST body
+    // for the server-side dedupe check (H4).
+    const bypassForThisSubmit = bypassDuplicateCheck;
     bypassDuplicateCheck = false;
 
     const body = {
@@ -874,12 +884,13 @@ async function submitDevice() {
         manufacturer: document.getElementById('device-manufacturer').value,
         model: document.getElementById('device-model').value,
         target_table: document.getElementById('device-target-table').value,
-        location: document.getElementById('device-location').value,
+        location_id: document.getElementById('device-location').value || null,
         status: document.getElementById('device-status').value,
         notes: document.getElementById('device-notes').value,
         mac_address: document.getElementById('device-mac-address').value || null,
         direct_to_inventory: document.getElementById('direct-to-inventory').checked,
         receiving_event_id: currentEventId,
+        bypass_duplicate: bypassForThisSubmit,
     };
 
     // NAS-specific
@@ -911,6 +922,13 @@ async function submitDevice() {
 
     if (!resp.ok) {
         const error = await resp.json();
+
+        // Server-side duplicate rejection (H4) — same modal as the pre-check.
+        // closeDuplicateModal re-enables the submit button.
+        if (resp.status === 409 && error.duplicate) {
+            showDuplicateModal(error.duplicate);
+            return;
+        }
 
         // Show field-specific errors if available
         if (error.field_errors) {
@@ -957,7 +975,7 @@ async function submitDevice() {
         const banner = document.getElementById('success-banner');
         banner.style.display = 'block';
         const msg = data.status === 'created'
-            ? 'Device added to <strong>' + (body.target_table) + '</strong>!'
+            ? 'Device added to <strong>' + (data.display_table || data.target_table || body.target_table) + '</strong>!'
             : 'Device sent to <strong>review queue</strong> for approval.';
         banner.querySelector('.success-text').innerHTML = msg;
         banner.scrollIntoView({ behavior: 'smooth' });
