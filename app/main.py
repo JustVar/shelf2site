@@ -18,7 +18,7 @@ from datetime import datetime
 from app import csrf
 from .routes import (
     admin, api, auth_routes, bulk,
-    c2c, checkout, contact_admin, creds,
+    c2c, checkout, contact_admin, containment as containment_routes, creds,
     dashboard, disposal, error_routes, fulfillment,
     intake, intune_routes, inventory, item_detail,
     lifecycle, locks, maintenance_routes, map as map_route,
@@ -487,6 +487,7 @@ app.include_router(slack_bot_routes.router)
 app.include_router(intune_routes.router)
 app.include_router(maintenance_routes.router)
 app.include_router(mobile.router)
+app.include_router(containment_routes.router)
 app.include_router(error_routes.router)
 app.include_router(sse.router, prefix="/events")
 app.include_router(contact_admin.router)

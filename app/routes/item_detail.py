@@ -259,6 +259,15 @@ async def item_update(
             "error": " | ".join(errors),
         })
 
+    # Containment-managed items (Option A): item_status is set by the
+    # install/uninstall routes and the stored location is frozen (the
+    # effective place follows the parent unit). The edit UI disables these
+    # fields; this guard backs it server-side so a form save can never
+    # dislodge them.
+    if item.item_status == "Installed":
+        item_status = item.item_status
+        location_id = str(item.location_id) if item.location_id is not None else ""
+
     item.item_name = _clean_str(item_name)
     item.item_manufacturer = _clean_str(item_manufacturer)
     item.item_model = _clean_str(item_model)

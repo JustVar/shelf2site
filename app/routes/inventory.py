@@ -219,6 +219,12 @@ def quick_view_save(
     if not item:
         return HTMLResponse("Item not found", status_code=404)
 
+    # Containment-managed items keep their status + frozen location
+    # (see item_detail's identical guard; Option A).
+    if item.item_status == "Installed":
+        item_status = item.item_status
+        location_id = str(item.location_id) if item.location_id is not None else ""
+
     item.item_name = _clean_str(item_name)
     item.item_sn = _clean_str(item_sn)
     item.item_manufacturer = _clean_str(item_manufacturer)
@@ -308,6 +314,13 @@ async def inventory_bulk_update(
     for item in items:
         lock = get_lock(f"items:{item.id}")
         if lock and lock.get("user_id") != user.id:
+            skipped += 1
+            skipped_ids.append(item.id)
+            continue
+        # Installed items: status is containment-managed and the stored
+        # location is frozen — bulk writes would break the invariant /
+        # create silent divergence, so they are skipped like locked rows.
+        if item.item_status == "Installed" and field_name in ("item_status", "location_id"):
             skipped += 1
             skipped_ids.append(item.id)
             continue
