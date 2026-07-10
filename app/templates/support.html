@@ -48,9 +48,11 @@
             <thead>
                 <tr>
                     <th>MAC Address</th>
+                    <th>Serial</th>
                     <th>IP Address</th>
                     <th>Hostname</th>
                     <th>Manufacturer</th>
+                    <th>Model</th>
                     <th>Suggested Category</th>
                     <th>Scanner</th>
                     <th>Network</th>
@@ -68,9 +70,11 @@
                 {% for d in devices %}
                 <tr id="pending-row-{{ d.id }}">
                     <td style="font-family: monospace;">{{ d.mac_address }}</td>
+                    <td style="font-family: monospace;"{% if d.notes %} title="{{ d.notes }}"{% endif %}>{{ d.serial or '-' }}</td>
                     <td>{{ d.ip_address or '-' }}</td>
                     <td>{{ d.hostname or '-' }}</td>
                     <td>{{ d.manufacturer or 'Unknown' }}</td>
+                    <td>{{ d.model or '-' }}</td>
                     <td>
                         {{ table_display_names.get(d.suggested_table or 'network_equipment', (d.suggested_table or 'network_equipment').replace('_', ' ').title()) }}
                         {% if d.suggested_table in ('edge_boxes', 'trade_show_boxes') %}
@@ -106,7 +110,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="{{ 12 if status_filter == 'pending' else 10 }}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                    <td colspan="{{ 14 if status_filter == 'pending' else 12 }}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                         No {{ status_filter }} devices.
                     </td>
                 </tr>

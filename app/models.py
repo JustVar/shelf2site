@@ -675,6 +675,16 @@ class PendingDevice(Base):
     reviewed_at = Column(DateTime, nullable=True)
     dismiss_reason = Column(Text, nullable=True)
 
+    # Scan-intake fields (H3, migration 064): what the receive flow knew
+    # about the unit — previously discarded on the pending path (the serial
+    # survived only inside the mac_address placeholder).
+    serial = Column(String(64), nullable=True)
+    model = Column(String(128), nullable=True)
+    notes = Column(Text, nullable=True)
+    receiving_event_id = Column(
+        Integer, ForeignKey("receiving_events.id", ondelete="SET NULL"), nullable=True
+    )
+
 
 # ---------------------------------------------------------------------------
 # 20. Device Warranties (polymorphic warranty tracking)

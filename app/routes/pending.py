@@ -58,7 +58,9 @@ async def approve_device(
         "network_segment": pending.network_segment,
         "last_seen": pending.last_seen,
     }
-    if hasattr(model_class, "mac_address"):
+    if (hasattr(model_class, "mac_address") and pending.mac_address
+            and not pending.mac_address.startswith("intake-")):
+        # the intake-<serial> placeholder is a NOT NULL hack, not a real MAC
         new_device_kwargs["mac_address"] = pending.mac_address
     if hasattr(model_class, "ip_address"):
         new_device_kwargs["ip_address"] = pending.ip_address
@@ -70,6 +72,18 @@ async def approve_device(
         new_device_kwargs["device_name"] = pending.hostname
     if hasattr(model_class, "model_name"):
         new_device_kwargs["model_name"] = pending.hostname
+
+    # H3: scan-intake fields preserved on the pending row (migration 064)
+    if pending.serial and hasattr(model_class, "serial"):
+        new_device_kwargs["serial"] = pending.serial
+    if pending.serial and hasattr(model_class, "gpu_serial"):
+        new_device_kwargs["gpu_serial"] = pending.serial
+    if pending.model and hasattr(model_class, "model"):
+        new_device_kwargs["model"] = pending.model
+    if pending.model and hasattr(model_class, "model_name"):
+        new_device_kwargs["model_name"] = pending.model
+    if pending.notes and hasattr(model_class, "notes"):
+        new_device_kwargs["notes"] = pending.notes
 
     new_device = model_class(**new_device_kwargs)
     new_device.data_completeness = compute_completeness(new_device)
@@ -89,6 +103,17 @@ async def approve_device(
     pending.status = "approved"
     pending.reviewed_by = user.id
     pending.reviewed_at = datetime.utcnow()
+
+    # H3: approval is the receive moment for pending units — count it toward
+    # the receiving event (the submit path doesn't increment for pending).
+    if pending.receiving_event_id:
+        from app.models import ReceivingEvent
+        event = db.query(ReceivingEvent).filter(
+            ReceivingEvent.id == pending.receiving_event_id
+        ).first()
+        if event:
+            event.received_quantity = (event.received_quantity or 0) + 1
+
     db.commit()
     db.refresh(new_device)
 

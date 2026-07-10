@@ -496,7 +496,11 @@ async def submit_device(
             "item_url": f"{BP}/items/{item.id}",
         })
 
-    # Route to pending review queue
+    # Route to pending review queue. H3: preserve everything the scan knew —
+    # serial/model/notes/event linkage used to be silently discarded here.
+    if event_id and not db.query(ReceivingEvent.id).filter(
+            ReceivingEvent.id == event_id).first():
+        event_id = None  # a stale event id must not fail the insert
     pending = PendingDevice(
         mac_address=body.get("mac_address") or body.get("mac_address_1") or f"intake-{serial}",
         hostname=None,  # Hostname is for network-discovered devices only
@@ -504,6 +508,10 @@ async def submit_device(
         suggested_table=target_table or "network_equipment",
         scanner_id=f"intake:{user.username}",
         status="pending",
+        serial=serial,
+        model=(body.get("model") or "").strip() or None,
+        notes=(body.get("notes") or "").strip() or None,
+        receiving_event_id=event_id,
     )
     db.add(pending)
     try:

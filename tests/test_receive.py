@@ -222,3 +222,33 @@ def test_duplicate_direct_submit_409s_and_bypass_overrides(editor_client, db, cl
     n = db.execute(sqltext(
         "SELECT count(*) FROM item_schema.items WHERE item_sn = 'CONTRACT-TEST-H2-DUP'")).scalar()
     assert n == 2
+
+
+# ── H3: the pending path preserves what the scan knew ───────────────────────
+
+def test_pending_path_preserves_the_scan(editor_client, db, cleanup_pending, cleanup_h2):
+    """Audit F3: serial/model/notes/event linkage used to be discarded — the
+    serial survived only inside the mac_address placeholder."""
+    ev = editor_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H2", "expected_quantity": 1,
+    }).json()
+    r = editor_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H3-1",
+        "manufacturer": "ContractTestH3",
+        "model": "PM-1",
+        "notes": "scan note",
+        "target_table": "cameras",
+        "direct_to_inventory": False,
+        "receiving_event_id": ev["event_id"],
+    })
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "pending_review"
+
+    db.commit()
+    row = db.execute(sqltext(
+        "SELECT serial, model, notes, receiving_event_id FROM pending_devices "
+        "WHERE serial = 'CONTRACT-TEST-H3-1'")).fetchone()
+    assert row is not None, "pending row missing the preserved serial"
+    assert row[1] == "PM-1"
+    assert row[2] == "scan note"
+    assert row[3] == ev["event_id"]
