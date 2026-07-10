@@ -110,6 +110,10 @@ Severity: C = breaks the stated purpose or corrupts data · M = major · m = min
 - **F15 [m] Information oracle:** check-duplicate needs only
   `get_current_user` — any session incl. map_kiosk can enumerate serials and
   learn table/location/status. Intake photos served to any user by sequential id.
+  **[CORRECTED 2026-07-10]** The map_kiosk clause was wrong: the kiosk
+  confinement in `auth_redirect_middleware` runs before the `/api` passthrough
+  and answers 403 — the route never executes for kiosks (now pinned in the
+  kiosk contract test). The viewer-level oracle stands; fix remains H14.
 - **F16 [m] Scanned content is interpolated into `innerHTML` unescaped**
   (toasts, banners, OCR buttons) — a QR code encoding HTML/JS executes in an
   authenticated editor's session. Internal tool, but intake scans untrusted

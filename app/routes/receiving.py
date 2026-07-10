@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from ..audit import log_event, model_to_dict
@@ -15,8 +15,8 @@ from ..auth import get_current_user, require_editor, require_receiving_access
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    IntakePhoto, NASDevice, PendingDevice, ReceivingEvent,
-    TABLE_MODELS, TABLE_DISPLAY_NAMES, User, compute_completeness,
+    IntakePhoto, Item, NASDevice, NASDrive, PendingDevice, ReceivingEvent,
+    Site, TABLE_MODELS, TABLE_DISPLAY_NAMES, User, compute_completeness,
 )
 from ..validation import validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
 from ..vendor_defaults import lookup_by_serial_prefix
@@ -27,6 +27,80 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+
+
+def find_serial_anywhere(db: Session, serial: str) -> dict | None:
+    """Unified serial lookup (audit H1): case-insensitive across
+    item_schema.items (the system of record), every legacy TABLE_MODELS
+    table (including GPU, whose column is gpu_serial), and
+    nas_drives.serial_number.
+
+    Matches on lower() equality, NOT ilike — scanned strings can contain
+    % or _ which ilike would treat as wildcards.
+
+    Returns a dict shaped for the scan / check-duplicate responses
+    (table, display_table, device_id, serial, location, status), or None.
+    """
+    serial = (serial or "").strip()
+    if not serial:
+        return None
+    low = serial.lower()
+
+    # item_schema.items first — the system of record.
+    item = (
+        db.query(Item)
+        .filter(Item.item_sn.isnot(None), func.lower(Item.item_sn) == low)
+        .first()
+    )
+    if item:
+        location = None
+        if item.location_id:
+            site = db.query(Site).filter(Site.id == item.location_id).first()
+            location = site.name if site else None
+        return {
+            "table": "items",
+            "display_table": "Inventory Items",
+            "device_id": item.id,
+            "serial": item.item_sn,
+            "location": location,
+            "status": item.item_status,
+        }
+
+    # Legacy per-category tables — still hold most historical serials.
+    for table_name, model in TABLE_MODELS.items():
+        col = getattr(model, "serial", None)
+        if col is None:
+            col = getattr(model, "gpu_serial", None)
+        if col is None:
+            continue
+        row = db.query(model).filter(col.isnot(None), func.lower(col) == low).first()
+        if row:
+            return {
+                "table": table_name,
+                "display_table": TABLE_DISPLAY_NAMES.get(table_name, table_name),
+                "device_id": row.id,
+                "serial": getattr(row, "serial", None) or getattr(row, "gpu_serial", None),
+                "location": getattr(row, "location", None),
+                "status": getattr(row, "status", None),
+            }
+
+    # NAS bay drives live outside TABLE_MODELS.
+    drive = (
+        db.query(NASDrive)
+        .filter(NASDrive.serial_number.isnot(None), func.lower(NASDrive.serial_number) == low)
+        .first()
+    )
+    if drive:
+        return {
+            "table": "nas_drives",
+            "display_table": "NAS Drives",
+            "device_id": drive.id,
+            "serial": drive.serial_number,
+            "location": None,
+            "status": getattr(drive, "drive_status", None),
+        }
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -114,18 +188,15 @@ async def process_scan(
     if not barcode:
         return JSONResponse(status_code=400, content={"error": "Empty barcode"})
 
-    # Check if serial already exists in any inventory table
-    for table_name, model in TABLE_MODELS.items():
-        if hasattr(model, "serial"):
-            existing = db.query(model).filter(model.serial == barcode).first()
-            if existing:
-                return JSONResponse(content={
-                    "status": "already_exists",
-                    "table": table_name,
-                    "display_table": TABLE_DISPLAY_NAMES.get(table_name, table_name),
-                    "device_id": existing.id,
-                    "serial": barcode,
-                })
+    # Unified, case-insensitive existence check (items + legacy + nas_drives)
+    existing = find_serial_anywhere(db, barcode)
+    if existing:
+        # The helper's "status" key is the DEVICE status (check-duplicate's
+        # shape); rename it so it can't clobber the scan outcome.
+        payload = dict(existing)
+        payload["device_status"] = payload.pop("status", None)
+        payload["status"] = "already_exists"
+        return JSONResponse(content=payload)
 
     # Try vendor/model auto-lookup by serial prefix
     defaults = lookup_by_serial_prefix(barcode)
@@ -159,19 +230,9 @@ def check_duplicate_serial(
     if not serial:
         return JSONResponse(content={"exists": False})
 
-    for table_name, model in TABLE_MODELS.items():
-        if hasattr(model, "serial"):
-            existing = db.query(model).filter(model.serial == serial).first()
-            if existing:
-                return JSONResponse(content={
-                    "exists": True,
-                    "table": table_name,
-                    "display_table": TABLE_DISPLAY_NAMES.get(table_name, table_name),
-                    "device_id": existing.id,
-                    "serial": serial,
-                    "location": getattr(existing, "location", None),
-                    "status": getattr(existing, "status", None),
-                })
+    hit = find_serial_anywhere(db, serial)
+    if hit:
+        return JSONResponse(content={"exists": True, **hit})
 
     return JSONResponse(content={"exists": False})
 

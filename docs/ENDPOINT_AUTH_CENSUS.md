@@ -410,7 +410,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/api/receive/check-duplicate` | GET | any authenticated | OK |
+| `/api/receive/check-duplicate` | GET | any authenticated | OK — kiosk sessions get 403 from the middleware (pinned in the kiosk contract test); viewer-level enumeration is audit F15/H14 |
 | `/api/receive/device` | POST | editor+ (incl. sub-admins) | OK |
 | `/api/receive/events` | POST | editor+ (incl. sub-admins) | OK |
 | `/api/receive/photo` | POST | editor+ (incl. sub-admins) | OK |

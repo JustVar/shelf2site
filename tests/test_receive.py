@@ -96,3 +96,41 @@ def test_receive_handles_a_null_serial_without_crashing(editor_client):
 def test_receive_requires_editor_tier(viewer_client):
     r = viewer_client.post("/api/receive/device", json={"serial": "CONTRACT-TEST-5"})
     assert r.status_code == 403
+
+
+# ── H1: unified, case-insensitive lookup (audit F1/F5/F11) ──────────────────
+
+@pytest.fixture
+def contract_item(db):
+    """A throwaway item_schema.items row for lookup tests."""
+    db.execute(sqltext("""
+        INSERT INTO item_schema.items (item_name, item_sn, item_category, item_status)
+        VALUES ('Contract Test Item', 'CONTRACT-TEST-H1-ITEM', 'gpu', 'Unassigned')
+    """))
+    db.commit()
+    yield "CONTRACT-TEST-H1-ITEM"
+    db.execute(sqltext("DELETE FROM item_schema.items WHERE item_sn = 'CONTRACT-TEST-H1-ITEM'"))
+    db.commit()
+
+
+def test_scan_finds_serials_in_item_schema(editor_client, contract_item):
+    """Audit F1: serials living only in item_schema used to scan as 'unknown',
+    inviting double intake of the same physical unit."""
+    r = editor_client.post("/api/receive/scan", json={"barcode": contract_item})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "already_exists", body
+    assert body["table"] == "items"
+
+
+def test_scan_matches_case_insensitively(editor_client, contract_item):
+    """Audit F5: wedge scanners emit uppercase; stored serials are as-imported."""
+    r = editor_client.post("/api/receive/scan", json={"barcode": contract_item.lower()})
+    assert r.json()["status"] == "already_exists"
+
+
+def test_check_duplicate_sees_item_schema(editor_client, contract_item):
+    r = editor_client.get(f"/api/receive/check-duplicate?serial={contract_item.lower()}")
+    body = r.json()
+    assert body["exists"] is True
+    assert body["table"] == "items"
