@@ -530,7 +530,7 @@ async def add_user(
 
     if not username or not password:
         return JSONResponse(status_code=400, content={"error": "Username and password required"})
-    strength_error = validate_password_strength(password)
+    strength_error = validate_password_strength(password, username=username)
     if strength_error:
         return JSONResponse(status_code=400, content={"error": f"Password too weak: {strength_error}"})
     if role not in VALID_ROLES:

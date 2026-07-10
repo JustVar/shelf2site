@@ -186,7 +186,7 @@ async def change_password_submit(
         }, status_code=400)
 
     # Validate new password strength
-    strength_error = validate_password_strength(new_password)
+    strength_error = validate_password_strength(new_password, username=user.username)
     if strength_error:
         return templates.TemplateResponse("change_password.html", {
             "request": request,

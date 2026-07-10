@@ -12,6 +12,7 @@ from .config import settings
 from .database import get_db
 from .models import User
 from .password_blocklist import is_blocked
+from .password_rules import check_composition
 
 
 # ---------------------------------------------------------------------------
@@ -35,23 +36,33 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
-def validate_password_strength(password: str) -> str | None:
+def validate_password_strength(password: str, username: str | None = None) -> str | None:
     """Return an error message if the password is too weak, or None if it passes.
 
-    NIST SP 800-63B Rev 4: favor length over composition and screen against a breached/common
-    blocklist. No composition (upper/lower/digit) rules.
+    NIST SP 800-63B Rev 4: favor length over character-class composition, and screen against
+    a breached/common blocklist plus context-specific words. No upper/lower/digit rules.
     - At least PASSWORD_MIN_LENGTH characters
     - At most 72 bytes — past that bcrypt silently ignores the tail, so a longer
       password would offer no more protection than its first 72 bytes
     - Not in the offline breached/common-password blocklist
+    - Not a structural pattern: repetition, a sequence, a keyboard walk, or a
+      password containing a context word (see app/password_rules.py)
+
+    `username` is optional so the helper stays callable without an account in hand; pass it
+    wherever it is known, or the "must not contain your username" rule cannot fire.
     """
-    if len(password) < settings.PASSWORD_MIN_LENGTH:
+    # Measure the string the blocklist lookup will actually see. is_blocked() normalizes
+    # with .strip(), and the loader keeps only entries at least PASSWORD_MIN_LENGTH long,
+    # so a raw-length check would let "monkey123      " (nine characters of secret, padded
+    # to fifteen) clear the minimum and then miss every short breach entry.
+    if len(password.strip()) < settings.PASSWORD_MIN_LENGTH:
         return f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters."
+    # The byte cap measures the RAW password: that is what bcrypt hashes.
     if len(password.encode("utf-8")) > BCRYPT_MAX_BYTES:
         return "Password is too long — use at most 72 characters."
     if is_blocked(password):
         return "This password has appeared in known breaches or is too common. Choose a different one."
-    return None
+    return check_composition(password, username)
 
 
 # ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ to the running worker over `http://127.0.0.1:8081`.
 | `tests/test_auth_census.py` | every `/api/*` route has an auth dependency; every write route requires a tier; viewers are rejected from editor/admin routes; kiosk stays confined to the map; API docs are disabled |
 | `tests/test_helpers.py` | `normalize_mac` (all input formats, empty→NULL, invalid→ValueError); password strength (length, 72-byte cap, breach blocklist); `unit_visible` cascade (unit/site/customer + sensitive); `_classify` deal-type derivation (order / inferred / unassigned) |
 | `tests/test_receive.py` | receive happy path, dash-MAC normalization, invalid MAC → 400, null MAC and null serial do not crash, editor tier required |
+| `tests/test_password_rules.py` | structural password rules (repetition, sequence, keyboard walk, context words, username boundary matching) and the length-filtered blocklist. See [PASSWORD_POLICY.md](PASSWORD_POLICY.md) |
 
 ## The structural tests are the point
 
