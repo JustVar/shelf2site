@@ -13,7 +13,7 @@
     </span>
 </div>
 
-<table class="fl-table">
+<table class="fl-table fl-table--cards">
     <thead>
         <tr>
             <th>Category</th>
@@ -46,6 +46,11 @@
                     <svg viewBox="0 0 24 24" width="14" height="14">
                         <path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
                     </svg>
+                </a>
+                {# phone card chevron — VIEW mode on purpose (the pencil's edit
+                   mode acquires an edit lock; wrong default from a phone) #}
+                <a href="{{ base_path }}/items/{{ row.id }}" class="btn-view-mobile" title="View item">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
                 </a>
             </td>
         </tr>

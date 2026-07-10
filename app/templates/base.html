@@ -14,6 +14,9 @@
     (function(){
       var KEY = 'sx-nav-collapsed';
       function desiredState() {
+        // Phones use the hamburger drawer — never the collapsed rail.
+        // matchMedia keeps this in lockstep with the CSS breakpoint (767px).
+        if (window.matchMedia('(max-width: 767px)').matches) return false;
         var stored = localStorage.getItem(KEY);
         if (stored === '1') return true;
         if (stored === '0') return false;
@@ -37,25 +40,32 @@
       sync();
       // Resize handler — only auto-applies when the user has no explicit pref.
       window.addEventListener('resize', function(){
-        if (localStorage.getItem(KEY) !== null) return;
-        var want = window.innerWidth < 1200;
         var nav = document.getElementById('sx-nav');
         var html = document.documentElement;
-        if (want) {
-          html.classList.add('sx-nav-pre-collapsed');
-          if (nav) nav.classList.add('sx-nav--collapsed');
-          if (document.body) document.body.classList.add('sx-nav-collapsed');
-        } else {
-          html.classList.remove('sx-nav-pre-collapsed');
-          if (nav) nav.classList.remove('sx-nav--collapsed');
-          if (document.body) document.body.classList.remove('sx-nav-collapsed');
+        function apply(collapsed) {
+          if (collapsed) {
+            html.classList.add('sx-nav-pre-collapsed');
+            if (nav) nav.classList.add('sx-nav--collapsed');
+            if (document.body) document.body.classList.add('sx-nav-collapsed');
+          } else {
+            html.classList.remove('sx-nav-pre-collapsed');
+            if (nav) nav.classList.remove('sx-nav--collapsed');
+            if (document.body) document.body.classList.remove('sx-nav-collapsed');
+          }
         }
+        // Phones: drawer mode — the rail never applies. The stored pref is
+        // preserved and re-applied when the window grows back past 768px.
+        if (window.matchMedia('(max-width: 767px)').matches) return apply(false);
+        var stored = localStorage.getItem(KEY);
+        if (stored !== null) return apply(stored === '1');
+        apply(window.innerWidth < 1200);
       });
     })();
     </script>
     <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v=3">
     <link rel="stylesheet" href="{{ base_path }}/static/css/main.css?v={{ request.state.asset_v or '0' }}">
     <link rel="stylesheet" href="{{ base_path }}/static/css/fl-restyle.css?v={{ request.state.flcss_v or '0' }}">
+    <link rel="stylesheet" href="{{ base_path }}/static/css/mobile.css?v={{ request.state.mobilecss_v or '0' }}">
     <link rel="manifest" href="{{ base_path }}/static/manifest.json">
     <link rel="icon" type="image/png" sizes="96x96" href="{{ base_path }}/static/icons/icon-96.png">
     <link rel="apple-touch-icon" sizes="192x192" href="{{ base_path }}/static/icons/icon-192.png">
@@ -418,6 +428,44 @@
             <span id="maintenance-countdown" style="font-size:0.8rem; color: var(--text-muted);"></span>
             <button onclick="document.getElementById('maintenance-banner').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;line-height:1;padding:0 0 0 0.5rem;" title="Dismiss">✕</button>
         </div>
+        {% if user and not _kiosk and not request.session.get('desktop_view') %}
+        <!-- Mobile-view offer — the client viewport check backing the server
+             UA sniff (app/routes/mobile.py). Inline JS shows it only when the
+             viewport is phone-width on a non-field page. -->
+        <div id="mobile-offer-bar" class="fl-restyle">
+            <span>Using a phone? There's a mobile view.</span>
+            <a href="{{ base_path }}/mobile">Open</a>
+            <button type="button" onclick="sxDismissMobileOffer()" title="Dismiss" aria-label="Dismiss">&#10005;</button>
+        </div>
+        <script>
+        (function(){
+            var FIELD = ['/mobile', '/receive', '/checkout', '/checkin', '/search', '/items'];
+            function relPath() {
+                var p = location.pathname, bp = window.BP || '';
+                return (bp && p.indexOf(bp) === 0) ? p.slice(bp.length) : p;
+            }
+            function onFieldPage(r) {
+                return FIELD.some(function(pre){ return r === pre || r.indexOf(pre + '/') === 0; });
+            }
+            window.sxDismissMobileOffer = function(){
+                sessionStorage.setItem('sx-mobile-offer-hide', '1');
+                var el = document.getElementById('mobile-offer-bar');
+                if (el) el.style.display = 'none';
+            };
+            function sync(){
+                var el = document.getElementById('mobile-offer-bar');
+                if (!el) return;
+                var show = window.matchMedia('(max-width: 767px)').matches
+                    && !onFieldPage(relPath())
+                    && !sessionStorage.getItem('sx-mobile-offer-hide');
+                el.style.display = show ? 'flex' : 'none';
+            }
+            sync();
+            window.addEventListener('resize', sync);
+            document.addEventListener('htmx:afterSwap', sync);
+        })();
+        </script>
+        {% endif %}
         {% endif %}
 
         <main>

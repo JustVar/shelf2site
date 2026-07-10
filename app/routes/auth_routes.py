@@ -130,6 +130,13 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
     if user.role == "map_kiosk":
         return RedirectResponse(f"{BP}/map/", status_code=302)
 
+    # Phones land on the mobile launcher (UX routing only — routes/mobile.py).
+    # A surviving desktop_view flag (re-login without logout) is honored.
+    from .mobile import is_phone_ua
+    if is_phone_ua(request.headers.get("user-agent", "")) \
+            and not request.session.get("desktop_view"):
+        return RedirectResponse(f"{BP}/mobile", status_code=302)
+
     return RedirectResponse(f"{BP}/dashboard", status_code=302)
 
 

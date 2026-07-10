@@ -110,17 +110,38 @@ function togglePinNav() { toggleCollapseNav(); }
 function toggleSidebar() { toggleCollapseNav(); }
 
 function toggleMobileSidebar() {
-    const sidebar = document.getElementById('nav-sidebar');
+    const sidebar = document.getElementById('sx-nav');
     const overlay = document.getElementById('sidebar-overlay');
     if (!sidebar) return;
+
+    // The drawer always shows the full nav — collapsed-rail state is a
+    // desktop concept; clear any that survived a resize into phone width.
+    sidebar.classList.remove('sx-nav--collapsed');
+    if (document.body) document.body.classList.remove('sx-nav-collapsed');
+    document.documentElement.classList.remove('sx-nav-pre-collapsed');
 
     sidebar.classList.toggle('mobile-open');
     if (overlay) overlay.classList.toggle('active');
 }
 
 function closeMobileSidebar() {
-    const sidebar = document.getElementById('nav-sidebar');
+    const sidebar = document.getElementById('sx-nav');
     const overlay = document.getElementById('sidebar-overlay');
     if (sidebar) sidebar.classList.remove('mobile-open');
     if (overlay) overlay.classList.remove('active');
 }
+
+// Drawer hygiene: close after boosted nav swaps and on Escape; keep htmx
+// history snapshots clean (beforeHistorySave) and close on restore —
+// htmx:historyRestore does NOT fire afterSwap; and never carry drawer
+// state out of phone widths. All are no-ops when the drawer is already
+// closed or the nav is absent (kiosk).
+document.addEventListener('htmx:afterSwap', closeMobileSidebar);
+document.addEventListener('htmx:beforeHistorySave', closeMobileSidebar);
+document.addEventListener('htmx:historyRestore', closeMobileSidebar);
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeMobileSidebar();
+});
+window.addEventListener('resize', function () {
+    if (!window.matchMedia('(max-width: 767px)').matches) closeMobileSidebar();
+});

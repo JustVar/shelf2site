@@ -1050,7 +1050,7 @@ async function assignLookupDrive() {
             : '<span style="color: var(--text-muted);">Not installed</span>';
 
         card.innerHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.88rem;">
+            <div class="drive-info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.88rem;">
                 <div><strong>Serial:</strong> <span style="font-family: monospace;">${drive.serial}</span></div>
                 <div><strong>Status:</strong> ${drive.status || 'N/A'}</div>
                 <div><strong>Manufacturer:</strong> ${drive.manufacturer || 'N/A'}</div>

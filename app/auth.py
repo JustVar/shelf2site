@@ -74,6 +74,11 @@ SESSION_KEY = "session_user_id"
 
 def login_user(request: Request, user: User):
     """Store user ID in the session after successful authentication."""
+    # A different user logging in over a live session must not inherit the
+    # previous user's mobile desktop-view preference (routes/mobile.py);
+    # same-user re-login keeps it (documented: flag lives until logout).
+    if request.session.get(SESSION_KEY) not in (None, user.id):
+        request.session.pop("desktop_view", None)
     request.session[SESSION_KEY] = user.id
     request.session["username"] = user.username
     request.session["display_name"] = user.display_name

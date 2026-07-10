@@ -22,7 +22,7 @@ from .routes import (
     dashboard, disposal, error_routes, fulfillment,
     intake, intune_routes, inventory, item_detail,
     lifecycle, locks, maintenance_routes, map as map_route,
-    nas_drives, notification_routes, orders, pending,
+    mobile, nas_drives, notification_routes, orders, pending,
     procurement, provisioning, receipts, receiving, search,
     sites, slack_bot_routes, sse, support,
     tours, trials, vendors, warranty,
@@ -127,6 +127,19 @@ def _compute_fl_css_version():
 
 
 FL_CSS_VERSION = _compute_fl_css_version()
+
+_mobile_css_path = _static_dir / "css" / "mobile.css"
+
+
+def _compute_mobile_css_version():
+    try:
+        import hashlib
+        return hashlib.sha1(_mobile_css_path.read_bytes()).hexdigest()[:10]
+    except Exception:
+        return "0"
+
+
+MOBILE_CSS_VERSION = _compute_mobile_css_version()
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 templates = Jinja2Templates(directory=str(_base_dir / "app" / "templates"))
@@ -208,6 +221,7 @@ async def sidebar_counts_middleware(request: Request, call_next):
     request.state.pending_count = 0
     request.state.asset_v = CSS_VERSION
     request.state.flcss_v = FL_CSS_VERSION
+    request.state.mobilecss_v = MOBILE_CSS_VERSION
 
     from .auth import get_session_user_id
     user_id = get_session_user_id(request)
@@ -229,6 +243,41 @@ async def sidebar_counts_middleware(request: Request, call_next):
         db.close()
 
     return await call_next(request)
+
+
+# Mobile launcher middleware — phones get the field-action launcher instead
+# of desktop-dense pages (decision 2026-07-09; see app/routes/mobile.py).
+# UX ROUTING ONLY: access control (incl. map_kiosk confinement) lives in
+# auth_redirect_middleware below, which runs BEFORE this one — Starlette
+# middleware is LIFO, so being DEFINED earlier makes this one run LATER.
+# Never touches: non-GET, HTMX fragments, non-HTML requests, static/API/SSE,
+# auth + kiosk paths, kiosk sessions, unauthenticated requests (already
+# bounced to /login upstream), or the field pages themselves. The launcher's
+# "View Desktop Version" sets session["desktop_view"], which stands this
+# middleware down until logout (logout_user() clears the session).
+@app.middleware("http")
+async def mobile_launcher_middleware(request: Request, call_next):
+    if request.method != "GET":
+        return await call_next(request)
+    path = request.url.path
+    rel = path[len(BP):] if path.startswith(BP) else path
+    if rel.startswith(("/static", "/api", "/events", "/login", "/logout",
+                       "/change-password", "/map")):
+        return await call_next(request)
+    sess = request.session
+    if (not sess.get("session_user_id")
+            or sess.get("desktop_view")
+            or sess.get("role") == "map_kiosk"):
+        return await call_next(request)
+    if request.headers.get("HX-Request") == "true":
+        return await call_next(request)
+    if "text/html" not in request.headers.get("accept", ""):
+        return await call_next(request)
+    if not mobile.is_phone_ua(request.headers.get("user-agent", "")):
+        return await call_next(request)
+    if mobile.path_is_mobile_allowed(rel) or mobile.path_is_mobile_exempt(rel):
+        return await call_next(request)
+    return RedirectResponse(f"{BP}/mobile", status_code=302)
 
 
 # Auth redirect middleware: redirect unauthenticated requests to /login
@@ -437,6 +486,7 @@ app.include_router(vendors.router)
 app.include_router(slack_bot_routes.router)
 app.include_router(intune_routes.router)
 app.include_router(maintenance_routes.router)
+app.include_router(mobile.router)
 app.include_router(error_routes.router)
 app.include_router(sse.router, prefix="/events")
 app.include_router(contact_admin.router)

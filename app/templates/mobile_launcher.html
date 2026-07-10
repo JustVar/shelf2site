@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Asset Tracker{% endblock %}
+
+{% block content %}
+{% from "_fl_icons.html" import fl_icon %}
+<div class="mobile-launcher fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift ml-wrap">
+
+    <header class="ml-header">
+        <img src="{{ base_path }}/static/img/logo-brand-full.png"
+             alt="Asset Tracker" class="ml-logo">
+    </header>
+
+    <!-- Hero: camera scanning is the primary field workflow -->
+    <a href="{{ base_path }}/receive" class="ml-hero">
+        {{ fl_icon('camera', 'blush', 34) }}
+        <span class="ml-text">
+            <span class="ml-title">Scan / Receive</span>
+            <span class="ml-sub">Camera-scan barcodes, receive new hardware</span>
+        </span>
+        {{ fl_icon('chevrRight', 'mute', 20, 'ml-chevr') }}
+    </a>
+
+    <nav class="ml-cards" aria-label="Field actions">
+        <a href="{{ base_path }}/checkout" class="ml-card">
+            {{ fl_icon('upload', 'green', 26) }}
+            <span class="ml-text">
+                <span class="ml-title">Check Out</span>
+                <span class="ml-sub">Hand an item to someone</span>
+            </span>
+            {{ fl_icon('chevrRight', 'mute', 18, 'ml-chevr') }}
+        </a>
+        <a href="{{ base_path }}/checkin" class="ml-card">
+            {{ fl_icon('tray', 'amber', 26) }}
+            <span class="ml-text">
+                <span class="ml-title">Check In</span>
+                <span class="ml-sub">Return a checked-out item</span>
+            </span>
+            {{ fl_icon('chevrRight', 'mute', 18, 'ml-chevr') }}
+        </a>
+        <a href="{{ base_path }}/search" class="ml-card">
+            {{ fl_icon('search', 'info', 26) }}
+            <span class="ml-text">
+                <span class="ml-title">Search</span>
+                <span class="ml-sub">Find any item by name, serial, or MAC</span>
+            </span>
+            {{ fl_icon('chevrRight', 'mute', 18, 'ml-chevr') }}
+        </a>
+    </nav>
+
+    <footer class="ml-footer">
+        <div class="ml-user">
+            <div class="ml-avatar">{{ user.display_name[0] | upper if user and user.display_name else 'U' }}</div>
+            <div>
+                <div class="ml-user-name">{{ user.display_name if user else 'User' }}</div>
+                <div class="ml-user-role">{{ user.role | replace('_', ' ') | title if user else '' }}</div>
+            </div>
+            <form method="post" action="{{ base_path }}/logout" class="ml-logout-form">
+                <input type="hidden" name="csrf_token" value="{{ request.session.get('csrf_token', '') }}">
+                <button type="submit" class="ml-logout">
+                    {{ fl_icon('logout', 'mute', 16) }}
+                    Logout
+                </button>
+            </form>
+        </div>
+        <a href="{{ base_path }}/mobile/desktop" class="ml-desktop-link">View Desktop Version</a>
+    </footer>
+
+</div>{# /fl-lift #}
+</div>{# /mobile-launcher #}
+{% endblock %}

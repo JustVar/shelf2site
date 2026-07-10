@@ -1,0 +1,374 @@
+/* ============================================================================
+   mobile.css — phone layouts (<768px) for the FIELD PAGES + global chrome,
+   plus the /mobile launcher page.
+
+   Scope decision (2026-07-09): mobile support covers field pages ONLY —
+   Receive & Scan, Check Out, Check In, Global Search, Item Detail. Phones
+   are redirected to the /mobile launcher for everything else
+   (app/routes/mobile.py). Tablets (>=768px) are desktop.
+
+   RULES OF THIS FILE:
+   - Everything except the .mobile-launcher section and the two base
+     visibility rules below MUST live inside @media (max-width: 767px) —
+     desktop must render pixel-identical with this file loaded.
+   - Loaded AFTER main.css and fl-restyle.css (base.html) — equal-specificity
+     ties resolve in this file's favor on purpose.
+   - body zoom is 1 below 768px (zoom reset in main.css) — sizes here are
+     real CSS px.
+   ============================================================================ */
+
+/* Mobile-only affordances — hidden at every width; revealed on phones by the
+   media block below (chevron) or by inline JS (offer bar). */
+.btn-view-mobile { display: none; }
+#mobile-offer-bar { display: none; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Mobile launcher page (/mobile) — phone-first, presentable at any width.
+   fl language: card tokens + duotone icons (fl-restyle.css .duo/.st-c-*).
+   ════════════════════════════════════════════════════════════════════════ */
+.mobile-launcher .ml-wrap {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 6px 4px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mobile-launcher .ml-header { display: flex; justify-content: center; padding: 12px 0 4px; }
+.mobile-launcher .ml-cards { display: flex; flex-direction: column; gap: 10px; }
+.mobile-launcher .ml-logo { height: 56px; width: auto; }
+
+.mobile-launcher .ml-hero,
+.mobile-launcher .ml-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-top-color: var(--card-edge);
+  border-radius: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: var(--text);
+  transition: background .15s, border-color .15s;
+}
+.mobile-launcher .ml-hero {
+  min-height: 76px;
+  background: var(--accent-primary-dim);
+  border-color: rgba(194, 158, 155, 0.55);
+}
+[data-theme="light"] .mobile-launcher .ml-hero { border-color: rgba(133, 96, 94, 0.45); }
+.mobile-launcher .ml-card { min-height: 60px; }
+.mobile-launcher .ml-hero:hover,
+.mobile-launcher .ml-card:hover {
+  background-color: var(--card-bg-hover);
+  border-color: var(--border-hover);
+}
+.mobile-launcher .duo { flex-shrink: 0; }
+.mobile-launcher .ml-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mobile-launcher .ml-title { font-weight: 600; font-size: 17px; }
+.mobile-launcher .ml-hero .ml-title { font-size: 19px; }
+.mobile-launcher .ml-sub { font-size: 12.5px; color: var(--text-muted); }
+.mobile-launcher .ml-chevr { margin-left: auto; flex-shrink: 0; color: var(--text-muted); }
+
+.mobile-launcher .ml-footer {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mobile-launcher .ml-user { display: flex; align-items: center; gap: 10px; }
+.mobile-launcher .ml-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent-primary-dim);
+  color: var(--accent-primary-l, var(--accent-primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+[data-theme="light"] .mobile-launcher .ml-avatar { color: var(--accent-primary); }
+.mobile-launcher .ml-user-name { font-weight: 600; font-size: 14px; }
+.mobile-launcher .ml-user-role { font-size: 12px; color: var(--text-muted); }
+.mobile-launcher .ml-logout-form { margin-left: auto; }
+.mobile-launcher .ml-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.mobile-launcher .ml-desktop-link {
+  display: block;
+  text-align: center;
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PHONES ONLY (<768px) below this line.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+  /* ── Global chrome: the sidebar becomes a hamburger drawer ──────────────
+     Supersedes the collapsed-rail concept below the phone breakpoint; the
+     base.html head IIFE and theme.js also strip the collapse classes here,
+     so the drawer always presents the full expanded nav. */
+  body,
+  body.sx-nav-collapsed,
+  html.sx-nav-pre-collapsed body { grid-template-columns: 1fr; }
+
+  .sx-nav,
+  .sx-nav.sx-nav--collapsed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    width: 280px;
+    min-width: 280px;
+    max-width: 84vw;
+    transform: translateX(-102%);
+    transition: transform .22s ease;
+    z-index: 200;
+    overflow-y: auto;
+  }
+  .sx-nav.mobile-open { transform: translateX(0); box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45); }
+  .sidebar-overlay { z-index: 150; }
+
+  /* main-wrapper's overflow-x:hidden makes it the sticky containing
+     scrollport (it never scrolls — the document does), which kills every
+     position:sticky bar below. `clip` clips the same overflow WITHOUT
+     creating a scroll container, so bottom-sticky works again. Browsers
+     without `clip` support keep `hidden` and the bars degrade to in-flow. */
+  .main-wrapper { overflow-x: clip; }
+  /* collapse/expand chevrons are a desktop-rail concept */
+  .sx-nav__toggle-btn { display: none; }
+
+  /* Topbar (hamburger home) pins so the drawer is always reachable */
+  .topbar { position: sticky; top: 0; z-index: 90; }
+  .topbar .hamburger {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .topbar .hamburger svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2; }
+
+  /* ── Shared field-page ergonomics ───────────────────────────────────────
+     >=16px inputs prevent the iOS focus zoom; 44px minimum touch targets. */
+  .receive-page input, .receive-page select, .receive-page textarea,
+  .checkout-page input, .checkout-page select, .checkout-page textarea,
+  .checkin-page input, .checkin-page select, .checkin-page textarea,
+  .search-page input, .search-page select, .search-page textarea,
+  .item-detail-page input, .item-detail-page select, .item-detail-page textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .receive-page input[type="checkbox"], .receive-page input[type="radio"],
+  .checkout-page input[type="checkbox"], .checkout-page input[type="radio"],
+  .checkin-page input[type="checkbox"], .checkin-page input[type="radio"],
+  .search-page input[type="checkbox"], .search-page input[type="radio"],
+  .item-detail-page input[type="checkbox"], .item-detail-page input[type="radio"] {
+    min-height: 0;
+    width: 20px;
+    height: 20px;
+  }
+  .receive-page textarea, .checkout-page textarea, .checkin-page textarea,
+  .item-detail-page textarea { min-height: 88px; }
+  /* receive.css links in the page head AFTER this file and its .form-group
+     rules tie at (0,1,1) — out-specify them so 16px holds on receive */
+  .receive-page .form-group input,
+  .receive-page .form-group select,
+  .receive-page .form-group textarea { font-size: 16px; }
+
+  .receive-page .btn, .receive-page .fl-btn,
+  .checkout-page .inv-btn, .checkout-page .itk-submit, .checkout-page .fl-cta,
+  .checkin-page .inv-btn, .checkin-page .itk-submit,
+  .search-page .fl-btn, .search-page .inv-btn,
+  .item-detail-page .inv-btn, .item-detail-page .fl-cta, .item-detail-page .itk-submit {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Inline-styled page headers on checkout/checkin/search set flex but not
+     flex-wrap — adding wrap here is safe (inline styles don't define it). */
+  .fl-restyle .page-header { flex-wrap: wrap; gap: 8px; }
+  .fl-restyle .dtl-header { flex-wrap: wrap; gap: 8px; }
+  .fl-restyle .dtl-header-left { min-width: 0; }
+  /* presence banner (lock indicator) must stay readable */
+  .fl-restyle .lock-indicator { flex-wrap: wrap; }
+
+  /* ── Check Out / Check In: sticky primary action ──────────────────────── */
+  .checkout-page .itk-actions,
+  .checkin-page .itk-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin: 0.5rem -0.85rem 0;
+    padding: 10px 0.85rem calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+  .checkout-page .itk-submit,
+  .checkin-page .itk-submit { flex: 1 1 auto; min-height: 50px; font-size: 16px; }
+  .checkout-page .itk-actions .inv-btn,
+  .checkin-page .itk-actions .inv-btn { min-height: 50px; }
+
+  /* ── Receive & Scan: camera is the hero ───────────────────────────────── */
+  /* !important beats the inline align-items:center on .scanner-buttons */
+  .receive-page .scanner-buttons { flex-direction: column; align-items: stretch !important; }
+  .receive-page #start-scan-btn {
+    width: 100%;
+    min-height: 56px;
+    font-size: 17px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .receive-page #start-scan-btn svg { width: 20px; height: 20px; }
+  .receive-page .quick-mode-toggle { min-height: 44px; justify-content: center; }
+  /* sticky submit once the details step is revealed (hidden until then) */
+  .receive-page #step-submit {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin: 0.5rem -0.85rem 0;
+    padding: 10px 0.85rem calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg);
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+  }
+  .receive-page .btn-submit { min-height: 52px; font-size: 16px; }
+  /* assign-mode drive card: JS-inline 2-col grid overflows on long serials */
+  .receive-page .drive-info-grid { grid-template-columns: 1fr !important; }
+  .receive-page .drive-info-grid span { overflow-wrap: anywhere; }
+
+  /* ── Global Search: results table collapses to stacked row-cards ────────
+     Same markup, CSS-only (.fl-table--cards modifier set in the partial).
+     Card = category pill, name, serial, status chip + chevron to the item. */
+  .search-page .search-bar-container > div { max-width: none !important; }
+
+  /* the results wrapper is itself a card — strip it so row-cards don't
+     render card-on-card; the inline overflow-x:auto is pointless for cards */
+  .search-page .table-section { background: none; border: 0; padding: 0; box-shadow: none; }
+  .search-page #search-results { overflow-x: visible !important; }
+
+  .fl-restyle .fl-table--cards { display: block; }
+  .fl-restyle .fl-table--cards thead { display: none; }
+  .fl-restyle .fl-table--cards tbody { display: flex; flex-direction: column; gap: 10px; }
+  .fl-restyle .fl-table--cards tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    grid-template-areas:
+      "cat    act"
+      "name   act"
+      "serial act"
+      "status act";
+    gap: 3px 10px;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-top-color: var(--card-edge);
+    border-radius: 12px;
+    padding: 12px 10px 12px 14px;
+  }
+  .fl-restyle .fl-table--cards tbody tr:hover { background: var(--card-bg-hover); }
+  .fl-restyle .fl-table--cards tbody td {
+    display: block;
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+  .fl-restyle .fl-table--cards tbody td:nth-child(1) { grid-area: cat; }
+  .fl-restyle .fl-table--cards tbody td:nth-child(2) { grid-area: name; font-size: 15.5px; }
+  .fl-restyle .fl-table--cards tbody td:nth-child(3) { grid-area: serial; font-size: 12px; overflow-wrap: anywhere; }
+  .fl-restyle .fl-table--cards tbody td:nth-child(4) { grid-area: status; }
+  .fl-restyle .fl-table--cards tbody td:nth-child(5),
+  .fl-restyle .fl-table--cards tbody td:nth-child(6) { display: none; } /* MAC, Location */
+  .fl-restyle .fl-table--cards tbody td:nth-child(7) {
+    grid-area: act;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* the pencil opens EDIT mode (acquires an edit lock) — desktop affordance */
+  .fl-restyle .fl-table--cards .btn-edit { display: none; }
+  .fl-restyle .fl-table--cards .btn-view-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+    height: 100%;
+    border-radius: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ── Item Detail: everything stacks (covers 641-767px landscape too) ──── */
+  .item-detail-page .dtl-grid,
+  .item-detail-page .itk-grid { grid-template-columns: 1fr; }
+
+  /* ── Mobile-view offer bar (shown by base.html inline JS on narrow
+       viewports the server UA sniff missed; display set by that JS) ─────── */
+  /* the drawer + its backdrop are modal — the offer bar must not punch
+     through (no :has() support = keeps today's harmless overlap) */
+  body:has(#sx-nav.mobile-open) #mobile-offer-bar { display: none !important; }
+
+  #mobile-offer-bar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 300;
+    align-items: center;
+    gap: 6px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px 4px 4px 14px;
+    font-size: 14px;
+    color: var(--text);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+  #mobile-offer-bar span { flex: 1; }
+  #mobile-offer-bar a {
+    color: var(--accent-primary-l, #C29E9B);
+    font-weight: 600;
+    text-decoration: none;
+    padding: 12px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  [data-theme="light"] #mobile-offer-bar a { color: var(--accent-primary, #85605E); }
+  #mobile-offer-bar button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    min-width: 44px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+}

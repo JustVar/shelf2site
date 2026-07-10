@@ -1475,7 +1475,9 @@ thead th:nth-child(1) {
 }
 
 /* ===== Responsive ===== */
-@media (max-width: 768px) {
+/* Phone breakpoint is 767px: tablets (>=768px) are desktop on purpose
+   (mobile slice, 2026-07-10). Drawer + field-page rules live in mobile.css. */
+@media (max-width: 767px) {
     body {
         grid-template-columns: 1fr; /* sidebar goes off-screen on mobile */
     }
@@ -2323,6 +2325,14 @@ thead th:nth-child(1) {
     body { zoom: 1.15; }
 }
 
+/* ── Phones (<768px): no zoom — mobile field layouts are real CSS px
+   (drawer, sticky bars, 44px targets in mobile.css). Must come after the
+   1.15 rule above: same specificity, last-in-source wins. The flyout math
+   in fl-restyle.js reads computed zoom per-open, so it self-adjusts. ── */
+@media (max-width: 767px) {
+    body { zoom: 1; }
+}
+
 /* ── Small laptop (769px–1280px) ─────────────────────────────────── */
 @media (min-width: 769px) and (max-width: 1280px) {
     main {
@@ -2743,6 +2753,10 @@ html.sx-nav-pre-collapsed .sx-nav__footer-actions { display: none; }
    Must come AFTER .sx-nav base rule so it wins the cascade. */
 @media (max-width: 2560px) {
     .sx-nav { height: calc(100vh / 1.15); }
+}
+/* Phones: zoom is 1 (see the zoom reset near the 1.15 rule) — no compensation. */
+@media (max-width: 767px) {
+    .sx-nav { height: 100vh; }
 }
 
 /* ── Edge Box Detail Page ───────────────────────── */
