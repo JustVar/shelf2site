@@ -512,7 +512,7 @@ def fulfillment_page(
         })
 
     # Sites for deployment modal dropdown
-    sites = db.query(Site).filter(Site.is_active.is_(True)).order_by(Site.name.asc()).all()
+    sites = db.query(Site).filter(Site.is_active.is_(True), Site.site_type == "customer_site").order_by(Site.name.asc()).all()
     site_list = [{"id": s.id, "name": s.name, "address": s.address, "type": s.site_type} for s in sites]
 
     # SEs for deployment modal dropdown

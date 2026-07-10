@@ -453,6 +453,10 @@ async def c2c_acquire(
         created_by=user.id,
     )
     db.add(rec)
+    # Lifecycle (Migration 063): deploying a unit sets its place to the
+    # customer site, so a geocoded site pins the camera on the map.
+    if site_id:
+        camera.location_id = int(site_id)
     db.commit()
     db.refresh(rec)
 

@@ -23,7 +23,7 @@ from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
     AuditLog, CustomerOrder, DeviceProvisioning, DeviceAssignment, DEFAULT_PROVISIONING_STAGES,
-    EdgeBox, Site, get_display_name, get_serial,
+    EdgeBox, Item, Site, get_display_name, get_serial,
 )
 from ..notifications import notify
 from ..sku_conversion import convert_legacy_sku, is_legacy_sku
@@ -176,8 +176,8 @@ def provisioning_page(
             "zendesk_ticket_id": rec.zendesk_ticket_id,
         })
 
-    # Sites and users for the create modal dropdowns
-    sites = db.query(Site).filter(Site.is_active.is_(True)).order_by(Site.name).all()
+    # Sites and users for the create modal dropdowns (deploy targets = customer sites)
+    sites = db.query(Site).filter(Site.is_active.is_(True), Site.site_type == "customer_site").order_by(Site.name).all()
     from ..models import User as UserModel
     users_q = db.query(UserModel).filter(UserModel.is_active.is_(True))
     if user.role != "justin_admin":
@@ -281,8 +281,8 @@ def provisioning_detail_page(
         for u in db.query(UserModel).filter(UserModel.id.in_(audit_user_ids)).all():
             audit_users_map[u.id] = u.display_name or u.username
 
-    # Sites and users for edit dropdowns
-    sites = db.query(Site).filter(Site.is_active.is_(True)).order_by(Site.name).all()
+    # Sites and users for edit dropdowns (deploy targets = customer sites)
+    sites = db.query(Site).filter(Site.is_active.is_(True), Site.site_type == "customer_site").order_by(Site.name).all()
     users_q = db.query(UserModel).filter(UserModel.is_active.is_(True))
     if user.role != "justin_admin":
         users_q = users_q.filter(
@@ -947,6 +947,10 @@ async def update_provisioning(
             if not site:
                 return JSONResponse(status_code=404, content={"error": "Site not found"})
         rec.site_id = int(site_id) if site_id else None
+        if rec.item_id and site_id:
+            item = db.query(Item).filter(Item.id == rec.item_id).first()
+            if item:
+                item.location_id = int(site_id)  # unit follows its site (Migration 063)
         changed.append("site")
 
     if "assigned_to" in body:
