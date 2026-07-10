@@ -15,7 +15,7 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from ..auth import get_current_user, require_admin, User
+from ..auth import get_current_user, require_admin, require_editor, User
 from ..locks import (
     acquire_lock, escalate_lock, release_lock, heartbeat, get_lock, get_all_locks,
 )
@@ -35,10 +35,13 @@ async def _parse_body(request: Request) -> dict:
     return json.loads(raw) if raw else {}
 
 
+# Lock mutations are editor-tier (2026-07 auth census): locks exist only to
+# guard edit flows, and every UI path that acquires one is already behind an
+# editor-gated control. Viewers keep read access to lock status below.
 @router.post("/locks/acquire")
 async def api_acquire_lock(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ):
     body = await request.json()
     resource_key = body.get("resource_key")
@@ -64,7 +67,7 @@ async def api_acquire_lock(
 @router.post("/locks/escalate")
 async def api_escalate_lock(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ):
     body = await request.json()
     resource_key = body.get("resource_key")
@@ -87,7 +90,7 @@ async def api_escalate_lock(
 @router.post("/locks/release")
 async def api_release_lock(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ):
     body = await _parse_body(request)
     resource_key = body.get("resource_key")
@@ -110,7 +113,7 @@ async def api_release_lock(
 @router.post("/locks/heartbeat")
 async def api_heartbeat(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ):
     body = await request.json()
     resource_key = body.get("resource_key")

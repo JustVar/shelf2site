@@ -89,6 +89,11 @@ app = FastAPI(
     description="Hardware asset tracker for Company",
     version="2.0.0",
     lifespan=lifespan,
+    # No interactive API docs in production — /docs, /redoc and /openapi.json
+    # would expose the full route map to any logged-in user (2026-07 auth census).
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # Static files and templates

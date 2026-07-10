@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from ..auth import require_system_admin
+from ..auth import get_current_user, require_system_admin
 from ..audit import log_event
 from ..config import settings
 from ..database import get_db
@@ -42,8 +42,13 @@ def maintenance_page(
 
 
 @router.get("/api/maintenance/status")
-def maintenance_status():
-    """Return current maintenance announcement state — no auth required (needed for banner polling)."""
+def maintenance_status(user: User = Depends(get_current_user)):
+    """Return current maintenance announcement state.
+
+    Login-gated (2026-07 auth census): the banner poller in realtime.js only
+    runs inside the authenticated app shell, and the client treats a non-OK
+    response as "no banner", so requiring a session breaks nothing.
+    """
     data = get_announcement().to_dict()
     data["sse_clients"] = get_sse_client_count()
     return JSONResponse(content=data)
