@@ -21,3 +21,4 @@ aiosmtplib>=3.0  # Async SMTP client for email notifications
 gunicorn
 asyncpg>=0.29
 PyMuPDF>=1.27  # PDF generation + merge for composite build-certification reports (S6e)
+pytest>=8.0  # contract tests in tests/ — see docs/CONTRACT_TESTS.md
