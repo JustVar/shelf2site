@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly Asset Tracker backup at 02:15 UTC
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

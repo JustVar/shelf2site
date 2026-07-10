@@ -2,8 +2,14 @@
 
 Admins can broadcast a pre-restart banner to all active users via SSE.
 No database required — state is in-memory and intentionally resets on restart.
+
+Also renders the nightly-backup status row (status.json is written by
+scripts/at-backup.sh on apphost and bind-mounted read-only into the
+container — see docs/BACKUPS.md).
 """
 
+import json
+import os
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -27,6 +33,80 @@ templates = Jinja2Templates(
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
 
+BACKUP_STATUS_FILE = Path(os.environ.get("BACKUP_STATUS_DIR", "/app/data/backups")) / "status.json"
+BACKUP_AMBER_HOURS = 36
+BACKUP_RED_HOURS = 72
+
+
+def _human_size(n):
+    """1234567 -> '1.2 MB' ('?' for missing/garbage input)."""
+    try:
+        n = float(n)
+    except (TypeError, ValueError):
+        return "?"
+    if n < 1024:
+        return f"{int(n)} B"
+    for unit in ("KB", "MB", "GB", "TB"):
+        n /= 1024.0
+        if n < 1024 or unit == "TB":
+            return f"{n:.1f} {unit}"
+
+
+def _backup_status():
+    """Status-row model for the nightly backup.
+
+    level maps onto the fl-banner kit: "" = quiet (healthy), "warn" = amber
+    (stale >36 h, dump-size anomaly, or no status file), "urg" = red (stale
+    >72 h or the last run failed). Thresholds per docs/BACKUPS.md.
+    """
+    try:
+        raw = json.loads(BACKUP_STATUS_FILE.read_text())
+        ts = datetime.fromisoformat(raw["ts"].replace("Z", "+00:00"))
+    except (OSError, ValueError, KeyError):
+        return {
+            "level": "warn",
+            "headline": "No backup recorded",
+            "detail": "status.json missing — check at-backup.timer on apphost (docs/BACKUPS.md)",
+            "age_label": "—",
+            "ts_label": "—",
+            "size_label": "—",
+        }
+
+    age_h = (datetime.now(timezone.utc) - ts).total_seconds() / 3600
+    if age_h < 1:
+        age_label = "under an hour ago"
+    elif age_h < 48:
+        age_label = f"{int(age_h)} h ago"
+    else:
+        age_label = f"{age_h / 24:.1f} days ago"
+
+    if not raw.get("ok"):
+        level, headline = "urg", "Last backup FAILED"
+        detail = raw.get("error") or "see history.jsonl on apphost"
+    elif age_h >= BACKUP_RED_HOURS:
+        level, headline = "urg", "Backups stale"
+        detail = "no successful backup in over 3 days — check at-backup.timer on apphost"
+    elif age_h >= BACKUP_AMBER_HOURS:
+        level, headline = "warn", "Backups stale"
+        detail = "last backup is older than 36 h — check at-backup.timer on apphost"
+    elif raw.get("size_alert"):
+        level, headline = "warn", "Backup size anomaly"
+        detail = "dump is over 2x the 7-day median — verify before trusting it"
+    else:
+        level, headline, detail = "", "Backups healthy", ""
+
+    return {
+        "level": level,
+        "headline": headline,
+        "detail": detail,
+        "age_label": age_label,
+        "ts_label": ts.strftime("%Y-%m-%d %H:%M UTC"),
+        "size_label": (
+            f"dump {_human_size(raw.get('dump_bytes'))} · "
+            f"files {_human_size(raw.get('files_bytes'))}"
+        ),
+    }
+
 
 @router.get("/admin/maintenance", response_class=HTMLResponse)
 def maintenance_page(
@@ -38,6 +118,7 @@ def maintenance_page(
         "request": request,
         "user": user,
         "announcement": get_announcement().to_dict(),
+        "backup": _backup_status(),
     })
 
 

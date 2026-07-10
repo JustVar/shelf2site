@@ -16,6 +16,18 @@
     The banner appears on every page until you clear it or the server restarts.
 </p>
 
+<!-- Nightly backup status row (status.json from scripts/at-backup.sh on apphost; docs/BACKUPS.md) -->
+<div class="fl-banner {{ backup.level }}" id="backup-status-row" style="cursor: default;">
+    <span class="fl-banner-title">Database Backup</span>
+    <div class="fl-banner-stats" style="flex-wrap: wrap;">
+        <span><b>{{ backup.headline }}</b></span>
+        <span>Last backup: <b>{{ backup.age_label }}</b></span>
+        <span>{{ backup.ts_label }}</span>
+        <span>{{ backup.size_label }}</span>
+        {% if backup.detail %}<span>{{ backup.detail }}</span>{% endif %}
+    </div>
+</div>
+
 <!-- Current Status Card -->
 <div class="summary-cards" style="margin-bottom: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
     <div class="summary-card" id="status-card">

@@ -1,0 +1,9 @@
+[Unit]
+Description=Asset Tracker nightly backup (pg_dump + uploads tar)
+Documentation=file:/opt/asset_tracker/docs/BACKUPS.md
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/asset_tracker/scripts/at-backup.sh
