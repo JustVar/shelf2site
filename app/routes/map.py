@@ -146,6 +146,11 @@ def _due_back(link):
 def _feature(unit_key, kind, lng, lat, name, serial, category, status, deal, provenance,
              customer, site, city, deployed, due_back, view_url):
     due_soon = bool(due_back and (due_back - date.today()).days <= 30)
+    # Item units on the customer map are at a customer site by construction;
+    # a non-Deployed status there is the place/status smell triage surfaces.
+    data_check = ""
+    if kind == "item" and status and status != "Deployed":
+        data_check = f"At a customer site but status is {status}"
     return {
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": [lng, lat]},
@@ -167,6 +172,7 @@ def _feature(unit_key, kind, lng, lat, name, serial, category, status, deal, pro
             "dueBack": due_back.isoformat() if due_back else "",
             "dueSoon": due_soon,
             "viewUrl": view_url or "",
+            "dataCheck": data_check,
             "dealColor": DEAL_COLORS[deal],
             "utColor": UNIT_COLORS.get(category, STATUS_FALLBACK),
             "statusColor": STATUS_COLORS.get(status or "", STATUS_FALLBACK),

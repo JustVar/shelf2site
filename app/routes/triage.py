@@ -18,7 +18,7 @@ all roles, not just the active tab's.
 
 from pathlib import Path
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request, Query, Form
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
@@ -27,7 +27,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item, ItemPartNumber
+from ..models import Item, ItemPartNumber, Site
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, _clean_str, _safe_int, _safe_float, _safe_date,
@@ -96,6 +96,7 @@ FIELD_LABELS = {
     "item_storage_size_gb": "Storage (GB)",
     "appliance_uuid": "Appliance UUID",
     "tracking_number": "Tracking number",
+    "place_check": "Place / status mismatch",
 }
 
 FIELD_TYPES = {
@@ -144,6 +145,32 @@ def _compute_gaps(item: Item, fields: list[str]) -> list[str]:
     return [f for f in fields if _is_missing(getattr(item, f, None), f)]
 
 
+# Deployable product units (only these have a customer-site lifecycle).
+_DEPLOY_CATEGORIES = ("edge_box", "cloud_box", "camera_c2c")
+_PLACE_CHECK = "place_check"
+
+
+def _place_mismatch_ids(db: Session) -> set:
+    """Item ids whose place and status disagree (Migration 063 lifecycle):
+    a deployable unit marked Deployed that is not at a customer site, or one
+    at a customer site whose status is not Deployed. A data smell, surfaced
+    in the deploy triage role rather than a new page."""
+    rows = (
+        db.query(Item.id)
+        .outerjoin(Site, Site.id == Item.location_id)
+        .filter(
+            Item.item_category.in_(_DEPLOY_CATEGORIES),
+            or_(
+                and_(Item.item_status == "Deployed",
+                     or_(Site.id.is_(None), Site.site_type != "customer_site")),
+                and_(Item.item_status != "Deployed", Site.site_type == "customer_site"),
+            ),
+        )
+        .all()
+    )
+    return {r[0] for r in rows}
+
+
 def _gap_filter(role_fields: list[str]):
     """Build a SQLAlchemy OR-filter: items where at least one role field is missing."""
     conditions = []
@@ -158,12 +185,16 @@ def _gap_filter(role_fields: list[str]):
     return or_(*conditions)
 
 
-def _count_role_gaps(db: Session, role_key: str) -> int:
-    """Return the number of items with at least one gap for the given role."""
+def _count_role_gaps(db: Session, role_key: str, extra_ids: set = None) -> int:
+    """Number of items with at least one gap for the given role (plus any
+    extra ids, e.g. the deploy place-check set)."""
     fields = TRIAGE_ROLES[role_key]["fields"]
+    cond = _gap_filter(fields)
+    if extra_ids:
+        cond = or_(cond, Item.id.in_(extra_ids))
     return (
         db.query(func.count(Item.id))
-        .filter(_gap_filter(fields))
+        .filter(cond)
         .scalar() or 0
     )
 
@@ -171,7 +202,10 @@ def _count_role_gaps(db: Session, role_key: str) -> int:
 def get_triage_total_count(db: Session) -> int:
     """Count unique items with >=1 gap across ANY triage role (union).
     Public helper: used by sidebar_cache for the global nav badge."""
+    mismatch = _place_mismatch_ids(db)
     union_filter = or_(*[_gap_filter(role["fields"]) for role in TRIAGE_ROLES.values()])
+    if mismatch:
+        union_filter = or_(union_filter, Item.id.in_(mismatch))
     return (
         db.query(func.count(Item.id))
         .filter(union_filter)
@@ -202,11 +236,21 @@ def triage_page(
 
     active_fields = TRIAGE_ROLES[role]["fields"]
 
-    # Per-role counts for tab badges
-    role_counts = {k: _count_role_gaps(db, k) for k in TRIAGE_ROLES.keys()}
+    # Deploy role also surfaces place/status mismatches (Migration 063).
+    place_mismatch_ids = _place_mismatch_ids(db)
 
-    # Fetch all items that have at least one gap in the active role.
-    base_query = db.query(Item).filter(_gap_filter(active_fields))
+    # Per-role counts for tab badges
+    role_counts = {
+        k: _count_role_gaps(db, k, place_mismatch_ids if k == "deploy" else None)
+        for k in TRIAGE_ROLES.keys()
+    }
+
+    # Fetch all items that have at least one gap in the active role
+    # (the deploy tab also pulls in place-check-only items).
+    gap_cond = _gap_filter(active_fields)
+    if role == "deploy" and place_mismatch_ids:
+        gap_cond = or_(gap_cond, Item.id.in_(place_mismatch_ids))
+    base_query = db.query(Item).filter(gap_cond)
 
     # SQL-level sort where possible (modified, name)
     if sort == "modified_desc":
@@ -224,6 +268,8 @@ def triage_page(
     enriched = []
     for itm in all_matching:
         all_gaps = {k: _compute_gaps(itm, TRIAGE_ROLES[k]["fields"]) for k in TRIAGE_ROLES.keys()}
+        if itm.id in place_mismatch_ids:
+            all_gaps["deploy"] = all_gaps["deploy"] + [_PLACE_CHECK]
         active_gaps = all_gaps[role]
 
         union_gaps = []

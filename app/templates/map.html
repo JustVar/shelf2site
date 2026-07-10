@@ -571,6 +571,9 @@
     }
 
     // ── popup (single reused instance, DOM-built) ───────────────────────────
+    function titleCase(s) {
+        return String(s || "").replace(/_/g, " ").replace(/\\b\\w/g, function (c) { return c.toUpperCase(); });
+    }
     function popupRow(k, v, cls) {
         var row = el("div", "row");
         row.appendChild(el("span", "k", k));
@@ -593,7 +596,7 @@
         badge.style.background = "color-mix(in srgb, " + p.dealColor + " 12%, transparent)";
         dealRow.appendChild(badge);
         box.appendChild(dealRow);
-        if (p.status) box.appendChild(popupRow("Status", p.status));
+        if (p.status) box.appendChild(popupRow("Status", titleCase(p.status)));
         if (p.deployed) box.appendChild(popupRow("Deployed", p.deployed, "mono"));
         if (p.dueBack) box.appendChild(popupRow("Due Back", p.dueBack, p.dueSoon ? "mono due-warn" : "mono"));
         var actions = el("div", "actions");
@@ -633,6 +636,12 @@
             }
         }
         if (actions.childNodes.length) box.appendChild(actions);
+        if (p.dataCheck) {
+            var warn = el("div", "prov", "\u26A0 " + p.dataCheck + " - check the unit status.");
+            warn.style.color = "var(--fl-amber)";
+            warn.style.fontStyle = "normal";
+            box.appendChild(warn);
+        }
         if (p.provenance === "inferred") {
             box.appendChild(el("div", "prov", "Deal inferred from legacy deployment type - link an order to confirm."));
         }
