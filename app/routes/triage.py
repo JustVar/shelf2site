@@ -163,7 +163,7 @@ def _place_mismatch_ids(db: Session) -> set:
             or_(
                 and_(Item.item_status == "Deployed",
                      or_(Site.id.is_(None), Site.site_type != "customer_site")),
-                and_(Item.item_status != "Deployed", Site.site_type == "customer_site"),
+                and_(or_(Item.item_status.is_(None), Item.item_status != "Deployed"), Site.site_type == "customer_site"),
             ),
         )
         .all()

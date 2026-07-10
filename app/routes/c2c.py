@@ -410,11 +410,14 @@ async def c2c_acquire(
                 content={"error": f"Order {order.order_number} already has all needed C2C cameras assigned ({acquired} of {needed})."},
             )
 
-    # Validate site if provided.
+    # Validate site if provided. Deploying places the camera at a customer
+    # site, so reject other site types (they would drop it off the map).
     if site_id:
         site = db.query(Site).filter(Site.id == int(site_id)).first()
         if not site:
             return JSONResponse(status_code=404, content={"error": "Site not found"})
+        if site.site_type != "customer_site":
+            return JSONResponse(status_code=400, content={"error": "Cameras deploy to customer sites only"})
 
     # One STILL-OUT provisioning per camera, keyed on the item_id link (option D).
     # Under option D a C2C row keeps is_complete=False forever, so the old
@@ -457,6 +460,7 @@ async def c2c_acquire(
     # customer site, so a geocoded site pins the camera on the map.
     if site_id:
         camera.location_id = int(site_id)
+        camera.item_status = "Deployed"  # place and status agree by construction
     db.commit()
     db.refresh(rec)
 

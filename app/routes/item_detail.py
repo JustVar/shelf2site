@@ -24,7 +24,7 @@ from ..locks import get_lock
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, ALLOWED_RECEIPT_EXTENSIONS, RECEIPT_STORAGE_PATH,
-    _get_locations, _get_categories, _normalize_mac,
+    _get_locations, _get_all_places, _get_categories, _normalize_mac,
     _clean_str, _safe_float, _safe_int, _safe_date,
 )
 from ..item_fields import attributes_for
@@ -135,7 +135,7 @@ def item_detail_page(
             status_code=303,
         )
 
-    locations = _get_locations(db)
+    locations = _get_all_places(db)
     loc_map = {r["id"]: r["name"] for r in locations}
     categories = _get_categories()
     receipts = _get_item_receipts(db, item_id)
@@ -231,7 +231,7 @@ async def item_update(
         errors.append(str(e))
 
     if errors:
-        locations = _get_locations(db)
+        locations = _get_all_places(db)
         categories = _get_categories()
         loc_map = {r["id"]: r["name"] for r in locations}
         receipts = _get_item_receipts(db, item_id)

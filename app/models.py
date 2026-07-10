@@ -1756,7 +1756,7 @@ class Item(Base):
     item_sn                    = Column(String(512), nullable=True)
     item_category              = Column(item_categories_enum, nullable=True)
     item_status                = Column(item_statuses_enum, nullable=True)
-    location_id                = Column(Integer, ForeignKey('sites.id'), nullable=True)  # Migration 063: sites is the place table
+    location_id                = Column(Integer, ForeignKey('sites.id', ondelete='SET NULL'), nullable=True)  # Migration 063: sites is the place table
     department_or_owner        = Column(String(1024), nullable=True)
     item_mac_address_1         = Column(String(64), nullable=True)
     item_mac_address_2         = Column(String(64), nullable=True)
@@ -1841,7 +1841,7 @@ class ItemPartNumber(Base):
     item_category   = Column(item_categories_enum, nullable=True)
     is_legacy       = Column(Boolean, default=False)
     is_customer_pn  = Column(Boolean, default=False)
-    location_id     = Column(Integer, ForeignKey('sites.id'), nullable=True)  # Migration 063
+    location_id     = Column(Integer, ForeignKey('sites.id', ondelete='SET NULL'), nullable=True)  # Migration 063
     created_by      = Column(String(100), nullable=True)
     created_at      = Column(Date, server_default=func.current_date())
     notes           = Column(Text, nullable=True)

@@ -149,8 +149,8 @@ def _feature(unit_key, kind, lng, lat, name, serial, category, status, deal, pro
     # Item units on the customer map are at a customer site by construction;
     # a non-Deployed status there is the place/status smell triage surfaces.
     data_check = ""
-    if kind == "item" and status and status != "Deployed":
-        data_check = f"At a customer site but status is {status}"
+    if kind == "item" and status != "Deployed":
+        data_check = f"At a customer site but status is {status or 'unset'}"
     return {
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": [lng, lat]},
@@ -274,13 +274,17 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
     Scope: deployed or order-linked units (the card exists to surface
     deployed-but-unmapped units, not internal shelf stock)."""
     out = []
+    # Deployed-or-order-linked units that cannot pin: no place, or a
+    # customer-site place missing coordinates. Left join keeps the place-less
+    # case (an inner join excludes it structurally).
     items = (
         db.query(Item, Site)
-        .join(Site, Site.id == Item.location_id)
+        .outerjoin(Site, Site.id == Item.location_id)
         .filter(
             Item.item_category.in_(PRODUCT_CATEGORIES),
-            Site.site_type == "customer_site",
-            (Site.geo_lat.is_(None)) | (Site.geo_lng.is_(None)),
+            (Item.location_id.is_(None))
+            | ((Site.site_type == "customer_site")
+               & ((Site.geo_lat.is_(None)) | (Site.geo_lng.is_(None)))),
         )
         .all()
     )
@@ -288,6 +292,8 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
         link = by_item.get(it.id)
         if link is None and str(it.item_status or "") != "Deployed":
             continue
+        if place is not None and place.site_type != "customer_site":
+            continue  # office stock is not a needs-location case
         if not unit_visible(hidden, f"item:{it.id}",
                             link.customer_name if link else None, None,
                             bool(link and link.is_sensitive), can_sensitive):
@@ -296,7 +302,7 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
             "kind": "item", "id": it.id,
             "label": it.item_name or f"Item #{it.id}",
             "serial": it.item_sn or "",
-            "hasLocation": it.location_id is not None,  # place present, geo missing
+            "hasLocation": it.location_id is not None,  # False = no place at all
         })
     legacy = (
         db.query(EdgeBox)

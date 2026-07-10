@@ -10,7 +10,7 @@ from ..config import settings
 from ..database import get_db
 from ..models import Item, ItemLocation, Site
 from .dashboard import CATEGORY_COLORS, FL_CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
-from .intake import _get_locations as _get_locations_active, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
+from .intake import _get_locations as _get_locations_active, _get_all_places, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
 from .dashboard import category_display as _cat_display
 from .checkout import _active_users
 
@@ -368,7 +368,7 @@ def inventory_export_csv(
     items = db.query(Item).filter(Item.id.in_(item_ids)).all()
 
     # Resolve location_id -> name using the same helper the page uses.
-    loc_map = {r["id"]: r["name"] for r in _get_locations_active(db)}
+    loc_map = {r["id"]: r["name"] for r in _get_all_places(db)}  # all places incl customer sites
 
     def row_for(item):
         return {

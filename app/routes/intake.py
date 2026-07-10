@@ -52,6 +52,15 @@ def _get_locations(db: Session) -> list[dict]:
     return [{"id": r.id, "name": r.name} for r in rows]
 
 
+def _get_all_places(db: Session) -> list[dict]:
+    """All places (offices + customer sites). For surfaces that must show a
+    unit's CURRENT place regardless of type (item detail, exports) - a
+    type-filtered list would drop a deployed unit's customer site and a
+    full-form save would then blank location_id."""
+    rows = db.query(Site).order_by(Site.name).all()
+    return [{"id": r.id, "name": r.name} for r in rows]
+
+
 def _get_categories() -> list[dict]:
     cats = [{"value": cat, "display": category_display(cat)} for cat in ALL_CATEGORIES]
     cats.sort(key=lambda c: c["display"])

@@ -15,6 +15,7 @@ from ..config import settings
 from ..geocoding import geocode, compose_address
 from ..database import get_db
 from ..models import (
+    Item,
     DeviceAssignment, Site, User,
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
     get_display_name, get_serial,
@@ -316,6 +317,12 @@ def delete_site(
             status_code=409,
             content={"error": f"Cannot delete site with {active} active device assignment(s). Return or reassign devices first."},
         )
+
+    # Items placed here would be silently de-located by the ON DELETE SET NULL
+    # fk (Migration 063), so refuse and surface the count.
+    placed = db.query(func.count(Item.id)).filter(Item.location_id == site_id).scalar()
+    if placed:
+        return JSONResponse(status_code=409, content={"error": f"Cannot delete place with {placed} item(s) located here. Move them to another place first."})
 
     old_values = model_to_dict(site)
     db.delete(site)
