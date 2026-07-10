@@ -40,6 +40,9 @@ services:
       - /opt/asset_tracker/app:/app/app
       - /opt/asset_tracker/migrations:/app/migrations
       - /opt/asset_tracker/scripts:/app/scripts
+      # Contract tests (docs/CONTRACT_TESTS.md). Mounted rather than baked into
+      # the image (.dockerignore skips tests/) so edits need no rebuild.
+      - /opt/asset_tracker/tests:/app/tests
     ports:
       - "127.0.0.1:8081:8081"
     networks:
