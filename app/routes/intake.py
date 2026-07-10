@@ -100,26 +100,9 @@ def _clean_str(value: str | None) -> str | None:
     return value.strip()
 
 
-def _normalize_mac(value: str | None) -> str | None:
-    """Normalize MAC address to AA:BB:CC:DD:EE:FF format.
-    Accepts: AA:BB:CC:DD:EE:FF, AA-BB-CC-DD-EE-FF, AABB.CCDD.EEFF, AABBCCDDEEFF
-    Returns normalized MAC or None if empty. Raises ValueError if invalid.
-    """
-    if not value or not value.strip():
-        return None
-    raw = value.strip().upper()
-    # Remove all separators
-    raw = raw.replace(":", "").replace("-", "").replace(".", "")
-    # Should be exactly 12 hex characters
-    if len(raw) != 12:
-        raise ValueError(f"Invalid MAC address: '{value.strip()}' — must be 6 hex pairs (e.g. AA:BB:CC:DD:EE:FF)")
-    # Validate all characters are hex
-    try:
-        int(raw, 16)
-    except ValueError:
-        raise ValueError(f"Invalid MAC address: '{value.strip()}' — contains non-hex characters")
-    # Format as AA:BB:CC:DD:EE:FF
-    return ":".join(raw[i:i+2] for i in range(0, 12, 2))
+# Canonical implementation lives in app.validation; the old local name is kept
+# because item_detail, triage and inventory import _normalize_mac from here.
+from ..validation import normalize_mac as _normalize_mac
 
 
 def _get_part_numbers(db):

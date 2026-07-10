@@ -18,11 +18,20 @@ from .password_blocklist import is_blocked
 # Password hashing
 # ---------------------------------------------------------------------------
 
+# bcrypt hashes only the first 72 bytes and raises ValueError beyond that.
+# Every password entry point must stay under this or bcrypt 500s the request.
+BCRYPT_MAX_BYTES = 72
+
+
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
+    if len(plain.encode("utf-8")) > BCRYPT_MAX_BYTES:
+        # Cannot match any stored hash (all hashes were created under the cap);
+        # returning False keeps oversized input on the normal auth-failure path.
+        return False
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
@@ -32,10 +41,13 @@ def validate_password_strength(password: str) -> str | None:
     NIST SP 800-63B Rev 4: favor length over composition and screen against a breached/common
     blocklist. No composition (upper/lower/digit) rules.
     - At least PASSWORD_MIN_LENGTH characters
+    - At most 72 bytes (bcrypt's input limit)
     - Not in the offline breached/common-password blocklist
     """
     if len(password) < settings.PASSWORD_MIN_LENGTH:
         return f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters."
+    if len(password.encode("utf-8")) > BCRYPT_MAX_BYTES:
+        return "Password is too long — use at most 72 characters."
     if is_blocked(password):
         return "This password has appeared in known breaches or is too common. Choose a different one."
     return None

@@ -3,6 +3,7 @@
 import csv
 import io
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -335,6 +336,8 @@ def get_trial(
             continue
         if hasattr(val, "isoformat"):
             val = val.isoformat()
+        elif isinstance(val, Decimal):
+            val = float(val)
         data[key] = val
     return JSONResponse(content=data)
 

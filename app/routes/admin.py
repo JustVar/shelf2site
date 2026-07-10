@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from sqlalchemy import desc, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
@@ -1022,7 +1023,7 @@ async def change_user_role(
         return JSONResponse(status_code=403, content={"error": "You cannot manage this user"})
 
     body = await request.json()
-    new_role = body.get("role", "").strip()
+    new_role = (body.get("role") or "").strip()
 
     if not new_role:
         return JSONResponse(status_code=400, content={"error": "Role is required"})
@@ -1063,7 +1064,13 @@ def delete_user_account(
     db: Session = Depends(get_db),
     user: User = Depends(require_user_manager),
 ):
-    """Permanently delete a user account (with hierarchy enforcement)."""
+    """Permanently delete a user account (with hierarchy enforcement).
+
+    Deactivation is the default way to retire a user — audit rows are legal
+    history and reference users.id, so hard delete is only possible for
+    accounts that never did anything. Callers get a 409 pointing at the
+    deactivate toggle instead of a foreign-key 500.
+    """
     target = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not target:
         return JSONResponse(status_code=404, content={"error": "User not found"})
@@ -1074,10 +1081,30 @@ def delete_user_account(
     if not can_manage_user(user, target):
         return JSONResponse(status_code=403, content={"error": "You cannot manage this user"})
 
+    audit_rows = db.query(func.count(AuditLog.id)).filter(AuditLog.user_id == target.id).scalar() or 0
+    if audit_rows:
+        return JSONResponse(status_code=409, content={
+            "error": (
+                f"'{target.username}' has {audit_rows} audit-log entries recording actions they took. "
+                "Deactivate the account instead — deactivated users cannot log in but their history stays intact. "
+                "Hard delete is only available for accounts with no recorded activity."
+            ),
+        })
+
     username = target.username
     target_id = target.id
     db.delete(target)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Some other table still references this user (error_log, checkouts, ...).
+        db.rollback()
+        return JSONResponse(status_code=409, content={
+            "error": (
+                f"'{username}' is still referenced by other records and cannot be hard-deleted. "
+                "Deactivate the account instead to preserve history."
+            ),
+        })
 
     log_event(
         db, "user_deleted",

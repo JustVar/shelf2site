@@ -36,7 +36,7 @@ async def approve_device(
     content_type = request.headers.get("content-type", "")
     if content_type.startswith("application/json"):
         body = await request.json()
-        override = body.get("target_table", "").strip()
+        override = (body.get("target_table") or "").strip()
         if override and override in TABLE_MODELS:
             target_table = override
 

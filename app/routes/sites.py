@@ -180,7 +180,7 @@ async def create_site(
     body = await request.json()
 
     name = (body.get("name") or "").strip()
-    site_type = body.get("site_type", "").strip()
+    site_type = (body.get("site_type") or "").strip()
 
     if not name:
         return JSONResponse(status_code=400, content={"error": "Site name is required"})
@@ -353,10 +353,10 @@ async def assign_device(
     """Assign a device to a site."""
     body = await request.json()
 
-    device_table = body.get("device_table", "").strip()
+    device_table = (body.get("device_table") or "").strip()
     device_id = body.get("device_id")
     site_id = body.get("site_id")
-    ownership = body.get("ownership", "").strip()
+    ownership = (body.get("ownership") or "").strip()
 
     if not all([device_table, device_id, site_id, ownership]):
         return JSONResponse(status_code=400, content={"error": "Missing required fields: device_table, device_id, site_id, ownership"})

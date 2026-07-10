@@ -4,36 +4,38 @@ import re
 from typing import Any
 
 
-def validate_mac_address(mac: str) -> tuple[bool, str | None]:
-    """
-    Validate MAC address format.
+def normalize_mac(value: str | None) -> str | None:
+    """Normalize a MAC address to AA:BB:CC:DD:EE:FF format.
 
-    Accepts formats:
-    - AA:BB:CC:DD:EE:FF
-    - AA-BB-CC-DD-EE-FF
-    - AABBCCDDEEFF
+    THE single MAC helper (2026-07 error-log triage) — intake, item edit,
+    triage fixes and receiving all funnel through here so every macaddr
+    column write is canonical. Accepts AA:BB:CC:DD:EE:FF, AA-BB-CC-DD-EE-FF,
+    AABB.CCDD.EEFF and AABBCCDDEEFF.
+
+    Returns the normalized MAC, or None when empty/blank (store NULL, never '').
+    Raises ValueError with a user-facing message when invalid.
+    """
+    if not value or not value.strip():
+        return None
+    raw = value.strip().upper()
+    raw = raw.replace(":", "").replace("-", "").replace(".", "")
+    if len(raw) != 12:
+        raise ValueError(f"Invalid MAC address: '{value.strip()}' — must be 6 hex pairs (e.g. AA:BB:CC:DD:EE:FF)")
+    if not re.match(r"^[0-9A-F]{12}$", raw):
+        raise ValueError(f"Invalid MAC address: '{value.strip()}' — contains non-hex characters")
+    return ":".join(raw[i:i + 2] for i in range(0, 12, 2))
+
+
+def validate_mac_address(mac: str) -> tuple[bool, str | None]:
+    """Tuple-style wrapper around normalize_mac for JSON API handlers.
 
     Returns:
-        (is_valid, normalized_mac_or_error)
+        (is_valid, normalized_mac_or_error) — (True, None) when empty.
     """
-    if not mac:
-        return True, None  # Empty is allowed
-
-    mac = mac.strip().upper()
-
-    # Remove common separators
-    clean_mac = mac.replace(":", "").replace("-", "").replace(".", "")
-
-    # Check if it's exactly 12 hex characters
-    if len(clean_mac) != 12:
-        return False, f"MAC address must be 12 hex characters (got {len(clean_mac)})"
-
-    if not re.match(r'^[0-9A-F]{12}$', clean_mac):
-        return False, "MAC address must contain only hexadecimal characters (0-9, A-F)"
-
-    # Normalize to colon-separated format
-    normalized = ":".join([clean_mac[i:i+2] for i in range(0, 12, 2)])
-    return True, normalized
+    try:
+        return True, normalize_mac(mac)
+    except ValueError as exc:
+        return False, str(exc)
 
 
 def validate_serial_number(serial: str, required: bool = True) -> tuple[bool, str | None]:

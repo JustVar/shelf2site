@@ -713,7 +713,7 @@ async def update_deployment_status(
         return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
 
     body = await request.json()
-    new_status = body.get("status", "").strip()
+    new_status = (body.get("status") or "").strip()
     valid = [s for s in DeploymentRecord.DEPLOYMENT_STATUSES if s != "cancelled"]
     if new_status not in valid:
         return JSONResponse(status_code=400, content={"detail": f"Invalid status: {new_status}"})

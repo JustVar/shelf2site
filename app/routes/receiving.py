@@ -69,10 +69,10 @@ async def create_receiving_event(
     """Create a new receiving event (shipment)."""
     body = await request.json()
     event = ReceivingEvent(
-        vendor=body.get("vendor", "").strip() or None,
-        purchase_order=body.get("purchase_order", "").strip() or None,
+        vendor=(body.get("vendor") or "").strip() or None,
+        purchase_order=(body.get("purchase_order") or "").strip() or None,
         expected_quantity=body.get("expected_quantity"),
-        notes=body.get("notes", "").strip() or None,
+        notes=(body.get("notes") or "").strip() or None,
         created_by=user.id,
     )
     db.add(event)
@@ -109,7 +109,7 @@ async def process_scan(
 ):
     """Process a barcode/QR scan. Returns pre-fill data or 'unknown'."""
     body = await request.json()
-    barcode = body.get("barcode", "").strip()
+    barcode = (body.get("barcode") or "").strip()
 
     if not barcode:
         return JSONResponse(status_code=400, content={"error": "Empty barcode"})
@@ -189,7 +189,7 @@ async def submit_device(
     """Submit a scanned device to inventory (direct) or pending review queue."""
     body = await request.json()
     target_table = body.get("target_table", "")
-    serial = body.get("serial", "").strip()
+    serial = (body.get("serial") or "").strip()
     direct = body.get("direct_to_inventory", False)
     event_id = body.get("receiving_event_id")
 

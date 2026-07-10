@@ -162,17 +162,38 @@
   // ── Global error handlers ───────────────────────────────────────────────
 
   window.addEventListener('error', function(event) {
-    var msg = event.message || 'Uncaught error';
+    // Prefer the Error object's message — cross-origin scripts and some
+    // browsers leave event.message empty, which used to log as "Unknown error"
+    // with no way to diagnose. Fall back through every detail we have.
+    var msg = event.message
+      || (event.error && event.error.message)
+      || ('Uncaught error in ' + (event.filename || 'unknown script'));
     // Skip errors from browser extensions or cross-origin scripts
     if (event.filename && (event.filename.includes('extension') || event.filename === '')) return;
 
-    reportError(msg, event.error ? event.error.stack : '', event.filename, 'error');
+    var stack = (event.error && event.error.stack) || '';
+    if (event.filename) {
+      stack += (stack ? '\n' : '') + 'at ' + event.filename + ':' + (event.lineno || 0) + ':' + (event.colno || 0);
+    }
+    reportError(msg, stack, window.location.pathname, 'error');
   });
 
   window.addEventListener('unhandledrejection', function(event) {
     var reason = event.reason;
-    var msg = reason instanceof Error ? reason.message : String(reason || 'Unhandled promise rejection');
-    var stack = reason instanceof Error ? reason.stack : '';
+    var msg, stack = '';
+    if (reason instanceof Error) {
+      msg = reason.message || reason.name || 'Unhandled promise rejection';
+      stack = reason.stack || '';
+    } else {
+      // Non-Error rejections (strings, response objects, plain objects) —
+      // serialize what we can instead of reporting "Unknown error".
+      try {
+        msg = typeof reason === 'string' ? reason : JSON.stringify(reason);
+      } catch (e) {
+        msg = String(reason);
+      }
+      msg = 'Unhandled promise rejection: ' + (msg || '(no reason)');
+    }
     reportError(msg, stack, window.location.pathname, 'error');
   });
 
