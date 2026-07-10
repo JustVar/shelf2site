@@ -76,6 +76,10 @@ def search_results_partial(
     # Pre-fetch location names in one query
     loc_map = {s.id: s.name for s in db.query(Site).all()}  # Migration 063
 
+    # Effective place (Option A): Installed components show the parent's place
+    from ..containment import effective_location_overrides
+    loc_overrides = effective_location_overrides(db, [i.id for i in matches])
+
     for item in matches:
         cat = str(item.item_category) if item.item_category else None
         display_name = category_display(cat) if cat else "-"
@@ -98,7 +102,7 @@ def search_results_partial(
             "serial": item.item_sn or "-",
             "status": item.item_status,
             "mac_address": item.item_mac_address_1 or item.item_mac_address_2 or "-",
-            "location": loc_map.get(item.location_id, "-"),
+            "location": loc_map.get(loc_overrides.get(item.id, item.location_id), "-"),
         })
 
     total = len(all_results)

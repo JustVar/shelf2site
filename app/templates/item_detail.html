@@ -17,6 +17,14 @@
       {% set s = item.item_status|string|lower|replace(' ','')|replace('-','') if item.item_status else 'unassigned' %}
       <span class="inv-status inv-status--{{ s }}">{{ item.item_status or 'Unassigned' }}</span>
     </div>
+    {% if containment.parent %}
+    <div class="dtl-containment-line">
+      Installed in <a href="{{ base_path }}/items/{{ containment.parent.parent_item_id }}">{{ containment.parent.parent.item_name or containment.parent.parent.item_sn or 'unit #' ~ containment.parent.parent_item_id }}</a>{% if containment.parent.slot_label %} &middot; slot {{ containment.parent.slot_label }}{% endif %}
+      since {{ containment.parent.installed_date.strftime('%b %d, %Y') if containment.parent.installed_date else '&mdash;' }}
+    </div>
+    {% elif not containment.is_unit %}
+    <div class="dtl-containment-line">Standalone &mdash; not installed in any unit</div>
+    {% endif %}
   </div>
   <div class="dtl-header-right">
     {% if user.is_editor_or_above %}
@@ -71,12 +79,17 @@
       </div>
       <div class="itk-field">
         <label class="itk-label" for="item_status">Status</label>
-        <select name="item_status" id="item_status" class="itk-input">
+        <select name="item_status" id="item_status" class="itk-input"{% if containment.is_installed %} disabled{% endif %}>
+          {% if containment.is_installed %}
+          <option value="Installed" selected>Installed</option>
+          {% else %}
           <option value="">Select status...</option>
           {% for s in statuses %}
           <option value="{{ s }}" {% if item.item_status|string == s %}selected{% endif %}>{{ s }}</option>
           {% endfor %}
+          {% endif %}
         </select>
+        {% if containment.is_installed %}<div class="itk-hint">Managed by containment &mdash; remove from its unit to change</div>{% endif %}
       </div>
     </div>
   </div>
@@ -86,12 +99,13 @@
     <div class="itk-grid">
       <div class="itk-field">
         <label class="itk-label" for="location_id">Location</label>
-        <select name="location_id" id="location_id" class="itk-input">
+        <select name="location_id" id="location_id" class="itk-input"{% if containment.is_installed %} disabled{% endif %}>
           <option value="">Select location...</option>
           {% for loc in locations %}
           <option value="{{ loc.id }}" {% if item.location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
           {% endfor %}
         </select>
+        {% if containment.is_installed %}<div class="itk-hint">Location follows its parent unit</div>{% endif %}
       </div>
       <div class="itk-field">
         <label class="itk-label" for="department_or_owner">Department / Owner</label>
@@ -222,7 +236,7 @@
       </div>
       <div class="dtl-field">
         <div class="dtl-label">Location</div>
-        <div class="dtl-value">{{ location_name }}</div>
+        <div class="dtl-value">{{ location_name }}{% if containment.parent %} <span class="dtl-inherit-hint">(from parent unit)</span>{% endif %}</div>
       </div>
       <div class="dtl-field">
         <div class="dtl-label">Department / Owner</div>
@@ -426,6 +440,53 @@
     {% endif %}
   </div>
 
+  {% if containment.is_unit %}
+  <!-- Components — current containment (Option A view) -->
+  <div class="dtl-section" id="components-card">
+    <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+      <span>Components ({{ containment.children|length }})</span>
+      {% if user.is_editor_or_above %}
+      <button type="button" class="inv-btn" onclick="ctmOpen('install')">+ Install Component</button>
+      {% endif %}
+    </div>
+    {% if containment.children %}
+    <div class="dtl-table-wrap">
+      <table class="dtl-table fl-table">
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Category</th>
+            <th>Serial</th>
+            <th>Slot</th>
+            <th>Installed</th>
+            {% if user.is_editor_or_above %}<th>Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for ch in containment.children %}
+          <tr>
+            <td class="fl-cell-name"><a href="{{ base_path }}/items/{{ ch.item.id }}">{{ ch.item.item_name or 'Unnamed' }}</a></td>
+            <td class="fl-cell-mut">{{ ch.item.item_category or '&mdash;' }}</td>
+            <td class="fl-cell-sub">{{ ch.item.item_sn or '&mdash;' }}</td>
+            <td>{{ ch.slot_label or '&mdash;' }}</td>
+            <td class="fl-cell-date">{{ ch.installed_date.strftime('%b %d, %Y') if ch.installed_date else '&mdash;' }}</td>
+            {% if user.is_editor_or_above %}
+            <td style="white-space:nowrap;">
+              <button type="button" class="inv-btn" onclick="ctmOpen('move', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Move</button>
+              <button type="button" class="inv-btn" onclick="ctmOpen('remove', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Remove</button>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dtl-empty">No components installed in this unit.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Component History -->
   <div class="dtl-section">
     <div class="dtl-section-title">Component History</div>
@@ -435,6 +496,7 @@
         <thead>
           <tr>
             <th>Action</th>
+            <th>Unit / Component</th>
             <th>Slot</th>
             <th>Date</th>
             <th>Performed By</th>
@@ -444,11 +506,17 @@
         <tbody>
           {% for c in components %}
           <tr>
-            <td><span class="dtl-action-pill dtl-action--{{ c.action.value if c.action else 'unknown' }}">{{ c.action.value | title if c.action else '—' }}</span></td>
-            <td>{{ c.slot_label or '—' }}</td>
-            <td>{{ c.action_date.strftime('%b %d, %Y') if c.action_date else '—' }}</td>
-            <td>{{ c.performed_by or '—' }}</td>
-            <td>{{ c.notes or '—' }}</td>
+            <td><span class="dtl-action-pill dtl-action--{{ c.event.action or 'unknown' }}">{{ c.event.action | title if c.event.action else '—' }}</span></td>
+            <td>
+              {% if c.counterpart_id %}
+                {% if c.as_component %}{{ 'into' if c.event.action != 'uninstalled' else 'from' }}{% else %}component{% endif %}
+                <a href="{{ base_path }}/items/{{ c.counterpart_id }}">{{ c.counterpart_name }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ c.event.slot_label or '—' }}</td>
+            <td>{{ c.event.action_date.strftime('%b %d, %Y') if c.event.action_date else '—' }}</td>
+            <td>{{ c.event.performed_by or '—' }}</td>
+            <td>{{ c.event.notes or '—' }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -586,5 +654,125 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+{% if user.is_editor_or_above %}
+<!-- Containment modal (install / move / remove) -->
+<div class="modal-overlay" id="ctm-modal" style="display:none;">
+  <div class="modal" style="max-width:480px;width:100%;">
+    <h3 id="ctm-title" style="margin-bottom:0.75rem;">Install Component</h3>
+    <div id="ctm-search-wrap">
+      <input type="search" id="ctm-search" class="itk-input" placeholder="Search by serial or name..." style="width:100%;margin-bottom:0.5rem;" autocomplete="off">
+      <div id="ctm-results" style="max-height:220px;overflow-y:auto;"></div>
+    </div>
+    <div id="ctm-remove-wrap" style="display:none;">
+      <p id="ctm-remove-text" style="margin-bottom:0.5rem;"></p>
+      <label class="itk-label" for="ctm-status-after">Status after removal</label>
+      <select id="ctm-status-after" class="itk-input">
+        {% for s in statuses %}
+        <option value="{{ s }}"{% if s == 'Unassigned' %} selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="itk-field" id="ctm-slot-wrap" style="margin-top:0.5rem;">
+      <label class="itk-label" for="ctm-slot">Slot label (optional)</label>
+      <input type="text" id="ctm-slot" class="itk-input" placeholder="e.g. PCIe 1, bay 2">
+    </div>
+    <div id="ctm-error" style="color:var(--danger,#e74c3c);font-size:0.85rem;margin-top:0.5rem;"></div>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+      <button type="button" class="inv-btn" onclick="ctmClose()">Cancel</button>
+      <button type="button" class="inv-btn" id="ctm-primary" onclick="ctmPrimary()" disabled>Install</button>
+    </div>
+  </div>
+</div>
+<script>
+// Containment picker — install/move/remove against /api/containment/*.
+let ctmMode = null, ctmComponentId = null, ctmSelectedId = null, ctmTimer = null;
+const CTM_ITEM_ID = {{ item.id }};
+
+function ctmOpen(mode, componentId, label) {
+    ctmMode = mode; ctmComponentId = componentId || null; ctmSelectedId = null;
+    document.getElementById('ctm-error').textContent = '';
+    document.getElementById('ctm-results').innerHTML = '';
+    document.getElementById('ctm-search').value = '';
+    const titles = { install: 'Install Component', move: 'Move ' + (label || 'component') + ' to another unit', remove: 'Remove ' + (label || 'component') };
+    document.getElementById('ctm-title').textContent = titles[mode];
+    document.getElementById('ctm-search-wrap').style.display = mode === 'remove' ? 'none' : 'block';
+    document.getElementById('ctm-slot-wrap').style.display = mode === 'remove' ? 'none' : 'block';
+    document.getElementById('ctm-remove-wrap').style.display = mode === 'remove' ? 'block' : 'none';
+    const primary = document.getElementById('ctm-primary');
+    primary.textContent = mode === 'install' ? 'Install' : (mode === 'move' ? 'Move' : 'Remove');
+    primary.disabled = mode !== 'remove';
+    if (mode === 'remove') {
+        document.getElementById('ctm-remove-text').textContent =
+            'Remove ' + (label || 'this component') + ' from this unit?';
+    } else {
+        ctmSearch('');
+    }
+    document.getElementById('ctm-modal').style.display = 'flex';
+}
+
+function ctmClose() { document.getElementById('ctm-modal').style.display = 'none'; }
+
+function ctmSearch(q) {
+    const mode = ctmMode === 'install' ? 'components' : 'units';
+    fetch(`${BP}/api/containment/candidates?mode=${mode}&q=${encodeURIComponent(q)}&exclude_id=${CTM_ITEM_ID}`)
+        .then(r => r.json())
+        .then(data => {
+            const box = document.getElementById('ctm-results');
+            if (!data.results || !data.results.length) {
+                box.innerHTML = '<div class="dtl-empty">No matches.</div>';
+                return;
+            }
+            box.innerHTML = data.results.map(r =>
+                `<div class="ctm-row" data-id="${r.id}" onclick="ctmSelect(${r.id}, this)"
+                      style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;">
+                    <strong>${r.name}</strong>
+                    <span style="color:var(--text-muted);font-size:11px;font-family:monospace;"> ${r.serial || ''}</span>
+                    <span style="color:var(--text-muted);font-size:11px;"> · ${r.category || ''}</span>
+                 </div>`).join('');
+        })
+        .catch(() => { document.getElementById('ctm-error').textContent = 'Search failed.'; });
+}
+
+function ctmSelect(id, el) {
+    ctmSelectedId = id;
+    document.querySelectorAll('#ctm-results .ctm-row').forEach(r => r.style.borderColor = 'var(--border)');
+    el.style.borderColor = 'var(--fl-purple, #A492D6)';
+    document.getElementById('ctm-primary').disabled = false;
+}
+
+document.getElementById('ctm-search').addEventListener('input', function () {
+    clearTimeout(ctmTimer);
+    const q = this.value;
+    ctmTimer = setTimeout(() => ctmSearch(q), 250);
+});
+
+async function ctmPrimary() {
+    const slot = document.getElementById('ctm-slot').value;
+    let url, body;
+    if (ctmMode === 'install') {
+        url = '/api/containment/install';
+        body = { component_item_id: ctmSelectedId, parent_item_id: CTM_ITEM_ID, slot_label: slot };
+    } else if (ctmMode === 'move') {
+        url = '/api/containment/move';
+        body = { component_item_id: ctmComponentId, new_parent_item_id: ctmSelectedId, slot_label: slot };
+    } else {
+        url = '/api/containment/uninstall';
+        body = { component_item_id: ctmComponentId,
+                 status_after: document.getElementById('ctm-status-after').value };
+    }
+    const resp = await fetch(`${BP}${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (resp.ok) {
+        window.location.reload();
+    } else {
+        const err = await resp.json().catch(() => ({}));
+        document.getElementById('ctm-error').textContent = err.error || 'Request failed.';
+    }
+}
+</script>
+{% endif %}
 </div>{# /item-detail-page.fl-restyle #}
 {% endblock %}

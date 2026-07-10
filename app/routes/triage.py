@@ -97,6 +97,7 @@ FIELD_LABELS = {
     "appliance_uuid": "Appliance UUID",
     "tracking_number": "Tracking number",
     "place_check": "Place / status mismatch",
+    "containment_check": "Installed place divergence",
 }
 
 FIELD_TYPES = {
@@ -129,6 +130,12 @@ _NULL_ONLY_FIELDS = {
 }
 
 
+def _installed_ids(db: Session) -> set:
+    """Item ids currently installed in a unit (containment view)."""
+    from ..containment import installed_component_ids
+    return installed_component_ids(db)
+
+
 def _is_missing(value, field_name: str) -> bool:
     """Return True if the value should count as 'missing' for triage."""
     if value is None:
@@ -140,14 +147,22 @@ def _is_missing(value, field_name: str) -> bool:
     return False
 
 
-def _compute_gaps(item: Item, fields: list[str]) -> list[str]:
-    """Return the subset of `fields` that are missing on this item."""
-    return [f for f in fields if _is_missing(getattr(item, f, None), f)]
+def _compute_gaps(item: Item, fields: list[str], installed_ids: set = frozenset()) -> list[str]:
+    """Return the subset of `fields` that are missing on this item.
+
+    location_id is NOT a gap for an Installed component — its effective
+    place follows the parent unit (Option A). Callers pass installed_ids so
+    the Python path stays in sync with _gap_filter's SQL EXISTS."""
+    gaps = [f for f in fields if _is_missing(getattr(item, f, None), f)]
+    if item.id in installed_ids and "location_id" in gaps:
+        gaps.remove("location_id")
+    return gaps
 
 
 # Deployable product units (only these have a customer-site lifecycle).
 _DEPLOY_CATEGORIES = ("edge_box", "cloud_box", "camera_c2c")
 _PLACE_CHECK = "place_check"
+_CONTAINMENT_CHECK = "containment_check"
 
 
 def _place_mismatch_ids(db: Session) -> set:
@@ -171,12 +186,42 @@ def _place_mismatch_ids(db: Session) -> set:
     return {r[0] for r in rows}
 
 
+def _containment_divergence_ids(db: Session) -> set:
+    """Installed components whose FROZEN stored place disagrees with the
+    parent unit's place — a data-check finding (Option A), not a render
+    error: read surfaces already show the inherited place."""
+    from ..models import current_containment as cc
+    parent = Item.__table__.alias("ctm_check_parent")
+    rows = (
+        db.query(Item.id)
+        .join(cc, cc.c.component_item_id == Item.id)
+        .join(parent, parent.c.id == cc.c.parent_item_id)
+        .filter(
+            Item.location_id.isnot(None),
+            or_(
+                parent.c.location_id.is_(None),
+                Item.location_id != parent.c.location_id,
+            ),
+        )
+        .all()
+    )
+    return {r[0] for r in rows}
+
+
 def _gap_filter(role_fields: list[str]):
     """Build a SQLAlchemy OR-filter: items where at least one role field is missing."""
     conditions = []
     for field in role_fields:
         col = getattr(Item, field)
-        if field in _FK_FIELDS or field in _NULL_ONLY_FIELDS:
+        if field == "location_id":
+            # NULL stored place is not a gap while the item is Installed —
+            # the effective place follows the parent unit (Option A). Keep
+            # this EXISTS in sync with _compute_gaps' installed_ids check.
+            from sqlalchemy import exists as _exists
+            from ..models import current_containment as _cc
+            _contained = _exists().where(_cc.c.component_item_id == Item.id)
+            conditions.append(and_(col.is_(None), ~_contained))
+        elif field in _FK_FIELDS or field in _NULL_ONLY_FIELDS:
             conditions.append(col.is_(None))
         elif field in _ZERO_MISSING_FIELDS:
             conditions.append(or_(col.is_(None), col == 0))
@@ -202,7 +247,7 @@ def _count_role_gaps(db: Session, role_key: str, extra_ids: set = None) -> int:
 def get_triage_total_count(db: Session) -> int:
     """Count unique items with >=1 gap across ANY triage role (union).
     Public helper: used by sidebar_cache for the global nav badge."""
-    mismatch = _place_mismatch_ids(db)
+    mismatch = _place_mismatch_ids(db) | _containment_divergence_ids(db)
     union_filter = or_(*[_gap_filter(role["fields"]) for role in TRIAGE_ROLES.values()])
     if mismatch:
         union_filter = or_(union_filter, Item.id.in_(mismatch))
@@ -238,18 +283,21 @@ def triage_page(
 
     # Deploy role also surfaces place/status mismatches (Migration 063).
     place_mismatch_ids = _place_mismatch_ids(db)
+    containment_divergence_ids = _containment_divergence_ids(db)
+    installed_ids = _installed_ids(db)
+    deploy_extra_ids = place_mismatch_ids | containment_divergence_ids
 
     # Per-role counts for tab badges
     role_counts = {
-        k: _count_role_gaps(db, k, place_mismatch_ids if k == "deploy" else None)
+        k: _count_role_gaps(db, k, deploy_extra_ids if k == "deploy" else None)
         for k in TRIAGE_ROLES.keys()
     }
 
     # Fetch all items that have at least one gap in the active role
-    # (the deploy tab also pulls in place-check-only items).
+    # (the deploy tab also pulls in place/containment-check-only items).
     gap_cond = _gap_filter(active_fields)
-    if role == "deploy" and place_mismatch_ids:
-        gap_cond = or_(gap_cond, Item.id.in_(place_mismatch_ids))
+    if role == "deploy" and deploy_extra_ids:
+        gap_cond = or_(gap_cond, Item.id.in_(deploy_extra_ids))
     base_query = db.query(Item).filter(gap_cond)
 
     # SQL-level sort where possible (modified, name)
@@ -267,9 +315,11 @@ def triage_page(
     # Compute gaps per role, plus union across all roles (for expansion view)
     enriched = []
     for itm in all_matching:
-        all_gaps = {k: _compute_gaps(itm, TRIAGE_ROLES[k]["fields"]) for k in TRIAGE_ROLES.keys()}
+        all_gaps = {k: _compute_gaps(itm, TRIAGE_ROLES[k]["fields"], installed_ids) for k in TRIAGE_ROLES.keys()}
         if itm.id in place_mismatch_ids:
             all_gaps["deploy"] = all_gaps["deploy"] + [_PLACE_CHECK]
+        if itm.id in containment_divergence_ids:
+            all_gaps["deploy"] = all_gaps["deploy"] + [_CONTAINMENT_CHECK]
         active_gaps = all_gaps[role]
 
         union_gaps = []
@@ -463,12 +513,12 @@ async def triage_fix_save(
 
     # Recompute gaps for this item across all three roles
     gaps_remaining = {
-        k: len(_compute_gaps(item, TRIAGE_ROLES[k]["fields"]))
+        k: len(_compute_gaps(item, TRIAGE_ROLES[k]["fields"], _installed_ids(db)))
         for k in TRIAGE_ROLES.keys()
     }
     union = set()
     for k in TRIAGE_ROLES:
-        union.update(_compute_gaps(item, TRIAGE_ROLES[k]["fields"]))
+        union.update(_compute_gaps(item, TRIAGE_ROLES[k]["fields"], _installed_ids(db)))
     total_gaps = len(union)
     # Union of all field names still missing on this item (across all roles).
     # Client uses this to reconcile its DOM rather than assuming save cleared the gap.
@@ -614,7 +664,7 @@ def triage_export_csv(
     items = db.query(Item).filter(Item.id.in_(item_ids)).all()
 
     def row_for(item):
-        all_gaps = {k: _compute_gaps(item, TRIAGE_ROLES[k]["fields"]) for k in TRIAGE_ROLES.keys()}
+        all_gaps = {k: _compute_gaps(item, TRIAGE_ROLES[k]["fields"], _installed_ids(db)) for k in TRIAGE_ROLES.keys()}
         union = sorted(set().union(*all_gaps.values()))
         return {
             "id": item.id,

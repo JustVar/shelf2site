@@ -3525,6 +3525,10 @@ html.sx-nav-pre-collapsed .sx-nav__footer-actions { display: none; }
 .inv-status--decommissioned{background:rgba(188,190,192,.12);color:#BCBEC0}
 .inv-status--unassigned{background:rgba(188,190,192,.08);color:#BCBEC0}
 .inv-status--checkedout{background:rgba(240,165,0,.12);color:#F0A500}
+.inv-status--installed{background:rgba(164,146,214,.12);color:#A492D6}
+.dtl-containment-line{font-size:12px;color:var(--text-muted);margin-top:4px}
+.dtl-containment-line a{color:var(--sx-blue);text-decoration:none}
+.dtl-inherit-hint{font-size:11px;color:var(--text-muted)}
 .inv-pagination{display:flex;align-items:center;justify-content:space-between;padding:.75rem 0}
 .inv-page-info{font-size:12px;color:var(--sx-gray)}
 .inv-page-btns{display:flex;gap:6px}

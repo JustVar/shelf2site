@@ -36,7 +36,7 @@
   </div>
   <select class="inv-select" id="inv-status-select">
     <option value="">All statuses</option>
-    {% for s in statuses %}
+    {% for s in filter_statuses %}
     <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
     {% endfor %}
   </select>

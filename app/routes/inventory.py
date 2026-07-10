@@ -32,6 +32,10 @@ STATUSES = [
     "Unassigned",
 ]
 
+# The FILTER dropdown also offers the containment/custody-managed statuses —
+# those items must be findable even though they are not hand-settable.
+FILTER_STATUSES = STATUSES + ["Checked Out", "Installed"]
+
 
 def _get_tile_stats(db: Session) -> list[dict]:
     """Compute per-category counts for the tile grid."""
@@ -94,8 +98,18 @@ def inventory_page(
         query = query.filter(Item.item_status == status)
 
     if location:
+        # Effective-place filter (Option A): an Installed component lives at
+        # its parent unit's place — the site filter must find it there.
         try:
-            query = query.filter(Item.location_id == int(location))
+            loc_id = int(location)
+            from ..models import current_containment as _cc
+            _parent = Item.__table__.alias("ctm_parent")
+            query = (
+                query
+                .outerjoin(_cc, _cc.c.component_item_id == Item.id)
+                .outerjoin(_parent, _parent.c.id == _cc.c.parent_item_id)
+                .filter(func.coalesce(_parent.c.location_id, Item.location_id) == loc_id)
+            )
         except ValueError:
             pass
 
@@ -127,6 +141,9 @@ def inventory_page(
 
     loc_map = {r["id"]: r["name"] for r in locations}
 
+    from ..containment import effective_location_overrides
+    loc_overrides = effective_location_overrides(db, [i.id for i in items])
+
     rows = []
     for item in items:
         rows.append({
@@ -136,7 +153,7 @@ def inventory_page(
             "category":     str(item.item_category) if item.item_category else None,
             "category_display": category_display(item.item_category) if item.item_category else "—",
             "status":       str(item.item_status) if item.item_status else "—",
-            "location":     loc_map.get(item.location_id, "—"),
+            "location":     loc_map.get(loc_overrides.get(item.id, item.location_id), "—"),
             "sku":          item.brand_sku or "—",
             "last_updated": item.last_updated,
             "color":        FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
@@ -149,6 +166,7 @@ def inventory_page(
         "tiles":        tiles,
         "locations":    locations,
         "statuses":     STATUSES,
+        "filter_statuses": FILTER_STATUSES,
         "rows":         rows,
         "total_count":  total_count,
         "total_pages":  total_pages,
@@ -180,12 +198,14 @@ def quick_view(
 
     locations = _get_locations(db)
     loc_map = {r["id"]: r["name"] for r in locations}
+    from ..containment import effective_location_overrides
+    _eff = effective_location_overrides(db, [item.id])
 
     return templates.TemplateResponse("partials/item_quick_view.html", {
         "request":  request,
         "user":     user,
         "item":     item,
-        "location": loc_map.get(item.location_id, "—"),
+        "location": loc_map.get(_eff.get(item.id, item.location_id), "—"),
         "locations": locations,
         "statuses": STATUSES,
         "color":    FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
@@ -243,12 +263,14 @@ def quick_view_save(
 
     locations = _get_locations(db)
     loc_map = {r["id"]: r["name"] for r in locations}
+    from ..containment import effective_location_overrides
+    _eff = effective_location_overrides(db, [item.id])
 
     return templates.TemplateResponse("partials/item_quick_view.html", {
         "request":  request,
         "user":     user,
         "item":     item,
-        "location": loc_map.get(item.location_id, "—"),
+        "location": loc_map.get(_eff.get(item.id, item.location_id), "—"),
         "locations": locations,
         "statuses": STATUSES,
         "color":    FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
@@ -382,6 +404,8 @@ def inventory_export_csv(
 
     # Resolve location_id -> name using the same helper the page uses.
     loc_map = {r["id"]: r["name"] for r in _get_all_places(db)}  # all places incl customer sites
+    from ..containment import effective_location_overrides
+    loc_overrides = effective_location_overrides(db, [i.id for i in items])
 
     def row_for(item):
         return {
@@ -392,7 +416,7 @@ def inventory_export_csv(
             "model": item.item_model or "",
             "category": str(item.item_category) if item.item_category else "",
             "status": str(item.item_status) if item.item_status else "",
-            "location_name": loc_map.get(item.location_id, ""),
+            "location_name": loc_map.get(loc_overrides.get(item.id, item.location_id), ""),
             "department_or_owner": item.department_or_owner or "",
             "brand_sku": item.brand_sku or "",
             "brand_pn": item.brand_pn or "",

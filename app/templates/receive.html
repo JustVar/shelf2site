@@ -275,9 +275,30 @@
 
 <!-- Success banner -->
 <div id="success-banner" class="receive-step success-step" style="display: none;">
+    <!-- containment hook: shown only for component-category created items -->
     <div class="success-icon">&#10003;</div>
     <div class="success-text">Device added successfully!</div>
     <button class="btn btn-primary" onclick="scanAnother()">Scan Another</button>
+        <button class="btn" id="assign-into-unit-btn" style="display:none;" onclick="ctmOpenAssign()">Assign into a unit&hellip;</button>
+</div>
+
+<!-- Assign-into-unit modal (containment hook) -->
+<div class="modal-overlay" id="assign-unit-modal" style="display: none;">
+    <div class="modal">
+        <h3 style="margin-bottom: 1rem;">Assign into a unit</h3>
+        <input type="search" id="ctm-unit-search" placeholder="Search units by serial or name..."
+               style="width:100%;margin-bottom:0.5rem;" autocomplete="off">
+        <div id="ctm-unit-results" style="max-height:220px;overflow-y:auto;margin-bottom:0.75rem;"></div>
+        <div class="form-group">
+            <label for="ctm-unit-slot">Slot label (optional)</label>
+            <input type="text" id="ctm-unit-slot" placeholder="e.g. PCIe 1, bay 2">
+        </div>
+        <div id="ctm-unit-error" style="color:var(--danger);font-size:0.85rem;"></div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="ctmCloseAssign()">Cancel</button>
+            <button class="btn btn-primary" id="ctm-unit-confirm" onclick="ctmConfirmAssign()" disabled>Install</button>
+        </div>
+    </div>
 </div>
 
 <!-- Duplicate Warning Modal -->
@@ -1011,6 +1032,17 @@ async function submitDevice() {
             ? 'Device added to <strong>' + (data.display_table || data.target_table || body.target_table) + '</strong>!'
             : 'Device sent to <strong>review queue</strong> for approval.';
         banner.querySelector('.success-text').innerHTML = msg;
+
+        // Containment hook: component categories get an assign-into-unit
+        // offer (units are edge_box / cloud_box / camera_c2c / computer).
+        const CTM_UNIT_CATS = ['edge_box', 'cloud_box', 'camera_c2c', 'computer'];
+        const assignBtn = document.getElementById('assign-into-unit-btn');
+        if (assignBtn) {
+            const offer = data.status === 'created' && data.item_category
+                && !CTM_UNIT_CATS.includes(data.item_category);
+            assignBtn.style.display = offer ? 'inline-block' : 'none';
+            ctmNewItemId = offer ? data.device_id : null;
+        }
         banner.scrollIntoView({ behavior: 'smooth' });
     } else {
         submitBtn.disabled = false;
@@ -1018,8 +1050,88 @@ async function submitDevice() {
     }
 }
 
+// ── Containment hook: assign a freshly received component into a unit ──
+let ctmNewItemId = null, ctmUnitSelected = null, ctmUnitTimer = null;
+
+function ctmOpenAssign() {
+    if (!ctmNewItemId) return;
+    ctmUnitSelected = null;
+    document.getElementById('ctm-unit-error').textContent = '';
+    document.getElementById('ctm-unit-confirm').disabled = true;
+    document.getElementById('ctm-unit-search').value = '';
+    ctmUnitSearch('');
+    document.getElementById('assign-unit-modal').style.display = 'flex';
+}
+
+function ctmCloseAssign() {
+    const m = document.getElementById('assign-unit-modal');
+    if (m) m.style.display = 'none';
+}
+
+function ctmUnitSearch(q) {
+    fetch(`${BP}/api/containment/candidates?mode=units&q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+            const box = document.getElementById('ctm-unit-results');
+            if (!data.results || !data.results.length) {
+                box.innerHTML = '<div style="color:var(--text-muted);padding:0.5rem;">No units found.</div>';
+                return;
+            }
+            box.innerHTML = data.results.map(r =>
+                `<div class="ctm-unit-row" onclick="ctmSelectUnit(${r.id}, this)"
+                      style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;">
+                    <strong>${r.name}</strong>
+                    <span style="color:var(--text-muted);font-size:11px;font-family:monospace;"> ${r.serial || ''}</span>
+                    <span style="color:var(--text-muted);font-size:11px;"> · ${r.category || ''}</span>
+                 </div>`).join('');
+        })
+        .catch(() => { document.getElementById('ctm-unit-error').textContent = 'Search failed.'; });
+}
+
+function ctmSelectUnit(id, el) {
+    ctmUnitSelected = id;
+    document.querySelectorAll('#ctm-unit-results .ctm-unit-row').forEach(r => r.style.borderColor = 'var(--border)');
+    el.style.borderColor = 'var(--accent, var(--primary))';
+    document.getElementById('ctm-unit-confirm').disabled = false;
+}
+
+document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'ctm-unit-search') {
+        clearTimeout(ctmUnitTimer);
+        const q = e.target.value;
+        ctmUnitTimer = setTimeout(() => ctmUnitSearch(q), 250);
+    }
+});
+
+async function ctmConfirmAssign() {
+    if (!ctmNewItemId || !ctmUnitSelected) return;
+    const resp = await fetch(`${BP}/api/containment/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            component_item_id: ctmNewItemId,
+            parent_item_id: ctmUnitSelected,
+            slot_label: document.getElementById('ctm-unit-slot').value,
+        }),
+    });
+    if (resp.ok) {
+        ctmCloseAssign();
+        document.getElementById('assign-into-unit-btn').style.display = 'none';
+        const banner = document.getElementById('success-banner');
+        banner.querySelector('.success-text').innerHTML += ' <strong>Installed into unit.</strong>';
+        ctmNewItemId = null;
+    } else {
+        const err = await resp.json().catch(() => ({}));
+        document.getElementById('ctm-unit-error').textContent = err.error || 'Install failed.';
+    }
+}
+
 function scanAnother() {
     // Reset form for next device
+    ctmNewItemId = null;
+    const assignBtn = document.getElementById('assign-into-unit-btn');
+    if (assignBtn) assignBtn.style.display = 'none';
+    ctmCloseAssign();
     document.getElementById('success-banner').style.display = 'none';
     document.getElementById('scan-result').style.display = 'none';
     document.getElementById('step-details').style.display = 'none';

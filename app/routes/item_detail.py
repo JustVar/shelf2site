@@ -66,16 +66,57 @@ def _get_item_receipts(db, item_id):
 
 
 def _get_component_history(db, item_id):
+    """Both-direction event log, newest first (same-day ties broken by id —
+    action_date is DATE), with the counterpart item resolved so the panel
+    can say WHICH unit/component each event involved."""
     rows = (
         db.query(ItemComponentHistory)
         .filter(
             (ItemComponentHistory.item_id == item_id) |
             (ItemComponentHistory.parent_item_id == item_id)
         )
-        .order_by(ItemComponentHistory.action_date.desc())
+        .order_by(ItemComponentHistory.action_date.desc(),
+                  ItemComponentHistory.id.desc())
         .all()
     )
-    return rows
+    other_ids = set()
+    for r in rows:
+        other_ids.add(r.parent_item_id if r.item_id == item_id else r.item_id)
+    other_ids.discard(None)
+    names = {}
+    if other_ids:
+        for it in db.query(Item).filter(Item.id.in_(list(other_ids))).all():
+            names[it.id] = it.item_name or it.item_sn or f"item #{it.id}"
+    enriched = []
+    for r in rows:
+        as_component = (r.item_id == item_id)
+        counterpart_id = r.parent_item_id if as_component else r.item_id
+        enriched.append({
+            "event": r,
+            "as_component": as_component,
+            "counterpart_id": counterpart_id,
+            "counterpart_name": names.get(counterpart_id) if counterpart_id else None,
+        })
+    return enriched
+
+
+def _get_containment(db, item):
+    """Containment context (Option A): current parent for components,
+    current children for units — always via the current_containment view."""
+    from ..containment import UNIT_CATEGORIES, get_current_parent, get_current_children
+    ctx = {
+        "parent": None,
+        "children": [],
+        "is_unit": str(item.item_category) in UNIT_CATEGORIES if item.item_category else False,
+        "is_installed": False,
+    }
+    parent = get_current_parent(db, item.id)
+    if parent:
+        ctx["parent"] = parent
+        ctx["is_installed"] = True
+    if ctx["is_unit"]:
+        ctx["children"] = get_current_children(db, item.id)
+    return ctx
 
 
 def _get_maintenance_log(db, item_id):
@@ -142,12 +183,16 @@ def item_detail_page(
     components = _get_component_history(db, item_id)
     maintenance = _get_maintenance_log(db, item_id)
     checkouts = _get_item_checkouts(db, item_id)
+    containment = _get_containment(db, item)
+    _parent_item = containment["parent"]["parent"] if containment["parent"] else None
+    effective_location_id = _parent_item.location_id if _parent_item else item.location_id
 
     return templates.TemplateResponse("item_detail.html", {
         "request": request,
         "user": user,
         "item": item,
-        "location_name": loc_map.get(item.location_id, "\u2014"),
+        "containment": containment,
+        "location_name": loc_map.get(effective_location_id, "\u2014"),
         "locations": locations,
         "categories": categories,
         "statuses": STATUSES,
@@ -238,11 +283,15 @@ async def item_update(
         components = _get_component_history(db, item_id)
         maintenance = _get_maintenance_log(db, item_id)
         checkouts = _get_item_checkouts(db, item_id)
+        containment = _get_containment(db, item)
+        _parent_item = containment["parent"]["parent"] if containment["parent"] else None
+        effective_location_id = _parent_item.location_id if _parent_item else item.location_id
         return templates.TemplateResponse("item_detail.html", {
             "request": request,
             "user": user,
             "item": item,
-            "location_name": loc_map.get(item.location_id, "\u2014"),
+            "containment": containment,
+            "location_name": loc_map.get(effective_location_id, "\u2014"),
             "locations": locations,
             "categories": categories,
             "statuses": STATUSES,
