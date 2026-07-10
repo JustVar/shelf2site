@@ -669,12 +669,13 @@ TOURS: list[dict] = [
         "group": "operations",
         "steps": [
             {
-                "target": "#mode-receive-btn",
-                "title": "Receiving Mode",
+                "target": "#step-scan",
+                "title": "Receive & Scan",
                 "description": (
-                    "This page has two modes. <strong>Receive New Device</strong> "
-                    "walks you through intake of new equipment. Toggle to "
-                    "<strong>Assign Drive</strong> for NAS drive bay assignment."
+                    "This page walks you through intake of new equipment — "
+                    "scan a barcode with the camera or type the serial, then "
+                    "fill in the details. Received components can be assigned "
+                    "into a unit right from the success banner."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,

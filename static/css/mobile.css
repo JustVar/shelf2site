@@ -259,9 +259,6 @@
     border-radius: 0;
   }
   .receive-page .btn-submit { min-height: 52px; font-size: 16px; }
-  /* assign-mode drive card: JS-inline 2-col grid overflows on long serials */
-  .receive-page .drive-info-grid { grid-template-columns: 1fr !important; }
-  .receive-page .drive-info-grid span { overflow-wrap: anywhere; }
 
   /* ── Global Search: results table collapses to stacked row-cards ────────
      Same markup, CSS-only (.fl-table--cards modifier set in the partial).
