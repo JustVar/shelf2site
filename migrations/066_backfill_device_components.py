@@ -15,6 +15,10 @@ records old row id -> new event id(s). installed_date on the legacy rows is
 the IMPORT-RUN date (2026-03-05), not the physical install date — stated in
 each event's notes so the log stays honest.
 
+Resolved components with an active (non-removed) containment also get the
+managed status 'Installed' so the view and item_status stay consistent and
+the edit-protection guards engage (added after the 2026-07-10 re-run).
+
 device_components itself is NOT dropped (kept read-only for rollback +
 provenance, per the legacy-retirement plan — same pattern as migration 063).
 
@@ -134,6 +138,17 @@ def run():
                      "d": removed_date, "by": installed_by or "backfill",
                      "n": provenance + " [uninstall leg]"},
                 ).scalar()
+
+            # Keep the containment invariant whole: a component whose latest
+            # backfilled event is 'installed' must carry the managed status,
+            # or the view and item_status disagree and the edit-protection
+            # guards (which key off the status) never engage.
+            if not removed_date:
+                conn.execute(text(
+                    "UPDATE item_schema.items SET item_status = 'Installed' "
+                    "WHERE id = :i AND (item_status IS NULL OR item_status != 'Installed')"),
+                    {"i": comp_item},
+                )
 
             conn.execute(text(
                 "INSERT INTO component_migration_map "
