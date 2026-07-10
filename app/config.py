@@ -71,6 +71,14 @@ class Settings:
     # C2C cert source files + generated composite (5b/5c); bytes on disk, metadata in DB
     C2C_CERT_UPLOAD_DIR: str = os.getenv("C2C_CERT_UPLOAD_DIR", "data/c2c-cert-reports")
 
+    # Geocoding (Nominatim / OpenStreetMap default; empty base-url disables it).
+    # Nominatim policy: descriptive User-Agent + >=1 req/sec (see app/geocoding.py).
+    GEOCODER_ENABLED: bool = os.getenv("GEOCODER_ENABLED", "true").lower() == "true"
+    GEOCODER_BASE_URL: str = os.getenv("GEOCODER_BASE_URL", "https://nominatim.openstreetmap.org/search")
+    GEOCODER_USER_AGENT: str = os.getenv("GEOCODER_USER_AGENT", "AssetTracker/1.0 (owner@example.com)")
+    GEOCODER_RATE_LIMIT_S: float = float(os.getenv("GEOCODER_RATE_LIMIT_S", "1.1"))
+    GEOCODER_TIMEOUT_S: float = float(os.getenv("GEOCODER_TIMEOUT_S", "10"))
+
     # Zendesk Integration
     ZENDESK_SUBDOMAIN: str = os.getenv("ZENDESK_SUBDOMAIN", "")
     ZENDESK_EMAIL: str = os.getenv("ZENDESK_EMAIL", "")

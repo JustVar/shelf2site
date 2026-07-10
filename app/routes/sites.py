@@ -1,6 +1,6 @@
 """Sites & Ownership — manage physical locations and device-to-site assignments."""
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_sites_manager
 from ..config import settings
+from ..geocoding import geocode, compose_address
 from ..database import get_db
 from ..models import (
     DeviceAssignment, Site, User,
@@ -148,6 +149,26 @@ def site_detail_page(
 # Site CRUD API
 # ---------------------------------------------------------------------------
 
+async def _geocode_site(db, site) -> bool:
+    """Geocode a site from its address; cached on geocode_query so a
+    re-geocode fires only when the address text changes. Graceful: on
+    failure the site is saved without coordinates. Returns True when the
+    site ends up with coordinates."""
+    query = compose_address(site.address, site.city, site.state, site.country)
+    if not query:
+        return site.geo_lat is not None
+    if site.geocode_query == query and site.geo_lat is not None:
+        return True
+    result = await geocode(query)
+    site.geocode_query = query
+    site.geocoded_at = datetime.utcnow()
+    if result:
+        site.geo_lat, site.geo_lng = result["lat"], result["lng"]
+        site.show_on_map = True
+        return True
+    return False
+
+
 @router.post("/api/sites")
 async def create_site(
     request: Request,
@@ -187,6 +208,9 @@ async def create_site(
     db.commit()
     db.refresh(site)
 
+    geocoded = await _geocode_site(db, site)
+    db.commit()
+
     log_event(
         db, "site_created",
         request=request, user_id=user.id,
@@ -196,7 +220,7 @@ async def create_site(
         details=f"Site '{name}' ({Site.SITE_TYPES[site_type]}) created",
     )
 
-    return JSONResponse(content={"status": "created", "site_id": site.id})
+    return JSONResponse(content={"status": "created", "site_id": site.id, "geocoded": geocoded, "had_address": bool(site.address or site.city)})
 
 
 @router.put("/api/sites/{site_id}")
@@ -233,6 +257,9 @@ async def update_site(
     db.commit()
     db.refresh(site)
 
+    geocoded = await _geocode_site(db, site)
+    db.commit()
+
     log_event(
         db, "site_updated",
         request=request, user_id=user.id,
@@ -241,7 +268,29 @@ async def update_site(
         old_values=old_values, new_values=model_to_dict(site),
     )
 
-    return JSONResponse(content={"status": "updated"})
+    return JSONResponse(content={"status": "updated", "geocoded": geocoded, "had_address": bool(site.address or site.city)})
+
+
+@router.post("/api/sites/{site_id}/geocode")
+async def regeocode_site(
+    site_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_sites_manager),
+):
+    """Manual re-geocode (retry after a failed auto-geocode)."""
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        return JSONResponse(status_code=404, content={"error": "Site not found"})
+    site.geocode_query = None  # force a fresh lookup
+    geocoded = await _geocode_site(db, site)
+    db.commit()
+    log_event(db, "site_geocoded", request=request, user_id=user.id,
+              target_table="sites", target_id=site.id, action="update",
+              details=(f"geocoded {site.name} to {site.geo_lat}, {site.geo_lng}" if geocoded
+                       else f"geocode failed for {site.name}"))
+    return JSONResponse(content={"status": "ok", "geocoded": geocoded,
+                                 "lat": site.geo_lat, "lng": site.geo_lng})
 
 
 @router.delete("/api/sites/{site_id}")

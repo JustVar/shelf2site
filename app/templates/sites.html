@@ -261,8 +261,13 @@ async function saveSite() {
         });
         const data = await resp.json();
         if (resp.ok) {
-            msg.innerHTML = '<span style="color: var(--success);">Saved successfully.</span>';
-            setTimeout(() => location.reload(), 500);
+            if (data.had_address && data.geocoded === false) {
+                msg.innerHTML = '<span style="color: var(--warning);">Saved. Address could not be located — open the map and set the pin manually, or edit the address and re-save.</span>';
+                setTimeout(() => location.reload(), 2600);
+            } else {
+                msg.innerHTML = '<span style="color: var(--success);">Saved' + (data.geocoded ? ' and pinned on the map.' : '.') + '</span>';
+                setTimeout(() => location.reload(), 700);
+            }
         } else {
             msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
         }

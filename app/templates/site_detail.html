@@ -41,6 +41,19 @@
             {% if site.notes %}
             <div><strong>Notes:</strong> {{ site.notes }}</div>
             {% endif %}
+            <div style="margin-top:0.4rem;"><strong>Map:</strong>
+                {% if site.geo_lat is not none and site.geo_lng is not none %}
+                <span style="color: var(--success);">Pinned</span>
+                <span style="color: var(--text-muted); font-family: var(--sx-font-mono, monospace); font-size: 0.85em;">({{ '%.4f'|format(site.geo_lat) }}, {{ '%.4f'|format(site.geo_lng) }})</span>
+                {% elif site.address or site.city %}
+                <span style="color: var(--warning);">Not located</span>
+                {% else %}
+                <span style="color: var(--text-muted);">No address</span>
+                {% endif %}
+                {% if user.is_editor_or_above and (site.address or site.city) %}
+                <button type="button" onclick="retryGeocode()" class="btn btn-sm" style="margin-left:0.5rem;">Retry geocode</button>
+                {% endif %}
+            </div>
         </div>
     </div>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem;">
@@ -438,14 +451,26 @@ async function saveEditSite() {
         const data = await resp.json();
         if (resp.ok) {
             if (window._currentLockKey) { await window._lockManager.release(window._currentLockKey); window._currentLockKey = null; }
-            msg.innerHTML = '<span style="color: var(--success);">Saved.</span>';
-            setTimeout(() => location.reload(), 500);
+            if (data.had_address && data.geocoded === false) {
+                msg.innerHTML = '<span style="color: var(--warning);">Saved. Address could not be located — use Retry geocode below, set the pin on the map, or fix the address.</span>';
+                setTimeout(() => location.reload(), 2600);
+            } else {
+                msg.innerHTML = '<span style="color: var(--success);">Saved' + (data.geocoded ? ' and pinned.' : '.') + '</span>';
+                setTimeout(() => location.reload(), 700);
+            }
         } else {
             msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
         }
     } catch (err) {
         msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
     }
+}
+
+async function retryGeocode() {
+    const resp = await fetch(BP + '/api/sites/' + SITE_ID + '/geocode', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const data = await resp.json();
+    if (data.geocoded) { alert('Pinned at ' + data.lat.toFixed(4) + ', ' + data.lng.toFixed(4)); location.reload(); }
+    else { alert('Still could not locate this address. Set the pin manually on the map (Fix flow), or correct the address.'); }
 }
 
 // Escalate lock on edit site input
