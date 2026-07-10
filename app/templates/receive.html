@@ -471,7 +471,21 @@ function onScanSuccess(decodedText) {
     }
 }
 
+let pendingQuickConfirm = null;
+
 async function processQuickScan(barcode) {
+    // H6: an unconfirmed recognized scan is abandoned by scanning something
+    // else — visibly, so units never silently vanish from the count.
+    if (pendingQuickConfirm && pendingQuickConfirm.serial !== barcode) {
+        const skipped = pendingQuickConfirm.serial;
+        pendingQuickConfirm = null;
+        receiveScanner.showToast(
+            `Skipped <span class="scanner-toast-serial">${skipped}</span> (not confirmed)`,
+            'warning'
+        );
+        await new Promise(r => setTimeout(r, 900));
+    }
+
     const resp = await fetch(`${BP}/api/receive/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -488,46 +502,65 @@ async function processQuickScan(barcode) {
     }
 
     if (data.status === 'recognized' && data.prefill) {
-        // Auto-submit recognized device
-        const body = {
-            serial: data.serial,
-            manufacturer: data.prefill.manufacturer || '',
-            model: data.prefill.model || '',
-            target_table: data.prefill.target_table || 'edge_boxes',
-            location: '',
-            status: 'Inventory',
-            notes: 'Quick-scan intake',
-            mac_address: null,
-            direct_to_inventory: true,
-            receiving_event_id: currentEventId,
-        };
-        if (data.prefill.target_table === 'nas_devices') {
-            body.bay_count = data.prefill.bay_count || null;
-            body.ram_gb = data.prefill.ram_gb || null;
-        }
-
-        const submitResp = await fetch(`${BP}/api/receive/device`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-
-        if (submitResp.ok) {
-            receiveScanner.showToast(
-                `<span class="scanner-toast-serial">${barcode}</span> added to ${data.prefill.target_table || 'inventory'}`,
-                'success'
-            );
-        } else {
-            const err = await submitResp.json().catch(() => ({}));
-            receiveScanner.showToast(
-                `Failed: ${err.error || 'submission error'}`,
-                'error'
-            );
-        }
+        // H6: one confirm tap instead of silent auto-insert — the old
+        // behavior turned ANY Q-prefixed scan into a phantom NAS device
+        // (audit F6). The toast stays until confirmed or superseded.
+        pendingQuickConfirm = { serial: data.serial, prefill: data.prefill };
+        receiveScanner.showToast(
+            `<span class="scanner-toast-serial">${data.serial}</span> recognized as ${data.prefill.manufacturer || 'device'} — add to inventory?`,
+            'info',
+            {
+                action: 'Add',
+                duration: 0,
+                onAction: () => {
+                    const p = pendingQuickConfirm;
+                    pendingQuickConfirm = null;
+                    if (p) submitQuickIntake(p.serial, p.prefill);
+                },
+            }
+        );
     } else {
         // Unknown — pause scanner, let user fill details manually
         if (receiveScanner) receiveScanner.stop();
         processBarcode(barcode);
+    }
+}
+
+async function submitQuickIntake(barcode, prefill) {
+    const body = {
+        serial: barcode,
+        manufacturer: prefill.manufacturer || '',
+        model: prefill.model || '',
+        target_table: prefill.target_table || 'edge_boxes',
+        location: '',
+        status: 'Pending',
+        notes: 'Quick-scan intake',
+        mac_address: null,
+        direct_to_inventory: true,
+        receiving_event_id: currentEventId,
+    };
+    if (prefill.target_table === 'nas_devices') {
+        body.bay_count = prefill.bay_count || null;
+        body.ram_gb = prefill.ram_gb || null;
+    }
+
+    const submitResp = await fetch(`${BP}/api/receive/device`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    if (submitResp.ok) {
+        receiveScanner.showToast(
+            `<span class="scanner-toast-serial">${barcode}</span> added to inventory`,
+            'success'
+        );
+    } else {
+        const err = await submitResp.json().catch(() => ({}));
+        receiveScanner.showToast(
+            `Failed: ${err.error || 'submission error'}`,
+            'error'
+        );
     }
 }
 
