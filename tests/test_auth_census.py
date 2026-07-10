@@ -16,7 +16,17 @@ sync with docs/ENDPOINT_AUTH_CENSUS.md.
 import pytest
 from fastapi.routing import APIRoute
 
+import app.auth as auth_mod
 from app.main import app
+
+# require_admin / require_editor / require_viewer are closures produced by
+# require_role(), so every one of them is named "dependency". Map the callable
+# objects back to their module-level names by identity, or the tier check below
+# silently sees no gate where one exists.
+_DEP_NAME_BY_ID = {
+    id(v): k for k, v in vars(auth_mod).items()
+    if callable(v) and not isinstance(v, type)
+}
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -84,13 +94,17 @@ def _walk(routes, prefix=""):
                 yield sub, pfx, deps + inc
 
 
+def _name_of(call):
+    return _DEP_NAME_BY_ID.get(id(call)) or getattr(call, "__name__", "")
+
+
 def _dep_names(route, extra_deps):
-    names = [getattr(d, "__name__", "") for d in extra_deps]
+    names = [_name_of(d) for d in extra_deps]
 
     def collect(dependant):
         for d in dependant.dependencies:
             if d.call is not None:
-                names.append(getattr(d.call, "__name__", ""))
+                names.append(_name_of(d.call))
             collect(d)
 
     collect(route.dependant)
@@ -123,6 +137,16 @@ def test_route_table_is_not_empty():
     """Guard the guard: if route walking silently breaks, every test below passes vacuously."""
     assert len(ALL_ROUTES) > 200, f"expected the full route table, walked only {len(ALL_ROUTES)}"
     assert len(API_ROUTES) > 50
+
+
+def test_dependency_names_resolve():
+    """require_* deps are closures named 'dependency'; if the identity map breaks,
+    the tier test below would see no gate anywhere and fail confusingly."""
+    assert _name_of(auth_mod.require_editor) == "require_editor"
+    assert _name_of(auth_mod.require_viewer) == "require_viewer"
+    assert _name_of(auth_mod.require_system_admin) == "require_system_admin"
+    seen = {n for _, _, deps in ALL_ROUTES for n in deps}
+    assert "require_editor" in seen and "get_current_user" in seen
 
 
 @pytest.mark.parametrize("method,path,deps", API_ROUTES, ids=lambda v: v if isinstance(v, str) else None)

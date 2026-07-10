@@ -35,7 +35,7 @@ def test_receive_happy_path_creates_a_pending_device(editor_client, db, cleanup_
         "mac_address": "AA:BB:CC:DD:EE:10",
     })
     assert r.status_code == 200, r.text
-    assert r.json()["status"] in ("pending", "created")
+    assert r.json()["status"] == "pending_review"
 
     db.commit()  # see the app worker's committed row
     row = _pending_row(db, "ContractTestCo")
@@ -55,7 +55,9 @@ def test_receive_normalizes_a_dash_separated_mac(editor_client, db, cleanup_pend
     db.commit()
     row = _pending_row(db, "ContractTestDash")
     assert row is not None
-    assert row[0] == "aa:bb:cc:dd:ee:11", f"MAC stored un-normalized: {row[0]}"
+    # pending_devices.mac_address is varchar, so the stored value keeps the
+    # helper's canonical casing; the point is that the dashes became colons.
+    assert row[0] == "AA:BB:CC:DD:EE:11", f"MAC stored un-normalized: {row[0]}"
 
 
 def test_receive_rejects_an_invalid_mac_with_a_400(editor_client, cleanup_pending):

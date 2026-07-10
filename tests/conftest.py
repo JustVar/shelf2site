@@ -73,6 +73,9 @@ def users(db):
 
 
 def _client(username):
+    """A logged-in client. Yielded (not `with`-wrapped) by the fixtures below:
+    issuing the login request already opens the client, and httpx refuses to
+    re-enter an opened instance."""
     c = httpx.Client(base_url=BASE_URL, timeout=30, follow_redirects=False)
     if username is not None:
         r = c.post("/login", data={"username": username, "password": TEST_PASSWORD})
@@ -82,29 +85,20 @@ def _client(username):
 
 @pytest.fixture(scope="session")
 def anon():
-    with httpx.Client(base_url=BASE_URL, timeout=30, follow_redirects=False) as c:
+    c = httpx.Client(base_url=BASE_URL, timeout=30, follow_redirects=False)
+    yield c
+    c.close()
+
+
+def _client_fixture(role_key):
+    def fixture(users):
+        c = _client(TEST_USERS[role_key])
         yield c
+        c.close()
+    return pytest.fixture(scope="session")(fixture)
 
 
-@pytest.fixture(scope="session")
-def admin_client(users):
-    with _client(TEST_USERS["admin"]) as c:
-        yield c
-
-
-@pytest.fixture(scope="session")
-def editor_client(users):
-    with _client(TEST_USERS["editor"]) as c:
-        yield c
-
-
-@pytest.fixture(scope="session")
-def viewer_client(users):
-    with _client(TEST_USERS["viewer"]) as c:
-        yield c
-
-
-@pytest.fixture(scope="session")
-def kiosk_client(users):
-    with _client(TEST_USERS["kiosk"]) as c:
-        yield c
+admin_client = _client_fixture("admin")
+editor_client = _client_fixture("editor")
+viewer_client = _client_fixture("viewer")
+kiosk_client = _client_fixture("kiosk")
