@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item, ItemLocation
+from ..models import Item, ItemLocation, Site
 from .dashboard import FL_CATEGORY_COLORS, category_display
 _COLOR_FALLBACK = "#888888"
 
@@ -74,7 +74,7 @@ def search_results_partial(
     matches = db.query(Item).filter(or_(*filters)).all()
 
     # Pre-fetch location names in one query
-    loc_map = {l.id: l.nickname for l in db.query(ItemLocation).all()}
+    loc_map = {s.id: s.name for s in db.query(Site).all()}  # Migration 063
 
     for item in matches:
         cat = str(item.item_category) if item.item_category else None

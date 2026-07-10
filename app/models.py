@@ -852,6 +852,14 @@ class Site(Base):
     contact_phone = Column(String(64), nullable=True)
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
+    # Map + geocoding (Migration 063: sites is the unified typed place table).
+    # Coordinates live on the site; units inherit their site pin. geocode_query
+    # caches the address string last resolved so re-geocode fires only on change.
+    geo_lat = Column(Float, nullable=True)
+    geo_lng = Column(Float, nullable=True)
+    show_on_map = Column(Boolean, nullable=False, server_default="false")
+    geocoded_at = Column(DateTime, nullable=True)
+    geocode_query = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -1748,7 +1756,7 @@ class Item(Base):
     item_sn                    = Column(String(512), nullable=True)
     item_category              = Column(item_categories_enum, nullable=True)
     item_status                = Column(item_statuses_enum, nullable=True)
-    location_id                = Column(Integer, ForeignKey('item_schema.locations.id'), nullable=True)
+    location_id                = Column(Integer, ForeignKey('sites.id'), nullable=True)  # Migration 063: sites is the place table
     department_or_owner        = Column(String(1024), nullable=True)
     item_mac_address_1         = Column(String(64), nullable=True)
     item_mac_address_2         = Column(String(64), nullable=True)
@@ -1790,10 +1798,12 @@ class Item(Base):
     # Default — broadest set for general triage checks
     REQUIRED_FIELDS = REQUIRED_FIELDS_HARDWARE
 
-    location = relationship('ItemLocation', foreign_keys=[location_id])
+    location = relationship('Site', foreign_keys=[location_id])  # Migration 063
     part_number = relationship('ItemPartNumber', foreign_keys=[brand_sku])
 
 
+# Dead after Migration 063 (rows folded into sites; nothing points here).
+# Preserved for rollback; drop in a later cleanup migration.
 class ItemLocation(Base):
     __tablename__ = 'locations'
     __table_args__ = {'schema': 'item_schema'}
@@ -1831,7 +1841,7 @@ class ItemPartNumber(Base):
     item_category   = Column(item_categories_enum, nullable=True)
     is_legacy       = Column(Boolean, default=False)
     is_customer_pn  = Column(Boolean, default=False)
-    location_id     = Column(Integer, ForeignKey('item_schema.locations.id'), nullable=True)
+    location_id     = Column(Integer, ForeignKey('sites.id'), nullable=True)  # Migration 063
     created_by      = Column(String(100), nullable=True)
     created_at      = Column(Date, server_default=func.current_date())
     notes           = Column(Text, nullable=True)

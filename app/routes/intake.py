@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber
+from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site
 from .dashboard import ALL_CATEGORIES, category_display
 
 router = APIRouter(tags=["intake"])
@@ -40,8 +40,16 @@ RECEIPT_STORAGE_PATH = "/app/data/receipts"
 
 
 def _get_locations(db: Session) -> list[dict]:
-    rows = db.query(ItemLocation).filter(ItemLocation.is_active == True).order_by(ItemLocation.nickname).all()
-    return [{"id": r.id, "name": r.nickname} for r in rows]
+    # Migration 063: places live in sites. In-stock items sit at OFFICE
+    # places (never a customer_site), so the intake/receive stock select
+    # excludes customer sites.
+    rows = (
+        db.query(Site)
+        .filter(Site.is_active == True, Site.site_type != "customer_site")
+        .order_by(Site.name)
+        .all()
+    )
+    return [{"id": r.id, "name": r.name} for r in rows]
 
 
 def _get_categories() -> list[dict]:

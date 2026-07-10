@@ -36,7 +36,7 @@ from ..models import (
     DeviceProvisioning,
     EdgeBox,
     Item,
-    ItemLocation,
+    Site,
     MapVisibility,
     User,
 )
@@ -202,13 +202,14 @@ def _collect_units(db, user):
             eb_by_serial[sn] = eb
 
     items = (
-        db.query(Item, ItemLocation)
-        .join(ItemLocation, ItemLocation.id == Item.location_id)
+        db.query(Item, Site)
+        .join(Site, Site.id == Item.location_id)
         .filter(
             Item.item_category.in_(PRODUCT_CATEGORIES),
-            ItemLocation.geo_lat.isnot(None),
-            ItemLocation.geo_lng.isnot(None),
-            ItemLocation.show_on_map.is_(True),
+            Site.site_type == "customer_site",  # office units drop off the map
+            Site.geo_lat.isnot(None),
+            Site.geo_lng.isnot(None),
+            Site.show_on_map.is_(True),
         )
         .all()
     )
@@ -218,7 +219,7 @@ def _collect_units(db, user):
         if item.item_category == "edge_box" and sn:
             item_serials.add(sn)
 
-    for item, loc in items:
+    for item, place in items:
         sn = (item.item_sn or "").strip().lower()
         link = by_item.get(item.id)
         if link is None and sn and sn in eb_by_serial:
@@ -226,16 +227,16 @@ def _collect_units(db, user):
             # legacy edge_boxes id - inherit that order linkage.
             link = by_edge.get(eb_by_serial[sn].id)
         deal, provenance, _l = _classify(link)
-        customer = (link.customer_name if link else None) or loc.customer
-        site = loc.nickname
+        customer = (link.customer_name if link else None) or place.customer
+        site = place.name
         if not unit_visible(hidden, f"item:{item.id}", customer, site,
                             bool(link and link.is_sensitive), can_sensitive):
             continue
         features.append(_feature(
-            f"item:{item.id}", "item", loc.geo_lng, loc.geo_lat,
+            f"item:{item.id}", "item", place.geo_lng, place.geo_lat,
             item.item_name, item.item_sn, item.item_category,
             str(item.item_status) if item.item_status else "",
-            deal, provenance, customer, site, loc.city,
+            deal, provenance, customer, site, place.city,
             item.dispatched_date, _due_back(link),
             f"{BP}/items/{item.id}",
         ))
@@ -268,17 +269,16 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
     deployed-but-unmapped units, not internal shelf stock)."""
     out = []
     items = (
-        db.query(Item)
-        .outerjoin(ItemLocation, ItemLocation.id == Item.location_id)
+        db.query(Item, Site)
+        .join(Site, Site.id == Item.location_id)
         .filter(
             Item.item_category.in_(PRODUCT_CATEGORIES),
-            (Item.location_id.is_(None))
-            | (ItemLocation.geo_lat.is_(None))
-            | (ItemLocation.geo_lng.is_(None)),
+            Site.site_type == "customer_site",
+            (Site.geo_lat.is_(None)) | (Site.geo_lng.is_(None)),
         )
         .all()
     )
-    for it in items:
+    for it, place in items:
         link = by_item.get(it.id)
         if link is None and str(it.item_status or "") != "Deployed":
             continue
@@ -290,7 +290,7 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
             "kind": "item", "id": it.id,
             "label": it.item_name or f"Item #{it.id}",
             "serial": it.item_sn or "",
-            "hasLocation": it.location_id is not None,
+            "hasLocation": it.location_id is not None,  # place present, geo missing
         })
     legacy = (
         db.query(EdgeBox)
@@ -495,13 +495,13 @@ async def map_set_location(request: Request, db: Session = Depends(get_db),
             return JSONResponse(status_code=400, content={"error": "only product units appear on the map"})
         if item.location_id is None:
             return JSONResponse(status_code=400, content={
-                "error": "assign the item to a location first; coordinates live on the location"})
-        loc = db.query(ItemLocation).filter(ItemLocation.id == item.location_id).first()
-        if loc.geo_lat is not None and loc.geo_lng is not None:
+                "error": "assign the item to a place first; coordinates live on the place"})
+        place = db.query(Site).filter(Site.id == item.location_id).first()
+        if place.geo_lat is not None and place.geo_lng is not None:
             return JSONResponse(status_code=400, content={
-                "error": "this location already has coordinates (shared by all items there)"})
-        loc.geo_lat, loc.geo_lng = lat, lng
-        loc.show_on_map = True  # first geocode implies mapping intent
+                "error": "this place already has coordinates (shared by all units there)"})
+        place.geo_lat, place.geo_lng = lat, lng
+        place.show_on_map = True  # first geocode implies mapping intent
         target = item.item_sn or f"item {unit_id}"
     else:
         return JSONResponse(status_code=400, content={"error": "kind must be item or edge_box"})

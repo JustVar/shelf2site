@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item, ItemLocation
+from ..models import Item, ItemLocation, Site
 from .dashboard import CATEGORY_COLORS, FL_CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
 from .intake import _get_locations as _get_locations_active, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
 from .dashboard import category_display as _cat_display
@@ -55,9 +55,9 @@ def _get_tile_stats(db: Session) -> list[dict]:
 
 
 def _get_locations(db: Session) -> list[dict]:
-    """Return all locations for filter dropdown."""
-    rows = db.query(ItemLocation).order_by(ItemLocation.nickname).all()
-    return [{"id": r.id, "name": r.nickname} for r in rows]
+    """All places (offices + customer sites) for the inventory filter."""
+    rows = db.query(Site).order_by(Site.name).all()
+    return [{"id": r.id, "name": r.name} for r in rows]
 
 
 import time as _time
