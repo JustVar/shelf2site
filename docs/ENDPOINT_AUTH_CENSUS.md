@@ -410,12 +410,12 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/api/receive/check-duplicate` | GET | any authenticated | OK — kiosk sessions get 403 from the middleware (pinned in the kiosk contract test); viewer-level enumeration is audit F15/H14 |
-| `/api/receive/device` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/receive/events` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/receive/photo` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/receive/photo/{photo_id}` | GET | any authenticated | OK |
-| `/api/receive/scan` | POST | editor+ (incl. sub-admins) | OK |
+| `/api/receive/check-duplicate` | GET | receiving access | OK — H14 closed the F15 viewer enumeration oracle; kiosk 403 stays pinned in the kiosk contract test |
+| `/api/receive/device` | POST | receiving access; direct_to_inventory additionally gated by `user_can_approve_table` per target (F9) | OK — flag-only users submit to the review queue |
+| `/api/receive/events` | POST | receiving access | OK — F10 fixed: flag-holders' page actions no longer 403 |
+| `/api/receive/photo` | POST | receiving access | OK |
+| `/api/receive/photo/{photo_id}` | GET | receiving access | OK — H14/F15: was any-authenticated (sequential-id browsing) |
+| `/api/receive/scan` | POST | receiving access OR provisioning view (`require_scan_access`) | OK — fulfillment scan-to-find works for board viewers (F8); bare viewers 403 |
 | `/receive` | GET | receiving access | OK |
 
 ### search
