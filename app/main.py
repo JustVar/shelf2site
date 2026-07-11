@@ -25,7 +25,7 @@ from .routes import (
     mobile, nas_drives, notification_routes, orders, pending,
     procurement, provisioning, receipts, receiving, search,
     sites, slack_bot_routes, sse, support,
-    tours, trials, vendors, warranty,
+    tours, trials, unit_photos, vendors, warranty,
     zendesk_routes,
 )
 
@@ -464,6 +464,7 @@ app.include_router(creds.router, prefix="/api/credentials")
 app.include_router(pending.router, prefix="/api")
 app.include_router(admin.router)
 app.include_router(receiving.router)
+app.include_router(unit_photos.router)
 app.include_router(warranty.router)
 app.include_router(trials.router)
 app.include_router(disposal.router)

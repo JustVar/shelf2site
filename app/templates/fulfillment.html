@@ -1274,6 +1274,14 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             </div>
         </div>
 
+        <!-- Shipment photos (outbound) — pre-tagged with the order's units -->
+        <div class="sp-field-group" style="padding:0 2px;">
+            <button class="fl-obtn" onclick="document.getElementById('ship-photo-input').click()">Add photos&hellip;</button>
+            <input type="file" id="ship-photo-input" accept="image/*" capture="environment"
+                   onchange="uploadOrderPhoto(this, 'ship-photo-note')" style="display:none;">
+            <span id="ship-photo-note" style="font-size:11px; color:var(--text-muted); margin-left:6px;"></span>
+        </div>
+
         <!-- Save button -->
         <div class="sp-pane-footer">
             <button class="sp-save-btn" onclick="saveShipDetails(currentOrderId)">
@@ -1620,7 +1628,13 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     </div>
 
     <!-- Modal footer -->
-    <div style="display:flex; gap:0.75rem; justify-content:flex-end; padding:12px 20px; border-top:1px solid var(--border);">
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end; align-items:center; padding:12px 20px; border-top:1px solid var(--border);">
+        {# Shipment photos (outbound) — order context, pre-tagged with the
+           order's still-out units; the deploy wizard knows its order. #}
+        <button class="fl-obtn" style="margin-right:auto;" onclick="document.getElementById('deploy-photo-input').click()">Add photos&hellip;</button>
+        <input type="file" id="deploy-photo-input" accept="image/*" capture="environment"
+               onchange="uploadOrderPhoto(this, 'deploy-photo-note', deployWizardOrderId())" style="display:none;">
+        <span id="deploy-photo-note" style="font-size:11px; color:var(--text-muted);"></span>
         <button class="btn" id="dm-back-btn" onclick="deployWizardBack()" style="display:none;">Back</button>
         <button class="btn" onclick="closeDeployModal()">Cancel</button>
         <button class="btn btn-primary" id="dm-next-btn" onclick="deployWizardNext()">Next</button>
@@ -2167,6 +2181,38 @@ function setShipPaneMethod(method) {
         method === 'carrier' ? '' : 'none';
     document.getElementById('ship-transferred-fields').style.display =
         method === 'transferred' ? '' : 'none';
+}
+
+/* ── Shipment photos (outbound) — shared by ship pane + deploy wizard ── */
+function deployWizardOrderId() {
+    const v = document.getElementById('dm-order-id').value;
+    return v ? parseInt(v) : null;
+}
+
+async function uploadOrderPhoto(input, noteId, orderIdOverride) {
+    const orderId = orderIdOverride !== undefined ? orderIdOverride : currentOrderId;
+    const note = document.getElementById(noteId);
+    if (!input.files || !input.files[0]) return;
+    if (!orderId) {
+        if (note) note.textContent = 'Pick an order first.';
+        input.value = '';
+        return;
+    }
+    if (note) note.textContent = 'Uploading…';
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    fd.append('direction', 'outbound');
+    fd.append('customer_order_id', orderId);
+    fd.append('tag_order_units', 'true');
+    try {
+        const resp = await fetch(BP + '/api/photos', { method: 'POST', body: fd });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+        if (note) note.textContent = 'Saved — tagged ' + ((data.items || []).length) + ' unit(s).';
+    } catch (e) {
+        if (note) note.textContent = 'NOT saved: ' + e.message;
+    }
+    input.value = '';
 }
 
 function fillShipPane(s) {

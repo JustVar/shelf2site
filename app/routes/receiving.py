@@ -18,7 +18,7 @@ from ..models import (
     AccessControl, Camera, CustomerOrder, EdgeBox, IntakePhoto, Item,
     ItemPartNumber, NASDevice, NASDrive, NUC, OUIAllowlist, PendingDevice,
     ReceivedDevice, ReceivingEvent, ReceivingEventLine, Site,
-    TABLE_MODELS, TABLE_DISPLAY_NAMES, User,
+    TABLE_MODELS, TABLE_DISPLAY_NAMES, UnitPhoto, User,
     compute_completeness, user_can_approve_table,
 )
 from sqlalchemy.exc import IntegrityError
@@ -353,6 +353,9 @@ def _event_payload(db: Session, event: ReceivingEvent) -> dict:
         "status": event.status,
         "po_matched": bool(oem_rows),
         "po_lines": oem_line_summary(oem_rows),
+        "photo_count": db.query(UnitPhoto).filter(
+            UnitPhoto.receiving_event_id == event.id,
+            UnitPhoto.is_hidden.is_(False)).count(),
         "lines": [
             {
                 "id": l.id,

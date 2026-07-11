@@ -79,6 +79,10 @@ class Settings:
 
     # Photo uploads (intake label photos)
     PHOTO_UPLOAD_DIR: str = os.getenv("PHOTO_UPLOAD_DIR", "data/photos")
+    # Unit photos (shipment-photos slice): per-file size cap and per-event
+    # count cap. Files live under PHOTO_UPLOAD_DIR/unit (same backup tree).
+    UNIT_PHOTO_MAX_MB: int = int(os.getenv("UNIT_PHOTO_MAX_MB", "15"))
+    UNIT_PHOTO_MAX_PER_EVENT: int = int(os.getenv("UNIT_PHOTO_MAX_PER_EVENT", "40"))
     # Cert report uploads (SMART reports, QA sheets, per box)
     CERT_UPLOAD_DIR: str = os.getenv("CERT_UPLOAD_DIR", "data/cert-reports")
     # Install cert uploads (single post-install PDF, per deployment)

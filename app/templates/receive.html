@@ -68,6 +68,8 @@
         <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
     </div>
     <div id="event-status" style="display: none;"></div>
+    <input type="file" id="event-photo-input" accept="image/*" capture="environment"
+           onchange="uploadEventPhoto(this)" style="display:none;">
 </div>
 
 <!-- Step 2: Scan Barcode -->
@@ -259,6 +261,10 @@
     <div class="success-text">Device added successfully!</div>
     <button class="btn btn-primary" onclick="scanAnother()">Scan Another</button>
         <button class="btn" id="assign-into-unit-btn" style="display:none;" onclick="ctmOpenAssign()">Assign into a unit&hellip;</button>
+        <button class="btn" id="add-photo-btn" style="display:none;" onclick="document.getElementById('unit-photo-input').click()">Add photo&hellip;</button>
+        <input type="file" id="unit-photo-input" accept="image/*" capture="environment"
+               onchange="uploadIntakeUnitPhoto(this)" style="display:none;">
+        <span id="unit-photo-note" style="font-size:0.85rem; color:var(--text-muted);"></span>
 </div>
 
 <!-- Assign-into-unit modal (containment hook) -->
@@ -371,6 +377,10 @@ async function refreshEventPanel() {
     if (ev.status === 'open') {
         html += ' <button class="btn btn-sm" onclick="closeEvent()" style="font-size:0.75rem; padding:0.15rem 0.5rem;">Close event</button>';
     }
+    html += ' <button class="btn btn-sm" onclick="document.getElementById(\'event-photo-input\').click()"' +
+            ' style="font-size:0.75rem; padding:0.15rem 0.5rem;">Add photos&hellip;</button>' +
+            (ev.photo_count ? ' <span style="font-size:0.78rem; color:var(--text-muted);">' +
+             esc(ev.photo_count) + ' photo' + (ev.photo_count !== 1 ? 's' : '') + '</span>' : '');
 
     // H17: the check-off panel — this shipment's own SKU lines with live
     // progress. SHORT only means something once the event is closed; OVER
@@ -883,31 +893,92 @@ async function uploadAndProcessPhoto(input) {
     ocrResults.innerHTML = '<div class="ocr-loading">Processing image with OCR...</div>';
     ocrResults.style.display = 'block';
 
+    // Shipment-photos slice: label photos are real unit photos now (the old
+    // /api/receive/photo rows could never be linked to the created device).
     const formData = new FormData();
     formData.append('file', input.files[0]);
+    formData.append('direction', 'inbound');
     formData.append('run_ocr', 'true');
     if (currentEventId) formData.append('receiving_event_id', currentEventId);
-    formData.append('caption', 'Intake photo');
+    formData.append('caption', 'Intake label photo');
 
     try {
-        const resp = await fetch(`${BP}/api/receive/photo`, { method: 'POST', body: formData });
+        const resp = await fetch(`${BP}/api/photos`, { method: 'POST', body: formData });
         const data = await resp.json().catch(() => ({}));
 
         if (!resp.ok) {
             // Honest failure: a rejected upload is NOT "OCR unavailable".
             ocrResults.innerHTML = '<div class="ocr-error">Photo upload failed: ' +
                 esc(data.error || data.detail || ('HTTP ' + resp.status)) + '</div>';
-        } else if (data.status === 'uploaded' && data.ocr) {
-            ocrData = data.ocr;
-            displayOcrResults(data.ocr);
-        } else if (data.status === 'uploaded') {
-            ocrResults.innerHTML = '<div class="ocr-error">Photo uploaded, but OCR processing unavailable.</div>';
+        } else if (data.photo_id) {
+            // Remember the photo so the device submit can tag it (closes
+            // audit F13 — label photos are never orphaned again).
+            lastLabelPhotoId = data.photo_id;
+            if (data.ocr && !data.ocr._ocr_error) {
+                ocrData = data.ocr;
+                displayOcrResults(data.ocr);
+            } else {
+                ocrResults.innerHTML = '<div class="ocr-error">Photo saved. OCR processing unavailable.</div>';
+            }
         } else {
             ocrResults.innerHTML = '<div class="ocr-error">Unexpected server reply — photo may not have been saved.</div>';
         }
     } catch (e) {
         ocrResults.innerHTML = '<div class="ocr-error">Error: ' + esc(e.message) + '</div>';
     }
+}
+
+let lastLabelPhotoId = null;
+let lastCreatedSerial = null;
+
+/* Tag a photo with a serial after the item exists (fire-and-forget). */
+function tagPhotoWithSerial(photoId, serial) {
+    if (!photoId || !serial) return;
+    fetch(`${BP}/api/photos/${photoId}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ add: [serial] }),
+    }).catch(() => {});
+}
+
+/* Post-intake capture: photo pre-tagged with the just-created serial. */
+async function uploadIntakeUnitPhoto(input) {
+    if (!input.files || !input.files[0]) return;
+    const note = document.getElementById('unit-photo-note');
+    note.textContent = 'Uploading…';
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    fd.append('direction', 'inbound');
+    if (lastCreatedSerial) fd.append('serials', lastCreatedSerial);
+    if (currentEventId) fd.append('receiving_event_id', currentEventId);
+    try {
+        const resp = await fetch(`${BP}/api/photos`, { method: 'POST', body: fd });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        note.textContent = 'Photo saved' +
+            (data.items && data.items.length ? ' and tagged to ' + data.items.length + ' unit(s).' : '.');
+    } catch (e) {
+        note.textContent = 'Photo NOT saved: ' + e.message;
+    }
+    input.value = '';
+}
+
+/* Event-panel capture: photos for the whole shipment (event context). */
+async function uploadEventPhoto(input) {
+    if (!input.files || !input.files[0] || !currentEventId) return;
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    fd.append('direction', 'inbound');
+    fd.append('receiving_event_id', currentEventId);
+    try {
+        const resp = await fetch(`${BP}/api/photos`, { method: 'POST', body: fd });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    } catch (e) {
+        alert('Photo NOT saved: ' + e.message);
+    }
+    input.value = '';
+    refreshEventPanel();
 }
 
 function displayOcrResults(ocr) {
@@ -1235,9 +1306,13 @@ async function submitDevice() {
     const data = await resp.json().catch(() => ({}));
 
     if (data.status === 'created' || data.status === 'pending_review') {
-        // Photo (if any) was already uploaded during preview. The old
-        // photo/link call here hit an endpoint that never existed (audit
-        // F13/H18) — photo↔device linkage is the shipment-photos slice.
+        // Shipment-photos slice: the label photo uploaded during preview
+        // gets tagged with the now-existing item — F13 finally closed.
+        if (data.status === 'created' && lastLabelPhotoId && body.serial) {
+            tagPhotoWithSerial(lastLabelPhotoId, body.serial);
+            lastLabelPhotoId = null;
+        }
+        lastCreatedSerial = data.status === 'created' ? body.serial : null;
 
         // Show success
         document.getElementById('step-details').style.display = 'none';
@@ -1261,6 +1336,12 @@ async function submitDevice() {
                 && !CTM_UNIT_CATS.includes(data.item_category);
             assignBtn.style.display = offer ? 'inline-block' : 'none';
             ctmNewItemId = offer ? data.device_id : null;
+        }
+        // Shipment-photos hook: created items get a pre-tagged photo offer.
+        const photoBtn = document.getElementById('add-photo-btn');
+        if (photoBtn) {
+            photoBtn.style.display = lastCreatedSerial ? 'inline-block' : 'none';
+            document.getElementById('unit-photo-note').textContent = '';
         }
         banner.scrollIntoView({ behavior: 'smooth' });
         refreshEventPanel();
@@ -1376,6 +1457,11 @@ function scanAnother() {
     document.getElementById('ocr-results').style.display = 'none';
     document.getElementById('ocr-results').innerHTML = '';
     ocrData = null;
+    lastLabelPhotoId = null;
+    lastCreatedSerial = null;
+    const _pb = document.getElementById('add-photo-btn');
+    if (_pb) _pb.style.display = 'none';
+    document.getElementById('unit-photo-note').textContent = '';
     const submitBtn = document.querySelector('.btn-submit');
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Device'; }
     document.getElementById('step-scan').scrollIntoView({ behavior: 'smooth' });

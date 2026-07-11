@@ -377,8 +377,49 @@ class ReceivedDevice(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class UnitPhoto(Base):
+    """Shipment/unit photos (migration 069) — supersedes IntakePhoto's dead
+    device linkage. One photo, nullable context FKs; serial tying is N:M via
+    unit_photo_items (one arrival photo can show three boxes' labels).
+    Deletion is soft (is_hidden + audit); hard delete is admin-only."""
+    __tablename__ = "unit_photos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    file_path = Column(String(255), nullable=False)   # relative to PHOTO_UPLOAD_DIR
+    thumb_path = Column(String(255), nullable=False)
+    direction = Column(String(16), nullable=False)    # inbound | outbound
+    caption = Column(String(255), nullable=True)
+    taken_at = Column(DateTime, nullable=True)        # EXIF DateTimeOriginal, else upload time
+    original_filename = Column(String(255), nullable=True)
+    file_size = Column(Integer, nullable=True)
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    receiving_event_id = Column(Integer, ForeignKey("receiving_events.id", ondelete="SET NULL"), nullable=True)
+    customer_order_id = Column(Integer, ForeignKey("customer_orders.id", ondelete="SET NULL"), nullable=True)
+    deployment_record_id = Column(Integer, ForeignKey("deployment_records.id", ondelete="SET NULL"), nullable=True)
+    is_hidden = Column(Boolean, nullable=False, default=False)
+    hidden_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    hidden_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    items = relationship("UnitPhotoItem", back_populates="photo",
+                         cascade="all, delete-orphan")
+
+
+class UnitPhotoItem(Base):
+    """N:M photo↔item tags (one photo can show several units' labels)."""
+    __tablename__ = "unit_photo_items"
+
+    photo_id = Column(Integer, ForeignKey("unit_photos.id", ondelete="CASCADE"), primary_key=True)
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="CASCADE"), primary_key=True)
+
+    photo = relationship("UnitPhoto", back_populates="items")
+    item = relationship("Item")
+
+
 # ---------------------------------------------------------------------------
 # Intake Photos (label photos for receiving events / devices)
+# DEPRECATED by unit_photos (migration 069) — kept for legacy row serving;
+# adopt-or-archive handled by the migration. Do not add new writers.
 # ---------------------------------------------------------------------------
 class IntakePhoto(Base):
     __tablename__ = "intake_photos"
