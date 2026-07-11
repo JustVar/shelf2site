@@ -351,6 +351,23 @@ async function refreshEventPanel() {
     if (ev.status === 'open') {
         html += ' <button class="btn btn-sm" onclick="closeEvent()" style="font-size:0.75rem; padding:0.15rem 0.5rem;">Close event</button>';
     }
+
+    // H16: PO reconciliation panel — what this shipment is expected to
+    // contain, straight from the matched OEM PO's SKU lines.
+    if (ev.po_matched && ev.po_lines && ev.po_lines.length) {
+        html += '<div style="margin-top:0.5rem; font-size:0.82rem;">' +
+            '<div style="color:var(--text-muted); margin-bottom:0.25rem;">Expected on PO ' + esc(ev.purchase_order) + ':</div>' +
+            ev.po_lines.map(l =>
+                '<div style="display:flex; gap:0.6rem; padding:2px 0;">' +
+                '<span style="font-family:monospace; min-width:150px;">' + esc(l.sku) + '</span>' +
+                '<span>' + esc(l.qty_received) + ' of ' + esc(l.qty_ordered) + ' received</span>' +
+                '<span class="badge badge-info" style="font-size:0.68rem;">' + esc(l.status) + '</span>' +
+                '</div>').join('') +
+            '</div>';
+    } else if (ev.purchase_order) {
+        html += '<div style="margin-top:0.35rem; font-size:0.78rem; color:var(--text-muted);">' +
+            'No PO match for "' + esc(ev.purchase_order) + '" — free-text is fine.</div>';
+    }
     status.innerHTML = html;
 }
 
@@ -399,9 +416,6 @@ async function createEvent() {
     if (data.status === 'created') {
         currentEventId = data.event_id;
         document.getElementById('new-event-form').style.display = 'none';
-        status.style.display = 'block';
-        status.innerHTML = '<span class="badge badge-success">Created event #' + esc(data.event_id) +
-            ' — ' + esc(data.vendor || 'Unknown') + ' PO:' + esc(data.purchase_order || 'N/A') + '</span>';
         // Add to dropdown
         const sel = document.getElementById('event-select');
         const opt = document.createElement('option');
@@ -409,6 +423,8 @@ async function createEvent() {
         opt.textContent = 'Today — ' + (data.vendor || 'Unknown') + ' (PO: ' + (data.purchase_order || 'N/A') + ')';
         opt.selected = true;
         sel.insertBefore(opt, sel.querySelector('option[value="__new__"]'));
+        // The panel renders status, counts, PO lines and the Close action.
+        refreshEventPanel();
     } else {
         status.style.display = 'block';
         status.innerHTML = '<span class="badge badge-danger">Could not create event — unexpected server reply.</span>';

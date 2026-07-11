@@ -22,6 +22,7 @@ from ..models import (
 )
 from sqlalchemy.exc import IntegrityError
 
+from ..po_matching import match_oem_lines, oem_line_summary, sync_oem_receipt
 from ..scan_routing import classify, mac_from_bare_hex, preprocess
 from ..validation import normalize_mac, validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
 from ..vendor_defaults import lookup_by_serial_prefix
@@ -249,12 +250,24 @@ async def create_receiving_event(
     db: Session = Depends(get_db),
     user: User = Depends(require_receiving_access),
 ):
-    """Create a new receiving event (shipment)."""
+    """Create a new receiving event (shipment). H16: the free-text PO is
+    matched (case/space-insensitive) against oem_purchase_orders; a match
+    prefills expected quantity from what is still outstanding on the PO's
+    SKU lines. No match never blocks — the text stays as typed."""
     body = await request.json()
+    po_text = (body.get("purchase_order") or "").strip() or None
+    expected = body.get("expected_quantity")
+
+    oem_rows = match_oem_lines(db, po_text)
+    if oem_rows and not expected:
+        expected = sum(
+            max((r.qty_ordered or 0) - (r.qty_received or 0), 0) for r in oem_rows
+        ) or None
+
     event = ReceivingEvent(
         vendor=(body.get("vendor") or "").strip() or None,
-        purchase_order=(body.get("purchase_order") or "").strip() or None,
-        expected_quantity=body.get("expected_quantity"),
+        purchase_order=po_text,
+        expected_quantity=expected,
         notes=(body.get("notes") or "").strip() or None,
         created_by=user.id,
     )
@@ -277,10 +290,14 @@ async def create_receiving_event(
         "event_id": event.id,
         "vendor": event.vendor,
         "purchase_order": event.purchase_order,
+        "expected_quantity": event.expected_quantity,
+        "po_matched": bool(oem_rows),
+        "po_lines": oem_line_summary(oem_rows),
     })
 
 
-def _event_payload(event: ReceivingEvent) -> dict:
+def _event_payload(db: Session, event: ReceivingEvent) -> dict:
+    oem_rows = match_oem_lines(db, event.purchase_order)
     return {
         "event_id": event.id,
         "vendor": event.vendor,
@@ -288,6 +305,8 @@ def _event_payload(event: ReceivingEvent) -> dict:
         "expected_quantity": event.expected_quantity,
         "received_quantity": event.received_quantity or 0,
         "status": event.status,
+        "po_matched": bool(oem_rows),
+        "po_lines": oem_line_summary(oem_rows),
     }
 
 
@@ -301,7 +320,7 @@ def get_receiving_event(
     event = db.query(ReceivingEvent).filter(ReceivingEvent.id == event_id).first()
     if not event:
         return JSONResponse(status_code=404, content={"error": "Event not found"})
-    return JSONResponse(content=_event_payload(event))
+    return JSONResponse(content=_event_payload(db, event))
 
 
 @router.post("/api/receive/events/{event_id}/close")
@@ -323,7 +342,7 @@ async def close_receiving_event(
     if not event:
         return JSONResponse(status_code=404, content={"error": "Event not found"})
     if event.status != "open":
-        return JSONResponse(content={**_event_payload(event), "already_closed": True})
+        return JSONResponse(content={**_event_payload(db, event), "already_closed": True})
 
     received = event.received_quantity or 0
     complete = bool(event.expected_quantity) and received >= event.expected_quantity
@@ -338,7 +357,7 @@ async def close_receiving_event(
         details=f"Closed receiving event #{event.id} as {event.status} "
                 f"({received}/{event.expected_quantity or '?'} received)",
     )
-    return JSONResponse(content=_event_payload(event))
+    return JSONResponse(content=_event_payload(db, event))
 
 
 # ---------------------------------------------------------------------------
@@ -798,6 +817,13 @@ async def submit_device(
             if event:
                 event.received_quantity = (event.received_quantity or 0) + 1
                 _maybe_autocomplete(event)
+                # H16: a received unit with a known SKU ticks the matching
+                # OEM PO line and advances its status. Never blocks: no
+                # match, no SKU, no PO — all silent no-ops. (The pending
+                # path syncs via received_devices in H17, where the SKU is
+                # recorded and dismissal can give the count back.)
+                sync_oem_receipt(db, event.purchase_order,
+                                 part_number or brand_sku)
             db.commit()
         except IntegrityError:
             db.rollback()
