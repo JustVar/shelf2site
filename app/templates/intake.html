@@ -23,8 +23,8 @@
     <div class="itk-section-title">Basic Information</div>
     <div class="itk-grid">
       <div class="itk-field">
-        <label class="itk-label" for="item_name">Item Name</label>
-        <input type="text" name="item_name" id="item_name" class="itk-input" placeholder="e.g. Edge Box EB-042">
+        <label class="itk-label" for="item_name">Item Name *</label>
+        <input type="text" name="item_name" id="item_name" class="itk-input" placeholder="e.g. Edge Box EB-042" required>
       </div>
       <div class="itk-field">
         <label class="itk-label" for="item_manufacturer">Manufacturer</label>
@@ -39,8 +39,8 @@
         <input type="text" name="item_sn" id="item_sn" class="itk-input" placeholder="e.g. SN-20240301-001">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="item_category">Category</label>
-        <select name="item_category" id="item_category" class="itk-input">
+        <label class="itk-label" for="item_category">Category *</label>
+        <select name="item_category" id="item_category" class="itk-input" required>
           <option value="">Select category...</option>
           {% for cat in categories %}
           <option value="{{ cat.value }}">{{ cat.display }}</option>

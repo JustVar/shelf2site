@@ -221,7 +221,12 @@ _LOAN_TYPES = ("pilot", "try_and_buy", "demo")
 def _pilots_due_back(db: Session) -> dict:
     """Loan-order return rollup (Migration 058). Sale orders never appear; fully-returned
     orders drop off. Status from returned_date + expected_return + today. Backs the
-    Pilots Due Back list page and the dashboard count. Derived, nothing stored."""
+    Pilots Due Back list page and the dashboard count. Derived, nothing stored.
+
+    Covers ANY item-linked loaner unit (C2C cams, edge boxes assigned from the
+    fulfillment Assign panel — anything with item_id set). Legacy edge-box
+    provisioning rows (item_id NULL, pre-items pipeline) never join here;
+    that exclusion goes away with the legacy tables, not with a filter."""
     today = date.today()
     rows = (
         db.query(
@@ -294,7 +299,7 @@ def pilots_due_back_page(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_viewer),
 ):
-    """Loan cameras still out, grouped by order (read-only)."""
+    """Loaner units still out, grouped by order (read-only)."""
     ctx = _pilots_due_back(db)
     ctx["request"] = request
     ctx["user"] = user
@@ -592,11 +597,17 @@ async def c2c_mark_returned(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Mark ONE loan camera returned. Stamps returned_date (default today, editable via
-    body). Cam stays linked; is_complete is NOT touched."""
+    """Mark ONE loaner unit returned (C2C cam or any item-linked unit). Stamps
+    returned_date (default today, editable via body). Unit stays linked;
+    is_complete is NOT touched."""
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
+    if prov.item_id is None:
+        # Legacy edge-box rows have no returned_date semantics — their pipeline
+        # manages state separately. Return-all already filtered these; the
+        # single-unit endpoint now matches it.
+        return JSONResponse(status_code=400, content={"error": "Mark returned applies to item-linked units only"})
     order = prov.customer_order
     if order is None or order.order_type not in _LOAN_TYPES:
         return JSONResponse(status_code=400, content={"error": "Mark returned applies to loan orders only (pilot, try_and_buy, demo)"})
@@ -627,8 +638,8 @@ async def c2c_mark_all_returned(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Mark all STILL-OUT loan cameras of one order returned (today). Already-returned cams
-    keep their date. is_complete is NOT touched."""
+    """Mark all STILL-OUT loaner units of one order returned (today). Already-returned
+    units keep their date. is_complete is NOT touched."""
     order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
     if not order:
         return JSONResponse(status_code=404, content={"error": "Customer order not found"})

@@ -26,11 +26,12 @@ from ..config import settings
 from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
-    OEMPurchaseOrder, Site, User, TABLE_MODELS,
+    Item, OEMPurchaseOrder, Site, User, TABLE_MODELS,
     BuildCertification, BuildCertificationFile,
     InstallationCertification,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
 )
+from ..order_matching import candidate_items, requirement_lines
 from ..sku_conversion import is_legacy_sku, is_2026_sku
 
 router = APIRouter()
@@ -186,9 +187,15 @@ def _se_initials(name):
     return name[:2].upper()
 
 
-def build_fulfillment_groups(orders, order_devices):
+def build_fulfillment_groups(orders, order_devices, item_unit_counts=None):
     """orders: list of CustomerOrder ORM rows. order_devices: {order_id: [device dict]}
-    each carrying part_number, current_stage, build_cert_complete. Returns Building cards."""
+    each carrying part_number, current_stage, build_cert_complete. Returns Building cards.
+
+    item_unit_counts: {order_id: n} still-out item-linked units (Assign panel,
+    C2C). They are not in the edge-box stage machine so they stay off the
+    stage cards — but unit_count rides on every group so the card's Ship
+    action can appear once ANY unit is on the order."""
+    item_unit_counts = item_unit_counts or {}
     groups = []
     for o in orders:
         o_meta = {
@@ -199,6 +206,7 @@ def build_fulfillment_groups(orders, order_devices):
             "urgency": _order_urgency(o.due_date),
             "is_sensitive": o.is_sensitive,
             "order_type": o.order_type,
+            "unit_count": item_unit_counts.get(o.id, 0) + len(order_devices.get(o.id, [])),
         }
         devs = order_devices.get(o.id, [])
         by_sku = {}
@@ -225,7 +233,11 @@ def build_fulfillment_groups(orders, order_devices):
             })
 
         for req in (o.sku_requirements or []):
-            sku = (req.get("sku") or "").strip() or "Unspecified"
+            # Canonical key is 'model' (matches the model comment, the
+            # availability card and the C2C sale quota); 'sku' is tolerated
+            # for legacy hand-written rows. This read previously used only
+            # 'sku', so every intent card rendered as "Unspecified".
+            sku = (req.get("model") or req.get("sku") or "").strip() or "Unspecified"
             if sku in by_sku:
                 continue
             groups.append({
@@ -523,7 +535,14 @@ def fulfillment_page(
     cards = [_build_order_card(o, prov_counts.get(o.id, 0)) for o in orders]
 
     # S1: order x SKU grouped cards for the Building board (least-advanced rollup)
-    fulfillment_groups = build_fulfillment_groups(orders, order_devices)
+    item_unit_counts: dict[int, int] = {}
+    for p in db.query(DeviceProvisioning.customer_order_id).filter(
+        DeviceProvisioning.customer_order_id.isnot(None),
+        DeviceProvisioning.item_id.isnot(None),
+        DeviceProvisioning.returned_date.is_(None),
+    ).all():
+        item_unit_counts[p.customer_order_id] = item_unit_counts.get(p.customer_order_id, 0) + 1
+    fulfillment_groups = build_fulfillment_groups(orders, order_devices, item_unit_counts)
 
     # Group by status
     columns: dict[str, list] = {s: [] for s in ACTIVE_STATUSES + ARCHIVED_STATUSES}
@@ -611,6 +630,113 @@ def fulfillment_page(
 
 
 # ---------------------------------------------------------------------------
+# Slide-panel state — fetched fresh on EVERY open
+# ---------------------------------------------------------------------------
+
+@router.get("/api/fulfillment/panel/{order_id}")
+def fulfillment_panel_state(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_viewer),
+):
+    """Everything the board's Assign/View/Ship panel needs for ONE order.
+
+    The panel previously rendered from whatever state the last order left
+    behind (stale ship fields, leftover search text); openPanelFor() calls
+    this per open so the panel can never show another order's data.
+    """
+    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    if not order:
+        return JSONResponse(status_code=404, content={"error": "Order not found"})
+    if order.is_sensitive and not user.has_sensitive_customers_access:
+        return JSONResponse(status_code=404, content={"error": "Order not found"})
+
+    reqs = requirement_lines(order)
+
+    site_names = {s.id: s.name for s in db.query(Site).all()}
+
+    # Units already on the order: item-linked rows (Assign panel, C2C) get
+    # their identity from item_schema; legacy edge-box rows from EdgeBox.
+    devices = []
+    prov_rows = (
+        db.query(DeviceProvisioning)
+        .filter(DeviceProvisioning.customer_order_id == order.id)
+        .order_by(DeviceProvisioning.id)
+        .all()
+    )
+    tech_names = {
+        u.id: u.display_name
+        for u in db.query(User).filter(User.id.in_(
+            [p.assigned_to for p in prov_rows if p.assigned_to] or [0])).all()
+    }
+    for p in prov_rows:
+        entry = {
+            "prov_id": p.id,
+            "serial": None,
+            "part_number": None,
+            "assigned_to_name": tech_names.get(p.assigned_to),
+            "validation_result": p.validation_result,
+            "is_complete": p.is_complete,
+            "current_stage": p.current_stage,
+            "fulfillment_type": p.fulfillment_type,
+            "returned_date": p.returned_date.isoformat() if p.returned_date else None,
+            "kind": "legacy",
+        }
+        if p.item_id:
+            item = db.query(Item).filter(Item.id == p.item_id).first()
+            if item:
+                entry.update({
+                    "serial": item.item_sn,
+                    "part_number": item.brand_sku,
+                    "kind": "item",
+                })
+        elif p.device_table == "edge_boxes":
+            box = db.query(EdgeBox).filter(EdgeBox.id == p.device_id).first()
+            if box:
+                entry.update({"serial": box.serial, "part_number": box.part_number})
+        devices.append(entry)
+
+    # Assignable stock, matched per requirement line (shared matcher — the
+    # availability card counts with the same definition).
+    candidates, seen = [], set()
+    for line in reqs:
+        for item in candidate_items(db, line["model"]):
+            if item.id in seen:
+                continue
+            seen.add(item.id)
+            candidates.append({
+                "item_id": item.id,
+                "serial": item.item_sn,
+                "name": item.item_name or item.item_model,
+                "sku": item.brand_sku,
+                "status": str(item.item_status) if item.item_status else "—",
+                "location": site_names.get(item.location_id),
+            })
+
+    return {
+        "order": {
+            "id": order.id,
+            "order_number": order.order_number,
+            "customer_name": order.customer_name,
+            "status": order.status,
+            "order_type": order.order_type,
+        },
+        "requirements": reqs,
+        "devices": devices,
+        "candidates": candidates,
+        "ship": {
+            "ship_method": order.ship_method,
+            "carrier": order.carrier,
+            "tracking_number": order.tracking_number,
+            "shipping_address": order.shipping_address,
+            "shipped_date": order.shipped_date.isoformat() if order.shipped_date else None,
+            "delivered_date": order.delivered_date.isoformat() if order.delivered_date else None,
+            "recipient_name": order.recipient_name,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
 # Ship details update
 # ---------------------------------------------------------------------------
 
@@ -631,9 +757,31 @@ async def update_ship_details(
     for field, value in update_data.items():
         setattr(order, field, value)
 
-    # If shipped_date is being set and order is not yet shipped, advance status
-    if payload.shipped_date and order.status in ("building", "testing"):
+    # If shipped_date is being set and order is not yet shipped, advance status.
+    # Any pre-ship status advances — orders assigned straight from stock skip
+    # sourcing/building entirely (previously only building/testing advanced,
+    # which stranded 'new' orders at status new after shipping).
+    if payload.shipped_date and order.status in ("new", "sourcing", "building", "testing"):
         order.status = "shipped"
+
+    # Shipping moves the order's still-out item-linked units out the door:
+    # their inventory rows go Deployed. Legacy edge-box rows (item_id NULL)
+    # are untouched — their pipeline manages device state separately. The
+    # managed statuses (Installed / Checked Out) are never overwritten.
+    if payload.shipped_date:
+        linked = (
+            db.query(DeviceProvisioning)
+            .filter(
+                DeviceProvisioning.customer_order_id == order.id,
+                DeviceProvisioning.item_id.isnot(None),
+                DeviceProvisioning.returned_date.is_(None),
+            )
+            .all()
+        )
+        for rec in linked:
+            item = db.query(Item).filter(Item.id == rec.item_id).first()
+            if item and item.item_status not in ("Installed", "Checked Out"):
+                item.item_status = "Deployed"
 
     db.commit()
 

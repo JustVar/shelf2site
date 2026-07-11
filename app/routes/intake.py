@@ -296,6 +296,11 @@ async def intake_submit(
 
     # --- Create Item (+ optional receipt) via the shared path ---
     try:
+        # Minimum required fields: an empty submit must not create a row.
+        # This was the "ghost item" class — all-NULL name/category/serial
+        # rows (e.g. item 39) that only the triage page ever surfaced.
+        if not (item_name or "").strip() or not (item_category or "").strip():
+            raise ValueError("Item name and category are required")
         create_item(
             db,
             fields={
@@ -336,7 +341,7 @@ async def intake_submit(
             "statuses": STATUSES,
             "part_numbers": _get_part_numbers(db),
             "error": str(e),
-        })
+        }, status_code=400)
 
     try:
         db.commit()

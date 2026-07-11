@@ -28,7 +28,7 @@
       <div class="pilots-cams">
         {% for cam in o.cams %}
         <div class="pilots-cam">
-          <span class="pilots-cam__name">{{ cam.item_name or 'Camera' }}</span>
+          <span class="pilots-cam__name">{{ cam.item_name or 'Unit' }}</span>
           <span class="pilots-cam__sn">{{ cam.item_sn or '—' }}</span>
           {% if cam.returned_date %}
           <span class="pilots-cam__returned">Returned {{ cam.returned_date }}</span>
@@ -43,7 +43,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="pilots-empty fl-lift">No loan cameras are currently out. All pilots have been returned.</div>
+  <div class="pilots-empty fl-lift">No loaner units are currently out. All pilots have been returned.</div>
   {% endif %}
 
 <!-- Mark all returned confirm dialog (in-app; reuses the C2C modal chrome) -->
@@ -57,7 +57,7 @@
     <button type="button" class="c2c-modal__close" onclick="pilotsConfirmClose()">&times;</button>
   </div>
   <div style="padding:1rem 1.1rem; color:var(--text); font-size:0.85rem; line-height:1.5;">
-    Mark every still-out camera on this order as returned today. Cameras already returned keep their date.
+    Mark every still-out unit on this order as returned today. Units already returned keep their date.
   </div>
   <div class="c2c-modal__foot">
     <button type="button" class="c2c-modal__btn c2c-modal__btn--sec" onclick="pilotsConfirmClose()">Cancel</button>

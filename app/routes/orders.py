@@ -21,8 +21,10 @@ from ..config import settings
 from ..database import get_db
 from ..models import (
     CustomerOrder, OEMPurchaseOrder, DeviceProvisioning,
+    Item, ItemPartNumber,
     User, TABLE_MODELS, get_display_name, get_serial,
 )
+from ..order_matching import candidate_items, requirement_lines
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -58,7 +60,9 @@ def _sku_availability(db: Session, sku_requirements: list) -> list:
     """For each {model, qty, source} requirement, count unprovisioned inventory."""
     results = []
     for req in sku_requirements:
-        model = (req.get("model") or "").strip()
+        # Tolerant read: legacy hand-written rows used a 'sku' key; the
+        # editor writes the canonical 'model' key only.
+        model = (req.get("model") or req.get("sku") or "").strip()
         needed = int(req.get("qty") or 0)
         if not model:
             continue
@@ -82,6 +86,10 @@ def _sku_availability(db: Session, sku_requirements: list) -> list:
             if busy_ids:
                 q = q.filter(~model_cls.id.in_(busy_ids))
             available += q.count()
+
+        # item_schema.items is the system of record (2026-07 import) — count
+        # its ready stock too, via the same matcher the Assign panel uses.
+        available += len(candidate_items(db, model))
 
         if available >= needed:
             status = "ok"
@@ -134,11 +142,19 @@ def order_detail(
     prov_enriched = []
     for p in prov_records:
         device_label = f"{p.device_table} #{p.device_id}"
-        model_cls = TABLE_MODELS.get(p.device_table)
-        if model_cls:
-            device = db.query(model_cls).filter(model_cls.id == p.device_id).first()
-            if device:
-                device_label = get_display_name(device)
+        if p.item_id:
+            # Item-linked row (C2C cams, Assign-panel units) — label from items.
+            item = db.query(Item).filter(Item.id == p.item_id).first()
+            if item:
+                device_label = item.item_name or item.item_model or device_label
+                if item.item_sn:
+                    device_label = f"{device_label} ({item.item_sn})"
+        else:
+            model_cls = TABLE_MODELS.get(p.device_table)
+            if model_cls:
+                device = db.query(model_cls).filter(model_cls.id == p.device_id).first()
+                if device:
+                    device_label = get_display_name(device)
         prov_enriched.append({"record": p, "device_label": device_label})
 
     se_names = sorted(
@@ -147,13 +163,21 @@ def order_detail(
         .distinct().all()
     )
 
+    # Catalog for the SKU-requirements editor typeahead (same pattern as intake).
+    part_numbers = db.query(ItemPartNumber).order_by(ItemPartNumber.brand_sku).all()
+
     return templates.TemplateResponse("order_detail.html", {
         "request": request,
         "user": user,
         "order": order,
         "availability": availability,
+        "sku_lines": requirement_lines(order),
         "prov_records": prov_enriched,
         "oem_pos": order.oem_pos,
+        "part_numbers": part_numbers,
+        # Plain list usable in BOTH template blocks — a {% set %} in the
+        # content block cannot cross into the scripts block (Jinja scoping).
+        "catalog_skus": [pn.brand_sku for pn in part_numbers],
         "ORDER_STATUSES": CustomerOrder.ORDER_STATUSES,
         "ORDER_TYPES": CustomerOrder.ORDER_TYPES,
         "STATUS_COLORS": CustomerOrder.STATUS_COLORS,
@@ -273,7 +297,36 @@ async def update_order(
     if "sales_engineer_id" in body:
         order.sales_engineer_id = body["sales_engineer_id"] or None
     if "sku_requirements" in body:
-        order.sku_requirements = body["sku_requirements"] or []
+        # The requirements editor PUTs the full array. Validate shape and
+        # normalize every line to the canonical {model, qty, source} —
+        # free-text models are allowed (catalog gaps are real), but blank
+        # models, non-positive quantities and unknown sources are not.
+        raw = body["sku_requirements"] or []
+        if not isinstance(raw, list):
+            db.rollback()
+            return JSONResponse(status_code=400, content={"error": "sku_requirements must be a list"})
+        cleaned = []
+        for line in raw:
+            if not isinstance(line, dict):
+                db.rollback()
+                return JSONResponse(status_code=400, content={"error": "Each SKU requirement must be an object"})
+            model = (line.get("model") or line.get("sku") or "").strip()
+            if not model:
+                db.rollback()
+                return JSONResponse(status_code=400, content={"error": "Each SKU requirement needs a SKU/model"})
+            try:
+                qty = int(line.get("qty"))
+            except (TypeError, ValueError):
+                qty = 0
+            if not 1 <= qty <= 9999:
+                db.rollback()
+                return JSONResponse(status_code=400, content={"error": f"Quantity for '{model}' must be between 1 and 9999"})
+            source = (line.get("source") or "tbd").strip()
+            if source not in ("stock", "oem", "tbd"):
+                db.rollback()
+                return JSONResponse(status_code=400, content={"error": f"Source for '{model}' must be stock, oem or tbd"})
+            cleaned.append({"model": model, "qty": qty, "source": source})
+        order.sku_requirements = cleaned
     if "is_sensitive" in body:
         order.is_sensitive = bool(body["is_sensitive"])
     if "contract_value" in body:
@@ -349,6 +402,90 @@ def delete_order(
               target_table="customer_orders", target_id=order_id, action="delete",
               details=f"Deleted order {order_number}")
     return JSONResponse(content={"status": "ok"})
+
+
+@router.post("/api/orders/{order_id}/assign-items")
+async def assign_items_to_order(
+    order_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Assign inventory items (item_schema) to an order — the fulfillment
+    board's Assign panel posts here. Mirrors the C2C acquire invariants,
+    generic over category: item-linked DeviceProvisioning row, one still-out
+    row per item, PO gate for sale orders. All-or-nothing: any bad item
+    rolls the whole batch back.
+    """
+    body = await request.json()
+    item_ids = body.get("item_ids") or []
+    if not isinstance(item_ids, list) or not item_ids:
+        return JSONResponse(status_code=400, content={"error": "item_ids is required"})
+
+    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    if not order:
+        return JSONResponse(status_code=404, content={"error": "Order not found"})
+    if order.order_type == "sale" and not order.po_number:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Order {order.order_number} has no Customer PO - add one before assigning units"},
+        )
+
+    assigned = []
+    for raw_id in item_ids:
+        try:
+            raw_id = int(raw_id)
+        except (TypeError, ValueError):
+            db.rollback()
+            return JSONResponse(status_code=400, content={"error": f"Invalid item id: {raw_id!r}"})
+        item = db.query(Item).filter(Item.id == raw_id).first()
+        if not item:
+            db.rollback()
+            return JSONResponse(status_code=404, content={"error": f"Item {raw_id} not found"})
+        label = item.item_sn or item.item_name or f"item #{item.id}"
+        if item.item_status != "Ready to Deploy":
+            db.rollback()
+            return JSONResponse(
+                status_code=409,
+                content={"error": f"{label} is '{item.item_status}', not Ready to Deploy"},
+            )
+        still_out = (
+            db.query(DeviceProvisioning)
+            .filter(
+                DeviceProvisioning.item_id == item.id,
+                DeviceProvisioning.returned_date.is_(None),
+            )
+            .first()
+        )
+        if still_out:
+            db.rollback()
+            return JSONResponse(status_code=409, content={"error": f"{label} is already assigned to an order"})
+        rec = DeviceProvisioning(
+            device_table="items",      # sentinel; the real link is item_id below
+            device_id=item.id,         # NOT NULL filler, mirrors item_id
+            item_id=item.id,
+            site_id=None,
+            current_stage="acquired",  # label only; stock units have no stage machine
+            stages=[],
+            fulfillment_type=None,     # NULL = not in the edge-box build pipeline
+            assignment_type=("sale" if order.order_type == "sale" else None),
+            notes=None,
+            customer_order_id=order.id,
+            created_by=user.id,
+        )
+        db.add(rec)
+        assigned.append(label)
+    db.commit()
+
+    log_event(
+        db, "order_items_assigned",
+        request=request, user_id=user.id,
+        target_table="customer_orders", target_id=order.id,
+        action="update",
+        details=f"Assigned {len(assigned)} unit(s) to order {order.order_number}: {', '.join(assigned)}",
+    )
+
+    return JSONResponse(content={"assigned": len(assigned), "order_number": order.order_number})
 
 
 @router.get("/api/orders/{order_id}/availability")

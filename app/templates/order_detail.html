@@ -84,10 +84,48 @@
 <div class="table-section" style="margin-bottom:1.5rem;">
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
         <h2 style="margin:0;">SKU Requirements</h2>
+        {% if user.has_provisioning_manage %}
+        <button class="btn btn-sm" id="sku-add-btn" onclick="openSkuEditor(-1)" style="font-size:0.78rem; padding:0.2rem 0.55rem;">+ Add SKU</button>
+        {% endif %}
         <button class="btn btn-sm" onclick="refreshAvailability()" style="font-size:0.78rem; padding:0.2rem 0.55rem; margin-left:auto;">Refresh</button>
     </div>
-    {% if availability %}
-    <table class="data-table">
+
+    {% if user.has_provisioning_manage %}
+    {# One home for SKU edits — the Edit Order modal deliberately has none. #}
+    <div id="sku-editor" style="display:none; border:1px solid var(--border-color,#444); border-radius:8px; padding:0.75rem; margin-bottom:0.75rem;">
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
+            <div>
+                <label for="sku-editor-model" style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.2rem;">SKU / Model</label>
+                <input type="text" id="sku-editor-model" class="form-control" list="sku-catalog"
+                       placeholder="e.g. PVA-100-30NR" autocomplete="off" style="min-width:220px;"
+                       oninput="skuEditorHint()">
+                <datalist id="sku-catalog">
+                    {% for pn in part_numbers %}<option value="{{ pn.brand_sku }}">{{ pn.sku_description or '' }}</option>{% endfor %}
+                </datalist>
+            </div>
+            <div>
+                <label for="sku-editor-qty" style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.2rem;">Quantity</label>
+                <input type="number" id="sku-editor-qty" class="form-control" min="1" max="9999" value="1" style="width:90px;">
+            </div>
+            <div>
+                <label for="sku-editor-source" style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.2rem;">Source Plan</label>
+                <select id="sku-editor-source" class="form-control">
+                    <option value="tbd">TBD</option>
+                    <option value="stock">From stock</option>
+                    <option value="oem">OEM order</option>
+                </select>
+            </div>
+            <button class="btn btn-sm" onclick="saveSkuLine()">Save</button>
+            <button class="btn btn-sm" onclick="closeSkuEditor()">Cancel</button>
+        </div>
+        <div style="margin-top:0.4rem; min-height:1.1rem;">
+            <span id="sku-editor-hint" class="badge badge-warning" style="display:none;">Not in catalog — saved as free text</span>
+            <span id="sku-editor-error" style="color:var(--danger,#e74c3c); font-size:0.8rem;"></span>
+        </div>
+    </div>
+    {% endif %}
+
+    <table class="data-table" id="sku-table"{% if not availability %} style="display:none;"{% endif %}>
         <thead>
             <tr>
                 <th>Model</th>
@@ -95,12 +133,15 @@
                 <th>Source Plan</th>
                 <th>Available in Stock</th>
                 <th>Status</th>
+                {% if user.has_provisioning_manage %}<th style="width:1%;"></th>{% endif %}
             </tr>
         </thead>
         <tbody id="avail-tbody">
             {% for row in availability %}
             <tr>
-                <td style="font-weight:500; white-space:nowrap;">{{ row.model }}</td>
+                <td style="font-weight:500; white-space:nowrap;">{{ row.model }}
+                    {% if row.model not in catalog_skus %}<span class="badge badge-warning" title="This SKU is not in the part-numbers catalog">not in catalog</span>{% endif %}
+                </td>
                 <td>{{ row.qty }}</td>
                 <td style="color:var(--text-muted); font-size:0.85rem;">
                     {% if row.source == 'stock' %}From stock
@@ -117,15 +158,19 @@
                     <span class="badge badge-danger">✗ None available</span>
                     {% endif %}
                 </td>
+                {% if user.has_provisioning_manage %}
+                <td style="white-space:nowrap;">
+                    <button class="btn btn-sm" onclick="openSkuEditor({{ loop.index0 }})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Edit</button>
+                    <button class="btn btn-sm" onclick="removeSkuLine({{ loop.index0 }})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Remove</button>
+                </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">
-        No SKU requirements defined. {% if user.has_provisioning_manage %}<a href="#" onclick="openEditModal()">Edit order</a> to add them.{% endif %}
+    <p id="sku-empty" style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;{% if availability %} display:none;{% endif %}">
+        No SKU requirements yet.{% if user.has_provisioning_manage %} Use <strong>+ Add SKU</strong> above to define what this order needs.{% endif %}
     </p>
-    {% endif %}
 </div>
 
 <!-- OEM Purchase Orders -->
@@ -246,7 +291,7 @@
     </table>
     {% else %}
     <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">
-        No provisioning records linked. Link them from the <a href="{{ base_path }}/provisioning/" style="color:var(--accent,#3498db);">Provisioning page</a>.
+        No units assigned yet. Use <strong>Assign</strong> on this order's card on the <a href="{{ base_path }}/fulfillment/" style="color:var(--accent,#3498db);">Fulfillment board</a>.
     </p>
     {% endif %}
 </div>
@@ -698,8 +743,41 @@ async function saveNotes() {
 }
 
 // ---------------------------------------------------------------------------
-// Live SKU availability refresh
+// SKU requirements editor + live availability refresh
 // ---------------------------------------------------------------------------
+const SKU_LINES = {{ sku_lines | tojson }};
+const SKU_CATALOG = new Set({{ catalog_skus | tojson }});
+const CAN_MANAGE_SKUS = {{ 'true' if user.has_provisioning_manage else 'false' }};
+let skuEditIndex = -1;
+
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function availRowHtml(row, idx) {
+    const statusHtml = row.status === 'ok'
+        ? '<span class="badge badge-success">✓ Sufficient</span>'
+        : row.status === 'partial'
+            ? `<span class="badge badge-warning">⚠ Partial (${row.available}/${row.qty})</span>`
+            : '<span class="badge badge-danger">✗ None available</span>';
+    const sourceLabel = row.source === 'stock' ? 'From stock' : row.source === 'oem' ? 'OEM order' : 'TBD';
+    const catalogChip = SKU_CATALOG.has(row.model)
+        ? '' : ' <span class="badge badge-warning" title="This SKU is not in the part-numbers catalog">not in catalog</span>';
+    const actions = CAN_MANAGE_SKUS
+        ? `<td style="white-space:nowrap;">
+             <button class="btn btn-sm" onclick="openSkuEditor(${idx})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Edit</button>
+             <button class="btn btn-sm" onclick="removeSkuLine(${idx})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Remove</button>
+           </td>` : '';
+    return `<tr>
+        <td style="font-weight:500; white-space:nowrap;">${escHtml(row.model)}${catalogChip}</td>
+        <td>${row.qty}</td>
+        <td style="color:var(--text-muted);font-size:0.85rem;">${sourceLabel}</td>
+        <td>${row.available}</td>
+        <td>${statusHtml}</td>
+        ${actions}
+    </tr>`;
+}
+
 async function refreshAvailability() {
     try {
         const resp = await fetch(`${BP}/api/orders/${ORDER_ID}/availability`);
@@ -707,22 +785,65 @@ async function refreshAvailability() {
         const data = await resp.json();
         const tbody = document.getElementById('avail-tbody');
         if (!tbody) return;
-        tbody.innerHTML = data.availability.map(row => {
-            const statusHtml = row.status === 'ok'
-                ? '<span class="badge badge-success">✓ Sufficient</span>'
-                : row.status === 'partial'
-                    ? `<span class="badge badge-warning">⚠ Partial (${row.available}/${row.qty})</span>`
-                    : '<span class="badge badge-danger">✗ None available</span>';
-            const sourceLabel = row.source === 'stock' ? 'From stock' : row.source === 'oem' ? 'OEM order' : 'TBD';
-            return `<tr>
-                <td style="font-weight:500; white-space:nowrap;">${row.model}</td>
-                <td>${row.qty}</td>
-                <td style="color:var(--text-muted);font-size:0.85rem;">${sourceLabel}</td>
-                <td>${row.available}</td>
-                <td>${statusHtml}</td>
-            </tr>`;
-        }).join('');
+        tbody.innerHTML = data.availability.map(availRowHtml).join('');
     } catch(e) { /* ignore */ }
+}
+
+function openSkuEditor(idx) {
+    skuEditIndex = idx;
+    const line = idx >= 0 ? SKU_LINES[idx] : {model: '', qty: 1, source: 'tbd'};
+    document.getElementById('sku-editor-model').value = line.model;
+    document.getElementById('sku-editor-qty').value = line.qty || 1;
+    document.getElementById('sku-editor-source').value = line.source || 'tbd';
+    document.getElementById('sku-editor-error').textContent = '';
+    document.getElementById('sku-editor').style.display = '';
+    skuEditorHint();
+    document.getElementById('sku-editor-model').focus();
+}
+
+function closeSkuEditor() {
+    document.getElementById('sku-editor').style.display = 'none';
+    skuEditIndex = -1;
+}
+
+function skuEditorHint() {
+    const v = document.getElementById('sku-editor-model').value.trim();
+    const hint = document.getElementById('sku-editor-hint');
+    hint.style.display = (v && !SKU_CATALOG.has(v)) ? '' : 'none';
+}
+
+async function putSkuLines(lines) {
+    const resp = await fetch(`${BP}/api/orders/${ORDER_ID}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sku_requirements: lines}),
+    });
+    if (resp.ok) { location.reload(); return null; }
+    const d = await resp.json().catch(() => ({}));
+    return d.error || 'Failed to save SKU requirements';
+}
+
+async function saveSkuLine() {
+    const model = document.getElementById('sku-editor-model').value.trim();
+    const qty = parseInt(document.getElementById('sku-editor-qty').value, 10);
+    const source = document.getElementById('sku-editor-source').value;
+    const errEl = document.getElementById('sku-editor-error');
+    if (!model) { errEl.textContent = 'SKU / model is required'; return; }
+    if (!qty || qty < 1 || qty > 9999) { errEl.textContent = 'Quantity must be between 1 and 9999'; return; }
+    const lines = SKU_LINES.map(l => ({...l}));
+    const entry = {model, qty, source};
+    if (skuEditIndex >= 0) lines[skuEditIndex] = entry; else lines.push(entry);
+    const err = await putSkuLines(lines);
+    if (err) errEl.textContent = err;
+}
+
+async function removeSkuLine(idx) {
+    const line = SKU_LINES[idx];
+    if (!line) return;
+    if (!confirm(`Remove requirement ${line.model} ×${line.qty}?`)) return;
+    const lines = SKU_LINES.filter((_, i) => i !== idx).map(l => ({...l}));
+    const err = await putSkuLines(lines);
+    if (err) alert(err);
 }
 
 function openEditModal() {

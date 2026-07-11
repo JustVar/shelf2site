@@ -639,6 +639,14 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             {% if g.tab == "ready_for_handoff" %}
             <button class="fl-obtn ready" onclick="event.stopPropagation();">Build Certification &amp; Close</button>
             {% endif %}
+            {# Explicit, always-visible panel openers — the panel had no callers
+               at all before these (discoverability was the E2E failure). #}
+            <span class="fl-oactions" style="margin-left:auto; display:flex; gap:6px;">
+                <button class="fl-obtn" onclick="event.stopPropagation(); openPanelFor({{ g.order_id }}, 'assign')">Assign</button>
+                {% if g.unit_count %}
+                <button class="fl-obtn" onclick="event.stopPropagation(); openPanelFor({{ g.order_id }}, 'ship')">Ship</button>
+                {% endif %}
+            </span>
         </div>
     </div>
     {% endfor %}
@@ -1143,7 +1151,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     <!-- ASSIGN PANE -->
     <div class="ap-pane" id="pane-assign">
         <div class="ap-sku-reqs">
-            <div class="ap-sku-req-lbl">SKU Requirements</div>
+            <div class="ap-sku-req-lbl">Matching these SKU requirements</div>
             <div class="ap-sku-req-list" id="ap-sku-reqs">
                 <span class="t3" style="padding:4px 0; font-size:11px;">Select an order to see requirements</span>
             </div>
@@ -1158,7 +1166,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         <div class="ap-footer">
             <span class="ap-count" id="ap-count"><strong>0</strong> selected</span>
             <button class="btn-cancel" onclick="closePanel()">Cancel</button>
-            <button class="btn-assign" id="btn-assign" disabled onclick="submitBulkAssign()">Assign</button>
+            <button class="btn-assign" id="btn-assign" disabled onclick="submitAssignItems()">Assign</button>
         </div>
     </div>
 
@@ -1887,30 +1895,35 @@ function filterOem(stage) {
     });
 }
 
-/* ── Card click → open slide panel ────────────────────────────────── */
-const tabMap = { new: 'assign', sourcing: 'view', building: 'view', testing: 'view' };
-function openCardPanel(el) {
-    const id = el.dataset.id;
-    const num = el.dataset.num;
-    const name = el.dataset.name;
-    const status = el.dataset.status;
-    let devices = [];
-    try { devices = JSON.parse(el.dataset.devices || '[]'); } catch (e) {}
-    openPanel(id, num, name, tabMap[status] || 'view', devices, el);
-}
-
-/* ── Slide panel open/close ───────────────────────────────────────── */
-function openPanel(orderId, orderNum, customerName, mode, devices, cardEl) {
+/* ── Card actions → open slide panel (state fetched fresh per order) ──
+   Replaces the old openCardPanel/openPanel pair, which had no callers and
+   reused whatever DOM state the previous order left behind. */
+async function openPanelFor(orderId, mode) {
+    let data;
+    try {
+        const res = await fetch(BP + '/api/fulfillment/panel/' + orderId);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+    } catch (err) {
+        alert('Could not load order panel: ' + err.message);
+        return;
+    }
     currentOrderId = orderId;
-    document.getElementById('ap-id').textContent = orderNum;
-    document.getElementById('ap-name').textContent = customerName;
+    document.getElementById('ap-id').textContent = data.order.order_number;
+    document.getElementById('ap-name').textContent = data.order.customer_name;
     document.getElementById('ap-link').href = BP + '/orders/' + orderId;
-    renderAssignRows(devices || []);
-    renderDeviceRows(devices || []);
-    if (cardEl) populateShipPane(cardEl);
+    document.getElementById('ap-search').value = '';   /* never carry a filter across orders */
+    renderRequirementChips(data.requirements, orderId);
+    renderCandidateRows(data.candidates, data.devices, data.requirements.length);
+    renderDeviceRows(data.devices);
+    fillShipPane(data.ship);
     switchTab(mode || 'assign');
     document.getElementById('overlay').classList.add('open');
     document.getElementById('ap').classList.add('open');
+}
+
+function escApHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function closePanel() {
@@ -2003,53 +2016,51 @@ async function assignBox(provId, assigneeName, orderIdOverride) {
     }
 }
 
-/* ── Assign pane — render device rows ─────────────────────────────── */
-function renderAssignRows(devices) {
-    const list = document.getElementById('ap-list');
+/* ── Assign pane — the panel says WHICH SKUs it is matching ──────────── */
+function renderRequirementChips(reqs, orderId) {
     const skuReqs = document.getElementById('ap-sku-reqs');
-
-    /* SKU requirement chips from unique part numbers */
-    const skus = [...new Set(devices.map(d => d.part_number).filter(Boolean))];
-    if (skus.length) {
-        skuReqs.innerHTML = '<span class="ap-sku-req-chip active" onclick="filterSku(this,\'\')">All</span>'
-            + skus.map(s => '<span class="ap-sku-req-chip" data-sku="' + s + '" onclick="filterSku(this,\'' + s + '\')">' + s + '</span>').join('');
-    } else {
-        skuReqs.innerHTML = '<span class="t3" style="padding:4px 0; font-size:11px;">No SKUs assigned</span>';
-    }
-
-    if (!devices.length) {
-        list.innerHTML = '<div class="k-empty">No boxes to display</div>';
-        skuFilter = null;
-        updateCount();
+    if (!reqs.length) {
+        skuReqs.innerHTML = '<span class="t3" style="padding:4px 0; font-size:11px;">No SKU requirements on this order — '
+            + '<a href="' + BP + '/orders/' + orderId + '" style="color:inherit; text-decoration:underline;">define them on the order page</a></span>';
         return;
     }
+    skuReqs.innerHTML = '<span class="ap-sku-req-chip active" onclick="filterSku(this,\'\')">All</span>'
+        + reqs.map(r => '<span class="ap-sku-req-chip" data-sku="' + escApHtml(r.model) + '" onclick="filterSku(this, this.dataset.sku)">'
+            + escApHtml(r.model) + ' ×' + r.qty + '</span>').join('');
+}
 
+/* Candidate stock (selectable) + units already on the order (read rows). */
+function renderCandidateRows(cands, devices, reqCount) {
+    const list = document.getElementById('ap-list');
     let html = '';
-    devices.forEach(d => {
-        const assignOpts = '<option value=""' + (!d.assigned_to_name ? ' selected' : '') + '>Unassigned</option>'
-            + TEAM_MEMBERS.map(m => '<option value="' + m + '"' + (d.assigned_to_name === m ? ' selected' : '') + '>' + m + '</option>').join('');
-
-        const valBadge = d.validation_result === 'PASS'
-            ? '<span class="badge b-green" style="font-size:9px;">PASS</span>'
-            : d.validation_result === 'FAIL'
-            ? '<span class="badge b-red" style="font-size:9px;">FAIL</span>'
-            : d.validation_result === 'WARN'
-            ? '<span class="badge b-amber" style="font-size:9px;">WARN</span>'
-            : '<span class="badge b-gray" style="font-size:9px;">Pending</span>';
-
-        html += '<div class="box-row' + (d.is_complete ? ' completed' : '') + '" data-sku="' + (d.part_number || '') + '" data-prov-id="' + d.prov_id + '" onclick="toggleBox(this)">'
-            + '<div class="box-cb"></div>'
-            + '<div style="flex:1;min-width:0;">'
-            +   '<div style="font-size:12px;font-weight:600;">' + (d.serial || '—') + '</div>'
-            +   '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + (d.part_number || 'No SKU') + ' · ' + d.current_stage + (d.fulfillment_type ? ' · ' + ({build:'Build',prebuilt_software:'Prebuilt Software',prebuilt_finished:'Prebuilt Finished'}[d.fulfillment_type] || d.fulfillment_type) : '') + '</div>'
-            + '</div>'
-            + '<select class="ship-input" style="width:130px;padding:4px 6px;font-size:10px;" '
-            +   'onclick="event.stopPropagation();" '
-            +   'onchange="assignBox(' + d.prov_id + ',this.value,currentOrderId)">' + assignOpts + '</select>'
-            + valBadge
-            + '</div>';
-    });
-
+    if (cands.length) {
+        html += '<div class="view-section-lbl">Available stock — Ready to Deploy, matching the SKUs above</div>';
+        cands.forEach(c => {
+            html += '<div class="box-row" data-sku="' + escApHtml(c.sku || '') + '" data-item-id="' + c.item_id + '" onclick="toggleBox(this)">'
+                + '<div class="box-cb"></div>'
+                + '<div style="flex:1;min-width:0;">'
+                +   '<div style="font-size:12px;font-weight:600;">' + escApHtml(c.serial || '—') + '</div>'
+                +   '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + escApHtml(c.sku || 'No SKU') + (c.name ? ' · ' + escApHtml(c.name) : '') + (c.location ? ' · ' + escApHtml(c.location) : '') + '</div>'
+                + '</div>'
+                + '<span class="badge b-green" style="font-size:9px;">' + escApHtml(c.status) + '</span>'
+                + '</div>';
+        });
+    } else if (reqCount) {
+        html += '<div class="k-empty">No Ready-to-Deploy stock matches the required SKUs</div>';
+    } else {
+        html += '<div class="k-empty">Define SKU requirements to see matching stock</div>';
+    }
+    if (devices.length) {
+        html += '<div class="view-section-lbl" style="margin-top:10px;">Assigned to this order</div>';
+        devices.forEach(d => {
+            html += '<div class="box-row" data-static="1" data-sku="' + escApHtml(d.part_number || '') + '">'
+                + '<div style="flex:1;min-width:0;">'
+                +   '<div style="font-size:12px;font-weight:600;">' + escApHtml(d.serial || '—') + '</div>'
+                +   '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + escApHtml(d.part_number || 'No SKU') + ' · ' + escApHtml(d.current_stage || '') + (d.returned_date ? ' · returned ' + escApHtml(d.returned_date) : '') + '</div>'
+                + '</div>'
+                + '</div>';
+        });
+    }
     list.innerHTML = html;
     skuFilter = null;
     updateCount();
@@ -2078,7 +2089,8 @@ function toggleBox(el) {
 }
 
 function selAll() {
-    const vis = [...document.querySelectorAll('#ap-list .box-row')].filter(r => r.style.display !== 'none');
+    const vis = [...document.querySelectorAll('#ap-list .box-row')]
+        .filter(r => r.style.display !== 'none' && !r.dataset.static);
     const allSel = vis.every(r => r.classList.contains('sel'));
     vis.forEach(r => r.classList.toggle('sel', !allSel));
     updateCount();
@@ -2092,10 +2104,10 @@ function updateCount() {
     if (btn) btn.disabled = n === 0;
 }
 
-async function submitBulkAssign() {
+async function submitAssignItems() {
     if (!currentOrderId) return;
     const selected = Array.from(document.querySelectorAll('#ap-list .box-row.sel'))
-        .map(r => parseInt(r.dataset.provId)).filter(Boolean);
+        .map(r => parseInt(r.dataset.itemId)).filter(Boolean);
     if (!selected.length) return;
 
     const btn = document.getElementById('btn-assign');
@@ -2104,17 +2116,16 @@ async function submitBulkAssign() {
     btn.textContent = 'Assigning…';
 
     try {
-        const res = await fetch(BP + '/api/provisioning/bulk-assign-order', {
+        const res = await fetch(BP + '/api/orders/' + currentOrderId + '/assign-items', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prov_ids: selected, order_id: currentOrderId })
+            body: JSON.stringify({ item_ids: selected })
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || 'HTTP ' + res.status);
         }
-        const data = await res.json();
-        /* Flash success on assigned rows then refresh panel */
+        /* Flash success on assigned rows then refresh the board */
         document.querySelectorAll('#ap-list .box-row.sel').forEach(r => {
             r.style.transition = 'background .3s';
             r.style.background = 'var(--green-dim, rgba(34,197,94,.15))';
@@ -2138,17 +2149,19 @@ function setShipPaneMethod(method) {
         method === 'transferred' ? '' : 'none';
 }
 
-function populateShipPane(cardEl) {
-    const method = cardEl.dataset.shipMethod || 'carrier';
-    setShipPaneMethod(method);
-    document.getElementById('ship-carrier').value        = cardEl.dataset.carrier || '';
-    document.getElementById('ship-tracking').value       = cardEl.dataset.tracking || '';
-    document.getElementById('ship-address').value        = cardEl.dataset.shippingAddress || '';
-    document.getElementById('ship-shipped-date').value   = cardEl.dataset.shippedDate || '';
-    document.getElementById('ship-delivered-date').value = cardEl.dataset.deliveredDate || '';
-    document.getElementById('ship-recipient').value      = cardEl.dataset.recipient || '';
-    document.getElementById('ship-transferred-date').value = cardEl.dataset.shippedDate || '';
-    document.getElementById('ship-onsite-date').value    = cardEl.dataset.deliveredDate || '';
+function fillShipPane(s) {
+    /* Every field is written on every open — the pane previously kept the
+       previous order's values (and #ship-notes was never reset at all). */
+    setShipPaneMethod(s.ship_method || 'carrier');
+    document.getElementById('ship-carrier').value          = s.carrier || '';
+    document.getElementById('ship-tracking').value         = s.tracking_number || '';
+    document.getElementById('ship-address').value          = s.shipping_address || '';
+    document.getElementById('ship-shipped-date').value     = s.shipped_date || '';
+    document.getElementById('ship-delivered-date').value   = s.delivered_date || '';
+    document.getElementById('ship-recipient').value        = s.recipient_name || '';
+    document.getElementById('ship-transferred-date').value = s.shipped_date || '';
+    document.getElementById('ship-onsite-date').value      = s.delivered_date || '';
+    document.getElementById('ship-notes').value            = '';  /* not persisted server-side */
 }
 
 async function saveShipDetails(orderId) {
