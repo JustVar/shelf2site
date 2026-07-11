@@ -9,7 +9,7 @@ files that are not in git. Written to be followable at 3am.
 |---|---|---|
 | `asset_tracker` DB (inventory, orders, provisioning, audit trail) | `pg_dump -Fc` as the read-only `backup_reader` role | `scripts/at-backup.sh` |
 | Postgres roles + passwords | `pg_dumpall --globals-only` (weekly, Sundays) | `scripts/at-backup.sh` |
-| Uploads: photos, receipts, cert-reports, c2c-cert-reports, security | tar.gz snapshot | `scripts/at-backup.sh` |
+| Uploads: photos, receipts, cert-reports, c2c-cert-reports, install-cert-reports, security | tar.gz snapshot | `scripts/at-backup.sh` |
 | `/opt/asset_tracker/.env` (incl. `CREDENTIAL_ENCRYPTION_KEY` — without it, encrypted credentials in the DB are unrecoverable) | included in the same tar.gz | `scripts/at-backup.sh` |
 
 NOT backed up (regenerable): app code and static assets (git, four-way synced),
@@ -142,3 +142,14 @@ nothing). Sandbox a whole run: `AT_BACKUP_ROOT=/tmp/x at-backup.sh` /
 | Row amber "size anomaly" | compare `dump_bytes` vs `median7_bytes` in `status.json`; if growth is real (bulk import), it self-clears as the median catches up |
 | Pull not running | Task Scheduler → "AssetTracker Backup Pull" → Last Run Result; log at `Backups\asset-tracker\pull.log` |
 | Need a backup NOW before something risky | `sudo /opt/asset_tracker/scripts/at-backup.sh --with-globals` |
+
+## Container-path rule (learned 2026-07-11)
+
+Every `*_UPLOAD_DIR` (in `app/config.py` or `.env`) MUST resolve to a
+bind-mounted path, or files land in the container's writable layer —
+invisible to the host, absent from this backup, destroyed on recreate.
+Verify with a write-through probe: `touch` inside the container, `ls`
+the host dir. Two traps found and closed: `PHOTO_UPLOAD_DIR` (.env
+pointed at a container-internal path, 2026-07-11) and
+`install-cert-reports` (no mount existed; one demo-order PDF was lost
+before the fix).

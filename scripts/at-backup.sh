@@ -41,6 +41,7 @@ FILES_SRC=(
   data/asset-tracker/receipts
   data/asset-tracker/cert-reports
   data/asset-tracker/c2c-cert-reports
+  data/asset-tracker/install-cert-reports
   data/asset-tracker/security
   opt/asset_tracker/.env
 )
