@@ -472,10 +472,18 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         </div>
         {% endif %}
 
+        {% if user and user.is_editor_or_above %}
+        {# Gated to the roles the scan API accepts — view-only board users used
+           to get a false "not in inventory" because their scans 403'd (F8). #}
         <button class="fl-btn" onclick="scanToFind()" title="Scan barcode to find device">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             Scan
         </button>
+        <input type="search" id="find-serial" placeholder="Find by serial…"
+               title="Type or wedge-scan a serial, then press Enter"
+               onkeydown="if(event.key==='Enter'){event.preventDefault(); findBySerial();}"
+               style="width:150px; font-size:11px; padding:5px 8px; border:1px solid var(--border,#444); border-radius:8px; background:transparent; color:inherit;">
+        {% endif %}
         <button class="fl-btn" onclick="exportFulfillment()">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
@@ -2988,7 +2996,7 @@ async function onOrderDrop(e, newStatus) {
 function scanToFind() {
     const scanner = new BarcodeScanner(BP);
     scanner.start(async (barcode) => {
-        scanner.showToast(`Looking up <span class="scanner-toast-serial">${barcode}</span>...`, 'info', { duration: 0 });
+        scanner.showToast(`Looking up <span class="scanner-toast-serial">${escApHtml(barcode)}</span>...`, 'info', { duration: 0 });
 
         try {
             const resp = await fetch(`${BP}/api/receive/scan`, {
@@ -2999,21 +3007,26 @@ function scanToFind() {
             const data = await resp.json();
 
             if (data.status === 'already_exists') {
+                // View goes to the right id-space per table (it used to send
+                // an inventory row id into /provisioning/{prov_id} — F8).
+                const target = scanTargetUrl(data);
+                const bits = [`Found <span class="scanner-toast-serial">${escApHtml(barcode)}</span> in ${escApHtml(data.display_table)}`];
+                if (data.location) bits.push(escApHtml(data.location));
                 scanner.showToast(
-                    `Found <span class="scanner-toast-serial">${barcode}</span> in ${data.display_table}`,
+                    bits.join(' · '),
                     'success',
-                    {
+                    target ? {
                         action: 'View',
                         onAction: () => {
                             scanner.stop();
-                            window.location.href = `${BP}/provisioning/${data.device_id}`;
+                            window.location.href = target;
                         },
                         duration: 0,
-                    }
+                    } : { duration: 6000 }
                 );
             } else {
                 scanner.showToast(
-                    `<span class="scanner-toast-serial">${barcode}</span> not in inventory`,
+                    `<span class="scanner-toast-serial">${escApHtml(barcode)}</span> — ${escApHtml(data.guidance || 'not in inventory')}`,
                     'warning',
                     {
                         action: 'Receive',
@@ -3026,9 +3039,49 @@ function scanToFind() {
                 );
             }
         } catch (err) {
-            scanner.showToast('Lookup failed: ' + err.message, 'error');
+            scanner.showToast('Lookup failed: ' + escApHtml(err.message), 'error');
         }
     });
+}
+
+/* Detail-page URL for a scan hit, or null when no page exists for that
+   table (legacy public.* rows have no unified detail view). */
+function scanTargetUrl(data) {
+    if (!data.device_id) return null;
+    if (data.table === 'items') return `${BP}/items/${data.device_id}`;
+    if (data.table === 'customer_orders') return `${BP}/orders/${data.device_id}`;
+    return null;
+}
+
+/* Manual-entry fallback (H8): wedge or keyboard, no camera required. */
+async function findBySerial() {
+    const el = document.getElementById('find-serial');
+    const barcode = (el.value || '').trim();
+    if (!barcode) return;
+    let data;
+    try {
+        const resp = await fetch(`${BP}/api/receive/scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ barcode }),
+        });
+        data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+    } catch (err) {
+        alert('Lookup failed: ' + err.message);
+        return;
+    }
+    el.value = '';
+    el.focus();
+    if (data.status === 'already_exists') {
+        const target = scanTargetUrl(data);
+        if (target) { window.location.href = target; return; }
+        alert(`Found in ${data.display_table}${data.location ? ' at ' + data.location : ''}` +
+              (data.device_status ? ` (status ${data.device_status})` : '') +
+              ' — that record type has no detail page.');
+    } else {
+        alert(data.guidance || `"${barcode}" is not in inventory.`);
+    }
 }
 
 /* ── Export fulfillment data ──────────────────────────────────────── */

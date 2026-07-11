@@ -15,14 +15,21 @@ from ..auth import get_current_user, require_editor, require_receiving_access
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    IntakePhoto, Item, NASDevice, NASDrive, PendingDevice, ReceivingEvent,
-    Site, TABLE_MODELS, TABLE_DISPLAY_NAMES, User, compute_completeness,
+    AccessControl, Camera, CustomerOrder, EdgeBox, IntakePhoto, Item,
+    ItemPartNumber, NASDevice, NASDrive, NUC, OUIAllowlist, PendingDevice,
+    ReceivingEvent, Site, TABLE_MODELS, TABLE_DISPLAY_NAMES, User,
+    compute_completeness,
 )
 from sqlalchemy.exc import IntegrityError
 
-from ..validation import validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
+from ..scan_routing import classify, mac_from_bare_hex, preprocess
+from ..validation import normalize_mac, validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
 from ..vendor_defaults import lookup_by_serial_prefix
 from .intake import STATUSES as ITEM_INTAKE_STATUSES, _get_locations, create_item
+
+# Pilot-period routing log (SCANNER_AUDIT §8): every miss/unclassified scan
+# is logged with its raw payload so misroutes can be diagnosed from journald.
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -260,8 +267,251 @@ async def create_receiving_event(
 
 
 # ---------------------------------------------------------------------------
-# Barcode scan processing
+# Barcode scan processing — §4 routing table (SCANNER_AUDIT, approved)
 # ---------------------------------------------------------------------------
+
+# MAC-bearing columns per surface. Legacy columns store the canonical
+# AA:BB:CC:DD:EE:FF (validate_mac_address funnels through normalize_mac);
+# items' macaddr columns compare against the same normalized text.
+_MAC_COLUMNS = [
+    ("items", lambda: [Item.item_mac_address_1, Item.item_mac_address_2]),
+    ("edge_boxes", lambda: [EdgeBox.mac_address, EdgeBox.mac_address_2]),
+    ("cameras", lambda: [Camera.mac_address]),
+    ("access_control", lambda: [AccessControl.mac_address]),
+    ("nas_devices", lambda: [NASDevice.mac_address_1, NASDevice.mac_address_2]),
+    ("nucs", lambda: [NUC.mac_address, NUC.mac_address_2]),
+]
+_MAC_MODELS = {
+    "items": Item, "edge_boxes": EdgeBox, "cameras": Camera,
+    "access_control": AccessControl, "nas_devices": NASDevice, "nucs": NUC,
+}
+
+
+def _found(table, device_id, serial, location=None, status=None, matched_on="serial"):
+    """already_exists payload — same shape process_scan has always returned,
+    plus class/matched_on so clients can say HOW it matched."""
+    return {
+        "status": "already_exists",
+        "matched_on": matched_on,
+        "table": table,
+        "display_table": TABLE_DISPLAY_NAMES.get(table, table.replace("_", " ").title()),
+        "device_id": device_id,
+        "serial": serial,
+        "location": location,
+        "device_status": status,
+    }
+
+
+def _item_found(db, item, matched_on):
+    loc = None
+    if item.location_id:
+        site = db.query(Site).filter(Site.id == item.location_id).first()
+        loc = site.name if site else None
+    return _found("items", item.id, item.item_sn,
+                  location=loc,
+                  status=str(item.item_status) if item.item_status else None,
+                  matched_on=matched_on)
+
+
+def find_mac_anywhere(db, mac: str):
+    """Case-insensitive MAC lookup over every MAC-bearing column."""
+    for table, cols in _MAC_COLUMNS:
+        model = _MAC_MODELS[table]
+        for col in cols():
+            if table == "items":
+                row = db.query(model).filter(col == mac).first()
+            else:
+                row = db.query(model).filter(func.upper(col) == mac).first()
+            if row:
+                if table == "items":
+                    return _item_found(db, row, "mac")
+                return _found(
+                    table, row.id,
+                    getattr(row, "serial", None),
+                    location=getattr(row, "location", None),
+                    status=getattr(row, "status", None),
+                    matched_on="mac",
+                )
+    return None
+
+
+def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
+    """Per-class lookup + specific not-found guidance (§4 table)."""
+    low, up = value.lower(), value.upper()
+
+    def miss(guidance, prefill=None, klass=None):
+        return {"status": "unknown", "class": klass or cls, "serial": value,
+                "prefill": prefill or {}, "guidance": guidance}
+
+    def recognized(guidance, prefill):
+        return {"status": "recognized", "class": cls, "serial": value,
+                "prefill": prefill, "guidance": guidance}
+
+    if cls == "mac":
+        mac = normalize_mac(value)
+        hit = find_mac_anywhere(db, mac)
+        if hit:
+            hit["class"] = cls
+            return hit
+        return miss(f"No device with MAC {mac} — receive it with the MAC prefilled?",
+                    {"mac_address": mac})
+
+    if cls == "uuid":
+        for model, col, table in ((EdgeBox, EdgeBox.uuid, "edge_boxes"),
+                                  (NUC, NUC.uuid, "nucs")):
+            row = db.query(model).filter(func.lower(col) == low).first()
+            if row:
+                payload = _found(table, row.id, getattr(row, "serial", None),
+                                 location=getattr(row, "location", None),
+                                 status=getattr(row, "status", None),
+                                 matched_on="uuid")
+                payload["class"] = cls
+                return payload
+        item = db.query(Item).filter(func.lower(Item.appliance_uuid) == low).first()
+        if item:
+            payload = _item_found(db, item, "uuid")
+            payload["class"] = cls
+            return payload
+        return miss("UUID not linked to any unit — scan the serial instead.")
+
+    if cls == "tracking":
+        item = db.query(Item).filter(func.lower(Item.tracking_number) == low).first()
+        if item:
+            payload = _item_found(db, item, "tracking")
+            payload["class"] = cls
+            return payload
+        order = db.query(CustomerOrder).filter(
+            func.lower(CustomerOrder.tracking_number) == low).first()
+        if order:
+            payload = _found("customer_orders", order.id, value,
+                             status=order.status, matched_on="tracking")
+            payload.update({"class": cls, "display_table": "Customer Orders",
+                            "order_number": order.order_number,
+                            "customer_name": order.customer_name})
+            return payload
+        return miss("Shipping label — create or select a receiving event for this shipment?",
+                    {"tracking_number": value})
+
+    if cls == "order_number":
+        order = db.query(CustomerOrder).filter(
+            func.upper(CustomerOrder.order_number) == up).first()
+        if order:
+            payload = _found("customer_orders", order.id, order.order_number,
+                             status=order.status, matched_on="order_number")
+            payload.update({"class": cls, "display_table": "Customer Orders",
+                            "order_number": order.order_number,
+                            "customer_name": order.customer_name})
+            return payload
+        return miss("Order not found.")
+
+    if cls == "unit_pn":
+        item = db.query(Item).filter(func.lower(Item.brand_pn) == low).first()
+        if item:
+            payload = _item_found(db, item, "unit_pn")
+            payload["class"] = cls
+            return payload
+        return miss("Unit PN not in inventory — receive it with the PN prefilled?",
+                    {"brand_pn": value})
+
+    if cls == "sku":
+        guidance = "That's a SKU, not a unit serial — now scan the unit's serial."
+        pn = db.query(ItemPartNumber).filter(
+            func.lower(ItemPartNumber.brand_sku) == low).first()
+        if pn:
+            prefill = {"brand_sku": pn.brand_sku}
+            if pn.item_category:
+                prefill["item_category"] = str(pn.item_category)
+            return recognized(guidance, prefill)
+        if db.query(EdgeBox).filter(func.upper(EdgeBox.part_number) == up).first():
+            return recognized(guidance, {"brand_sku": value})
+        return miss(guidance + " (SKU not in the catalog.)")
+
+    if cls == "hex12":
+        hit = find_serial_anywhere(db, value)
+        if hit:
+            payload = dict(hit)
+            payload["device_status"] = payload.pop("status", None)
+            payload.update({"status": "already_exists", "class": cls,
+                            "matched_on": "serial"})
+            return payload
+        mac = mac_from_bare_hex(value)
+        mac_hit = find_mac_anywhere(db, mac)
+        if mac_hit:
+            mac_hit["class"] = cls
+            return mac_hit
+        oui = db.query(OUIAllowlist).filter(
+            OUIAllowlist.oui_prefix == mac[:8],
+            OUIAllowlist.is_active.is_(True)).first()
+        if oui:
+            return miss(f"Looks like a {oui.manufacturer} MAC — receive with the MAC prefilled?",
+                        {"mac_address": mac}, klass="mac")
+        return miss("Serial not found. 12 hex characters — could this be a MAC without separators?")
+
+    if cls == "uscf_serial":
+        hit = find_serial_anywhere(db, value)
+        if hit:
+            payload = dict(hit)
+            payload["device_status"] = payload.pop("status", None)
+            payload.update({"status": "already_exists", "class": cls,
+                            "matched_on": "serial"})
+            return payload
+        return recognized("New 2026 edge box — confirm intake.",
+                          {"target_table": "edge_boxes"})
+
+    if cls == "qnap_candidate":
+        hit = find_serial_anywhere(db, value)
+        if hit:
+            payload = dict(hit)
+            payload["device_status"] = payload.pop("status", None)
+            payload.update({"status": "already_exists", "class": cls,
+                            "matched_on": "serial"})
+            return payload
+        return recognized("Recognized QNAP serial pattern — confirm before adding.",
+                          lookup_by_serial_prefix(value) or
+                          {"manufacturer": "QNAP", "target_table": "nas_devices"})
+
+    if cls == "ambiguous_digits":
+        hit = find_serial_anywhere(db, value)
+        if hit:
+            payload = dict(hit)
+            payload["device_status"] = payload.pop("status", None)
+            payload.update({"status": "already_exists", "class": cls,
+                            "matched_on": "serial"})
+            return payload
+        item = db.query(Item).filter(func.lower(Item.tracking_number) == low).first()
+        if item:
+            payload = _item_found(db, item, "tracking")
+            payload["class"] = cls
+            return payload
+        order = db.query(CustomerOrder).filter(
+            func.lower(CustomerOrder.tracking_number) == low).first()
+        if order:
+            payload = _found("customer_orders", order.id, value,
+                             status=order.status, matched_on="tracking")
+            payload.update({"class": cls, "display_table": "Customer Orders",
+                            "order_number": order.order_number,
+                            "customer_name": order.customer_name})
+            return payload
+        return miss("Looks like a product or shipping code (UPC/EAN or carrier tracking) "
+                    "— use it as a serial only if the label says so.")
+
+    if cls in ("serial",):
+        hit = find_serial_anywhere(db, value)
+        if hit:
+            payload = dict(hit)
+            payload["device_status"] = payload.pop("status", None)
+            payload.update({"status": "already_exists", "class": cls,
+                            "matched_on": "serial"})
+            return payload
+        # Deliberately NO lookup_by_serial_prefix here: the loose Q-prefix
+        # guess lives exclusively in rule 10 (strict alnum), otherwise a
+        # Q-prefixed QR URL sneaks back in as a phantom QNAP (audit F6).
+        return miss("Serial not found — fill in the details manually.")
+
+    # empty / unclassified (>100 chars, junk charset)
+    return miss("Could not read a usable code from that scan — try manual entry.",
+                klass="unclassified")
+
 
 @router.post("/api/receive/scan")
 async def process_scan(
@@ -269,38 +519,32 @@ async def process_scan(
     db: Session = Depends(get_db),
     user: User = Depends(require_editor),
 ):
-    """Process a barcode/QR scan. Returns pre-fill data or 'unknown'."""
+    """Classify a scan via the §4 routing table, look it up, and answer with
+    pre-fill data plus class-specific guidance. GS1-128 wrappers are unwrapped
+    before classification (AI 21 serial / 01 GTIN / 00 SSCC)."""
     body = await request.json()
-    barcode = (body.get("barcode") or "").strip()
+    raw = (body.get("barcode") or "").strip()
 
-    if not barcode:
+    if not raw:
         return JSONResponse(status_code=400, content={"error": "Empty barcode"})
 
-    # Unified, case-insensitive existence check (items + legacy + nas_drives)
-    existing = find_serial_anywhere(db, barcode)
-    if existing:
-        # The helper's "status" key is the DEVICE status (check-duplicate's
-        # shape); rename it so it can't clobber the scan outcome.
-        payload = dict(existing)
-        payload["device_status"] = payload.pop("status", None)
-        payload["status"] = "already_exists"
-        return JSONResponse(content=payload)
+    value, gs1 = preprocess(raw)
+    if not value:
+        return JSONResponse(status_code=400, content={"error": "Empty barcode"})
 
-    # Try vendor/model auto-lookup by serial prefix
-    defaults = lookup_by_serial_prefix(barcode)
-    if defaults:
-        return JSONResponse(content={
-            "status": "recognized",
-            "serial": barcode,
-            "prefill": defaults,
-        })
+    cls = classify(value)
+    payload = _route_scan(db, cls, value, gs1)
+    if gs1:
+        payload["gs1"] = {k: v for k, v in gs1.items() if k != "ais"}
 
-    # Not recognized — manual entry
-    return JSONResponse(content={
-        "status": "unknown",
-        "serial": barcode,
-        "prefill": {},
-    })
+    # Pilot-period logging: every non-hit with its raw payload (§8).
+    if payload.get("status") != "already_exists":
+        logger.warning(
+            "scan-routing-pilot: class=%s status=%s raw=%r value=%r user=%s",
+            payload.get("class", cls), payload.get("status"),
+            raw[:200], value[:120], user.username,
+        )
+    return JSONResponse(content=payload)
 
 
 # ---------------------------------------------------------------------------

@@ -6,35 +6,10 @@
 {% block head %}
 <link rel="stylesheet" href="{{ base_path }}/static/css/receive.css">
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
-<script src="{{ base_path }}/static/js/scanner.js">
-// Category pre-selection from ?category= query param
-(function() {
-    const preselect = "{{ preselect_category }}";
-    if (!preselect) return;
-    document.addEventListener('DOMContentLoaded', function() {
-        // Pre-select category dropdown
-        const sel = document.getElementById('device-target-table');
-        if (sel) {
-            sel.value = preselect;
-            if (typeof toggleCategoryFields === 'function') toggleCategoryFields();
-        }
-        // Pre-fill serial with empty string to trigger step reveal
-        const serialInput = document.getElementById('device-serial');
-        if (serialInput) serialInput.value = '';
-        // Reveal steps 3, 4, 5
-        ['step-details','step-photo','step-submit'].forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.style.display = 'block';
-        });
-        // Scroll to manual serial entry
-        const manualInput = document.getElementById('manual-serial');
-        if (manualInput) {
-            manualInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            manualInput.focus();
-        }
-    });
-})();
-</script>
+{# A script tag WITH src ignores inline content — the pre-selection IIFE that
+   used to sit inside this tag was dead code (the working copy lives in the
+   bottom-of-page IIFE gated on preselect_category). #}
+<script src="{{ base_path }}/static/js/scanner.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -342,6 +317,12 @@ function onEventSelect() {
     }
 }
 
+/* Escape scanned/server strings before they touch innerHTML — intake scans
+   untrusted physical labels by definition (audit F16). */
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function createEvent() {
     const body = {
         vendor: document.getElementById('event-vendor').value,
@@ -349,19 +330,27 @@ async function createEvent() {
         expected_quantity: parseInt(document.getElementById('event-qty').value) || null,
         notes: document.getElementById('event-notes').value,
     };
-    const resp = await fetch(`${BP}/api/receive/events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    const data = await resp.json();
+    const status = document.getElementById('event-status');
+    let data;
+    try {
+        const resp = await fetch(`${BP}/api/receive/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+    } catch (e) {
+        status.style.display = 'block';
+        status.innerHTML = '<span class="badge badge-danger">Could not create event: ' + esc(e.message) + '</span>';
+        return;
+    }
     if (data.status === 'created') {
         currentEventId = data.event_id;
         document.getElementById('new-event-form').style.display = 'none';
-        const status = document.getElementById('event-status');
         status.style.display = 'block';
-        status.innerHTML = '<span class="badge badge-success">Created event #' + data.event_id +
-            ' — ' + (data.vendor || 'Unknown') + ' PO:' + (data.purchase_order || 'N/A') + '</span>';
+        status.innerHTML = '<span class="badge badge-success">Created event #' + esc(data.event_id) +
+            ' — ' + esc(data.vendor || 'Unknown') + ' PO:' + esc(data.purchase_order || 'N/A') + '</span>';
         // Add to dropdown
         const sel = document.getElementById('event-select');
         const opt = document.createElement('option');
@@ -369,6 +358,9 @@ async function createEvent() {
         opt.textContent = 'Today — ' + (data.vendor || 'Unknown') + ' (PO: ' + (data.purchase_order || 'N/A') + ')';
         opt.selected = true;
         sel.insertBefore(opt, sel.querySelector('option[value="__new__"]'));
+    } else {
+        status.style.display = 'block';
+        status.innerHTML = '<span class="badge badge-danger">Could not create event — unexpected server reply.</span>';
     }
 }
 
@@ -397,22 +389,31 @@ async function processQuickScan(barcode) {
         const skipped = pendingQuickConfirm.serial;
         pendingQuickConfirm = null;
         receiveScanner.showToast(
-            `Skipped <span class="scanner-toast-serial">${skipped}</span> (not confirmed)`,
+            `Skipped <span class="scanner-toast-serial">${esc(skipped)}</span> (not confirmed)`,
             'warning'
         );
         await new Promise(r => setTimeout(r, 900));
     }
 
-    const resp = await fetch(`${BP}/api/receive/scan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode: barcode, receiving_event_id: currentEventId }),
-    });
-    const data = await resp.json();
+    let data;
+    try {
+        const resp = await fetch(`${BP}/api/receive/scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ barcode: barcode, receiving_event_id: currentEventId }),
+        });
+        data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+    } catch (e) {
+        // Honest failure: the scan is NOT lost silently — camera keeps
+        // running and the error names itself (audit F12).
+        receiveScanner.showToast(`Lookup failed: ${esc(e.message)} — scan again`, 'error');
+        return;
+    }
 
     if (data.status === 'already_exists') {
         receiveScanner.showToast(
-            `<span class="scanner-toast-serial">${barcode}</span> already in ${data.display_table}`,
+            `<span class="scanner-toast-serial">${esc(barcode)}</span> already in ${esc(data.display_table)}`,
             'error'
         );
         return;
@@ -424,7 +425,7 @@ async function processQuickScan(barcode) {
         // (audit F6). The toast stays until confirmed or superseded.
         pendingQuickConfirm = { serial: data.serial, prefill: data.prefill };
         receiveScanner.showToast(
-            `<span class="scanner-toast-serial">${data.serial}</span> recognized as ${data.prefill.manufacturer || 'device'} — add to inventory?`,
+            `<span class="scanner-toast-serial">${esc(data.serial)}</span> recognized as ${esc(data.prefill.manufacturer || 'device')} — add to inventory?`,
             'info',
             {
                 action: 'Add',
@@ -461,21 +462,30 @@ async function submitQuickIntake(barcode, prefill) {
         body.ram_gb = prefill.ram_gb || null;
     }
 
-    const submitResp = await fetch(`${BP}/api/receive/device`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
+    let submitResp;
+    try {
+        submitResp = await fetch(`${BP}/api/receive/device`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+    } catch (e) {
+        receiveScanner.showToast(
+            `Network error — <span class="scanner-toast-serial">${esc(barcode)}</span> was NOT added. Scan it again.`,
+            'error'
+        );
+        return;
+    }
 
     if (submitResp.ok) {
         receiveScanner.showToast(
-            `<span class="scanner-toast-serial">${barcode}</span> added to inventory`,
+            `<span class="scanner-toast-serial">${esc(barcode)}</span> added to inventory`,
             'success'
         );
     } else {
         const err = await submitResp.json().catch(() => ({}));
         receiveScanner.showToast(
-            `Failed: ${err.error || 'submission error'}`,
+            `Failed: ${esc(err.error || 'submission error')}`,
             'error'
         );
     }
@@ -489,26 +499,48 @@ function processManualSerial() {
 async function processBarcode(barcode) {
     const result = document.getElementById('scan-result');
     result.style.display = 'block';
-    result.innerHTML = '<div class="alert alert-info">Looking up: <strong>' + barcode + '</strong>...</div>';
+    result.innerHTML = '<div class="alert alert-info">Looking up: <strong>' + esc(barcode) + '</strong>...</div>';
 
-    const resp = await fetch(`${BP}/api/receive/scan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode: barcode, receiving_event_id: currentEventId }),
-    });
-    const data = await resp.json();
-
-    if (data.status === 'already_exists') {
-        result.innerHTML = '<div class="alert alert-danger">Serial <strong>' + barcode +
-            '</strong> already exists in <strong>' + data.display_table + '</strong>.</div>';
+    let data;
+    try {
+        const resp = await fetch(`${BP}/api/receive/scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ barcode: barcode, receiving_event_id: currentEventId }),
+        });
+        data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+    } catch (e) {
+        // Honest failure — a server/network error is NOT "serial not
+        // recognized" (audit F12), and nothing writes undefined into fields.
+        result.innerHTML = '<div class="alert alert-danger">Lookup failed: ' + esc(e.message) +
+            '. The scan was not processed — try again or fill in manually.</div>';
         return;
     }
+
+    if (data.status === 'already_exists') {
+        // Informational, not an error — finding the item IS the answer.
+        const bits = ['Serial <strong>' + esc(barcode) + '</strong> is already in <strong>' +
+                      esc(data.display_table) + '</strong>'];
+        if (data.location) bits.push('at ' + esc(data.location));
+        if (data.device_status) bits.push('status ' + esc(data.device_status));
+        let link = '';
+        if (data.table === 'items' && data.device_id) {
+            link = ' <a href="' + BP + '/items/' + data.device_id + '">View item →</a>';
+        }
+        result.innerHTML = '<div class="alert alert-info">' + bits.join(' · ') + '.' + link + '</div>';
+        return;
+    }
+
+    // Class-specific guidance from the §4 routing table, when present.
+    const guidance = data.guidance ? esc(data.guidance) : '';
 
     // Show detail form
     document.getElementById('step-details').style.display = 'block';
     document.getElementById('step-photo').style.display = 'block';
     document.getElementById('step-submit').style.display = 'block';
-    document.getElementById('device-serial').value = data.serial;
+    if (typeof data.serial === 'string')
+        document.getElementById('device-serial').value = data.serial;
 
     if (data.prefill) {
         if (data.prefill.manufacturer)
@@ -523,13 +555,19 @@ async function processBarcode(barcode) {
             document.getElementById('device-bay-count').value = data.prefill.bay_count;
         if (data.prefill.ram_gb)
             document.getElementById('device-ram').value = data.prefill.ram_gb;
+        if (data.prefill.mac_address) {
+            const macEl = document.getElementById('device-mac-address');
+            if (macEl) macEl.value = data.prefill.mac_address;
+        }
     }
 
     if (data.status === 'recognized') {
-        result.innerHTML = '<div class="alert alert-success">Recognized: <strong>' +
-            (data.prefill.manufacturer || '') + '</strong> — auto-filled fields below.</div>';
+        result.innerHTML = '<div class="alert alert-success">' +
+            (guidance || ('Recognized: <strong>' + esc((data.prefill || {}).manufacturer || '') +
+             '</strong> — auto-filled fields below.')) + '</div>';
     } else {
-        result.innerHTML = '<div class="alert alert-warning">Serial not recognized. Fill in details manually.</div>';
+        result.innerHTML = '<div class="alert alert-warning">' +
+            (guidance || 'Serial not recognized. Fill in details manually.') + '</div>';
     }
 
     // Scroll to details
@@ -547,7 +585,6 @@ function toggleCategoryFields() {
 }
 
 // --- Photo ---
-let uploadedPhotoUrl = null;
 let ocrData = null;
 
 async function uploadAndProcessPhoto(input) {
@@ -575,17 +612,22 @@ async function uploadAndProcessPhoto(input) {
 
     try {
         const resp = await fetch(`${BP}/api/receive/photo`, { method: 'POST', body: formData });
-        const data = await resp.json();
+        const data = await resp.json().catch(() => ({}));
 
-        if (data.status === 'uploaded' && data.ocr) {
-            uploadedPhotoUrl = data.photo_url;
+        if (!resp.ok) {
+            // Honest failure: a rejected upload is NOT "OCR unavailable".
+            ocrResults.innerHTML = '<div class="ocr-error">Photo upload failed: ' +
+                esc(data.error || data.detail || ('HTTP ' + resp.status)) + '</div>';
+        } else if (data.status === 'uploaded' && data.ocr) {
             ocrData = data.ocr;
             displayOcrResults(data.ocr);
-        } else {
+        } else if (data.status === 'uploaded') {
             ocrResults.innerHTML = '<div class="ocr-error">Photo uploaded, but OCR processing unavailable.</div>';
+        } else {
+            ocrResults.innerHTML = '<div class="ocr-error">Unexpected server reply — photo may not have been saved.</div>';
         }
     } catch (e) {
-        ocrResults.innerHTML = '<div class="ocr-error">Error: ' + e.message + '</div>';
+        ocrResults.innerHTML = '<div class="ocr-error">Error: ' + esc(e.message) + '</div>';
     }
 }
 
@@ -603,38 +645,41 @@ function displayOcrResults(ocr) {
     let html = '<div class="ocr-header"><strong>OCR Extracted Data</strong></div>';
     html += '<div class="ocr-fields">';
 
+    // OCR text comes off untrusted physical labels: escape every display,
+    // and the Use buttons read from the ocrData global instead of splicing
+    // scanned text into onclick attributes (attribute-breakout injection).
     if (ocr.serial) {
         html += `<div class="ocr-field">
             <span class="ocr-label">Serial:</span>
-            <span class="ocr-value">${ocr.serial}</span>
-            <button class="btn-ocr-fill" onclick="fillField('device-serial', '${ocr.serial}')">Use</button>
+            <span class="ocr-value">${esc(ocr.serial)}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-serial', ocrData.serial)">Use</button>
         </div>`;
     }
     if (ocr.manufacturer) {
         html += `<div class="ocr-field">
             <span class="ocr-label">Manufacturer:</span>
-            <span class="ocr-value">${ocr.manufacturer}</span>
-            <button class="btn-ocr-fill" onclick="fillField('device-manufacturer', '${ocr.manufacturer}')">Use</button>
+            <span class="ocr-value">${esc(ocr.manufacturer)}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-manufacturer', ocrData.manufacturer)">Use</button>
         </div>`;
     }
     if (ocr.model) {
         html += `<div class="ocr-field">
             <span class="ocr-label">Model:</span>
-            <span class="ocr-value">${ocr.model}</span>
-            <button class="btn-ocr-fill" onclick="fillField('device-model', '${ocr.model}')">Use</button>
+            <span class="ocr-value">${esc(ocr.model)}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-model', ocrData.model)">Use</button>
         </div>`;
     }
     if (ocr.mac_address) {
         html += `<div class="ocr-field">
             <span class="ocr-label">MAC:</span>
-            <span class="ocr-value">${ocr.mac_address}</span>
-            <button class="btn-ocr-fill" onclick="fillField('device-mac1', '${ocr.mac_address}')">Use</button>
+            <span class="ocr-value">${esc(ocr.mac_address)}</span>
+            <button class="btn-ocr-fill" onclick="fillField('device-mac1', ocrData.mac_address)">Use</button>
         </div>`;
     }
     if (ocr.part_number) {
         html += `<div class="ocr-field">
             <span class="ocr-label">Part #:</span>
-            <span class="ocr-value">${ocr.part_number}</span>
+            <span class="ocr-value">${esc(ocr.part_number)}</span>
         </div>`;
     }
 
@@ -688,10 +733,10 @@ function showDuplicateModal(duplicateData) {
     const details = document.getElementById('duplicate-details');
 
     details.innerHTML = `
-        <p><strong>Serial Number:</strong> ${duplicateData.serial}</p>
-        <p><strong>Already exists in:</strong> ${duplicateData.display_table}</p>
-        ${duplicateData.location ? `<p><strong>Location:</strong> ${duplicateData.location}</p>` : ''}
-        ${duplicateData.status ? `<p><strong>Status:</strong> ${duplicateData.status}</p>` : ''}
+        <p><strong>Serial Number:</strong> ${esc(duplicateData.serial)}</p>
+        <p><strong>Already exists in:</strong> ${esc(duplicateData.display_table)}</p>
+        ${duplicateData.location ? `<p><strong>Location:</strong> ${esc(duplicateData.location)}</p>` : ''}
+        ${duplicateData.status ? `<p><strong>Status:</strong> ${esc(duplicateData.status)}</p>` : ''}
         <p style="margin-top: 1rem; color: var(--text-muted);">
             This serial number already exists in the inventory. Adding it again may create a duplicate entry.
         </p>
@@ -864,14 +909,24 @@ async function submitDevice() {
         body.form_factor = document.getElementById('device-form-factor').value || null;
     }
 
-    const resp = await fetch(`${BP}/api/receive/device`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
+    let resp;
+    try {
+        resp = await fetch(`${BP}/api/receive/device`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+    } catch (e) {
+        // Honest failure: the button used to stay bricked at "Submitting…"
+        // forever on a network error (audit F12).
+        alert('Network error — the device was NOT submitted. Check the connection and try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Device';
+        return;
+    }
 
     if (!resp.ok) {
-        const error = await resp.json();
+        const error = await resp.json().catch(() => ({}));
 
         // Server-side duplicate rejection (H4) — same modal as the pre-check.
         // closeDuplicateModal re-enables the submit button.
@@ -898,23 +953,12 @@ async function submitDevice() {
         return;
     }
 
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
 
     if (data.status === 'created' || data.status === 'pending_review') {
-        // Photo already uploaded during preview (if present)
-        // Link photo to device if we have the device ID
-        if (uploadedPhotoUrl && data.device_id) {
-            // Update photo metadata to link to device
-            const photoMeta = {
-                device_table: data.target_table || body.target_table,
-                device_id: data.device_id,
-            };
-            await fetch(`${BP}/api/receive/photo/link`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(photoMeta),
-            }).catch(() => {}); // Ignore errors for metadata update
-        }
+        // Photo (if any) was already uploaded during preview. The old
+        // photo/link call here hit an endpoint that never existed (audit
+        // F13/H18) — photo↔device linkage is the shipment-photos slice.
 
         // Show success
         document.getElementById('step-details').style.display = 'none';
@@ -925,7 +969,7 @@ async function submitDevice() {
         const banner = document.getElementById('success-banner');
         banner.style.display = 'block';
         const msg = data.status === 'created'
-            ? 'Device added to <strong>' + (data.display_table || data.target_table || body.target_table) + '</strong>!'
+            ? 'Device added to <strong>' + esc(data.display_table || data.target_table || body.target_table) + '</strong>!'
             : 'Device sent to <strong>review queue</strong> for approval.';
         banner.querySelector('.success-text').innerHTML = msg;
 
@@ -941,6 +985,9 @@ async function submitDevice() {
         }
         banner.scrollIntoView({ behavior: 'smooth' });
     } else {
+        // 200 with an unrecognized body — say so instead of silently
+        // re-enabling the button (audit F12).
+        alert('Unexpected server reply — the device may not have been saved. Check the inventory before retrying.');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Device';
     }
@@ -976,9 +1023,9 @@ function ctmUnitSearch(q) {
             box.innerHTML = data.results.map(r =>
                 `<div class="ctm-unit-row" onclick="ctmSelectUnit(${r.id}, this)"
                       style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;">
-                    <strong>${r.name}</strong>
-                    <span style="color:var(--text-muted);font-size:11px;font-family:monospace;"> ${r.serial || ''}</span>
-                    <span style="color:var(--text-muted);font-size:11px;"> · ${r.category || ''}</span>
+                    <strong>${esc(r.name)}</strong>
+                    <span style="color:var(--text-muted);font-size:11px;font-family:monospace;"> ${esc(r.serial || '')}</span>
+                    <span style="color:var(--text-muted);font-size:11px;"> · ${esc(r.category || '')}</span>
                  </div>`).join('');
         })
         .catch(() => { document.getElementById('ctm-unit-error').textContent = 'Search failed.'; });
@@ -1048,7 +1095,6 @@ function scanAnother() {
     document.getElementById('photo-preview').innerHTML = '';
     document.getElementById('ocr-results').style.display = 'none';
     document.getElementById('ocr-results').innerHTML = '';
-    uploadedPhotoUrl = null;
     ocrData = null;
     const submitBtn = document.querySelector('.btn-submit');
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Device'; }
