@@ -129,6 +129,10 @@ def order_detail(
     order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
     if not order:
         return RedirectResponse(f"{BP}/fulfillment/", status_code=303)
+    # Sensitive-order gate (shipment-photos slice): the board, panel API,
+    # map and export all masked sensitive orders — this page did not.
+    if order.is_sensitive and not user.has_sensitive_customers_access:
+        return RedirectResponse(f"{BP}/fulfillment/", status_code=303)
 
     availability = _sku_availability(db, order.sku_requirements or [])
 
@@ -166,6 +170,22 @@ def order_detail(
     # Catalog for the SKU-requirements editor typeahead (same pattern as intake).
     part_numbers = db.query(ItemPartNumber).order_by(ItemPartNumber.brand_sku).all()
 
+    # Unit photos across this order, grouped by direction (shipment-photos).
+    from ..models import UnitPhoto
+    _photos = (db.query(UnitPhoto)
+               .filter(UnitPhoto.customer_order_id == order.id,
+                       UnitPhoto.is_hidden.is_(False))
+               .order_by(UnitPhoto.taken_at.asc(), UnitPhoto.id.asc()).all())
+    photos_by_direction = {"inbound": [], "outbound": []}
+    for p in _photos:
+        photos_by_direction.setdefault(p.direction, []).append({
+            "id": p.id,
+            "thumb_url": f"{BP}/api/photos/{p.id}/thumb",
+            "file_url": f"{BP}/api/photos/{p.id}/file",
+            "caption": p.caption,
+            "taken_at": p.taken_at,
+        })
+
     return templates.TemplateResponse("order_detail.html", {
         "request": request,
         "user": user,
@@ -178,6 +198,7 @@ def order_detail(
         # Plain list usable in BOTH template blocks — a {% set %} in the
         # content block cannot cross into the scripts block (Jinja scoping).
         "catalog_skus": [pn.brand_sku for pn in part_numbers],
+        "photos_by_direction": photos_by_direction,
         "ORDER_STATUSES": CustomerOrder.ORDER_STATUSES,
         "ORDER_TYPES": CustomerOrder.ORDER_TYPES,
         "STATUS_COLORS": CustomerOrder.STATUS_COLORS,

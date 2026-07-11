@@ -440,6 +440,47 @@
     {% endif %}
   </div>
 
+  <!-- Photos (shipment-photos slice) -->
+  <div class="dtl-section" id="photos-card">
+    <div class="dtl-section-title" style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+      <span>Photos{% if photos %} ({{ photos | length }}){% endif %}</span>
+      {% if user.is_editor_or_above %}
+      <select id="item-photo-direction" style="font-size:0.75rem; padding:2px 6px;">
+        <option value="inbound">Inbound</option>
+        <option value="outbound">Outbound</option>
+      </select>
+      <input type="text" id="item-photo-caption" placeholder="Caption (optional)"
+             style="font-size:0.75rem; padding:2px 6px; width:180px;">
+      <button class="btn btn-sm" onclick="document.getElementById('item-photo-input').click()"
+              style="font-size:0.75rem; padding:0.15rem 0.5rem;">+ Add Photo</button>
+      <input type="file" id="item-photo-input" accept="image/*" capture="environment"
+             onchange="uploadItemPhoto(this)" style="display:none;">
+      {% endif %}
+      <a class="btn btn-sm" href="{{ base_path }}/items/{{ item.id }}/dossier.pdf" target="_blank"
+         style="margin-left:auto; font-size:0.75rem; padding:0.15rem 0.5rem;">Export Dossier</a>
+    </div>
+    <span id="item-photo-note" style="font-size:0.8rem; color:var(--text-muted);"></span>
+    {% if photos %}
+    <div style="display:flex; flex-wrap:wrap; gap:0.7rem; padding:0.5rem 0;">
+      {% for p in photos %}
+      <a href="{{ p.file_url }}" target="_blank" style="text-decoration:none; color:inherit; width:150px;">
+        <img src="{{ p.thumb_url }}" alt="{{ p.caption or 'unit photo' }}" loading="lazy"
+             style="width:150px; height:110px; object-fit:cover; border-radius:8px; border:1px solid var(--border,#444); display:block;">
+        <div style="font-size:0.7rem; margin-top:2px;">
+          <span class="rcv-badge {{ 'rcv-badge--full' if p.direction == 'inbound' else 'rcv-badge--over' }}"
+                title="{{ p.direction }}">{{ 'IN' if p.direction == 'inbound' else 'OUT' }}</span>
+          {{ p.taken_at.strftime('%Y-%m-%d') if p.taken_at else '' }}
+          {% if p.uploaded_by %}&middot; {{ p.uploaded_by }}{% endif %}
+        </div>
+        {% if p.caption %}<div style="font-size:0.72rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ p.caption }}</div>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dtl-empty">No photos for this item.</div>
+    {% endif %}
+  </div>
+
   {% if containment.is_unit %}
   <!-- Components — current containment (Option A view) -->
   <div class="dtl-section" id="components-card">
@@ -604,6 +645,26 @@
 {% endif %}
 
 <script>
+async function uploadItemPhoto(input) {
+    if (!input.files || !input.files[0]) return;
+    const note = document.getElementById('item-photo-note');
+    note.textContent = 'Uploading…';
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    fd.append('direction', document.getElementById('item-photo-direction').value);
+    fd.append('caption', document.getElementById('item-photo-caption').value);
+    fd.append('item_ids', '{{ item.id }}');
+    try {
+        const resp = await fetch('{{ base_path }}/api/photos', { method: 'POST', body: fd });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+        location.reload();
+    } catch (e) {
+        note.textContent = 'Photo NOT saved: ' + e.message;
+        input.value = '';
+    }
+}
+
 function toggleAddReceipt() {
   var form = document.getElementById("add-receipt-form");
   if (form.style.display === "none") {

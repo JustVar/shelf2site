@@ -87,6 +87,7 @@ async def upload_unit_photo(
     customer_order_id: int | None = Form(None),
     deployment_record_id: int | None = Form(None),
     serials: str = Form(""),          # comma/newline separated, tagged on upload
+    item_ids: str = Form(""),         # comma separated — for serial-less items
     tag_order_units: bool = Form(False),  # outbound: pre-tag the order's still-out units
     run_ocr: bool = Form(False),      # receive-page label OCR (supersedes /api/receive/photo)
     db: Session = Depends(get_db),
@@ -131,6 +132,14 @@ async def upload_unit_photo(
     db.flush()
 
     tagged = _tag_serials(db, photo, serials.replace("\n", ",").split(","))
+    for raw_id in item_ids.split(","):
+        raw_id = raw_id.strip()
+        if not raw_id.isdigit():
+            continue
+        item = db.query(Item).filter(Item.id == int(raw_id)).first()
+        if item and item.id not in {t.item_id for t in photo.items}:
+            db.add(UnitPhotoItem(photo_id=photo.id, item_id=item.id))
+            tagged.append({"item_id": item.id, "serial": item.item_sn})
     if tag_order_units and customer_order_id:
         # Outbound capture points pre-tag the order's still-out item-linked
         # units; the tag set stays adjustable afterwards.
@@ -258,6 +267,76 @@ async def hide_unit_photo(
               target_table="unit_photos", target_id=photo.id, action="delete",
               details=f"soft-hidden {photo.file_path}")
     return JSONResponse(content={"status": "hidden", "photo_id": photo.id})
+
+
+# ---------------------------------------------------------------------------
+# Dossier export
+# ---------------------------------------------------------------------------
+
+def _dossier_helpers():
+    """The item_detail query helpers, resolved lazily (no import cycle)."""
+    from .item_detail import (
+        _get_component_history, _get_containment,
+        _get_item_checkouts, _get_item_receipts,
+    )
+    return {
+        "components": _get_component_history,
+        "containment": _get_containment,
+        "checkouts": _get_item_checkouts,
+        "receipts": _get_item_receipts,
+    }
+
+
+@router.get("/items/{item_id}/dossier.pdf")
+def export_item_dossier(
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """One PDF: the unit's full story incl. photos (sensitive-composed)."""
+    from ..dossier import build_item_dossier_pdf
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return JSONResponse(status_code=404, content={"error": "Item not found"})
+    pdf = build_item_dossier_pdf(db, item, user, _dossier_helpers())
+    fname = f"dossier-{(item.item_sn or f'item-{item.id}').replace('/', '-')}.pdf"
+    import io
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(io.BytesIO(pdf), media_type="application/pdf",
+                             headers={"Content-Disposition": f'inline; filename="{fname}"'})
+
+
+@router.get("/orders/{order_id}/dossiers.zip")
+def export_order_dossiers(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """One dossier PDF per item-linked unit on the order, zipped."""
+    import io
+    import zipfile
+    from fastapi.responses import StreamingResponse
+    from ..dossier import build_item_dossier_pdf
+    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    if not order or (order.is_sensitive and not user.has_sensitive_customers_access):
+        return JSONResponse(status_code=404, content={"error": "Order not found"})
+    item_ids = [p.item_id for p in db.query(DeviceProvisioning).filter(
+        DeviceProvisioning.customer_order_id == order.id,
+        DeviceProvisioning.item_id.isnot(None)).all()]
+    items = db.query(Item).filter(Item.id.in_(sorted(set(item_ids)) or [0])).all()
+    if not items:
+        return JSONResponse(status_code=404, content={"error": "No item-linked units on this order"})
+    helpers = _dossier_helpers()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for item in items:
+            pdf = build_item_dossier_pdf(db, item, user, helpers)
+            name = (item.item_sn or f"item-{item.id}").replace("/", "-")
+            zf.writestr(f"dossier-{name}.pdf", pdf)
+    buf.seek(0)
+    fname = f"{order.order_number}-dossiers.zip"
+    return StreamingResponse(buf, media_type="application/zip",
+                             headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @router.delete("/api/photos/{photo_id}")

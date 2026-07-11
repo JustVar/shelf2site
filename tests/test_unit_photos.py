@@ -162,3 +162,103 @@ def test_gps_exif_is_stripped_on_save(editor_client, db):
     db.rollback()
     db.execute(sqltext("DELETE FROM unit_photos WHERE id = :p"), {"p": pid})
     db.commit()
+
+
+# ── dossier export ───────────────────────────────────────────────────────────
+
+def test_item_dossier_pdf_renders_with_photos(editor_client, photo_ctx):
+    up = _upload(editor_client, serials="CONTRACT-TEST-PH-1", caption="arrival shot")
+    assert up.status_code == 200, up.text
+    r = editor_client.get(f"/items/{photo_ctx['item_id']}/dossier.pdf")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/pdf")
+    assert r.content[:5] == b"%PDF-"
+    import fitz
+    doc = fitz.open(stream=r.content, filetype="pdf")
+    assert doc.page_count >= 2, "details page + photo page expected"
+    text = "".join(p.get_text() for p in doc)
+    assert "CONTRACT-TEST-PH-1" in text
+    assert "arrival shot" in text
+    doc.close()
+
+
+def test_dossier_masks_sensitive_photos_for_viewer(admin_client, viewer_client, db, photo_ctx):
+    up = _upload(admin_client, direction="outbound",
+                 customer_order_id=str(photo_ctx["order_id"]),
+                 serials="CONTRACT-TEST-PH-1", caption="SENSITIVE-SHOT")
+    assert up.status_code == 200, up.text
+    import fitz
+    priv = admin_client.get(f"/items/{photo_ctx['item_id']}/dossier.pdf")
+    dp = fitz.open(stream=priv.content, filetype="pdf")
+    assert "SENSITIVE-SHOT" in "".join(p.get_text() for p in dp)
+    dp.close()
+    pub = viewer_client.get(f"/items/{photo_ctx['item_id']}/dossier.pdf")
+    assert pub.status_code == 200
+    dv = fitz.open(stream=pub.content, filetype="pdf")
+    assert "SENSITIVE-SHOT" not in "".join(p.get_text() for p in dv)
+    dv.close()
+
+
+def test_order_dossiers_zip(admin_client, db, photo_ctx):
+    # link the item to a NON-sensitive order via provisioning, then export
+    order_id = db.execute(sqltext(
+        "INSERT INTO customer_orders (order_number, customer_name, order_type, status, is_sensitive) "
+        "VALUES ('AT-999903', 'CONTRACT-TEST Zip Corp', 'pilot', 'new', false) RETURNING id")).scalar()
+    db.execute(sqltext(
+        "INSERT INTO device_provisioning (device_table, device_id, item_id, customer_order_id, "
+        "current_stage, stages, is_complete) VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb, false)"),
+        {"i": photo_ctx["item_id"], "o": order_id})
+    db.commit()
+    try:
+        r = admin_client.get(f"/orders/{order_id}/dossiers.zip")
+        assert r.status_code == 200 and r.content[:2] == b"PK"
+        import io as _io
+        import zipfile as _zf
+        z = _zf.ZipFile(_io.BytesIO(r.content))
+        names = z.namelist()
+        assert names == ["dossier-CONTRACT-TEST-PH-1.pdf"]
+        assert z.read(names[0])[:5] == b"%PDF-"
+    finally:
+        db.rollback()
+        db.execute(sqltext("DELETE FROM device_provisioning WHERE customer_order_id = :o"), {"o": order_id})
+        db.execute(sqltext("DELETE FROM customer_orders WHERE id = :o"), {"o": order_id})
+        db.commit()
+
+
+def test_sensitive_order_page_now_gated(admin_client, db, photo_ctx):
+    """The /orders/{id} page previously had NO sensitive gate (board, panel,
+    map and export all did) — pinned closed as part of this slice. The gate
+    matters for users WITH provisioning view but WITHOUT sensitive access
+    (bare viewers already 403 at require_provisioning_viewer)."""
+    import secrets
+    import httpx
+    from app.auth import hash_password
+    from app.models import User
+    username = "contract-test-pv-photos"
+    password = "contract-test-" + secrets.token_urlsafe(12)
+    u = db.query(User).filter(User.username == username).first()
+    if u is None:
+        u = User(username=username, display_name="pv photos", role="viewer",
+                 password_hash=hash_password(password), is_active=True,
+                 must_change_password=False)
+        db.add(u)
+    else:
+        u.password_hash = hash_password(password); u.is_active = True
+    db.commit()
+    db.execute(sqltext(
+        "UPDATE users SET can_view_provisioning = 'grant' WHERE username = :u"),
+        {"u": username})
+    db.commit(); db.refresh(u)
+    c = httpx.Client(base_url="http://127.0.0.1:8081", timeout=30, follow_redirects=False)
+    try:
+        assert c.post("/login", data={"username": username, "password": password}).status_code == 302
+        r = c.get(f"/orders/{photo_ctx['order_id']}")
+        assert r.status_code == 303, f"sensitive order must mask as redirect, got {r.status_code}"
+        r = admin_client.get(f"/orders/{photo_ctx['order_id']}")
+        assert r.status_code == 200
+    finally:
+        c.close()
+        db.rollback()
+        db.execute(sqltext("DELETE FROM audit_log WHERE user_id = :i"), {"i": u.id})
+        db.execute(sqltext("DELETE FROM error_log WHERE user_id = :i"), {"i": u.id})
+        db.execute(sqltext("DELETE FROM users WHERE id = :i"), {"i": u.id})
+        db.commit()

@@ -418,6 +418,19 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/receive/scan` | POST | receiving access OR provisioning view (`require_scan_access`) | OK — fulfillment scan-to-find works for board viewers (F8); bare viewers 403 |
 | `/receive` | GET | receiving access | OK |
 
+### unit photos (shipment-photos slice)
+
+| Route | Methods | Required gate | Verdict / notes |
+|---|---|---|---|
+| `/api/photos` | POST | editor+ | OK — size/count caps, HEIC rejected, EXIF (incl GPS) stripped on save |
+| `/api/photos` | GET | any authenticated | OK — sensitive-order photos masked without sensitive-customer access; kiosk 403 via middleware |
+| `/api/photos/{id}/file`, `/thumb` | GET | any authenticated | OK — same sensitive masking; hidden photos 404 |
+| `/api/photos/{id}/tags` | POST | editor+ | OK — N:M retag |
+| `/api/photos/{id}/hide` | POST | editor+ | OK — soft delete, audited |
+| `/api/photos/{id}` | DELETE | admin | OK — hard delete, removes files |
+| `/items/{id}/dossier.pdf` | GET | any authenticated | OK — sensitive rows/photos omitted per user |
+| `/orders/{id}/dossiers.zip` | GET | any authenticated | OK — sensitive orders masked as 404 |
+
 ### search
 
 | Route | Methods | Required gate | Verdict / notes |

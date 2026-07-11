@@ -416,6 +416,25 @@ async function refreshEventPanel() {
     }
     status.innerHTML = html;
     lastEventState = ev;
+    loadEventPhotoStrip(ev.event_id);
+}
+
+/* Event photo thumbnails, appended under the checklist. */
+async function loadEventPhotoStrip(eventId) {
+    const status = document.getElementById('event-status');
+    try {
+        const resp = await fetch(`${BP}/api/photos?event_id=${eventId}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.photos || !data.photos.length || eventId !== currentEventId) return;
+        const strip = document.createElement('div');
+        strip.style.cssText = 'display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.5rem;';
+        strip.innerHTML = data.photos.map(p =>
+            '<a href="' + p.file_url + '" target="_blank" title="' + esc(p.caption || '') + '">' +
+            '<img src="' + p.thumb_url + '" loading="lazy" style="width:96px; height:72px; ' +
+            'object-fit:cover; border-radius:6px; border:1px solid var(--border,#444);"></a>').join('');
+        status.appendChild(strip);
+    } catch (e) { /* strip is best-effort */ }
 }
 
 let lastEventState = null;

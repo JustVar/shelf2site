@@ -17,8 +17,9 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
+    CustomerOrder, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
     ItemComponentHistory, ItemMaintenanceLog,
+    UnitPhoto, UnitPhotoItem, User as UserModel,
 )
 from ..locks import get_lock
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
@@ -37,6 +38,38 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+
+
+def _get_item_photos(db, item_id, user):
+    """Chronological unit photos for one item (shipment-photos slice).
+    Photos on sensitive orders are masked for non-privileged users — the
+    same composition the API and dossier apply."""
+    photos = (
+        db.query(UnitPhoto)
+        .join(UnitPhotoItem, UnitPhotoItem.photo_id == UnitPhoto.id)
+        .filter(UnitPhotoItem.item_id == item_id, UnitPhoto.is_hidden.is_(False))
+        .order_by(UnitPhoto.taken_at.asc(), UnitPhoto.id.asc())
+        .all()
+    )
+    visible = []
+    for p in photos:
+        if p.customer_order_id and not user.has_sensitive_customers_access:
+            o = db.query(CustomerOrder).filter(
+                CustomerOrder.id == p.customer_order_id).first()
+            if o and o.is_sensitive:
+                continue
+        visible.append(p)
+    names = {u.id: u.display_name for u in db.query(UserModel).filter(
+        UserModel.id.in_({p.uploaded_by for p in visible if p.uploaded_by} or {0})).all()}
+    return [{
+        "id": p.id,
+        "thumb_url": f"{BP}/api/photos/{p.id}/thumb",
+        "file_url": f"{BP}/api/photos/{p.id}/file",
+        "direction": p.direction,
+        "caption": p.caption,
+        "taken_at": p.taken_at,
+        "uploaded_by": names.get(p.uploaded_by),
+    } for p in visible]
 
 
 def _get_item_receipts(db, item_id):
@@ -184,6 +217,7 @@ def item_detail_page(
     maintenance = _get_maintenance_log(db, item_id)
     checkouts = _get_item_checkouts(db, item_id)
     containment = _get_containment(db, item)
+    photos = _get_item_photos(db, item_id, user)
     _parent_item = containment["parent"]["parent"] if containment["parent"] else None
     effective_location_id = _parent_item.location_id if _parent_item else item.location_id
 
@@ -203,6 +237,7 @@ def item_detail_page(
         "components": components,
         "maintenance": maintenance,
         "checkouts": checkouts,
+        "photos": photos,
         "is_checked_out": item.item_status == "Checked Out",
         "edit_mode": edit == "1",
         "existing_lock": existing_lock,
@@ -302,6 +337,7 @@ async def item_update(
             "components": components,
             "maintenance": maintenance,
             "checkouts": checkouts,
+            "photos": _get_item_photos(db, item_id, user),
             "is_checked_out": item.item_status == "Checked Out",
             "edit_mode": True,
             "existing_lock": None,
