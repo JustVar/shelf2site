@@ -170,22 +170,42 @@ async def dismiss_device(
     pending.reviewed_at = datetime.utcnow()
     pending.dismiss_reason = reason
 
-    # H15: the count was taken at submit time; a dismissed record was a scan
-    # mistake, not a received unit — give the count back (floor at zero, and
-    # reopen a count-based auto-complete since the count no longer stands).
+    # H15/H17: the count was taken at submit time; a dismissed record was a
+    # scan mistake, not a received unit — give EVERYTHING back: the event
+    # count, the event's SKU line, the OEM PO line (with its status), and
+    # the received_devices link itself.
     if pending.receiving_event_id:
-        from app.models import ReceivingEvent
+        from app.models import ReceivedDevice, ReceivingEvent
+        from app.po_matching import match_oem_lines, norm_sku
         event = db.query(ReceivingEvent).filter(
             ReceivingEvent.id == pending.receiving_event_id
         ).first()
         if event and (event.received_quantity or 0) > 0:
             event.received_quantity -= 1
-            if (
-                event.status == "complete"
-                and event.expected_quantity
-                and event.received_quantity < event.expected_quantity
-            ):
-                event.status = "open"
+            rd = db.query(ReceivedDevice).filter(
+                ReceivedDevice.pending_device_id == pending.id
+            ).first()
+            if rd:
+                if rd.line_id:
+                    for line in event.lines:
+                        if line.id == rd.line_id and (line.qty_received or 0) > 0:
+                            line.qty_received -= 1
+                if rd.sku:
+                    for row in match_oem_lines(db, event.purchase_order):
+                        if norm_sku(row.sku) == norm_sku(rd.sku) and (row.qty_received or 0) > 0:
+                            row.qty_received -= 1
+                            if row.status == "verified" and row.qty_received < (row.qty_ordered or 0):
+                                row.status = "receiving"
+                            break
+                db.delete(rd)
+            if event.status == "complete":
+                # the auto-complete this unit contributed to no longer stands
+                lines = event.lines or []
+                if lines:
+                    if not all((l.qty_received or 0) >= (l.qty_expected or 0) for l in lines):
+                        event.status = "open"
+                elif event.expected_quantity and event.received_quantity < event.expected_quantity:
+                    event.status = "open"
 
     db.commit()
 

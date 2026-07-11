@@ -23,6 +23,7 @@ def oem_po(db):
         "DELETE FROM item_schema.receipt_items WHERE item_id IN "
         "(SELECT id FROM item_schema.items WHERE item_sn LIKE 'CONTRACT-TEST-H16%')"))
     db.execute(sqltext("DELETE FROM item_schema.items WHERE item_sn LIKE 'CONTRACT-TEST-H16%'"))
+    db.execute(sqltext("DELETE FROM pending_devices WHERE serial LIKE 'CONTRACT-TEST-H16%'"))
     db.execute(sqltext("DELETE FROM receiving_events WHERE vendor LIKE 'CONTRACT-TEST-H16%'"))
     db.execute(sqltext("DELETE FROM oem_purchase_orders WHERE id = ANY(:i)"), {"i": ids})
     db.commit()
@@ -93,3 +94,109 @@ def test_intake_with_unknown_sku_never_blocks(admin_client, db, oem_po):
         "direct_to_inventory": True, "receiving_event_id": ev})
     assert r.status_code == 200, r.text
     assert _oem(db, oem_po[0])[0] == 0 and _oem(db, oem_po[1])[0] == 0
+
+
+# ── H17: event lines, received_devices, check-off, tracking auto-select ─────
+
+def test_event_create_snapshots_po_lines(admin_client, db, oem_po):
+    ev = admin_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H16", "purchase_order": "CT H16 PO 1",
+        "tracking_number": "1Z999AA10100000001"}).json()["event_id"]
+    got = admin_client.get(f"/api/receive/events/{ev}").json()
+    assert got["tracking_number"] == "1Z999AA10100000001"
+    lines = {l["sku"]: l for l in got["lines"]}
+    assert lines["PVA-100-30NR"]["qty_expected"] == 2
+    assert lines["EDGE-2000"]["qty_expected"] == 1
+    assert all(l["state"] == "open" for l in got["lines"])
+
+
+def test_intake_checks_off_lines_and_links_received_devices(admin_client, db, oem_po):
+    ev = admin_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H16", "purchase_order": "CT H16 PO 1"}).json()["event_id"]
+
+    r = admin_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H16-L1", "target_table": "edge_boxes",
+        "part_number": "PVA-100-30NR",
+        "direct_to_inventory": True, "receiving_event_id": ev})
+    assert r.status_code == 200, r.text
+    item_id = r.json()["device_id"]
+
+    got = admin_client.get(f"/api/receive/events/{ev}").json()
+    line = next(l for l in got["lines"] if l["sku"] == "PVA-100-30NR")
+    assert line["qty_received"] == 1 and line["state"] == "open"
+
+    db.commit()
+    rd = db.execute(sqltext(
+        "SELECT item_id, sku, line_id FROM received_devices WHERE receiving_event_id = :e"),
+        {"e": ev}).fetchone()
+    assert rd is not None and rd[0] == item_id and rd[1] == "PVA-100-30NR" and rd[2] is not None
+
+
+def test_pending_intake_syncs_and_dismiss_gives_everything_back(admin_client, db, oem_po):
+    ev = admin_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H16", "purchase_order": "CT H16 PO 1"}).json()["event_id"]
+    r = admin_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H16-L2", "target_table": "edge_boxes",
+        "part_number": "EDGE-2000",
+        "direct_to_inventory": False, "receiving_event_id": ev})
+    assert r.status_code == 200 and r.json()["status"] == "pending_review", r.text
+    pending_id = r.json()["pending_id"]
+
+    got = admin_client.get(f"/api/receive/events/{ev}").json()
+    line = next(l for l in got["lines"] if l["sku"] == "EDGE-2000")
+    assert line["qty_received"] == 1 and line["state"] == "full"
+    assert _oem(db, oem_po[1])[0] == 1, "pending intake ticks the OEM line too"
+
+    r = admin_client.post(f"/api/pending/{pending_id}/dismiss", json={"reason": "mistake"})
+    assert r.status_code in (200, 303), r.text
+    got = admin_client.get(f"/api/receive/events/{ev}").json()
+    line = next(l for l in got["lines"] if l["sku"] == "EDGE-2000")
+    assert line["qty_received"] == 0
+    assert _oem(db, oem_po[1])[0] == 0, "dismiss reverses the OEM tick"
+    db.commit()
+    assert db.execute(sqltext(
+        "SELECT count(*) FROM received_devices WHERE pending_device_id = :p"),
+        {"p": pending_id}).scalar() == 0
+
+
+def test_lines_autocomplete_and_short_close(admin_client, db, oem_po):
+    ev = admin_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H16", "purchase_order": "CT H16 PO 1"}).json()["event_id"]
+    # fill only the EDGE-2000 line (1 of 1); PVA line stays 0 of 2
+    r = admin_client.post("/api/receive/device", json={
+        "serial": "CONTRACT-TEST-H16-L3", "target_table": "edge_boxes",
+        "part_number": "EDGE-2000",
+        "direct_to_inventory": True, "receiving_event_id": ev})
+    assert r.status_code == 200, r.text
+    got = admin_client.get(f"/api/receive/events/{ev}").json()
+    assert got["status"] == "open", "one short line must hold auto-complete back"
+
+    closed = admin_client.post(f"/api/receive/events/{ev}/close").json()
+    assert closed["status"] == "partial"
+    states = {l["sku"]: l["state"] for l in closed["lines"]}
+    assert states["PVA-100-30NR"] == "short" and states["EDGE-2000"] == "full"
+
+
+def test_over_receipt_flags_over(admin_client, db, oem_po):
+    ev = admin_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H16", "purchase_order": "CT H16 PO 1"}).json()["event_id"]
+    for i in (1, 2):
+        r = admin_client.post("/api/receive/device", json={
+            "serial": f"CONTRACT-TEST-H16-O{i}", "target_table": "edge_boxes",
+            "part_number": "EDGE-2000",
+            "direct_to_inventory": True, "receiving_event_id": ev})
+        assert r.status_code == 200, r.text
+    got = admin_client.get(f"/api/receive/events/{ev}").json()
+    line = next(l for l in got["lines"] if l["sku"] == "EDGE-2000")
+    assert line["qty_received"] == 2 and line["state"] == "over"
+
+
+def test_tracking_scan_selects_the_event(admin_client, db, oem_po):
+    ev = admin_client.post("/api/receive/events", json={
+        "vendor": "CONTRACT-TEST-H16", "purchase_order": "CT H16 PO 1",
+        "tracking_number": "1Z999AA10100000077"}).json()["event_id"]
+    r = admin_client.post("/api/receive/scan", json={"barcode": "1z999aa10100000077"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["event_id"] == ev
+    assert "event selected" in body["guidance"]

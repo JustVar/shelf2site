@@ -974,6 +974,17 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                         <span style="color:var(--text-muted);font-style:italic;">{{ po.notes|truncate(60) }}</span>
                     </div>
                     {% endif %}
+                    {% if po.recv_events %}
+                    {# H17: linked receiving events, read-only — reconciliation
+                       supplements the board's manual editing, never fights it. #}
+                    <div class="o-owner" style="margin-bottom:8px;">
+                        {{ fl_icon('clipboard-check', 'mute', 13) }}
+                        <span style="color:var(--text-muted);">Received:
+                        {% for ev in po.recv_events -%}
+                            event #{{ ev.id }} ({{ ev.received }}/{{ ev.expected or '?' }}, {{ ev.status }}){{ ", " if not loop.last }}
+                        {%- endfor %}</span>
+                    </div>
+                    {% endif %}
                     <div class="fl-ofoot">
                         <span class="o-owner">{{ fl_icon('user', 'mute', 14) }}<span>{{ po.customer_name or 'No Customer' }}</span></span>
                         {% if user and user.has_provisioning_manage %}

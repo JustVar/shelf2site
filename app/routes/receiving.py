@@ -17,12 +17,13 @@ from ..database import get_db
 from ..models import (
     AccessControl, Camera, CustomerOrder, EdgeBox, IntakePhoto, Item,
     ItemPartNumber, NASDevice, NASDrive, NUC, OUIAllowlist, PendingDevice,
-    ReceivingEvent, Site, TABLE_MODELS, TABLE_DISPLAY_NAMES, User,
+    ReceivedDevice, ReceivingEvent, ReceivingEventLine, Site,
+    TABLE_MODELS, TABLE_DISPLAY_NAMES, User,
     compute_completeness, user_can_approve_table,
 )
 from sqlalchemy.exc import IntegrityError
 
-from ..po_matching import match_oem_lines, oem_line_summary, sync_oem_receipt
+from ..po_matching import match_oem_lines, norm_sku, oem_line_summary, sync_oem_receipt
 from ..scan_routing import classify, mac_from_bare_hex, preprocess
 from ..validation import normalize_mac, validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
 from ..vendor_defaults import lookup_by_serial_prefix
@@ -231,17 +232,41 @@ def receive_page(
 # ---------------------------------------------------------------------------
 
 def _maybe_autocomplete(event: ReceivingEvent) -> None:
-    """H15: auto-complete an open event when the count reaches expectation.
-
-    Caller commits. (The lines-aware refinement arrives with H17 — when
-    event lines exist they take precedence over the flat count.)
-    """
-    if (
-        event.status == "open"
-        and event.expected_quantity
-        and (event.received_quantity or 0) >= event.expected_quantity
-    ):
+    """H15/H17: auto-complete an open event when expectation is met — every
+    line full when SKU lines exist, else the flat count. Caller commits."""
+    if event.status != "open":
+        return
+    lines = event.lines or []
+    if lines:
+        if all((l.qty_received or 0) >= (l.qty_expected or 0) for l in lines):
+            event.status = "complete"
+    elif event.expected_quantity and (event.received_quantity or 0) >= event.expected_quantity:
         event.status = "complete"
+
+
+def _line_for_sku(event: ReceivingEvent, unit_sku: str | None):
+    key = norm_sku(unit_sku)
+    if not key:
+        return None
+    for line in (event.lines or []):
+        if norm_sku(line.sku) == key:
+            return line
+    return None
+
+
+def _record_received_unit(db, event, unit_sku, serial, item_id=None, pending_device_id=None):
+    """H17: one received_devices row per intaken unit + tick its SKU line."""
+    line = _line_for_sku(event, unit_sku)
+    if line is not None:
+        line.qty_received = (line.qty_received or 0) + 1
+    db.add(ReceivedDevice(
+        receiving_event_id=event.id,
+        line_id=line.id if line is not None else None,
+        item_id=item_id,
+        pending_device_id=pending_device_id,
+        serial=serial,
+        sku=(unit_sku or "").strip() or None,
+    ))
 
 
 @router.post("/api/receive/events")
@@ -267,11 +292,21 @@ async def create_receiving_event(
     event = ReceivingEvent(
         vendor=(body.get("vendor") or "").strip() or None,
         purchase_order=po_text,
+        tracking_number=(body.get("tracking_number") or "").strip() or None,
         expected_quantity=expected,
         notes=(body.get("notes") or "").strip() or None,
         created_by=user.id,
     )
     db.add(event)
+    db.flush()
+    # H17: snapshot the PO's outstanding SKU lines as this shipment's
+    # check-off expectations (event-local; later OEM edits don't rewrite
+    # an in-flight shipment's checklist).
+    for r in oem_rows:
+        outstanding = max((r.qty_ordered or 0) - (r.qty_received or 0), 0)
+        db.add(ReceivingEventLine(
+            receiving_event_id=event.id, sku=r.sku, qty_expected=outstanding,
+        ))
     db.commit()
     db.refresh(event)
 
@@ -296,17 +331,38 @@ async def create_receiving_event(
     })
 
 
+def _line_state(line: ReceivingEventLine, closed: bool) -> str:
+    got, want = line.qty_received or 0, line.qty_expected or 0
+    if got > want:
+        return "over"
+    if got >= want:
+        return "full"
+    return "short" if closed else "open"
+
+
 def _event_payload(db: Session, event: ReceivingEvent) -> dict:
     oem_rows = match_oem_lines(db, event.purchase_order)
+    closed = event.status != "open"
     return {
         "event_id": event.id,
         "vendor": event.vendor,
         "purchase_order": event.purchase_order,
+        "tracking_number": event.tracking_number,
         "expected_quantity": event.expected_quantity,
         "received_quantity": event.received_quantity or 0,
         "status": event.status,
         "po_matched": bool(oem_rows),
         "po_lines": oem_line_summary(oem_rows),
+        "lines": [
+            {
+                "id": l.id,
+                "sku": l.sku,
+                "qty_expected": l.qty_expected or 0,
+                "qty_received": l.qty_received or 0,
+                "state": _line_state(l, closed),
+            }
+            for l in (event.lines or [])
+        ],
     }
 
 
@@ -345,7 +401,12 @@ async def close_receiving_event(
         return JSONResponse(content={**_event_payload(db, event), "already_closed": True})
 
     received = event.received_quantity or 0
-    complete = bool(event.expected_quantity) and received >= event.expected_quantity
+    lines = event.lines or []
+    if lines:
+        # H17: with SKU lines the verdict is per-line, not the flat count.
+        complete = all((l.qty_received or 0) >= (l.qty_expected or 0) for l in lines)
+    else:
+        complete = bool(event.expected_quantity) and received >= event.expected_quantity
     event.status = "complete" if complete else "partial"
     db.commit()
 
@@ -469,6 +530,21 @@ def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
         return miss("UUID not linked to any unit — scan the serial instead.")
 
     if cls == "tracking":
+        # H17: an inbound label that matches a receiving event's tracking
+        # number selects that event — the scan IS the shipment arriving.
+        ev = (
+            db.query(ReceivingEvent)
+            .filter(func.lower(ReceivingEvent.tracking_number) == low)
+            .order_by((ReceivingEvent.status == "open").desc(), ReceivingEvent.id.desc())
+            .first()
+        )
+        if ev:
+            return {
+                "status": "recognized", "class": cls, "serial": value, "prefill": {},
+                "event_id": ev.id,
+                "guidance": f"Inbound shipment for receiving event #{ev.id} "
+                            f"({ev.vendor or 'Unknown vendor'}) — event selected.",
+            }
         item = db.query(Item).filter(func.lower(Item.tracking_number) == low).first()
         if item:
             payload = _item_found(db, item, "tracking")
@@ -572,6 +648,19 @@ def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
             payload.update({"status": "already_exists", "class": cls,
                             "matched_on": "serial"})
             return payload
+        ev = (
+            db.query(ReceivingEvent)
+            .filter(func.lower(ReceivingEvent.tracking_number) == low)
+            .order_by((ReceivingEvent.status == "open").desc(), ReceivingEvent.id.desc())
+            .first()
+        )
+        if ev:
+            return {
+                "status": "recognized", "class": cls, "serial": value, "prefill": {},
+                "event_id": ev.id,
+                "guidance": f"Inbound shipment for receiving event #{ev.id} "
+                            f"({ev.vendor or 'Unknown vendor'}) — event selected.",
+            }
         item = db.query(Item).filter(func.lower(Item.tracking_number) == low).first()
         if item:
             payload = _item_found(db, item, "tracking")
@@ -816,14 +905,13 @@ async def submit_device(
             )
             if event:
                 event.received_quantity = (event.received_quantity or 0) + 1
+                # H16/H17: tick the event's SKU line + the matching OEM PO
+                # line, record the unit↔event link. Never blocks: no match,
+                # no SKU, no PO — all silent no-ops.
+                unit_sku = part_number or brand_sku
+                _record_received_unit(db, event, unit_sku, serial, item_id=item.id)
+                sync_oem_receipt(db, event.purchase_order, unit_sku)
                 _maybe_autocomplete(event)
-                # H16: a received unit with a known SKU ticks the matching
-                # OEM PO line and advances its status. Never blocks: no
-                # match, no SKU, no PO — all silent no-ops. (The pending
-                # path syncs via received_devices in H17, where the SKU is
-                # recorded and dismissal can give the count back.)
-                sync_oem_receipt(db, event.purchase_order,
-                                 part_number or brand_sku)
             db.commit()
         except IntegrityError:
             db.rollback()
@@ -883,6 +971,11 @@ async def submit_device(
     # (double-count) and dismiss gives the count back (pending.py).
     if pending_event:
         pending_event.received_quantity = (pending_event.received_quantity or 0) + 1
+        db.flush()  # pending.id for the received_devices link
+        unit_sku = (body.get("part_number") or "").strip() or None
+        _record_received_unit(db, pending_event, unit_sku, serial,
+                              pending_device_id=pending.id)
+        sync_oem_receipt(db, pending_event.purchase_order, unit_sku)
         _maybe_autocomplete(pending_event)
     try:
         db.commit()

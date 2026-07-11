@@ -333,6 +333,7 @@ class ReceivingEvent(Base):
     received_date = Column(DateTime, server_default=func.now())
     vendor = Column(String(255), nullable=True)
     purchase_order = Column(String(64), nullable=True)
+    tracking_number = Column(String(128), nullable=True)  # inbound shipment (H17, migration 068)
     expected_quantity = Column(Integer, nullable=True)
     received_quantity = Column(Integer, default=0)
     status = Column(String(32), default="open")  # open | complete | partial
@@ -340,6 +341,40 @@ class ReceivingEvent(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    lines = relationship("ReceivingEventLine", back_populates="event",
+                         cascade="all, delete-orphan", order_by="ReceivingEventLine.id")
+
+
+class ReceivingEventLine(Base):
+    """Per-SKU expectation for ONE shipment (H17, migration 068) — snapshotted
+    from the matched OEM PO's outstanding lines at event-create time."""
+    __tablename__ = "receiving_event_lines"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    receiving_event_id = Column(Integer, ForeignKey("receiving_events.id", ondelete="CASCADE"), nullable=False)
+    sku = Column(String(128), nullable=False)
+    qty_expected = Column(Integer, nullable=False, default=0)
+    qty_received = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+    event = relationship("ReceivingEvent", back_populates="lines")
+
+
+class ReceivedDevice(Base):
+    """Polymorphic unit↔event link (H17, migration 068): one row per intaken
+    unit — item_id for direct intakes, pending_device_id for the review
+    queue. Replaces sprinkling receiving_event_id over 15+ legacy tables."""
+    __tablename__ = "received_devices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    receiving_event_id = Column(Integer, ForeignKey("receiving_events.id", ondelete="CASCADE"), nullable=False)
+    line_id = Column(Integer, ForeignKey("receiving_event_lines.id", ondelete="SET NULL"), nullable=True)
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)
+    pending_device_id = Column(Integer, ForeignKey("pending_devices.id", ondelete="SET NULL"), nullable=True)
+    serial = Column(String(512), nullable=True)
+    sku = Column(String(128), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 # ---------------------------------------------------------------------------

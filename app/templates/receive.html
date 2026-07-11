@@ -53,13 +53,17 @@
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label for="event-qty">Expected Qty</label>
-                <input type="number" id="event-qty" value="1" min="1">
+                <label for="event-qty">Expected Qty <span style="color:var(--text-muted); font-weight:normal;">(auto-filled from a matched PO)</span></label>
+                <input type="number" id="event-qty" min="1" placeholder="auto">
             </div>
             <div class="form-group">
-                <label for="event-notes">Notes</label>
-                <input type="text" id="event-notes" placeholder="Optional">
+                <label for="event-tracking">Inbound Tracking #</label>
+                <input type="text" id="event-tracking" placeholder="1Z… — scanning this label selects the event">
             </div>
+        </div>
+        <div class="form-group">
+            <label for="event-notes">Notes</label>
+            <input type="text" id="event-notes" placeholder="Optional">
         </div>
         <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
     </div>
@@ -288,6 +292,22 @@
     </div>
 </div>
 
+{# H17: closing an event with incomplete lines gets a short-summary confirm #}
+<div class="modal-overlay" id="close-event-modal" style="display: none;">
+    <div class="modal">
+        <h3 style="color: var(--warning); margin-bottom: 1rem;">Close event with missing units?</h3>
+        <div id="close-event-summary" style="margin-bottom: 1rem; line-height: 1.6;"></div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+            The event will be recorded as <strong>partial</strong>. You can keep receiving
+            against the PO on a new event when the rest of the shipment arrives.
+        </p>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="cancelCloseEvent()">Keep receiving</button>
+            <button class="btn btn-danger" onclick="doCloseEvent()">Close as partial</button>
+        </div>
+    </div>
+</div>
+
 </div><!-- /receive-mode -->
 
 
@@ -352,9 +372,25 @@ async function refreshEventPanel() {
         html += ' <button class="btn btn-sm" onclick="closeEvent()" style="font-size:0.75rem; padding:0.15rem 0.5rem;">Close event</button>';
     }
 
-    // H16: PO reconciliation panel — what this shipment is expected to
-    // contain, straight from the matched OEM PO's SKU lines.
-    if (ev.po_matched && ev.po_lines && ev.po_lines.length) {
+    // H17: the check-off panel — this shipment's own SKU lines with live
+    // progress. SHORT only means something once the event is closed; OVER
+    // is always worth seeing.
+    if (ev.lines && ev.lines.length) {
+        html += '<div style="margin-top:0.5rem; font-size:0.82rem;">' +
+            '<div style="color:var(--text-muted); margin-bottom:0.25rem;">Checklist for PO ' + esc(ev.purchase_order) + ':</div>' +
+            ev.lines.map(l => {
+                let badge = '';
+                if (l.state === 'over') badge = '<span class="rcv-badge rcv-badge--over">OVER</span>';
+                else if (l.state === 'short') badge = '<span class="rcv-badge rcv-badge--short">SHORT</span>';
+                else if (l.state === 'full') badge = '<span class="rcv-badge rcv-badge--full">✓</span>';
+                return '<div style="display:flex; align-items:center; gap:0.6rem; padding:2px 0;">' +
+                    '<span style="font-family:monospace; min-width:150px;">' + esc(l.sku) + '</span>' +
+                    '<span>' + esc(l.qty_received) + ' of ' + esc(l.qty_expected) + '</span>' +
+                    badge + '</div>';
+            }).join('') +
+            '</div>';
+    } else if (ev.po_matched && ev.po_lines && ev.po_lines.length) {
+        // H16 fallback (event predates line snapshots): show the PO's lines.
         html += '<div style="margin-top:0.5rem; font-size:0.82rem;">' +
             '<div style="color:var(--text-muted); margin-bottom:0.25rem;">Expected on PO ' + esc(ev.purchase_order) + ':</div>' +
             ev.po_lines.map(l =>
@@ -369,10 +405,33 @@ async function refreshEventPanel() {
             'No PO match for "' + esc(ev.purchase_order) + '" — free-text is fine.</div>';
     }
     status.innerHTML = html;
+    lastEventState = ev;
 }
 
-async function closeEvent() {
+let lastEventState = null;
+
+function closeEvent() {
     if (!currentEventId) return;
+    // H17: incomplete lines get a short-summary confirm before closing.
+    const ev = lastEventState;
+    const shortLines = (ev && ev.lines || []).filter(l => (l.qty_received || 0) < (l.qty_expected || 0));
+    if (shortLines.length) {
+        document.getElementById('close-event-summary').innerHTML =
+            shortLines.map(l => '<div style="padding:2px 0;"><span style="font-family:monospace;">' +
+                esc(l.sku) + '</span> — ' + esc(l.qty_received) + ' of ' + esc(l.qty_expected) +
+                ' received <span class="rcv-badge rcv-badge--short">SHORT</span></div>').join('');
+        document.getElementById('close-event-modal').style.display = 'flex';
+        return;
+    }
+    doCloseEvent();
+}
+
+function cancelCloseEvent() {
+    document.getElementById('close-event-modal').style.display = 'none';
+}
+
+async function doCloseEvent() {
+    cancelCloseEvent();
     const status = document.getElementById('event-status');
     try {
         const resp = await fetch(`${BP}/api/receive/events/${currentEventId}/close`, { method: 'POST' });
@@ -395,6 +454,7 @@ async function createEvent() {
     const body = {
         vendor: document.getElementById('event-vendor').value,
         purchase_order: document.getElementById('event-po').value,
+        tracking_number: document.getElementById('event-tracking').value,
         expected_quantity: parseInt(document.getElementById('event-qty').value) || null,
         notes: document.getElementById('event-notes').value,
     };
@@ -618,6 +678,16 @@ async function manualQuickLookup(serial) {
         return;
     }
 
+    if (data.event_id) {
+        const sel = document.getElementById('event-select');
+        sel.value = String(data.event_id);
+        currentEventId = data.event_id;
+        refreshEventPanel();
+        result.innerHTML = skippedNote +
+            '<div class="alert alert-success">' + esc(data.guidance || 'Receiving event selected.') + '</div>';
+        return;
+    }
+
     if (data.status === 'already_exists') {
         const link = (data.table === 'items' && data.device_id)
             ? ' <a href="' + BP + '/items/' + data.device_id + '">View item →</a>' : '';
@@ -712,6 +782,18 @@ async function processBarcode(barcode) {
         // recognized" (audit F12), and nothing writes undefined into fields.
         result.innerHTML = '<div class="alert alert-danger">Lookup failed: ' + esc(e.message) +
             '. The scan was not processed — try again or fill in manually.</div>';
+        return;
+    }
+
+    // H17: a tracking label that matches an event's inbound tracking number
+    // selects that event — the scan IS the shipment arriving.
+    if (data.event_id) {
+        const sel = document.getElementById('event-select');
+        sel.value = String(data.event_id);
+        currentEventId = data.event_id;
+        document.getElementById('new-event-form').style.display = 'none';
+        refreshEventPanel();
+        result.innerHTML = '<div class="alert alert-success">' + esc(data.guidance || 'Receiving event selected.') + '</div>';
         return;
     }
 

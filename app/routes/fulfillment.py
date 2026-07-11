@@ -430,11 +430,26 @@ def fulfillment_page(
         OEMPurchaseOrder.expected_delivery.asc().nullslast()
     ).all()
 
+    # H17: receiving events linked to each PO (matched by normalized PO
+    # text — reconciliation is text-based, never an FK). Read-only on the
+    # OEM card; the board's manual editing is untouched.
+    from ..models import ReceivingEvent
+    from ..po_matching import norm_po
+    _events_by_po: dict[str, list] = {}
+    for ev in db.query(ReceivingEvent).filter(ReceivingEvent.purchase_order.isnot(None)).all():
+        _events_by_po.setdefault(norm_po(ev.purchase_order), []).append({
+            "id": ev.id,
+            "received": ev.received_quantity or 0,
+            "expected": ev.expected_quantity,
+            "status": ev.status,
+        })
+
     # Group into status columns for the OEM board
     oem_columns: dict[str, list] = {s: [] for s in OEMPurchaseOrder.OEM_STATUSES}
     for po in oem_pos:
         status = po.status if po.status in oem_columns else "ordered"
         oem_columns[status].append({
+            "recv_events": _events_by_po.get(norm_po(po.po_number), []) if po.po_number else [],
             "id": po.id,
             "vendor_name": po.vendor_name,
             "po_number": po.po_number,

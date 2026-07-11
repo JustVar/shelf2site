@@ -463,3 +463,12 @@
 .input-success {
     border-color: var(--success) !important;
 }
+
+/* ── H17: reconciliation check-off badges (pilots-status pill language) ── */
+.rcv-badge {
+    display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+}
+.rcv-badge--short { color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); }
+.rcv-badge--over  { color: var(--fl-red, #ef4444);   background: rgba(239,68,68,0.12);  border: 1px solid rgba(239,68,68,0.3); }
+.rcv-badge--full  { color: var(--fl-green, #01b574); background: rgba(1,181,116,0.12);  border: 1px solid rgba(1,181,116,0.3); }
