@@ -89,8 +89,11 @@ async def approve_device(
     new_device.data_completeness = compute_completeness(new_device)
     db.add(new_device)
 
-    # Auto-add OUI to allowlist if not present
-    if pending.mac_address:
+    # Auto-add OUI to allowlist if not present. The intake-<serial>
+    # placeholder is a NOT NULL hack, not a MAC — feeding it to the OUI
+    # lookup raised InvalidMacError and 500'd the approval of every
+    # scan-intake pending row (pre-existing, surfaced by the H15 tests).
+    if pending.mac_address and not pending.mac_address.startswith("intake-"):
         from app.oui_utils import auto_add_oui
         auto_add_oui(
             db,
@@ -104,15 +107,9 @@ async def approve_device(
     pending.reviewed_by = user.id
     pending.reviewed_at = datetime.utcnow()
 
-    # H3: approval is the receive moment for pending units — count it toward
-    # the receiving event (the submit path doesn't increment for pending).
-    if pending.receiving_event_id:
-        from app.models import ReceivingEvent
-        event = db.query(ReceivingEvent).filter(
-            ReceivingEvent.id == pending.receiving_event_id
-        ).first()
-        if event:
-            event.received_quantity = (event.received_quantity or 0) + 1
+    # H15 (supersedes the H3 approve-time count): receiving counts at SUBMIT
+    # time — the unit physically arrived when it was scanned, not when a
+    # reviewer clicked approve. Incrementing here again would double-count.
 
     db.commit()
     db.refresh(new_device)
@@ -172,6 +169,24 @@ async def dismiss_device(
     pending.reviewed_by = user.id
     pending.reviewed_at = datetime.utcnow()
     pending.dismiss_reason = reason
+
+    # H15: the count was taken at submit time; a dismissed record was a scan
+    # mistake, not a received unit — give the count back (floor at zero, and
+    # reopen a count-based auto-complete since the count no longer stands).
+    if pending.receiving_event_id:
+        from app.models import ReceivingEvent
+        event = db.query(ReceivingEvent).filter(
+            ReceivingEvent.id == pending.receiving_event_id
+        ).first()
+        if event and (event.received_quantity or 0) > 0:
+            event.received_quantity -= 1
+            if (
+                event.status == "complete"
+                and event.expected_quantity
+                and event.received_quantity < event.expected_quantity
+            ):
+                event.status = "open"
+
     db.commit()
 
     log_event(

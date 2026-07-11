@@ -229,6 +229,20 @@ def receive_page(
 # Receiving event API
 # ---------------------------------------------------------------------------
 
+def _maybe_autocomplete(event: ReceivingEvent) -> None:
+    """H15: auto-complete an open event when the count reaches expectation.
+
+    Caller commits. (The lines-aware refinement arrives with H17 — when
+    event lines exist they take precedence over the flat count.)
+    """
+    if (
+        event.status == "open"
+        and event.expected_quantity
+        and (event.received_quantity or 0) >= event.expected_quantity
+    ):
+        event.status = "complete"
+
+
 @router.post("/api/receive/events")
 async def create_receiving_event(
     request: Request,
@@ -264,6 +278,67 @@ async def create_receiving_event(
         "vendor": event.vendor,
         "purchase_order": event.purchase_order,
     })
+
+
+def _event_payload(event: ReceivingEvent) -> dict:
+    return {
+        "event_id": event.id,
+        "vendor": event.vendor,
+        "purchase_order": event.purchase_order,
+        "expected_quantity": event.expected_quantity,
+        "received_quantity": event.received_quantity or 0,
+        "status": event.status,
+    }
+
+
+@router.get("/api/receive/events/{event_id}")
+def get_receiving_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_receiving_access),
+):
+    """Current state of one receiving event — the receive page's event panel."""
+    event = db.query(ReceivingEvent).filter(ReceivingEvent.id == event_id).first()
+    if not event:
+        return JSONResponse(status_code=404, content={"error": "Event not found"})
+    return JSONResponse(content=_event_payload(event))
+
+
+@router.post("/api/receive/events/{event_id}/close")
+async def close_receiving_event(
+    event_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_receiving_access),
+):
+    """Close a receiving event (H15): 'complete' when the received count met
+    the expectation, else 'partial'. The open|complete|partial vocabulary
+    existed from day one but nothing ever wrote the closed states (audit F14).
+
+    PO provenance decision (H15): no per-device PO column — direct intakes
+    already carry the PO on their item receipts (H2), and pending units link
+    through received_devices (H17). The event stays the single PO source.
+    """
+    event = db.query(ReceivingEvent).filter(ReceivingEvent.id == event_id).first()
+    if not event:
+        return JSONResponse(status_code=404, content={"error": "Event not found"})
+    if event.status != "open":
+        return JSONResponse(content={**_event_payload(event), "already_closed": True})
+
+    received = event.received_quantity or 0
+    complete = bool(event.expected_quantity) and received >= event.expected_quantity
+    event.status = "complete" if complete else "partial"
+    db.commit()
+
+    log_event(
+        db, "receiving_event_closed",
+        request=request, user_id=user.id,
+        target_table="receiving_events", target_id=event.id,
+        action="update",
+        details=f"Closed receiving event #{event.id} as {event.status} "
+                f"({received}/{event.expected_quantity or '?'} received)",
+    )
+    return JSONResponse(content=_event_payload(event))
 
 
 # ---------------------------------------------------------------------------
@@ -722,6 +797,7 @@ async def submit_device(
             )
             if event:
                 event.received_quantity = (event.received_quantity or 0) + 1
+                _maybe_autocomplete(event)
             db.commit()
         except IntegrityError:
             db.rollback()
@@ -757,9 +833,12 @@ async def submit_device(
 
     # Route to pending review queue. H3: preserve everything the scan knew —
     # serial/model/notes/event linkage used to be silently discarded here.
-    if event_id and not db.query(ReceivingEvent.id).filter(
-            ReceivingEvent.id == event_id).first():
-        event_id = None  # a stale event id must not fail the insert
+    pending_event = None
+    if event_id:
+        pending_event = db.query(ReceivingEvent).filter(
+            ReceivingEvent.id == event_id).first()
+        if not pending_event:
+            event_id = None  # a stale event id must not fail the insert
     pending = PendingDevice(
         mac_address=body.get("mac_address") or body.get("mac_address_1") or f"intake-{serial}",
         hostname=None,  # Hostname is for network-discovered devices only
@@ -773,6 +852,12 @@ async def submit_device(
         receiving_event_id=event_id,
     )
     db.add(pending)
+    # H15: receiving counts at SUBMIT time for BOTH paths — a pending unit
+    # has physically arrived at the dock. Approve no longer increments
+    # (double-count) and dismiss gives the count back (pending.py).
+    if pending_event:
+        pending_event.received_quantity = (pending_event.received_quantity or 0) + 1
+        _maybe_autocomplete(pending_event)
     try:
         db.commit()
     except IntegrityError:

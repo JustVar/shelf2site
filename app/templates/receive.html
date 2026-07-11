@@ -320,12 +320,52 @@ function onEventSelect() {
         form.style.display = 'none';
         currentEventId = sel.value ? parseInt(sel.value) : null;
         if (currentEventId) {
-            status.style.display = 'block';
-            status.innerHTML = '<span class="badge badge-info">Event #' + currentEventId + ' selected</span>';
+            refreshEventPanel();
         } else {
             status.style.display = 'none';
         }
     }
+}
+
+/* H15: the event panel shows live state and offers Close — the
+   open|complete|partial lifecycle finally has a UI. */
+async function refreshEventPanel() {
+    if (!currentEventId) return;
+    const status = document.getElementById('event-status');
+    status.style.display = 'block';
+    let ev;
+    try {
+        const resp = await fetch(`${BP}/api/receive/events/${currentEventId}`);
+        ev = await resp.json();
+        if (!resp.ok) throw new Error(ev.error || `HTTP ${resp.status}`);
+    } catch (e) {
+        status.innerHTML = '<span class="badge badge-danger">Could not load event: ' + esc(e.message) + '</span>';
+        return;
+    }
+    const cls = ev.status === 'complete' ? 'badge-success'
+              : ev.status === 'partial' ? 'badge-warning' : 'badge-info';
+    let html = '<span class="badge ' + cls + '">Event #' + esc(ev.event_id) +
+        ' — ' + esc(ev.vendor || 'Unknown') +
+        ' · ' + esc(ev.received_quantity) + '/' + esc(ev.expected_quantity == null ? '?' : ev.expected_quantity) +
+        ' · ' + esc(ev.status) + '</span>';
+    if (ev.status === 'open') {
+        html += ' <button class="btn btn-sm" onclick="closeEvent()" style="font-size:0.75rem; padding:0.15rem 0.5rem;">Close event</button>';
+    }
+    status.innerHTML = html;
+}
+
+async function closeEvent() {
+    if (!currentEventId) return;
+    const status = document.getElementById('event-status');
+    try {
+        const resp = await fetch(`${BP}/api/receive/events/${currentEventId}/close`, { method: 'POST' });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+    } catch (e) {
+        status.innerHTML = '<span class="badge badge-danger">Close failed: ' + esc(e.message) + '</span>';
+        return;
+    }
+    refreshEventPanel();
 }
 
 /* Escape scanned/server strings before they touch innerHTML — intake scans
@@ -493,6 +533,7 @@ async function submitQuickIntake(barcode, prefill) {
             `<span class="scanner-toast-serial">${esc(barcode)}</span> added to inventory`,
             'success'
         );
+        refreshEventPanel();
     } else {
         const err = await submitResp.json().catch(() => ({}));
         receiveScanner.showToast(
@@ -613,6 +654,7 @@ async function manualQuickConfirm() {
         if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
         result.innerHTML = '<div class="alert alert-success"><strong>' + esc(p.serial) +
             '</strong> added. Scan the next one.</div>';
+        refreshEventPanel();
     } catch (e) {
         result.innerHTML = '<div class="alert alert-danger"><strong>' + esc(p.serial) +
             '</strong> was NOT added: ' + esc(e.message) + '</div>';
@@ -1123,6 +1165,7 @@ async function submitDevice() {
             ctmNewItemId = offer ? data.device_id : null;
         }
         banner.scrollIntoView({ behavior: 'smooth' });
+        refreshEventPanel();
     } else {
         // 200 with an unrecognized body — say so instead of silently
         // re-enabling the button (audit F12).
