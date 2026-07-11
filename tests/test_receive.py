@@ -155,13 +155,14 @@ def cleanup_h2(db):
     db.commit()
 
 
-def test_direct_intake_lands_in_item_schema(editor_client, db, cleanup_h2):
+def test_direct_intake_lands_in_item_schema(admin_client, db, cleanup_h2):
     """Audit F2: direct-to-inventory used to write legacy public.* rows that
-    the Inventory page and Global Search never see."""
-    ev = editor_client.post("/api/receive/events", json={
+    the Inventory page and Global Search never see. Uses admin: direct intake
+    into edge_boxes is approval-gated since H14 (F9)."""
+    ev = admin_client.post("/api/receive/events", json={
         "vendor": "CONTRACT-TEST-H2", "purchase_order": "CT-H2-PO", "expected_quantity": 1,
     }).json()
-    r = editor_client.post("/api/receive/device", json={
+    r = admin_client.post("/api/receive/device", json={
         "serial": "CONTRACT-TEST-H2-1",
         "manufacturer": "ContractTestCo",
         "model": "Model-X",

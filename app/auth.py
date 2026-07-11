@@ -272,6 +272,18 @@ def require_receiving_access(user: User = Depends(get_current_user)) -> User:
     )
 
 
+def require_scan_access(user: User = Depends(get_current_user)) -> User:
+    """Barcode lookup (/api/receive/scan): receiving users AND fulfillment
+    board users may scan-to-find (H14). Bare viewers may not — the lookup
+    reveals table/location/status per serial (the F15 enumeration oracle)."""
+    if user.has_receiving_access or user.has_provisioning_view:
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="This feature requires Receiving or Fulfillment access. Contact your administrator.",
+    )
+
+
 def require_disposal_access(user: User = Depends(get_current_user)) -> User:
     """Grants access if user is editor+ or has can_access_disposal flag."""
     if user.has_disposal_access:

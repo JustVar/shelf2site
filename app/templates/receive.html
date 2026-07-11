@@ -87,9 +87,20 @@
     </div>
     <div class="manual-entry">
         <div class="form-group" style="flex:1;">
-            <label for="manual-serial">Or enter serial manually</label>
-            <input type="text" id="manual-serial" placeholder="Type or paste serial number"
-                   onkeydown="if(event.key==='Enter')processManualSerial()">
+            <label for="manual-serial">Or enter serial manually / scan with a USB scanner</label>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="text" id="manual-serial" placeholder="Type, paste, or wedge-scan a serial" autofocus
+                       onkeydown="if(event.key==='Enter'){event.preventDefault(); processManualSerial();}"
+                       onfocus="wedgeReadyIndicator(true)" onblur="wedgeReadyIndicator(false)"
+                       style="flex:1;">
+                {# H10: a wedge scanner types into whichever field has focus —
+                   this dot makes "ready to scan" visible from across a bench. #}
+                <span id="wedge-ready" title="When green, a USB scanner trigger-pull lands here"
+                      style="display:inline-flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">
+                    <span id="wedge-ready-dot" style="width:10px; height:10px; border-radius:50%; background:var(--text-muted); opacity:0.4;"></span>
+                    <span id="wedge-ready-label">Click the box to arm scanning</span>
+                </span>
+            </div>
         </div>
         <button class="btn" onclick="processManualSerial()">Look Up</button>
     </div>
@@ -491,9 +502,137 @@ async function submitQuickIntake(barcode, prefill) {
     }
 }
 
+function wedgeReadyIndicator(armed) {
+    const dot = document.getElementById('wedge-ready-dot');
+    const label = document.getElementById('wedge-ready-label');
+    if (!dot || !label) return;
+    dot.style.background = armed ? 'var(--fl-green, #01b574)' : 'var(--text-muted)';
+    dot.style.opacity = armed ? '1' : '0.4';
+    label.textContent = armed ? 'Ready to scan' : 'Click the box to arm scanning';
+}
+
+/* H10 wedge loop: every cycle CLEARS and REFOCUSES the input, so the next
+   trigger-pull never concatenates onto the last serial (SER1SER2 corruption).
+   With Quick Mode checked, Enter runs the quick intake path — the wedge gets
+   the same scan → confirm → next loop the camera has, no camera required. */
 function processManualSerial() {
-    const serial = document.getElementById('manual-serial').value.trim();
-    if (serial) processBarcode(serial);
+    const input = document.getElementById('manual-serial');
+    const serial = input.value.trim();
+    input.value = '';
+    input.focus();
+    if (!serial) return;
+    if (document.getElementById('quick-mode-cb').checked) {
+        manualQuickLookup(serial);
+    } else {
+        processBarcode(serial);
+    }
+}
+
+let manualQuickPending = null;
+
+/* Quick intake without the camera overlay: results render in #scan-result
+   (scanner toasts only exist inside the camera overlay). */
+async function manualQuickLookup(serial) {
+    const result = document.getElementById('scan-result');
+    result.style.display = 'block';
+
+    // A new scan visibly abandons an unconfirmed one (same H6 rule as camera).
+    let skippedNote = '';
+    if (manualQuickPending && manualQuickPending.serial !== serial) {
+        skippedNote = '<div class="alert alert-warning">Skipped <strong>' +
+            esc(manualQuickPending.serial) + '</strong> (not confirmed)</div>';
+        manualQuickPending = null;
+    }
+    result.innerHTML = skippedNote +
+        '<div class="alert alert-info">Looking up: <strong>' + esc(serial) + '</strong>...</div>';
+
+    let data;
+    try {
+        const resp = await fetch(`${BP}/api/receive/scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ barcode: serial, receiving_event_id: currentEventId }),
+        });
+        data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+    } catch (e) {
+        result.innerHTML = skippedNote +
+            '<div class="alert alert-danger">Lookup failed: ' + esc(e.message) + ' — scan again.</div>';
+        return;
+    }
+
+    if (data.status === 'already_exists') {
+        const link = (data.table === 'items' && data.device_id)
+            ? ' <a href="' + BP + '/items/' + data.device_id + '">View item →</a>' : '';
+        result.innerHTML = skippedNote + '<div class="alert alert-info"><strong>' + esc(serial) +
+            '</strong> already in ' + esc(data.display_table) + '.' + link + ' Scan the next one.</div>';
+        return;
+    }
+
+    if (data.status === 'recognized' && data.prefill) {
+        manualQuickPending = { serial: data.serial, prefill: data.prefill };
+        result.innerHTML = skippedNote + '<div class="alert alert-success"><strong>' + esc(data.serial) +
+            '</strong> recognized as ' + esc(data.prefill.manufacturer || 'device') +
+            ' — <button class="btn btn-sm" onclick="manualQuickConfirm()">Add to inventory</button>' +
+            ' <button class="btn btn-sm" onclick="manualQuickSkip()">Skip</button></div>';
+        return;
+    }
+
+    // Unknown — drop out of the quick loop into the full form (same as camera).
+    processBarcode(serial);
+}
+
+async function manualQuickConfirm() {
+    const p = manualQuickPending;
+    manualQuickPending = null;
+    if (!p) return;
+    const result = document.getElementById('scan-result');
+    const body = {
+        serial: p.serial,
+        manufacturer: p.prefill.manufacturer || '',
+        model: p.prefill.model || '',
+        target_table: p.prefill.target_table || 'edge_boxes',
+        location: '',
+        status: 'Pending',
+        notes: 'Quick-scan intake (wedge)',
+        mac_address: null,
+        direct_to_inventory: true,
+        receiving_event_id: currentEventId,
+    };
+    if (p.prefill.target_table === 'nas_devices') {
+        body.bay_count = p.prefill.bay_count || null;
+        body.ram_gb = p.prefill.ram_gb || null;
+    }
+    try {
+        const resp = await fetch(`${BP}/api/receive/device`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
+        result.innerHTML = '<div class="alert alert-success"><strong>' + esc(p.serial) +
+            '</strong> added. Scan the next one.</div>';
+    } catch (e) {
+        result.innerHTML = '<div class="alert alert-danger"><strong>' + esc(p.serial) +
+            '</strong> was NOT added: ' + esc(e.message) + '</div>';
+    }
+    const input = document.getElementById('manual-serial');
+    input.value = '';
+    input.focus();
+}
+
+function manualQuickSkip() {
+    const p = manualQuickPending;
+    manualQuickPending = null;
+    const result = document.getElementById('scan-result');
+    if (p) {
+        result.innerHTML = '<div class="alert alert-warning">Skipped <strong>' +
+            esc(p.serial) + '</strong>.</div>';
+    }
+    const input = document.getElementById('manual-serial');
+    input.value = '';
+    input.focus();
 }
 
 async function processBarcode(barcode) {
@@ -1099,6 +1238,8 @@ function scanAnother() {
     const submitBtn = document.querySelector('.btn-submit');
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Device'; }
     document.getElementById('step-scan').scrollIntoView({ behavior: 'smooth' });
+    // H10: re-arm the wedge loop — next trigger-pull lands in a clean input.
+    document.getElementById('manual-serial').focus();
 }
 
 // Category pre-selection from ?category= query param

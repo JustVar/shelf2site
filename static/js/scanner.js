@@ -3,8 +3,9 @@
  * BarcodeScanner — reusable camera barcode scanner module.
  *
  * Uses the native BarcodeDetector API when available (Chrome Android/desktop,
- * iOS Safari 17.2+). Falls back to html5-qrcode (wraps zxing-js) loaded from
- * CDN for unsupported browsers (Firefox, older iOS).
+ * iOS Safari 17.2+). Falls back to html5-qrcode (wraps zxing-js) vendored at
+ * static/vendor/ for unsupported browsers (Firefox, older iOS) — the scan
+ * path never depends on a CDN (H12).
  *
  * Usage:
  *   const scanner = new BarcodeScanner('/inventory');
@@ -51,9 +52,11 @@ class BarcodeScanner {
   /** @type {number|null} */
   #toastTimer = null;
 
-  /** Barcode formats for native BarcodeDetector */
+  /** Barcode formats for native BarcodeDetector (H11: DataMatrix, ITF,
+   *  PDF417 and UPC-E added — vendor labels use all four). */
   static NATIVE_FORMATS = [
     'qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a',
+    'data_matrix', 'itf', 'pdf417', 'upc_e',
   ];
 
   /**
@@ -88,6 +91,9 @@ class BarcodeScanner {
    */
   async start(onResult, opts = {}) {
     if (this.#running) return;
+    // Claim the slot BEFORE any await — two rapid start() calls used to both
+    // pass the guard and stack two overlays (F17 double-start TOCTOU).
+    this.#running = true;
     this.#onResult = onResult;
     this.#showCounter = opts.showCounter ?? false;
     this.#scanCount = 0;
@@ -96,23 +102,44 @@ class BarcodeScanner {
     document.body.appendChild(/** @type {HTMLElement} */ (this.#overlay));
     document.body.style.overflow = 'hidden';
 
+    // Honest insecure-origin message: on http:// there is no mediaDevices at
+    // all — that is not "denied", it needs HTTPS (F17).
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      this.#showToast('Camera needs a secure (HTTPS) connection — use manual entry.', 'error');
+      setTimeout(() => this.stop(), 2500);
+      return;
+    }
+
     try {
       this.#stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
       });
     } catch (err) {
-      this.#showToast('Camera access denied. Use manual entry.', 'error');
-      setTimeout(() => this.stop(), 2000);
+      const name = err && err.name || '';
+      const msg = (name === 'NotFoundError' || name === 'DevicesNotFoundError' ||
+                   name === 'OverconstrainedError')
+        ? 'No camera found on this device — use manual entry.'
+        : (name === 'NotAllowedError' || name === 'PermissionDeniedError')
+          ? 'Camera access denied. Use manual entry.'
+          : 'Camera unavailable (' + (name || 'unknown error') + ') — use manual entry.';
+      this.#showToast(msg, 'error');
+      setTimeout(() => this.stop(), 2500);
       return;
     }
 
     if (this.#useNative) {
       this.#startNative();
     } else {
-      await this.#startFallback();
+      try {
+        await this.#startFallback();
+      } catch (err) {
+        // Engine load/start failure used to be an unhandled rejection with a
+        // dead overlay and no message (F17).
+        this.#showToast('Scanner engine failed to load — use manual entry.', 'error');
+        setTimeout(() => this.stop(), 2500);
+        return;
+      }
     }
-
-    this.#running = true;
   }
 
   /** Stop scanning and tear down the overlay. */
@@ -218,10 +245,11 @@ class BarcodeScanner {
       this.#stream = null;
     }
 
-    // Lazy-load html5-qrcode if not already loaded
+    // Lazy-load html5-qrcode if not already loaded — vendored locally
+    // (static/vendor), the scan path never depends on a CDN (H12).
     if (typeof Html5Qrcode === 'undefined') {
       await this.#loadScript(
-        'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+        this.#basePath + '/static/vendor/html5-qrcode.min.js'
       );
     }
 
@@ -257,6 +285,15 @@ class BarcodeScanner {
           Html5QrcodeSupportedFormats.EAN_8,
           // @ts-ignore
           Html5QrcodeSupportedFormats.UPC_A,
+          // H11: same four extra formats as the native engine
+          // @ts-ignore
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
+          // @ts-ignore
+          Html5QrcodeSupportedFormats.ITF,
+          // @ts-ignore
+          Html5QrcodeSupportedFormats.PDF_417,
+          // @ts-ignore
+          Html5QrcodeSupportedFormats.UPC_E,
         ],
       },
       /** @param {string} decoded */

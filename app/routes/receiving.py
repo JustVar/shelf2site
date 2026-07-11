@@ -11,14 +11,14 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor, require_receiving_access
+from ..auth import get_current_user, require_editor, require_receiving_access, require_scan_access
 from ..config import settings
 from ..database import get_db
 from ..models import (
     AccessControl, Camera, CustomerOrder, EdgeBox, IntakePhoto, Item,
     ItemPartNumber, NASDevice, NASDrive, NUC, OUIAllowlist, PendingDevice,
     ReceivingEvent, Site, TABLE_MODELS, TABLE_DISPLAY_NAMES, User,
-    compute_completeness,
+    compute_completeness, user_can_approve_table,
 )
 from sqlalchemy.exc import IntegrityError
 
@@ -233,7 +233,7 @@ def receive_page(
 async def create_receiving_event(
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_editor),
+    user: User = Depends(require_receiving_access),
 ):
     """Create a new receiving event (shipment)."""
     body = await request.json()
@@ -517,7 +517,7 @@ def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
 async def process_scan(
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_editor),
+    user: User = Depends(require_scan_access),
 ):
     """Classify a scan via the §4 routing table, look it up, and answer with
     pre-fill data plus class-specific guidance. GS1-128 wrappers are unwrapped
@@ -555,9 +555,12 @@ async def process_scan(
 def check_duplicate_serial(
     serial: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_receiving_access),
 ):
-    """Check if a serial number already exists in any inventory table."""
+    """Check if a serial number already exists in any inventory table.
+
+    H14: was any-authenticated — a serial-enumeration oracle for bare
+    viewers (audit F15). Only the receive page calls it."""
     serial = serial.strip()
     if not serial:
         return JSONResponse(content={"exists": False})
@@ -577,9 +580,13 @@ def check_duplicate_serial(
 async def submit_device(
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_editor),
+    user: User = Depends(require_receiving_access),
 ):
-    """Submit a scanned device to inventory (direct) or pending review queue."""
+    """Submit a scanned device to inventory (direct) or pending review queue.
+
+    Flag-only receiving users can submit (their intake goes to the review
+    queue); direct-to-inventory is additionally gated per target table below
+    (F9) — same permission as approving the device out of the queue."""
     body = await request.json()
     target_table = body.get("target_table", "")
     serial = (body.get("serial") or "").strip()
@@ -629,6 +636,14 @@ async def submit_device(
         if not item_category:
             return JSONResponse(status_code=400, content={
                 "error": f"Unknown target category '{target_table}'",
+            })
+
+        # F9: skipping the review queue is an approval decision — gate it on
+        # the same permission approving this device out of pending requires.
+        if not user_can_approve_table(user, target_table):
+            return JSONResponse(status_code=403, content={
+                "error": "Adding this category directly to inventory needs approval rights — "
+                         "uncheck 'Add directly to inventory' and submit it to the review queue.",
             })
 
         item_status = _resolve_item_status(body.get("status"))
@@ -809,7 +824,7 @@ async def upload_photo(
     caption: str = Form(""),
     run_ocr: bool = Form(True),
     db: Session = Depends(get_db),
-    user: User = Depends(require_editor),
+    user: User = Depends(require_receiving_access),
 ):
     """Upload a label photo for a receiving event or device, with optional OCR."""
     allowed_types = {"image/jpeg", "image/png", "image/webp"}
@@ -887,7 +902,9 @@ async def upload_photo(
 def serve_photo(
     photo_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # H14/F15: intake photos were served to ANY authenticated session by
+    # sequential id — now receiving users only.
+    user: User = Depends(require_receiving_access),
 ):
     """Serve an intake photo by ID."""
     photo = db.query(IntakePhoto).filter(IntakePhoto.id == photo_id).first()

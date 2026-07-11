@@ -472,9 +472,10 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         </div>
         {% endif %}
 
-        {% if user and user.is_editor_or_above %}
-        {# Gated to the roles the scan API accepts — view-only board users used
-           to get a false "not in inventory" because their scans 403'd (F8). #}
+        {# H14: /api/receive/scan accepts provisioning viewers now, so every
+           board user can scan-to-find — the F8 false "not in inventory" for
+           view-only users is gone endpoint-side. #}
+        {% if user and (user.has_receiving_access or user.has_provisioning_view) %}
         <button class="fl-btn" onclick="scanToFind()" title="Scan barcode to find device">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             Scan
