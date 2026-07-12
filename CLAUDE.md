@@ -5,10 +5,11 @@
 - **Host:** `apphost` (Ubuntu 24.04, 466 GB root LV)
 - **LAN IP:** `192.0.2.10` (current, post network migration on 2026-05-01)
 - **Prior IP:** `192.0.2.5` (pre 2026-05-01 — historical references in commits and notes)
-- **App URL:** `http://192.0.2.10:8100/assettracker/`
+- **App URL:** `https://192.0.2.10:8443/assettracker/` (HTTPS front door). `http://192.0.2.10:8100/assettracker/` still works — it 301-redirects to HTTPS. See `docs/HTTPS.md`.
+- **HTTPS:** host nginx terminates TLS on `:8443` (443 is held by the docker registry). mkcert CA + leaf under `/etc/ssl/asset-tracker/` (off-repo); leaf SANs `192.0.2.10`/`apphost`, expires 2028-10-12, CA 2036-07-12. Secure cookie is set per-request from scheme (`SecureSessionCookieMiddleware`) — keep `HTTPS_ONLY=false` or the in-container contract suite breaks. Devices install `LAN-CA.crt` (see `docs/CA_CERT_DISTRIBUTION.md`).
 - **Stack:** Docker Compose at `/opt/asset_tracker/`
 - **Containers:** `asset_tracker_db` (postgres:16) + `asset_tracker_app` (gunicorn / 6 uvicorn workers)
-- **Gunicorn config:** 6 workers (`uvicorn.workers.UvicornWorker`), bound to `127.0.0.1:8081`, fronted by host nginx on `:8100`.
+- **Gunicorn config:** 6 workers (`uvicorn.workers.UvicornWorker`), bound to `127.0.0.1:8081`, fronted by host nginx (`:8443` HTTPS, `:8100` HTTP→HTTPS redirect).
 - **App network:** docker bridge `asset_tracker_asset_tracker_net` (containers resolve each other as `db` and `app`)
 
 ### Storage layout (apphost)

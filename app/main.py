@@ -362,6 +362,48 @@ async def auth_redirect_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+class SecureSessionCookieMiddleware:
+    """Add the Secure attribute to the session cookie on HTTPS requests only.
+
+    We keep this DYNAMIC (decided per request from the scheme) rather than a
+    static ``https_only`` flag on SessionMiddleware. The in-container contract
+    suite drives the app over plain http://127.0.0.1:8081, and httpx refuses to
+    send a Secure cookie back over an http origin — a static Secure flag would
+    silently log every fixture out. In production nginx terminates TLS on :8443
+    and forwards ``X-Forwarded-Proto: https``; uvicorn runs with
+    ``--forwarded-allow-ips=*`` so ``scope['scheme']`` reads 'https' and we add
+    the flag. Over plain http the cookie stays non-Secure and the suite passes.
+
+    Registered AFTER SessionMiddleware so it is the outermost middleware and its
+    send hook runs last — after SessionMiddleware has appended Set-Cookie.
+    """
+
+    def __init__(self, app, cookie_name: str):
+        self.app = app
+        self._prefix = (cookie_name + "=").encode("latin-1")
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http" or scope.get("scheme") != "https":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = message.get("headers")
+                if headers:
+                    message["headers"] = [
+                        (k, v + b"; Secure")
+                        if (k.lower() == b"set-cookie"
+                            and v.startswith(self._prefix)
+                            and b"secure" not in v.lower())
+                        else (k, v)
+                        for k, v in headers
+                    ]
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
 # Session middleware — added AFTER auth middleware so it processes requests FIRST
 # (Starlette middleware stack is LIFO: last added = outermost = runs first)
 app.add_middleware(
@@ -372,6 +414,10 @@ app.add_middleware(
     same_site="lax",
     https_only=settings.HTTPS_ONLY,  # True when behind Cloudflare/HTTPS; False for LAN HTTP & tests
 )
+
+# Outermost middleware: promote the session cookie to Secure on HTTPS requests.
+# See SecureSessionCookieMiddleware — must be added after SessionMiddleware.
+app.add_middleware(SecureSessionCookieMiddleware, cookie_name="inventory_session")
 
 
 # Exception handlers for better UX

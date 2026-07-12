@@ -1,9 +1,10 @@
 # LAN Certificate — Installation Guide
 
-> **Note:** HTTPS is not yet enabled on apphost — the app currently
-> serves over HTTP at http://192.0.2.10:8100/assettracker/. This guide
-> applies once HTTPS (LAN CA) is set up; the https:// URLs below are
-> the intended endpoints for that future state.
+> **Status:** HTTPS is live on apphost at
+> **https://192.0.2.10:8443/assettracker/**. The old HTTP address
+> (http://192.0.2.10:8100/assettracker/) still works — it now redirects
+> to the HTTPS one, so existing bookmarks are fine. Operator/setup
+> details are in HTTPS.md; this guide is the end-user install.
 
 ## Message to send to team members
 
@@ -17,9 +18,9 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 
 **What it is:** A private certificate that tells your browser "this internal Company server is trusted." Without it, your browser will show a security warning when you visit the site. It only applies to the company's internal server — it has no effect on any other website you visit.
 
-**Why it's needed:** The app runs on HTTPS (encrypted), which is required for it to be installable as an app on your desktop or phone. The certificate is what makes that encryption work.
+**Why it's needed:** The app runs on HTTPS, which your phone and computer require before they'll allow the camera and let the app install to your home screen / desktop. The connection is encrypted either way — installing this certificate is what removes the browser's "not secure" warning so you get a clean lock icon instead of a warning page.
 
-**The URL after setup:** `https://192.0.2.10/assettracker/`
+**The URL after setup:** `https://192.0.2.10:8443/assettracker/`
 
 ---
 
@@ -53,7 +54,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
    **"The import was successful"** — click OK
 
 3. **Fully quit Chrome** — close ALL Chrome windows, then check the system tray (bottom-right corner) for a Chrome icon and right-click → Exit. Chrome must be completely closed, not just the tab.
-4. Reopen Chrome and go to `https://192.0.2.10/assettracker/` — you should see a **lock icon (🔒)** to the left of the address bar and no warning page. Chrome no longer shows a green padlock — the gray lock icon means the connection is secure and trusted.
+4. Reopen Chrome and go to `https://192.0.2.10:8443/assettracker/` — you should see a **lock icon (🔒)** to the left of the address bar and no warning page. Chrome no longer shows a green padlock — the gray lock icon means the connection is secure and trusted.
 
    > **Still seeing a warning page?** Open a new Chrome tab, go to `chrome://certificate-manager/` → Trusted Root Certification Authorities tab → search for **Company**. If it's not listed, repeat the import steps above.
 
@@ -66,7 +67,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 3. Expand **Trust** → set **"When using this certificate"** to **Always Trust**
 4. Close the window and enter your Mac password when prompted
 5. Restart Chrome
-6. Go to `https://192.0.2.10/assettracker/` — lock icon (🔒) in the address bar, no warning
+6. Go to `https://192.0.2.10:8443/assettracker/` — lock icon (🔒) in the address bar, no warning
 
 ---
 
@@ -80,7 +81,7 @@ Both Safari and Chrome on iOS use the same system certificate store, so one inst
 4. Tap the **LAN CA** profile → tap **Install** → enter your passcode → **Install** again
 5. Go to **Settings → General → About → Certificate Trust Settings**
 6. Find **LAN CA** and toggle it **ON**
-7. Open Safari or Chrome and go to `https://192.0.2.10/assettracker/`
+7. Open Safari or Chrome and go to `https://192.0.2.10:8443/assettracker/`
 
 ---
 
@@ -107,7 +108,7 @@ Both Safari and Chrome on iOS use the same system certificate store, so one inst
 
 ## Renewal
 
-The certificate expires **May 26, 2028**. End users do not need to do anything at renewal — only the server needs updating. Your device trust step is permanent.
+The server certificate expires **October 12, 2028**, and the trust certificate you install (the CA) is valid until **July 12, 2036**. End users do not need to do anything when the server certificate is renewed — only the server is updated. Your device trust step lasts until the CA itself is replaced (2036).
 
 ---
 
