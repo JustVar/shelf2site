@@ -253,9 +253,14 @@ class TourEngine {
 
         const waitSelector = step.wait_for || step.target;
         const _foundEl = document.querySelector(waitSelector);
+        // Horizontal check: vertical off-screen is fixable by scrolling, but
+        // an element fully off-screen horizontally (e.g. the mobile nav
+        // drawer parked at translateX(-102%)) can never be scrolled to.
+        const _fr = _foundEl && _foundEl.getBoundingClientRect();
         const _isVisible = _foundEl &&
             getComputedStyle(_foundEl).display !== 'none' &&
-            _foundEl.getBoundingClientRect().width > 0;
+            _fr.width > 0 &&
+            _fr.right > 0 && _fr.left < window.innerWidth;
         // When wait_for differs from target, resolve to the actual target element
         const targetEl = _isVisible
             ? (step.wait_for && step.target !== step.wait_for

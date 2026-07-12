@@ -244,7 +244,7 @@
 </div>
 
 <!-- Linked Provisioning Records -->
-<div class="table-section" style="margin-bottom:1.5rem;">
+<div class="table-section" id="prov-section" style="margin-bottom:1.5rem;">
     <h2>Linked Provisioning Records</h2>
     {% if prov_records %}
     <table class="data-table" style="margin-top:0.75rem;">
@@ -297,7 +297,7 @@
 </div>
 
 <!-- Unit Photos (shipment-photos slice) -->
-<div class="table-section" style="margin-bottom:1.5rem;">
+<div class="table-section" id="unit-photos-section" style="margin-bottom:1.5rem;">
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
         <h2 style="margin:0;">Unit Photos</h2>
         <a class="btn btn-sm" href="{{ base_path }}/orders/{{ order.id }}/dossiers.zip"

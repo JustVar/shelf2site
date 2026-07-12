@@ -25,6 +25,72 @@ from typing import Optional
 
 TOURS: list[dict] = [
     # ------------------------------------------------------------------
+    # Navigating the App (all users, every page)
+    # Placed FIRST: page_pattern "*" matches everywhere and checkAndAutoStart
+    # picks the first incomplete tour in list order, so a fresh user meets
+    # the chrome before any page tour. map_kiosk never sees it (the /api
+    # middleware 403s tour fetches for kiosk sessions).
+    # ------------------------------------------------------------------
+    {
+        "id": "nav_tour",
+        "name": "Navigating the App",
+        "page_pattern": "*",
+        "template": "base.html",
+        "description": "The sidebar, flyout, theme toggle, and where to find these tours",
+        "required_access": None,
+        "enabled": True,
+        "group": "onboarding",
+        "steps": [
+            {
+                "target": ".sx-nav__header-expanded .sx-nav__toggle-btn",
+                "title": "The Navigation Rail",
+                "description": (
+                    "Collapse the rail to icons with this toggle — everything "
+                    "stays one click away."
+                ),
+                "position": "right",
+                # Hidden when the rail is already collapsed (auto-collapse
+                # under 1200px or stored preference) and on phones.
+                "optional": True,
+            },
+            {
+                "target": '.sx-nav__section[data-section="admin"] .sx-nav__section-header',
+                "title": "Grouped Pages",
+                "description": (
+                    "Sections with sub-pages expand from their header — inline "
+                    "when the rail is open, as a flyout when it's collapsed. "
+                    "No page jump either way."
+                ),
+                "position": "right",
+                # Admin is the only grouped section and renders only for
+                # users with an admin-ish permission.
+                "optional": True,
+            },
+            {
+                "target": "#theme-toggle",
+                "title": "Light or Dark",
+                "description": (
+                    "Switch themes any time — every page supports both, and "
+                    "your choice sticks across sessions."
+                ),
+                "position": "right",
+                "optional": True,
+            },
+            {
+                "target": "#help-tours-btn",
+                "title": "Guided Tours Live Here",
+                "description": (
+                    "This button opens the tour catalog from any page — "
+                    'including a "Tour This Page" shortcut whenever the page '
+                    "you're on has one."
+                ),
+                "position": "right",
+                "optional": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
     # Dashboard (all users)
     # ------------------------------------------------------------------
     {
@@ -905,6 +971,8 @@ TOURS: list[dict] = [
     # (.arch-toggle is gone; replaced by .arch-head in the live DOM)
     # is left as-is so the revamp owns the rewrite end-to-end.
     # enabled=False protects users from launching the stale tour.
+    # SUPERSEDED 2026-07-12 by fulfillment_board_tour (new key per policy —
+    # keys are never reused). Kept disabled for the record.
     {
         "id": "orders_tour",
         "name": "Fulfillment",
@@ -1202,6 +1270,8 @@ TOURS: list[dict] = [
     # order_detail.html but were not browser-verified live (no order to load).
     # Re-enable as part of the fulfillment revamp once /orders is in real use.
     # enabled=False protects users from launching the unproven tour.
+    # SUPERSEDED 2026-07-12 by order_page_tour (new key per policy —
+    # keys are never reused). Kept disabled for the record.
     {
         "id": "order_detail_tour",
         "name": "Order Detail",
@@ -2027,6 +2097,444 @@ TOURS: list[dict] = [
             },
         ],
     },
+    # ==================================================================
+    # COMMIT-4 tours (2026-07-12) — copy approved via chat review;
+    # deviations from the approved outlines are template-truth fixes,
+    # each recorded in the commit message.
+    # ==================================================================
+
+    # ------------------------------------------------------------------
+    # Deployment Map (map access; kiosk excluded by the /api middleware)
+    # NOTE: the sidebar link to /map/ is currently commented out in
+    # base.html — the launcher's Start button is the discoverable path.
+    # ------------------------------------------------------------------
+    {
+        "id": "map_tour",
+        "name": "Deployment Map",
+        "page_pattern": "/map",
+        "template": "map.html",
+        "description": "The live unit map — color modes, click-to-filter charts, and visibility curation",
+        "required_access": "has_map_access",
+        "enabled": True,
+        "group": "operations",
+        "steps": [
+            {
+                # #map is absolutely positioned inside this layout parent;
+                # anchoring the parent measures reliably.
+                "target": ".mp-maparea",
+                "title": "The Live Map",
+                "description": (
+                    "Every deployed unit, colored by the mode you pick in the "
+                    "rail. Dots cluster when you zoom out; click any dot for "
+                    "its details. Units hidden by curation or on sensitive "
+                    "orders don't appear."
+                ),
+                "position": "left",
+                "optional": True,
+            },
+            {
+                "title": "Three Levels of Visibility",
+                "description": (
+                    "Editors can hide a single unit, a whole site, or an "
+                    "entire customer from a dot's popup — hiding a site "
+                    "removes every unit there, hiding a customer removes all "
+                    "of theirs. Units on sensitive orders are hidden "
+                    "automatically for accounts without sensitive access."
+                ),
+                "center": True,
+                "optional": True,
+            },
+            {
+                "target": "#mp-mode",
+                "title": "Color Units By",
+                "description": (
+                    "Switch what the colors mean: Deal Type, Unit Type, or "
+                    "Status. The legend follows the mode, and your pick is "
+                    "remembered."
+                ),
+                "position": "right",
+                "optional": True,
+            },
+            {
+                "target": "#mp-deal-bars",
+                "title": "Charts That Filter",
+                "description": (
+                    "These bars aren't just a chart — click one to hide that "
+                    "deal type from the map, click again to bring it back. "
+                    "Filtered rows dim so you can see what's excluded."
+                ),
+                "position": "right",
+                "optional": True,
+            },
+            {
+                "title": "What a Dot Tells You",
+                "description": (
+                    "Clicking a dot opens a popup with the customer and site, "
+                    "the unit and its serial, a deal badge, status, deployed "
+                    "and due-back dates, and a link to the full item page."
+                ),
+                "center": True,
+                "optional": True,
+            },
+            {
+                "title": "Built for the Lobby Too",
+                "description": (
+                    "A dedicated kiosk role can show this map on a wall "
+                    "display: it stays signed in, can pan and filter, but "
+                    "can't change data or leave the map."
+                ),
+                "center": True,
+                "optional": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Item Detail (all users) — merged containment + photos + dossier
+    # Wildcard pattern: the launcher shows an "open any item first" hint
+    # instead of a Start button; the tour anchors read-mode sections.
+    # ------------------------------------------------------------------
+    {
+        "id": "item_detail_tour",
+        "name": "Item Detail",
+        "page_pattern": "/items/*",
+        "template": "item_detail.html",
+        "description": "One item's full story — status, components, photos, custody, and its dossier",
+        "required_access": None,
+        "enabled": True,
+        "group": "inventory",
+        "steps": [
+            {
+                "target": ".dtl-header",
+                "title": "The Item at a Glance",
+                "description": (
+                    "Name, category, and status chips up top. When a component "
+                    'is installed in a unit, an "Installed in" line appears '
+                    "here linking to its parent."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": "#components-card",
+                "title": "Components",
+                "description": (
+                    "Unit items — edge boxes, cloud boxes, C2C cameras, "
+                    "computers — carry a components card showing what's "
+                    "installed inside. Editors can install and remove "
+                    "components from here."
+                ),
+                "position": "top",
+                # Renders only for unit categories.
+                "optional": True,
+            },
+            {
+                "target": "#component-history-card",
+                "title": "Component History",
+                "description": (
+                    "Every install and removal, in both directions: parts "
+                    "that went into this item, and — for components — the "
+                    "units this item has been inside."
+                ),
+                "position": "top",
+                "optional": True,
+            },
+            {
+                "target": "#photos-card",
+                "title": "Unit Photos",
+                "description": (
+                    "Photos travel with the item — IN badges for arrival "
+                    "condition, OUT for how it left. They're captured at "
+                    "receiving, shipping, and deployment, and editors can add "
+                    "more here any time."
+                ),
+                "position": "top",
+                "optional": True,
+            },
+            {
+                "target": "#checkout-history-card",
+                "title": "Custody",
+                "description": (
+                    "Who has had this item and when it came back. A "
+                    '"currently checked out" chip appears while it\'s in '
+                    "someone's hands."
+                ),
+                "position": "top",
+                "optional": True,
+            },
+            {
+                "target": '#photos-card a[href$="dossier.pdf"]',
+                "title": "The Dossier",
+                "description": (
+                    "Export this item's full record — details, history, and "
+                    "photos — as a single PDF. Order pages have a matching "
+                    '"Export All Unit Dossiers" that zips one per unit.'
+                ),
+                "position": "top",
+                "optional": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Pilots Due Back (provisioning view)
+    # ------------------------------------------------------------------
+    {
+        "id": "pilots_due_back_tour",
+        "name": "Pilots Due Back",
+        "page_pattern": "/fulfillment/pilots-due-back",
+        "template": "pilots_due_back.html",
+        "description": "Loaner units in the field — what's out, what's overdue, and marking returns",
+        "required_access": "has_provisioning_view",
+        "enabled": True,
+        "group": "operations",
+        "steps": [
+            {
+                "target": ".pilots-header",
+                "title": "What Lands Here",
+                "description": (
+                    "Every pilot, try-and-buy, and demo order with units still "
+                    "in the field. An order drops off this page automatically "
+                    "once everything is back."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": ".pilots-header__counts",
+                "title": "Reading the Colors",
+                "description": (
+                    "Red means overdue — the expected return date has passed. "
+                    "Amber means due within a week. Everything else is simply "
+                    "on loan. The same tints mark each order's status chip "
+                    "below."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": ".pilots-list",
+                "title": "Exactly What's Still Out",
+                "description": (
+                    "Each card lists the serials still in the field. When a "
+                    "unit physically comes back through Receiving, mark it "
+                    "returned here so the loan record closes."
+                ),
+                "position": "top",
+                # Absent when nothing is out (empty state instead).
+                "optional": True,
+            },
+            {
+                "target": ".pilots-btn--all",
+                "title": "Everything Came Back",
+                "description": (
+                    "Mark All Returned closes out a whole order at once — "
+                    "you'll get a confirm first. The order disappears from "
+                    "this page the moment nothing is left outstanding."
+                ),
+                "position": "left",
+                "optional": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Fulfillment Board (provisioning view) — replaces orders_tour, whose
+    # key is retired (superseded def kept disabled above for the record).
+    # Includes the OEM reconciliation segment approved for "procurement":
+    # the PO cards with linked receiving events live HERE, not on
+    # /admin/procurement, so the three approved steps land here.
+    # ------------------------------------------------------------------
+    {
+        "id": "fulfillment_board_tour",
+        "name": "Fulfillment Board",
+        "page_pattern": "/fulfillment",
+        "template": "fulfillment.html",
+        "description": "Orders in flight — build pipeline, shipping, deployments, and the OEM PO board",
+        "required_access": "has_provisioning_view",
+        "enabled": True,
+        "group": "fulfillment",
+        "steps": [
+            {
+                "target": "#bld-tabs",
+                "title": "The Build Pipeline",
+                "description": (
+                    "Orders roll up into three lanes — Queued, In Progress, "
+                    "and Ready for Handoff. Click a lane to see just those "
+                    "cards; device-linked cards carry a five-dot build tracker."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": "#kanban-ih .fl-ocard:not(.o-hidden)",
+                "title": "An Order Card",
+                "description": (
+                    "Each card is one order: customer, what they're getting, "
+                    "and how far the build has come. Orders you're not "
+                    "cleared to see simply don't appear on this board."
+                ),
+                "position": "right",
+                "optional": True,
+            },
+            {
+                "target": "#tab-ship",
+                "wait_for": "#ap.open",
+                "wait_prompt": (
+                    "Open any order's panel — click <strong>Assign / Ship</strong> "
+                    "on a card — to continue, or skip this step."
+                ),
+                "title": "The Ship Pane",
+                "description": (
+                    "Shipping lives in this panel tab: carrier and tracking, "
+                    "or a direct transfer. Editors can attach outbound photos "
+                    "here — they follow each unit onto its item page and into "
+                    "its dossier."
+                ),
+                "position": "left",
+                "optional": True,
+            },
+            {
+                "target": ".deploy-section .fl-btn",
+                "title": "Scheduling a Deployment",
+                "description": (
+                    "The three-step wizard books a deployment: pick the "
+                    "order, the units, and the site. Deployed units appear "
+                    "on the live map automatically."
+                ),
+                "position": "top",
+                # Manage-gated: absent for view-only users.
+                "optional": True,
+            },
+            {
+                "title": "Sensitive Orders",
+                "description": (
+                    "Some orders are marked sensitive. Without sensitive "
+                    "access they're not masked — they're absent entirely, "
+                    "here and in exports. With access, their cards carry a "
+                    "Sensitive chip."
+                ),
+                "center": True,
+                "optional": True,
+            },
+            {
+                "target": 'button[onclick="exportFulfillment()"]',
+                "title": "Getting Data Out",
+                "description": (
+                    "Export downloads this board as a spreadsheet. Per-unit "
+                    "photo dossiers export from each order's detail page — "
+                    "open one via the panel header link."
+                ),
+                "position": "bottom",
+                "optional": True,
+            },
+            # ── OEM reconciliation segment (approved copy, relocated) ──
+            {
+                "target": "#kanban-oem",
+                "wait_for": "#kanban-oem",
+                "wait_prompt": (
+                    "Switch to the OEM board — click <strong>OEM</strong> at "
+                    "the top — to continue, or skip this step."
+                ),
+                "title": "Linked Receiving Events",
+                "description": (
+                    "OEM purchase-order cards show what Receiving has logged "
+                    'against them — "Received: event #12 (8/10)" — read-'
+                    "only, straight from the receiving floor."
+                ),
+                "position": "top",
+                "optional": True,
+            },
+            {
+                "target": "#kanban-oem .oem-card",
+                "title": "Counts That Keep Themselves",
+                "description": (
+                    "The received/ordered count on each card updates as units "
+                    "are intaken against the PO, and the card's status "
+                    "advances Ordered → Partial → Received on its own."
+                ),
+                "position": "right",
+                # Only when OEM POs exist.
+                "optional": True,
+            },
+            {
+                "title": "Reconciliation Never Fights You",
+                "description": (
+                    "Reconciliation supplements the board — manual edits "
+                    "still win. Fix a quantity or status by hand any time; "
+                    "receiving events never overwrite what you set."
+                ),
+                "center": True,
+                "optional": True,
+            },
+        ],
+    },
+
+    # ------------------------------------------------------------------
+    # Order Detail (provisioning view) — replaces order_detail_tour,
+    # whose key is retired (superseded def kept disabled above).
+    # Wildcard pattern: launcher shows an "open any order first" hint.
+    # ------------------------------------------------------------------
+    {
+        "id": "order_page_tour",
+        "name": "Order Detail",
+        "page_pattern": "/orders/*",
+        "template": "order_detail.html",
+        "description": "One order's full picture — status, SKU lines, linked units, photos, and dossier export",
+        "required_access": "has_provisioning_view",
+        "enabled": True,
+        "group": "fulfillment",
+        "steps": [
+            {
+                "target": "#status-badge",
+                "title": "Where This Order Stands",
+                "description": (
+                    "The status walks New → Sourcing → Building → Testing → "
+                    "Shipped → Delivered → Installed. Editors update it from "
+                    "the buttons beside it."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": "#sku-add-btn",
+                "title": "SKU Lines",
+                "description": (
+                    "What the order is for: each line is a model, a quantity, "
+                    "and where it's sourced from. These lines drive matching "
+                    "against OEM purchase orders."
+                ),
+                "position": "left",
+                # Manage-gated button; viewers see the lines but not the editor.
+                "optional": True,
+            },
+            {
+                "target": "#prov-section",
+                "title": "Linked Units",
+                "description": (
+                    "The actual units assigned to this order, each linking to "
+                    "its provisioning record. Assignment happens on the "
+                    "Fulfillment board."
+                ),
+                "position": "top",
+            },
+            {
+                "target": "#unit-photos-section",
+                "title": "Photos, In and Out",
+                "description": (
+                    "Every photo tagged to this order's units, grouped by "
+                    "direction — how things arrived and how they shipped."
+                ),
+                "position": "top",
+            },
+            {
+                "target": 'a[href$="dossiers.zip"]',
+                "title": "Export All Unit Dossiers",
+                "description": (
+                    "One click builds a PDF dossier per unit — details, "
+                    "history, photos — and hands you the zip. Handy when a "
+                    "customer wants the paper trail."
+                ),
+                "position": "left",
+            },
+        ],
+    },
+
 ]
 
 
@@ -2059,7 +2567,10 @@ def get_tour_by_id(tour_id: str) -> Optional[dict]:
 # Starlette redirect_slashes, whose absolute Location drops the proxy root path
 # and port (GET /assettracker/warranty -> 307 http://localhost/warranty/), so
 # launcher navigation must always link the real URL.
-_SLASH_PAGES = {"/warranty", "/sites", "/trials", "/disposal", "/inventory", "/triage"}
+_SLASH_PAGES = {
+    "/warranty", "/sites", "/trials", "/disposal", "/inventory", "/triage",
+    "/map", "/fulfillment",
+}
 
 
 def _page_url(pattern: str) -> str:
