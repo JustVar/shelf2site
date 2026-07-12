@@ -358,6 +358,10 @@
                 "text-field": ["get", "point_count_abbreviated"],
                 "text-size": 11,
                 "text-font": ["Noto Sans Regular"],
+                // Numerals fill only the upper em-box, so a center-anchored label
+                // sits visually high in the circle. Nudge down ~0.14em to
+                // optically center the count (value measured on-map).
+                "text-offset": [0, 0.14],
             },
             paint: { "text-color": "#0B0D12" },
         });

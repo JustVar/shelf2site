@@ -160,15 +160,20 @@
           <span class="sx-nav__label">Intake</span>
         </a>
 
-        {# Edge Box Map — hidden until needed #}
-        {# {% if user and user.has_map_access %}
-        <a href="{{ base_path }}/map/"
+        {% endif %}
+
+        {# Deployment Map — its own gate. has_map_access is broader than editor
+           (map_kiosk + can_access_map grantees), so this link lives OUTSIDE the
+           editor-only Operations block above, matching the route's own gate.
+           hx-boost="false" because MapLibre loads outside <main>; a boosted swap
+           of only <main> would leave the map uninitialized — a dead page. #}
+        {% if user and user.has_map_access %}
+        <a href="{{ base_path }}/map/" hx-boost="false"
            class="sx-nav__link {% if '/map' in request.url.path %}sx-nav__link--active{% endif %}"
-           data-label="Edge Box Map">
+           data-label="Deployment Map">
           {{ fl_icon('map', 'mute', 16) }}
-          <span class="sx-nav__label">Edge Box Map</span>
+          <span class="sx-nav__label">Deployment Map</span>
         </a>
-        {% endif %} #}
         {% endif %}
 
         {# === FULFILLMENT === #}
