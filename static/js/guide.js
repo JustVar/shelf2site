@@ -159,14 +159,25 @@ class TourEngine {
     }
 
     async showHelpMenu() {
+        // Opening the catalog while a tour is running stacks two overlays --
+        // quietly end the tour (no progress write; it stays resumable).
+        if (this.isRunning) this._cleanup();
         try {
-            const resp = await fetch(this.bp + '/api/tours/all');
-            if (!resp.ok) {
-                console.warn('TourEngine: /api/tours/all returned', resp.status);
+            // Server-side page matching for "Tour This Page" — the client
+            // must not replicate fnmatch (wildcard patterns like /orders/*
+            // never matched client-side; that bug shaped the old modal).
+            const pagePath = window.location.pathname.replace(this.bp, '') || '/';
+            const [allResp, pageResp] = await Promise.all([
+                fetch(this.bp + '/api/tours/all'),
+                fetch(this.bp + '/api/tours?page=' + encodeURIComponent(pagePath)),
+            ]);
+            if (!allResp.ok) {
+                console.warn('TourEngine: /api/tours/all returned', allResp.status);
                 return;
             }
-            const data = await resp.json();
-            this._renderHelpModal(data.tours || []);
+            const data = await allResp.json();
+            const pageData = pageResp.ok ? await pageResp.json() : { tours: [] };
+            this._renderHelpModal(data.tours || [], pageData.tours || []);
         } catch (err) {
             console.error('TourEngine: failed to load help menu', err);
         }
@@ -686,8 +697,11 @@ class TourEngine {
     /* Internal: Help Menu Modal                                           */
     /* ------------------------------------------------------------------ */
 
-    /** @param {Tour[]} tours */
-    _renderHelpModal(tours) {
+    /**
+     * @param {Tour[]} tours - every enabled tour (role-filtered)
+     * @param {Tour[]} pageTours - tours matching the CURRENT page (server fnmatch)
+     */
+    _renderHelpModal(tours, pageTours) {
         let modal = document.getElementById('tour-help-modal');
         if (!modal) {
             modal = document.createElement('div');
@@ -697,97 +711,89 @@ class TourEngine {
         }
         modal.classList.add('open');
 
-        const currentPath = window.location.pathname.replace(this.bp, '') || '/';
         const self = this;
+        pageTours = pageTours || [];
+        const pageIds = new Set(pageTours.map(function(t) { return t.id; }));
 
         const GROUP_LABELS = {
+            'onboarding':  'Getting Started',
             'inventory':   'Inventory',
             'fulfillment': 'Fulfillment',
             'operations':  'Operations',
             'procurement': 'Procurement',
             'admin':       'Admin',
-            'onboarding':  'Getting Started',
         };
 
-        // Determine which group the current page belongs to
-        let currentGroup = null;
-        tours.forEach(function(t) {
-            const cleanCurrent = currentPath.replace(/\/$/, '');
-            const cleanPattern = t.page_pattern.replace(/\/$/, '');
-            if (cleanCurrent === cleanPattern || cleanCurrent.startsWith(cleanPattern)) {
-                currentGroup = t.group;
-            }
-        });
+        const row = function(t, onThisPage) {
+            const completed = t.progress && t.progress.completed;
+            const tick = completed
+                ? '<span class="tlr-tick tlr-tick--done" title="Completed">✓</span>'
+                : '<span class="tlr-tick" title="Not started"></span>';
+            const n = t.step_count || (t.steps && t.steps.length) || 0;
+            const steps = n ? n + ' steps' : '';
+            const wildcard = t.page_pattern.indexOf('*') !== -1 || t.page_pattern.indexOf('?') !== -1;
 
-        // Build group map preserving order — current page group first, then rest alphabetically
+            let action;
+            if (!onThisPage && wildcard) {
+                // Detail-page tours (/vendors/*, /provisioning/*) have no single
+                // page to navigate to -- tell the user where to find them instead
+                // of offering a Start that would land on a target-less page.
+                const section = t.page_pattern.replace(/\/[*?].*$/, '');
+                action = '<span class="tlr-hint">Open any ' + section.replace(/^\//, '') + ' page first</span>';
+            } else {
+                action = '<button class="tlr-btn" data-tour-id="' + t.id + '"' +
+                    ' data-page="' + (t.page_url || t.page_pattern) + '"' +
+                    (completed ? ' data-retake="1"' : '') +
+                    (!onThisPage ? ' data-navigate="1"' : '') + '>' +
+                    (completed ? 'Retake' : 'Start') +
+                '</button>';
+            }
+            return '<div class="tlr-row">' +
+                tick +
+                '<div class="tlr-meta">' +
+                    '<div class="tlr-name">' + t.name + '</div>' +
+                    '<div class="tlr-sub">' + steps + '</div>' +
+                '</div>' +
+                action +
+            '</div>';
+        };
+
+        let body = '';
+
+        // "Tour This Page" — the common case is one click, so it leads.
+        if (pageTours.length) {
+            body += '<div class="tlr-group-label">Tour This Page</div>';
+            pageTours.forEach(function(t) { body += row(t, true); });
+        }
+
+        // Grouped sections: Getting Started first, then alphabetical.
         const groupMap = {};
         tours.forEach(function(t) {
-            if (!groupMap[t.group]) groupMap[t.group] = [];
-            groupMap[t.group].push(t);
+            if (pageIds.has(t.id)) return; // already shown above
+            (groupMap[t.group] = groupMap[t.group] || []).push(t);
         });
-
         const groupOrder = Object.keys(groupMap).sort(function(a, b) {
-            if (a === currentGroup) return -1;
-            if (b === currentGroup) return 1;
-            return a.localeCompare(b);
+            if (a === 'onboarding') return -1;
+            if (b === 'onboarding') return 1;
+            return (GROUP_LABELS[a] || a).localeCompare(GROUP_LABELS[b] || b);
         });
-
-        // Render cards grouped
-        let cards = '';
         groupOrder.forEach(function(group) {
-            const label = GROUP_LABELS[group] || group;
-            cards +=
-                '<div style="margin-bottom:0.25rem;margin-top:0.75rem;">' +
-                    '<div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;' +
-                    'text-transform:uppercase;color:var(--text-muted);padding:0 0.2rem 0.4rem;">' +
-                    label +
-                    '</div>' +
-                '</div>';
-
-            groupMap[group].forEach(function(t) {
-                const cleanCurrent = currentPath.replace(/\/$/, '');
-                const cleanPattern = t.page_pattern.replace(/\/$/, '');
-                const isCurrentPage = cleanCurrent === cleanPattern ||
-                    cleanCurrent.startsWith(cleanPattern);
-                const completed = t.progress && t.progress.completed;
-                const statusBadge = completed
-                    ? '<span style="color:var(--success);font-size:0.8rem;">Completed</span>'
-                    : '<span style="color:var(--text-muted);font-size:0.8rem;">Not started</span>';
-                const btnLabel = completed ? 'Retake' : 'Start';
-                const steps = t.step_count ? ' &middot; ' + t.step_count + ' steps' : '';
-
-                cards +=
-                    '<div style="padding:0.8rem;border:1px solid var(--border);border-radius:8px;' +
-                    'margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;">' +
-                        '<div>' +
-                            '<div style="font-weight:600;">' + t.name + '</div>' +
-                            '<div style="font-size:0.83rem;color:var(--text-muted);">' +
-                                t.description + steps + '</div>' +
-                            '<div style="margin-top:0.25rem;">' + statusBadge + '</div>' +
-                        '</div>' +
-                        '<button class="btn btn-sm btn-primary" data-tour-id="' + t.id + '"' +
-                            ' data-page="' + t.page_pattern + '"' +
-                            (completed ? ' data-retake="1"' : '') +
-                            (!isCurrentPage ? ' data-navigate="1"' : '') + '>' +
-                            btnLabel +
-                        '</button>' +
-                    '</div>';
-            });
+            body += '<div class="tlr-group-label">' + (GROUP_LABELS[group] || group) + '</div>';
+            groupMap[group].forEach(function(t) { body += row(t, false); });
         });
 
         modal.innerHTML =
-            '<div class="modal" style="max-width:500px;">' +
-                '<h3>Guided Tours</h3>' +
-                '<p style="color:var(--text-muted);margin-bottom:1rem;font-size:0.9rem;">' +
-                    'Interactive walkthroughs to help you learn each feature.' +
-                '</p>' +
-                '<div id="tour-help-list">' + cards + '</div>' +
-                '<div style="text-align:right;margin-top:1rem;">' +
-                    '<button class="btn btn-sm" id="tour-help-close">Close</button>' +
+            '<div class="tour-launcher">' +
+                '<div class="tlr-head">' +
+                    '<span class="tlr-title">Guided Tours</span>' +
+                    '<button class="tlr-close" id="tour-help-close" title="Close">&times;</button>' +
+                '</div>' +
+                '<div class="tlr-list" id="tour-help-list">' + body + '</div>' +
+                '<div class="tlr-foot">' +
+                    '<button class="tlr-reset" id="tour-reset-all">Reset all tours</button>' +
                 '</div>' +
             '</div>';
 
-        // Bind close
         modal.querySelector('#tour-help-close').addEventListener('click', function() {
             modal.classList.remove('open');
         });
@@ -795,7 +801,15 @@ class TourEngine {
             if (e.target === modal) modal.classList.remove('open');
         });
 
-        // Bind start/retake buttons
+        modal.querySelector('#tour-reset-all').addEventListener('click', async function() {
+            if (!confirm('Reset every tour to Not started? Completed ticks will clear.')) return;
+            try {
+                await fetch(self.bp + '/api/tours/progress', { method: 'DELETE' });
+            } catch (e) { /* non-critical */ }
+            modal.classList.remove('open');
+            self.showHelpMenu();
+        });
+
         modal.querySelectorAll('[data-tour-id]').forEach(function(btn) {
             btn.addEventListener('click', async function() {
                 const tourId = btn.dataset.tourId;
@@ -808,9 +822,9 @@ class TourEngine {
                 }
 
                 if (btn.dataset.navigate) {
-                    var page = btn.dataset.page;
-                    if (page.charAt(page.length - 1) !== '/') page += '/';
-                    window.location.href = self.bp + page + '?tour=' + tourId;
+                    // Exact patterns only -- wildcard tours never render a
+                    // navigate button (see row()).
+                    window.location.href = self.bp + btn.dataset.page + '?tour=' + tourId;
                     return;
                 }
 

@@ -2055,6 +2055,18 @@ def get_tour_by_id(tour_id: str) -> Optional[dict]:
     return None
 
 
+# Page routes registered WITH a trailing slash. Their slash-less form relies on
+# Starlette redirect_slashes, whose absolute Location drops the proxy root path
+# and port (GET /assettracker/warranty -> 307 http://localhost/warranty/), so
+# launcher navigation must always link the real URL.
+_SLASH_PAGES = {"/warranty", "/sites", "/trials", "/disposal", "/inventory", "/triage"}
+
+
+def _page_url(pattern: str) -> str:
+    """Navigable URL for a tour's page pattern (wildcards have none)."""
+    return pattern + "/" if pattern in _SLASH_PAGES else pattern
+
+
 def get_all_tours() -> list[dict]:
     """Return summary of all available tours (for help menu)."""
     return [
@@ -2062,6 +2074,7 @@ def get_all_tours() -> list[dict]:
             "id": t["id"],
             "name": t["name"],
             "page_pattern": t["page_pattern"],
+            "page_url": _page_url(t["page_pattern"]),
             "description": t["description"],
             "step_count": len(t["steps"]),
             "required_access": t.get("required_access"),

@@ -156,6 +156,21 @@ async def update_tour_progress(
     return JSONResponse(content={"ok": True, "tour_id": tour_id, "dismissed": dismissed})
 
 
+@router.delete("/api/tours/progress")
+def reset_all_tour_progress(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Launcher 'Reset all tours' — clears the CALLER's own progress only."""
+    deleted = (
+        db.query(UserTourProgress)
+        .filter(UserTourProgress.user_id == user.id)
+        .delete()
+    )
+    db.commit()
+    return JSONResponse(content={"ok": True, "deleted": deleted})
+
+
 @router.delete("/api/tours/progress/{tour_id}")
 def reset_tour_progress(
     tour_id: str,

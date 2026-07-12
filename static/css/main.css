@@ -1221,18 +1221,84 @@ thead th:nth-child(1) {
     display: flex;
 }
 
-/* Tour catalog modal: cap height to viewport and scroll the list internally
-   (mirrors the mobile .modal max-height/overflow pattern, scoped to this modal
-   so the shared .modal base used by 14 other modals is untouched). */
-#tour-help-modal .modal {
-    max-height: calc(100vh - 80px);
+/* Tour launcher — grouped fl panel (body-mounted, so :root --flc tokens).
+   Height is capped inside the ZOOMED viewport: 100vh on a zoom-1.15 body
+   renders 15% too tall, so divide the zoom out to keep the header on-screen. */
+#tour-help-modal .tour-launcher {
+    background: var(--flc-card, #151821);
+    border: 1px solid var(--sx-border, rgba(148, 163, 184, 0.13));
+    border-top-color: var(--flc-card-edge, rgba(255, 255, 255, 0.10));
+    border-radius: 12px;
+    width: 430px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh / 1.15 - 64px);
     display: flex;
     flex-direction: column;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
-#tour-help-modal #tour-help-list {
-    overflow-y: auto;
-    min-height: 0;
+@media (max-width: 767px) {
+    /* body zoom resets to 1 on mobile -- plain vh is correct there */
+    #tour-help-modal .tour-launcher { max-height: calc(100vh - 48px); }
 }
+#tour-help-modal .tlr-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1rem 0.6rem;
+    border-bottom: 1px solid var(--sx-border, rgba(148, 163, 184, 0.13));
+}
+#tour-help-modal .tlr-title { font-weight: 700; font-size: 1rem; }
+#tour-help-modal .tlr-close {
+    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.12));
+    color: var(--flc-accent-l, #E3CBC7);
+    border: none; border-radius: 8px; width: 26px; height: 26px;
+    font-size: 1.05rem; line-height: 1; cursor: pointer;
+}
+#tour-help-modal .tlr-list { overflow-y: auto; min-height: 0; padding: 0.4rem 1rem 0.6rem; }
+#tour-help-modal .tlr-group-label {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted, #97A3B6);
+    padding: 0.7rem 0.1rem 0.35rem;
+}
+#tour-help-modal .tlr-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.45rem 0.3rem; border-radius: 8px;
+}
+#tour-help-modal .tlr-row:hover { background: var(--flc-accent-dim, rgba(194, 158, 155, 0.08)); }
+#tour-help-modal .tlr-tick {
+    width: 16px; height: 16px; border-radius: 50%; flex: none;
+    border: 1.5px solid var(--sx-border, rgba(148, 163, 184, 0.35));
+    font-size: 11px; line-height: 13px; text-align: center;
+}
+#tour-help-modal .tlr-tick--done {
+    border-color: var(--flc-green, #01B574);
+    color: var(--flc-green, #01B574);
+    background: rgba(1, 181, 116, 0.12);
+}
+#tour-help-modal .tlr-meta { flex: 1; min-width: 0; }
+#tour-help-modal .tlr-name { font-weight: 600; font-size: 0.86rem; }
+#tour-help-modal .tlr-sub { font-size: 0.73rem; color: var(--text-muted, #97A3B6); }
+#tour-help-modal .tlr-btn {
+    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.12));
+    border: 1px solid var(--flc-accent-border, rgba(194, 158, 155, 0.45));
+    color: var(--flc-accent-l, #E3CBC7);
+    border-radius: 8px; padding: 4px 12px; font-size: 0.78rem;
+    font-weight: 600; cursor: pointer; flex: none;
+}
+#tour-help-modal .tlr-btn:hover { background: var(--flc-accent-border, rgba(194, 158, 155, 0.3)); }
+#tour-help-modal .tlr-hint {
+    font-size: 0.72rem; color: var(--text-muted, #97A3B6);
+    font-style: italic; flex: none; max-width: 130px; text-align: right;
+}
+#tour-help-modal .tlr-foot {
+    padding: 0.5rem 1rem 0.7rem; text-align: center;
+    border-top: 1px solid var(--sx-border, rgba(148, 163, 184, 0.13));
+}
+#tour-help-modal .tlr-reset {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted, #97A3B6); font-size: 0.75rem;
+    text-decoration: underline; text-underline-offset: 2px;
+}
+[data-theme="light"] #tour-help-modal .tlr-close,
+[data-theme="light"] #tour-help-modal .tlr-btn { color: var(--flc-accent, #85605E); }
 
 .modal {
     background: var(--card-bg);
