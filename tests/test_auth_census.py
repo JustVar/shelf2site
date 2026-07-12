@@ -69,6 +69,7 @@ SELF_SCOPED_WRITE_ROUTES = {
     ("POST", "/api/errors/report"),                                # own client errors
     ("POST", "/api/contact-admin"),                                # own message
     ("POST", "/api/tours/progress"),                               # own tour state
+    ("DELETE", "/api/tours/progress"),                             # own tour state (reset all)
     ("DELETE", "/api/tours/progress/{tour_id}"),                   # own tour state
     ("POST", "/api/notifications/read-all"),                       # own notifications
     ("POST", "/api/notifications/dismiss-all"),                    # own notifications

@@ -483,6 +483,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/tours` | GET | any authenticated | OK |
 | `/api/tours/all` | GET | any authenticated | OK |
 | `/api/tours/progress` | POST | any authenticated | OK |
+| `/api/tours/progress` | DELETE | any authenticated | OK (self-scoped reset-all) |
 | `/api/tours/progress/{tour_id}` | DELETE | any authenticated | OK |
 | `/api/tours/{tour_id}` | GET | any authenticated | OK |
 
