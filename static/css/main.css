@@ -1917,29 +1917,48 @@ thead th:nth-child(1) {
     cursor: not-allowed;
 }
 
-/* ===== Tour / Guide System ===== */
+/* ===== Tour / Guide System (fl restyle) =====
+   Overlay/tooltip are body-mounted (outside .fl-restyle scope), so they
+   style with the :root --flc-* chrome tokens like the nav flyout. The
+   dim is four absolutely-positioned panels around the cutout; geometry
+   is written zoom-corrected by guide.js. */
 .tour-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
     z-index: 1100;
-    transition: clip-path 0.3s ease;
+    pointer-events: none;   /* panels carry the shield */
 }
 
-[data-theme="light"] .tour-overlay {
-    background: rgba(0, 0, 0, 0.4);
+.tour-overlay .tour-dim {
+    position: absolute;
+    background: rgba(11, 13, 18, 0.65);
+    pointer-events: auto;
+    transition: top 0.28s ease, left 0.28s ease, width 0.28s ease, height 0.28s ease;
+}
+
+.tour-overlay .tour-ring {
+    position: absolute;
+    border: 2px solid var(--flc-accent, #C29E9B);
+    border-radius: 10px;
+    box-shadow: 0 0 0 4px var(--flc-accent-dim, rgba(194,158,155,0.12)),
+                0 0 18px rgba(194, 158, 155, 0.35);
+    pointer-events: none;
+    opacity: 0;
+    transition: top 0.28s ease, left 0.28s ease, width 0.28s ease,
+                height 0.28s ease, opacity 0.2s ease;
 }
 
 .tour-tooltip {
     position: fixed;
     z-index: 1200;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    background: var(--flc-card, #151821);
+    border: 1px solid var(--sx-border, rgba(148, 163, 184, 0.13));
+    border-top-color: var(--flc-card-edge, rgba(255, 255, 255, 0.10));
+    border-radius: 12px;
     padding: 0;
     width: 280px;
     max-width: calc(100vw - 24px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
     animation: tour-fadein 0.2s ease;
 }
 
@@ -2002,9 +2021,8 @@ thead th:nth-child(1) {
     justify-content: space-between;
     align-items: center;
     padding: 0.6rem 1rem;
-    border-top: 1px solid var(--border);
-    background: var(--primary);
-    border-radius: 0 0 10px 10px;
+    border-top: 1px solid var(--sx-border, rgba(148, 163, 184, 0.13));
+    border-radius: 0 0 12px 12px;
 }
 
 .tour-progress {
@@ -2013,22 +2031,30 @@ thead th:nth-child(1) {
     align-items: center;
 }
 
+.tour-count {
+    margin-left: 6px;
+    font-size: 0.72rem;
+    color: var(--text-muted, #97A3B6);
+    white-space: nowrap;
+}
+
 .tour-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--border);
+    background: var(--sx-border, rgba(148, 163, 184, 0.3));
     transition: background 0.2s;
 }
 
 .tour-dot.active {
-    background: var(--info);
-    width: 10px;
-    height: 10px;
+    background: var(--flc-accent, #C29E9B);
+    width: 9px;
+    height: 9px;
 }
 
 .tour-dot.completed {
-    background: var(--success);
+    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.4));
+    border: 1px solid var(--flc-accent-border, rgba(194, 158, 155, 0.45));
 }
 
 .tour-nav {
@@ -2036,28 +2062,47 @@ thead th:nth-child(1) {
     gap: 0.4rem;
 }
 
-.tour-btn-back {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
+/* Blush solid Next (the one solid); tint Back; quiet Skip. Overrides the
+   global .btn/.btn-primary the engine also applies. */
+.tour-tooltip .tour-btn-next {
+    background: var(--flc-accent, #C29E9B);
+    border: 1px solid var(--flc-accent, #C29E9B);
+    color: var(--flc-on-accent, #17222E);
+    border-radius: 8px;
+    font-weight: 600;
 }
 
-.tour-btn-skip {
+.tour-tooltip .tour-btn-next:hover {
+    filter: brightness(1.06);
+    background: var(--flc-accent, #C29E9B);
+}
+
+.tour-tooltip .tour-btn-back {
+    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.12));
+    border: 1px solid var(--flc-accent-border, rgba(194, 158, 155, 0.45));
+    color: var(--flc-accent-l, #E3CBC7);
+    border-radius: 8px;
+}
+
+.tour-tooltip .tour-btn-skip {
     background: transparent;
     border: none;
-    color: var(--text-muted);
+    color: var(--text-muted, #97A3B6);
     font-size: 0.83rem;
 }
 
-.tour-btn-skip:hover {
-    color: var(--text);
+.tour-tooltip .tour-btn-skip:hover {
+    color: var(--flc-accent-l, #E3CBC7);
 }
 
-.tour-highlight-target {
-    box-shadow: 0 0 0 1px var(--info), 0 0 8px rgba(52, 152, 219, 0.4);
-    border-radius: 6px;
-    transition: box-shadow 0.3s ease;
+[data-theme="light"] .tour-tooltip .tour-btn-back,
+[data-theme="light"] .tour-tooltip .tour-btn-skip:hover {
+    color: var(--flc-accent, #85605E);
 }
+
+/* Retired: the ring div on the cutout replaced the old element-level
+   box-shadow highlight (kept class-free so no page styles shift). */
+.tour-highlight-target { }
 
 @media (max-width: 768px) {
     .tour-tooltip { width: 280px; }

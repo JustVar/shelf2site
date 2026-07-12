@@ -217,6 +217,7 @@ class TourEngine {
         if (this._resizeHandler) {
             window.removeEventListener('resize', this._resizeHandler);
             window.removeEventListener('scroll', this._resizeHandler, true);
+            document.removeEventListener('htmx:load', this._resizeHandler);
             document.removeEventListener('modal-closed', this._modalClosedHandler);
             this._resizeHandler = null;
         }
@@ -235,21 +236,7 @@ class TourEngine {
 
         // Centered conceptual step: no target, no highlight, tooltip in viewport center.
         if (step.center) {
-            this._waitRetries = 0;
-            this.currentStep = stepIndex;
-            // Clear any stale highlights (race protection — querySelectorAll catches siblings)
-            document.querySelectorAll('.tour-highlight-target').forEach(el => {
-                el.classList.remove('tour-highlight-target');
-            });
-            if (this.overlay) {
-                this.overlay.style.clipPath = '';
-                this.overlay.style.pointerEvents = '';
-            }
-            this._renderTooltip(step, stepIndex);
-            if (this.tooltip) {
-                this.tooltip.classList.add('tour-tooltip--centered');
-                this.tooltip.style.display = 'block';
-            }
+            this._showCentered(step, stepIndex);
             return;
         }
 
@@ -292,15 +279,12 @@ class TourEngine {
                 return;
             }
 
-            // Give up — skip this step, respect direction
-            this._waitRetries = 0;
-            const dir = stepIndex >= this.currentStep ? 1 : -1;
-            const next = stepIndex + dir;
-            if (next >= 0 && next < steps.length) {
-                this._showStep(next);
-            } else {
-                this.stopTour(false);
-            }
+            // Target contract: a step whose selector never resolves falls
+            // back to CENTERED with the cutout suppressed — never a
+            // mispositioned zone, never a silently vanished step.
+            console.debug('[tour] target missing, centering step:',
+                this.activeTour.id, 'step', stepIndex, step.target);
+            this._showCentered(step, stepIndex);
             return;
         }
 
@@ -316,10 +300,10 @@ class TourEngine {
         // Draw cutout immediately so fixed elements (bulk bar etc.) are never covered
         this._updateOverlay(targetEl, step.highlight_padding || 8);
 
-        // Scroll target into view, then reposition once scrolling actually finishes.
-        // A fixed timeout races smooth-scroll (positions against a still-moving
-        // target), so we wait for the scrollend event, with a fallback timeout
-        // for the case where the target is already in view and no scroll occurs.
+        // Scroll target into view BEFORE the final measurement, then reposition
+        // once scrolling actually finishes. A fixed timeout races smooth-scroll
+        // (positions against a still-moving target), so we wait for scrollend,
+        // with a fallback timeout when the target is already in view.
         targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         let done = false;
@@ -328,12 +312,11 @@ class TourEngine {
             done = true;
             window.removeEventListener('scrollend', finishStep, true);
             clearTimeout(fallbackTimer);
-            targetEl.classList.add('tour-highlight-target');
             this._scrollHorizontalIntoView(targetEl);
             this._updateOverlay(targetEl, step.highlight_padding || 8);
             this._renderTooltip(step, stepIndex);
             this._positionTooltip(targetEl, step.position || 'bottom');
-            if (this.overlay) this.overlay.style.pointerEvents = '';
+            this._setShield(true);
         };
 
         // scrollend fires when scrolling fully stops (Chrome 114+).
@@ -341,6 +324,23 @@ class TourEngine {
         // Fallback: if the element is already in view, no scroll happens and
         // scrollend never fires — so position anyway after a short delay.
         const fallbackTimer = setTimeout(finishStep, 400);
+    }
+
+    /** Centered rendering shared by explicit center steps and the
+     *  missing-target fallback — full dim, NO cutout, tooltip centered. */
+    _showCentered(step, stepIndex) {
+        this._waitRetries = 0;
+        this.currentStep = stepIndex;
+        document.querySelectorAll('.tour-highlight-target').forEach(el => {
+            el.classList.remove('tour-highlight-target');
+        });
+        this._clearCutout();
+        this._setShield(true);
+        this._renderTooltip(step, stepIndex);
+        if (this.tooltip) {
+            this.tooltip.classList.add('tour-tooltip--centered');
+            this.tooltip.style.display = 'block';
+        }
     }
 
     _showWaitPrompt(step, stepIndex) {
@@ -352,7 +352,10 @@ class TourEngine {
             this._waitPoll = null;
         }
         if (typeof closeQuickView === 'function') closeQuickView();
-        if (this.overlay) this.overlay.style.pointerEvents = 'none';
+        // The user must interact with the page to satisfy the wait —
+        // no cutout, and the dim must not block clicks.
+        this._clearCutout();
+        this._setShield(false);
 
         // Render a prompt tooltip anchored to center of screen
         if (!this.tooltip) {
@@ -413,13 +416,64 @@ class TourEngine {
     /* Internal: Overlay                                                   */
     /* ------------------------------------------------------------------ */
 
+    _zoom() {
+        // body carries zoom 1.15 on most monitors: getBoundingClientRect
+        // reports real viewport px while fixed/absolute children of the
+        // zoomed body are laid out in zoomed px, so every measured value
+        // divides by the factor before it becomes a style px (the nav
+        // flyout's established pattern — fl-restyle.js).
+        return parseFloat(window.getComputedStyle(document.body).zoom) || 1;
+    }
+
     _createOverlay() {
+        // Four dim panels around the cutout plus a blush ring on it. The
+        // initial state is one full-cover panel — a targetless step can
+        // never show a stray cutout because none exists until a target is
+        // actually measured (the old single-div clip-path left a stale
+        // mispositioned hole on centered steps).
         this.overlay = document.createElement('div');
         this.overlay.className = 'tour-overlay';
+        this.overlay.innerHTML =
+            '<div class="tour-dim" data-side="top"></div>' +
+            '<div class="tour-dim" data-side="left"></div>' +
+            '<div class="tour-dim" data-side="right"></div>' +
+            '<div class="tour-dim" data-side="bottom"></div>' +
+            '<div class="tour-ring"></div>';
         this.overlay.addEventListener('click', (e) => {
             e.stopPropagation();
         });
         document.body.appendChild(this.overlay);
+        this._clearCutout();
+    }
+
+    _panels() {
+        const q = (s) => this.overlay.querySelector('.tour-dim[data-side="' + s + '"]');
+        return {
+            top: q('top'), left: q('left'), right: q('right'), bottom: q('bottom'),
+            ring: this.overlay.querySelector('.tour-ring'),
+        };
+    }
+
+    /** Dim the whole page with no cutout (centered / targetless steps). */
+    _clearCutout() {
+        if (!this.overlay) return;
+        const z = this._zoom();
+        const W = window.innerWidth / z;
+        const H = window.innerHeight / z;
+        const p = this._panels();
+        Object.assign(p.top.style, { top: '0px', left: '0px', width: W + 'px', height: H + 'px' });
+        for (const side of [p.left, p.right, p.bottom]) {
+            Object.assign(side.style, { top: '0px', left: '0px', width: '0px', height: '0px' });
+        }
+        p.ring.style.opacity = '0';
+    }
+
+    /** Block or allow page interaction under the dim. */
+    _setShield(blocked) {
+        if (!this.overlay) return;
+        this.overlay.querySelectorAll('.tour-dim').forEach((el) => {
+            el.style.pointerEvents = blocked ? '' : 'none';
+        });
     }
 
     /**
@@ -428,22 +482,33 @@ class TourEngine {
      */
     _updateOverlay(targetEl, padding) {
         if (!this.overlay) return;
+        const z = this._zoom();
         const rect = targetEl.getBoundingClientRect();
-        const p = padding || 8;
-        const x = rect.left - p;
-        const y = rect.top - p;
-        const w = rect.width + p * 2;
-        const h = rect.height + p * 2;
-
-        // Inset polygon: full viewport minus cutout rectangle (using evenodd)
-        this.overlay.style.clipPath =
-            'polygon(evenodd, ' +
-            '0 0, 100% 0, 100% 100%, 0 100%, 0 0, ' +
-            x + 'px ' + y + 'px, ' +
-            x + 'px ' + (y + h) + 'px, ' +
-            (x + w) + 'px ' + (y + h) + 'px, ' +
-            (x + w) + 'px ' + y + 'px, ' +
-            x + 'px ' + y + 'px)';
+        const pad = padding || 8;
+        const x = (rect.left - pad) / z;
+        const y = (rect.top - pad) / z;
+        const w = (rect.width + pad * 2) / z;
+        const h = (rect.height + pad * 2) / z;
+        const W = window.innerWidth / z;
+        const H = window.innerHeight / z;
+        const p = this._panels();
+        Object.assign(p.top.style, {
+            top: '0px', left: '0px', width: W + 'px', height: Math.max(y, 0) + 'px',
+        });
+        Object.assign(p.left.style, {
+            top: y + 'px', left: '0px', width: Math.max(x, 0) + 'px', height: h + 'px',
+        });
+        Object.assign(p.right.style, {
+            top: y + 'px', left: (x + w) + 'px',
+            width: Math.max(W - x - w, 0) + 'px', height: h + 'px',
+        });
+        Object.assign(p.bottom.style, {
+            top: (y + h) + 'px', left: '0px',
+            width: W + 'px', height: Math.max(H - y - h, 0) + 'px',
+        });
+        Object.assign(p.ring.style, {
+            top: y + 'px', left: x + 'px', width: w + 'px', height: h + 'px', opacity: '1',
+        });
     }
 
     _scrollHorizontalIntoView(targetEl) {
@@ -498,7 +563,9 @@ class TourEngine {
             '</div>' +
             '<div class="tour-tooltip-body">' + step.description + '</div>' +
             '<div class="tour-tooltip-footer">' +
-                '<div class="tour-progress">' + dots + '</div>' +
+                '<div class="tour-progress">' + dots +
+                    '<span class="tour-count">' + (stepIndex + 1) + ' of ' + total + '</span>' +
+                '</div>' +
                 '<div class="tour-nav">' +
                     (!isFirst ? '<button class="btn btn-sm tour-btn-back">Back</button>' : '') +
                     (isLast
@@ -608,8 +675,11 @@ class TourEngine {
             // user can still drag/scroll, and this matches the prior fallback.
         }
 
-        this.tooltip.style.top = top + 'px';
-        this.tooltip.style.left = left + 'px';
+        // All math above is in real viewport px; the tooltip is a fixed
+        // child of the zoomed body, so the final write divides by zoom.
+        const z = this._zoom();
+        this.tooltip.style.top = (top / z) + 'px';
+        this.tooltip.style.left = (left / z) + 'px';
     }
 
     /* ------------------------------------------------------------------ */
@@ -826,6 +896,11 @@ class TourEngine {
             if (!this.isRunning || !this.activeTour) return;
             const step = this.activeTour.steps[this.currentStep];
             if (!step) return;
+            if (step.center || !step.target) {
+                // Centered steps only need the full-cover panel re-sized.
+                this._clearCutout();
+                return;
+            }
             const targetEl = document.querySelector(step.target);
             if (targetEl && targetEl.getBoundingClientRect().width > 0) {
                 this._updateOverlay(targetEl, step.highlight_padding || 8);
@@ -836,6 +911,8 @@ class TourEngine {
         };
         window.addEventListener('resize', this._resizeHandler);
         window.addEventListener('scroll', this._resizeHandler, true);
+        // htmx swaps re-render targets in place — re-measure the live step.
+        document.addEventListener('htmx:load', this._resizeHandler);
         this._modalClosedHandler = () => {
             if (!this.isRunning || !this.activeTour) return;
             this._showStep(this.currentStep);
