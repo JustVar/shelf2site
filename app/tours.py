@@ -43,15 +43,24 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "title": "How to Read It",
-                "description": "The hero strip at the top shows your top-line counts: total items plus how many are deployed, ready to deploy, or pending. Below that, status panels break the totals down by device category, and the recent activity feed shows what changed lately.",
-                "center": True,
+                "target": ".db-hero",
+                "title": "The Hero Strip",
+                "description": "These three tiles are your top-line counts — total items, deployment state, and attention items. They update live as inventory changes.",
+                "position": "bottom",
                 "optional": True,
             },
             {
+                "target": ".db-status-grid",
+                "title": "Status by Category",
+                "description": "The status panels break the totals down by device category. Click any panel to jump to that category filtered in Inventory.",
+                "position": "top",
+                "optional": True,
+            },
+            {
+                "target": ".db-action",
                 "title": "Taking Action",
-                "description": "The dashboard doesn't edit anything itself. Use Quick Actions for the most common operations (add an item, check in/out, triage), or jump to the Inventory page to manage devices in detail. The search bar at the top accepts a keyboard shortcut — press / from anywhere to jump.",
-                "center": True,
+                "description": "The dashboard doesn't edit anything itself. Quick Actions cover the most common operations (add an item, check in/out, triage), and the recent activity feed links straight to the items that changed. Press / from anywhere to jump to search.",
+                "position": "left",
                 "optional": True,
             },
         ],
@@ -73,7 +82,7 @@ TOURS: list[dict] = [
                 "target": "#global-search-input",
                 "title": "Search Input",
                 "description": (
-                    "Type any keyword to search across all 16 device categories "
+                    "Type any keyword to search across every device category "
                     "simultaneously. Results update as you type — serial numbers, "
                     "model names, locations, and notes are all searchable."
                 ),
@@ -647,25 +656,21 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Receive & Scan (editor+ or can_access_receiving)
     # ------------------------------------------------------------------
-    # NOTE: receive_tour is intentionally left disabled here.
-    # The tour is verified accurate against the current /receive UI - all
-    # 7 step targets resolve and content matches the rendered page. It is
-    # deferred not for rot but because the receiving workflow has never
-    # been exercised with real data; enabling a guided walkthrough of an
-    # unproven intake path risks misleading users if the flow behaves
-    # unexpectedly once in real use. Three wizard steps (#step-details,
-    # #step-photo, #step-submit) render progressively and are display:none
-    # until a device is scanned - the engine's hidden-optional-target
-    # behavior was not confirmed live. Re-enable once the receive flow is
-    # in real use and the tour is walked end-to-end.
-    # enabled=False protects users from launching the unproven tour.
+    # NOTE: receive_tour RE-ENABLED in the tours-overhaul audit (2026-07-12).
+    # The intake flow is now exercised daily (scanner Phase 2, PO
+    # reconciliation, unit photos all shipped against it) and the copy was
+    # rewritten to match shipped behavior: quick-mode confirm tap (H6),
+    # wedge loop (H10), PO checklist + tracking auto-select (H16/H17),
+    # label photos as tagged unit photos. The progressive wizard steps
+    # (#step-details/#step-photo/#step-submit) are optional=True, so the
+    # engine skips them cleanly until a scan reveals them.
     {
         "id": "receive_tour",
         "name": "Receive & Scan",
         "page_pattern": "/receive",
         "description": "Walk through the multi-step device intake workflow",
         "required_access": "has_receiving_access",
-        "enabled": False,
+        "enabled": True,
         "group": "operations",
         "steps": [
             {
@@ -686,8 +691,10 @@ TOURS: list[dict] = [
                 "title": "Step 1: Select Event",
                 "description": (
                     "Start by selecting or creating a receiving event (shipment). "
-                    "Events group multiple devices from the same delivery together "
-                    "for tracking and audit purposes."
+                    "If the PO number matches an OEM purchase order, the event "
+                    "shows a per-SKU checklist that ticks off as units arrive — "
+                    "and scanning the shipment's tracking label selects its "
+                    "event automatically."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -697,9 +704,11 @@ TOURS: list[dict] = [
                 "target": "#step-scan",
                 "title": "Step 2: Scan Barcode",
                 "description": (
-                    "Use your camera to scan the device barcode or QR code. "
-                    "If scanning isn't available, enter the serial number manually. "
-                    "The system checks for duplicates automatically."
+                    "Scan with the camera, a USB scanner, or type the serial — "
+                    "the input below stays armed for wedge scanning (watch the "
+                    "green dot). Scans are classified server-side: MACs, tracking "
+                    "numbers, order numbers, SKUs and serials each get their own "
+                    "answer, and duplicates are caught automatically."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -709,11 +718,11 @@ TOURS: list[dict] = [
                 "target": "#quick-mode-cb",
                 "title": "Quick Mode",
                 "description": (
-                    "Enable <strong>Quick Mode</strong> to scan multiple devices rapidly. "
-                    "When on, recognized barcodes are auto-submitted to inventory — "
-                    "the camera stays open and a counter tracks your scans. "
-                    "Duplicates show a red toast; unknown serials fall back to the "
-                    "manual form. Great for bulk receiving."
+                    "Enable <strong>Quick Mode</strong> to receive multiple devices rapidly. "
+                    "Recognized units ask for one confirm tap before they're added — "
+                    "nothing is ever auto-inserted — and a skipped scan says so. "
+                    "Already-received serials show a toast; unknown serials drop "
+                    "into the full form. Works with the camera or a USB scanner."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -735,9 +744,10 @@ TOURS: list[dict] = [
                 "target": "#step-photo",
                 "title": "Step 4: Photo & OCR",
                 "description": (
-                    "Optionally take a photo of the device label. The system "
-                    "uses OCR to extract serial numbers and model info "
-                    "from the image, auto-filling fields where possible."
+                    "Optionally add a photo of the device label. OCR extracts "
+                    "serial and model info to auto-fill fields, and the photo is "
+                    "kept as a unit photo — tagged to the device on submit, "
+                    "visible on its detail page and in its exported dossier."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -1444,7 +1454,7 @@ TOURS: list[dict] = [
                 "target": ".ud-perm-row",
                 "title": "Permission Toggles",
                 "description": (
-                    "Inside the user drawer, 15 permission toggles are organized into groups: "
+                    "Inside the user drawer, the permission toggles are organized into groups: "
                     "Domain Admin, Page Access, System, and Provisioning. Each toggle is ON or OFF "
                     "per user. Department defaults apply when a user's toggle hasn't been explicitly set."
                 ),
@@ -1615,7 +1625,7 @@ TOURS: list[dict] = [
                 "title": "Upload Excel File",
                 "description": (
                     "Choose the master inventory Excel file (.xlsx). "
-                    "The file is parsed across all 17 sheets — no changes are "
+                    "The file is parsed across every sheet in the workbook — no changes are "
                     "made to the database yet. A preview of what would change "
                     "is generated first."
                 ),
@@ -1738,9 +1748,10 @@ TOURS: list[dict] = [
                 "title": "Where Is the Data?",
                 "description": (
                     "All inventory data lives in a <strong>PostgreSQL database</strong> "
-                    "on the Main QA/Hardware Server in the lab. "
-                    "Nothing is stored in the cloud — the app runs entirely on-site. "
-                    "The database file is on the server's SSD, separate from the app code."
+                    "on the QA server in the lab, running alongside the app in Docker. "
+                    "Nothing is stored in the cloud — the app runs entirely on-site, "
+                    "and the database files live on the server's data drive, separate "
+                    "from the app code."
                 ),
                 "optional": True,
             },
@@ -1748,10 +1759,12 @@ TOURS: list[dict] = [
                 "center": True,
                 "title": "How Is It Backed Up?",
                 "description": (
-                    "A Backup QA/Hardware Server runs as a warm standby. "
-                    "Every night at 2 AM, a full database snapshot and all app code "
-                    "are synced to the Backup QA/Hardware Server automatically. "
-                    "If the primary server goes down, the backup can take over in about 15 minutes."
+                    "Every night a full database snapshot plus all uploaded files "
+                    "(receipts, photos, certification reports) are written to a backup "
+                    "folder on the server, and a second copy is pulled to an off-box "
+                    "machine automatically. Restores are tested against a scratch "
+                    "database on a monthly habit, and the Admin → Maintenance page "
+                    "shows a warning if backups ever go stale."
                 ),
                 "optional": True,
             },
@@ -1850,7 +1863,7 @@ TOURS: list[dict] = [
                 "target": ".dept-card__heat",
                 "title": "Department Permissions",
                 "description": (
-                    "Each department card shows a heatmap of its 14 permission defaults — green "
+                    "Each department card shows a heatmap of its permission defaults — green "
                     "means granted, gray means blocked. It's an at-a-glance summary; change the "
                     "actual values from the drawer."
                 ),
@@ -2064,7 +2077,7 @@ def _resolve_tour_template(tour):
 
     Priority: explicit tour['template'], else derive from page_pattern
     (strip leading slash, last path segment + '.html'), else None.
-    '/inventory' -> 'inventory.html', '/admin/users' -> 'users.html'.
+    '/inventory' -> 'inventory.html', '/receive' -> 'receive.html'.
     """
     explicit = tour.get("template")
     if explicit:

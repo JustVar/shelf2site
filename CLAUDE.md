@@ -92,7 +92,7 @@ Application code should never read raw `can_*` columns directly — always go th
 - CSS variables for dark/light theme in `static/css/main.css`.
 
 ### Tours (app/tours.py)
-- 28 tour definitions, 23 currently enabled.
+- 27 tour definitions, 23 currently enabled (see app/tours.py; lint via lint_tour_selectors).
 - Each tour: id, name, page_pattern, steps (target selector + title + description). Engine in `static/js/guide.js`.
 - See `docs/tour-dev-guide.md` for patterns and gotchas.
 
