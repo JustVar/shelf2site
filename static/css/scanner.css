@@ -255,3 +255,72 @@
     position: absolute;
   }
 }
+
+/* ── H13: decode feedback + torch + Quick Mode trail ─────────────── */
+
+/* Full-viewfinder pulse on every successful decode. */
+.scanner-flash {
+    position: absolute;
+    inset: 0;
+    background: rgba(34, 197, 94, 0.30);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 3;
+}
+.scanner-flash.active {
+    animation: scanner-flash-pulse 0.22s ease-out;
+}
+@keyframes scanner-flash-pulse {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Torch toggle — hidden by scanner.js unless the track reports torch. */
+.scanner-torch {
+    position: absolute;
+    bottom: 96px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.45);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 5;
+}
+.scanner-torch--on {
+    background: rgba(245, 158, 11, 0.85);
+    border-color: rgba(245, 158, 11, 1);
+}
+
+/* Quick Mode trail: recent scan outcomes stack top-left and age out,
+   while the sticky confirm toast stays put at the bottom. */
+.scanner-trail {
+    position: absolute;
+    top: 64px;
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: min(72vw, 340px);
+    z-index: 4;
+    pointer-events: none;
+}
+.scanner-trail-entry {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #fff;
+    animation: scanner-trail-in 0.18s ease-out;
+}
+.scanner-trail-entry--success { background: rgba(34, 197, 94, 0.78); }
+.scanner-trail-entry--error   { background: rgba(239, 68, 68, 0.78); }
+.scanner-trail-entry--warning { background: rgba(245, 158, 11, 0.78); }
+.scanner-trail-entry--info    { background: rgba(21, 124, 164, 0.78); }
+.scanner-trail-entry--fading  { opacity: 0; transition: opacity 0.4s; }
+@keyframes scanner-trail-in {
+    from { transform: translateX(-8px); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}

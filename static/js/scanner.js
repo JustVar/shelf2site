@@ -52,6 +52,18 @@ class BarcodeScanner {
   /** @type {number|null} */
   #toastTimer = null;
 
+  /** @type {AudioContext|null} */
+  #audioCtx = null;
+
+  /** @type {MediaStreamTrack|null} — track that reported torch capability */
+  #torchTrack = null;
+
+  /** @type {boolean} */
+  #torchOn = false;
+
+  /** @type {boolean} — per-scan trail entries enabled (Quick Mode) */
+  #trail = false;
+
   /** Barcode formats for native BarcodeDetector (H11: DataMatrix, ITF,
    *  PDF417 and UPC-E added — vendor labels use all four). */
   static NATIVE_FORMATS = [
@@ -87,7 +99,7 @@ class BarcodeScanner {
   /**
    * Open the camera and start scanning.
    * @param {(value: string) => void} onResult — called with the decoded barcode string
-   * @param {{ showCounter?: boolean }} [opts]
+   * @param {{ showCounter?: boolean, trail?: boolean }} [opts]
    */
   async start(onResult, opts = {}) {
     if (this.#running) return;
@@ -96,6 +108,7 @@ class BarcodeScanner {
     this.#running = true;
     this.#onResult = onResult;
     this.#showCounter = opts.showCounter ?? false;
+    this.#trail = opts.trail ?? false;
     this.#scanCount = 0;
 
     this.#buildOverlay();
@@ -174,6 +187,10 @@ class BarcodeScanner {
       clearTimeout(this.#toastTimer);
       this.#toastTimer = null;
     }
+
+    // Torch dies with its track; just drop our handle.
+    this.#torchTrack = null;
+    this.#torchOn = false;
   }
 
   /** Reset the scan counter to zero. */
@@ -229,6 +246,9 @@ class BarcodeScanner {
 
     video.addEventListener('loadeddata', () => {
       this.#animFrame = requestAnimationFrame(scan);
+      // Capabilities are only trustworthy once the track is live.
+      const track = this.#stream && this.#stream.getVideoTracks()[0];
+      if (track) this.#setupTorch(track, null);
     }, { once: true });
   }
 
@@ -307,6 +327,17 @@ class BarcodeScanner {
       },
       () => {} // ignore errors
     );
+
+    // Torch (fallback engine): html5-qrcode owns the stream, so capability
+    // and control both go through its API. Feature-detect everything —
+    // hidden unless the running track really reports torch.
+    try {
+      if (typeof this.#html5QrCode.getRunningTrackCapabilities === 'function' &&
+          typeof this.#html5QrCode.applyVideoConstraints === 'function') {
+        const caps = this.#html5QrCode.getRunningTrackCapabilities();
+        if (caps && caps.torch) this.#setupTorch(null, this.#html5QrCode);
+      }
+    } catch { /* capability probe failed — leave torch hidden */ }
   }
 
   // ─── Result handling ────────────────────────────────────────────
@@ -315,9 +346,92 @@ class BarcodeScanner {
   #handleResult(value) {
     this.#scanCount++;
     this.#updateCounter();
+    this.#decodeFeedback();
     if (this.#onResult) {
       this.#onResult(value);
     }
+  }
+
+  /**
+   * Sensory confirmation that a decode landed: viewfinder flash, short beep,
+   * and a vibration pulse where the device supports it. All three are
+   * best-effort — a blocked AudioContext or missing vibrate API must never
+   * break the scan loop.
+   */
+  #decodeFeedback() {
+    // Flash
+    const flash = this.#overlay && this.#overlay.querySelector('.scanner-flash');
+    if (flash) {
+      flash.classList.remove('active');
+      // restart the animation even on rapid consecutive decodes
+      void (/** @type {HTMLElement} */ (flash)).offsetWidth;
+      flash.classList.add('active');
+    }
+
+    // Beep — a tiny WebAudio blip; no audio asset, nothing to load. The
+    // context is created lazily on the first decode (scanner start came from
+    // a user gesture, so autoplay policy allows it).
+    try {
+      const Ctx = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
+      if (Ctx) {
+        if (!this.#audioCtx) this.#audioCtx = new Ctx();
+        if (this.#audioCtx.state === 'suspended') this.#audioCtx.resume();
+        const osc = this.#audioCtx.createOscillator();
+        const gain = this.#audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.15, this.#audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.#audioCtx.currentTime + 0.12);
+        osc.connect(gain).connect(this.#audioCtx.destination);
+        osc.start();
+        osc.stop(this.#audioCtx.currentTime + 0.12);
+      }
+    } catch { /* audio blocked — silent scan is fine */ }
+
+    // Vibrate
+    try {
+      if (navigator.vibrate) navigator.vibrate(40);
+    } catch { /* not supported */ }
+  }
+
+  // ─── Torch ──────────────────────────────────────────────────────
+
+  /**
+   * Wire up the torch button if the camera supports it; stays hidden
+   * otherwise. Exactly one of track / engine is non-null: the native path
+   * controls the MediaStreamTrack directly, the fallback goes through
+   * html5-qrcode's constraint API.
+   * @param {MediaStreamTrack|null} track
+   * @param {any} engine — html5-qrcode instance (fallback path)
+   */
+  #setupTorch(track, engine) {
+    const btn = this.#overlay && /** @type {HTMLElement} */ (this.#overlay.querySelector('.scanner-torch'));
+    if (!btn) return;
+
+    if (track) {
+      const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : null;
+      if (!caps || !(/** @type {any} */ (caps).torch)) return; // stays hidden
+      this.#torchTrack = track;
+    }
+    // engine path: capability was already confirmed by the caller
+
+    btn.style.display = '';
+    btn.addEventListener('click', async () => {
+      const want = !this.#torchOn;
+      try {
+        if (this.#torchTrack) {
+          await this.#torchTrack.applyConstraints({ advanced: [/** @type {any} */ ({ torch: want })] });
+        } else if (engine) {
+          await engine.applyVideoConstraints({ advanced: [{ torch: want }] });
+        }
+        this.#torchOn = want;
+        btn.classList.toggle('scanner-torch--on', want);
+      } catch {
+        // Honest failure: capability said yes but the toggle failed.
+        this.#showToast('Torch not available on this camera.', 'error');
+        btn.style.display = 'none';
+      }
+    });
   }
 
   // ─── DOM Construction ───────────────────────────────────────────
@@ -369,12 +483,63 @@ class BarcodeScanner {
       overlay.appendChild(counter);
     }
 
+    // Decode flash (brief green pulse over the whole viewfinder)
+    const flash = document.createElement('div');
+    flash.className = 'scanner-flash';
+    overlay.appendChild(flash);
+
+    // Torch toggle — hidden until a live track reports the capability
+    const torch = document.createElement('button');
+    torch.className = 'scanner-torch';
+    torch.style.display = 'none';
+    torch.title = 'Toggle flashlight';
+    torch.setAttribute('aria-label', 'Toggle flashlight');
+    torch.textContent = '🔦';
+    overlay.appendChild(torch);
+
+    // Per-scan trail (Quick Mode): recent outcomes stack here while the
+    // camera keeps running, so a batch of scans stays reviewable at a glance.
+    if (this.#trail) {
+      const trail = document.createElement('div');
+      trail.className = 'scanner-trail';
+      overlay.appendChild(trail);
+    }
+
     // Toast container
     const toast = document.createElement('div');
     toast.className = 'scanner-toast';
     overlay.appendChild(toast);
 
     this.#overlay = overlay;
+  }
+
+  /**
+   * Push an entry onto the Quick Mode trail. No-op unless the scanner was
+   * started with { trail: true }. Callers pass PRE-ESCAPED html (same
+   * contract as showToast).
+   * @param {string} html
+   * @param {ToastType} type
+   */
+  addTrail(html, type) {
+    if (!this.#overlay) return;
+    const trail = this.#overlay.querySelector('.scanner-trail');
+    if (!trail) return;
+
+    const entry = document.createElement('div');
+    entry.className = `scanner-trail-entry scanner-trail-entry--${type}`;
+    entry.innerHTML = html;
+    trail.insertBefore(entry, trail.firstChild);
+
+    // Keep the trail short — newest 4 entries only.
+    while (trail.children.length > 4) {
+      trail.removeChild(/** @type {Node} */ (trail.lastChild));
+    }
+
+    // Entries age out on their own; the sticky confirm toast does not.
+    setTimeout(() => {
+      entry.classList.add('scanner-trail-entry--fading');
+      setTimeout(() => entry.remove(), 400);
+    }, 6000);
   }
 
   /** Update the scan counter display. */

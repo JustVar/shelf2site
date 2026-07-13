@@ -524,7 +524,7 @@ async function createEvent() {
 function startScanner() {
     quickModeActive = document.getElementById('quick-mode-cb').checked;
     receiveScanner = new BarcodeScanner(BP);
-    receiveScanner.start(onScanSuccess, { showCounter: quickModeActive });
+    receiveScanner.start(onScanSuccess, { showCounter: quickModeActive, trail: quickModeActive });
 }
 
 function onScanSuccess(decodedText) {
@@ -548,6 +548,7 @@ async function processQuickScan(barcode) {
             `Skipped <span class="scanner-toast-serial">${esc(skipped)}</span> (not confirmed)`,
             'warning'
         );
+        receiveScanner.addTrail(`Skipped ${esc(skipped)} — not confirmed`, 'warning');
         await new Promise(r => setTimeout(r, 900));
     }
 
@@ -564,6 +565,7 @@ async function processQuickScan(barcode) {
         // Honest failure: the scan is NOT lost silently — camera keeps
         // running and the error names itself (audit F12).
         receiveScanner.showToast(`Lookup failed: ${esc(e.message)} — scan again`, 'error');
+        receiveScanner.addTrail(`${esc(barcode)} — lookup failed`, 'error');
         return;
     }
 
@@ -572,6 +574,7 @@ async function processQuickScan(barcode) {
             `<span class="scanner-toast-serial">${esc(barcode)}</span> already in ${esc(data.display_table)}`,
             'error'
         );
+        receiveScanner.addTrail(`${esc(barcode)} — already in ${esc(data.display_table)}`, 'error');
         return;
     }
 
@@ -630,6 +633,7 @@ async function submitQuickIntake(barcode, prefill) {
             `Network error — <span class="scanner-toast-serial">${esc(barcode)}</span> was NOT added. Scan it again.`,
             'error'
         );
+        receiveScanner.addTrail(`${esc(barcode)} — NOT added (network)`, 'error');
         return;
     }
 
@@ -638,6 +642,7 @@ async function submitQuickIntake(barcode, prefill) {
             `<span class="scanner-toast-serial">${esc(barcode)}</span> added to inventory`,
             'success'
         );
+        receiveScanner.addTrail(`${esc(barcode)} — added`, 'success');
         refreshEventPanel();
     } else {
         const err = await submitResp.json().catch(() => ({}));
@@ -645,6 +650,7 @@ async function submitQuickIntake(barcode, prefill) {
             `Failed: ${esc(err.error || 'submission error')}`,
             'error'
         );
+        receiveScanner.addTrail(`${esc(barcode)} — failed: ${esc(err.error || 'submission error')}`, 'error');
     }
 }
 
