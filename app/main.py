@@ -185,8 +185,11 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     # Limit referrer information sent to other sites
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Disable unnecessary browser features
-    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # Disable unnecessary browser features. camera=(self) — NOT camera=() —
+    # because the barcode scanner and photo capture call getUserMedia from
+    # our own origin (H13); an empty allowlist denies camera even to self,
+    # which no amount of HTTPS or CA trust can override.
+    response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
     # HSTS — only send when the request arrived over HTTPS (via nginx).
     # Sending on HTTP causes Chrome to cache HSTS for the IP, breaking
     # fetch() calls from HTTP pages (CORS mixed-content failure).
