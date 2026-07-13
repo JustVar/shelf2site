@@ -22,6 +22,8 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 
 **The URL after setup:** `https://192.0.2.10:8443/assettracker/`
 
+**One thing to know:** the file is named `LAN-CA.crt`, but once installed your device lists the certificate under the name **mkcert root@apphost** — that's the same certificate, don't be thrown by the name.
+
 ---
 
 ## Installation steps
@@ -56,14 +58,14 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 3. **Fully quit Chrome** — close ALL Chrome windows, then check the system tray (bottom-right corner) for a Chrome icon and right-click → Exit. Chrome must be completely closed, not just the tab.
 4. Reopen Chrome and go to `https://192.0.2.10:8443/assettracker/` — you should see a **lock icon (🔒)** to the left of the address bar and no warning page. Chrome no longer shows a green padlock — the gray lock icon means the connection is secure and trusted.
 
-   > **Still seeing a warning page?** Open a new Chrome tab, go to `chrome://certificate-manager/` → Trusted Root Certification Authorities tab → search for **Company**. If it's not listed, repeat the import steps above.
+   > **Still seeing a warning page?** Open a new Chrome tab, go to `chrome://certificate-manager/` → Trusted Root Certification Authorities tab → search for **mkcert** (the certificate is listed as **mkcert root@apphost**, not by its filename). If it's not listed, repeat the import steps above.
 
 ---
 
 ### macOS — Chrome
 
 1. Double-click the **LAN-CA.crt** file — Keychain Access opens
-2. Find **LAN CA** in the list and double-click it
+2. Find **mkcert root@apphost** in the list and double-click it
 3. Expand **Trust** → set **"When using this certificate"** to **Always Trust**
 4. Close the window and enter your Mac password when prompted
 5. Restart Chrome
@@ -78,9 +80,9 @@ Both Safari and Chrome on iOS use the same system certificate store, so one inst
 1. Open the **LAN-CA.crt** file from your email or Files app
 2. A prompt appears: *"This website is trying to download a configuration profile"* — tap **Allow**
 3. Go to **Settings → General → VPN & Device Management**
-4. Tap the **LAN CA** profile → tap **Install** → enter your passcode → **Install** again
+4. Tap the **mkcert root@apphost** profile → tap **Install** → enter your passcode → **Install** again
 5. Go to **Settings → General → About → Certificate Trust Settings**
-6. Find **LAN CA** and toggle it **ON**
+6. Find **mkcert root@apphost** and toggle it **ON**
 7. Open Safari or Chrome and go to `https://192.0.2.10:8443/assettracker/`
 
 ---
