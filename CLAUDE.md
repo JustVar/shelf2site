@@ -76,7 +76,7 @@ Application code should never read raw `can_*` columns directly — always go th
 
 - **Backend:** FastAPI + Jinja2 + HTMX (no JS frameworks). PostgreSQL (DB `asset_tracker`, user `asset_tracker_user`).
 - **Auth:** Starlette SessionMiddleware (signed cookie); session stores user_id, username, role, must_change_password. Roles are a 3-tier hierarchy (9 roles) — see "RBAC / Admin pages" below for the full model.
-- **Deployment:** Docker Compose on apphost — `app` (gunicorn, 6 uvicorn workers, bind :8081) + `db` (postgres:16). Host nginx fronts :8100 → container :8081. `ROOT_PATH=/assettracker` (URL prefix). No systemd; no in-container nginx.
+- **Deployment:** Docker Compose on apphost — `app` (gunicorn, 6 uvicorn workers, bind :8081) + `db` (postgres:16). Host nginx fronts `:8443` (HTTPS) and `:8100` (redirect) → container :8081. `ROOT_PATH=/assettracker` (URL prefix). No systemd; no in-container nginx.
 
 ### Adding Features
 1. Add route file in `app/routes/`
@@ -84,9 +84,13 @@ Application code should never read raw `can_*` columns directly — always go th
 3. **Update tours in `app/tours.py`** for the relevant page
 
 ### Migrations
-- Sequential numbering: `001_`, `002_`, ... (next: `046_`)
+- Sequential numbering: `001_`, `002_`, ... — **the `migrations/` directory is the truth for the next number** (a hardcoded "next" here goes stale immediately; check `ls migrations/ | sort | tail`).
 - Run inside the container: `docker compose exec app python migrations/NNN_*.py`
 - Always add a migration for schema changes — never modify the DB directly.
+
+### Deploy / sync (four locations)
+- apphost has **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `bash scripts/wsync PREV NEW` → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (employer-org).
+- wsync aborts if the workstation tree is dirty; run multi-commit hops sequentially.
 
 ### Static Files
 - Located at repo root `static/` (bind-mounted to `/app/static` in the container) — NOT `app/static/`.

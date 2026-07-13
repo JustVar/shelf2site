@@ -19,7 +19,7 @@
 <!-- Category Tiles -->
 <div class="inv-tiles fl-filter-tiles fl-lift">
   {% for tile in tiles %}
-  <a href="{{ base_path }}/inventory?category={{ tile.name }}{% if status %}&status={{ status }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+  <a href="{{ base_path }}/inventory/?category={{ tile.name }}{% if status %}&status={{ status }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
      class="inv-tile fl-ftile{% if category == tile.name %} inv-tile--active fl-ftile--active{% endif %}" style="--tile-hue:{{ tile.color }}">
     <div class="fl-ftile-hairline"></div>
     <div class="inv-tile__count fl-ftile-count">{{ tile.count }}</div>
@@ -47,7 +47,7 @@
     {% endfor %}
   </select>
   {% if q or status or location %}
-  <a href="{{ base_path }}/inventory?category={{ category }}" class="inv-btn">Clear filters</a>
+  <a href="{{ base_path }}/inventory/?category={{ category }}" class="inv-btn">Clear filters</a>
   {% endif %}
 </div>
 
@@ -140,7 +140,7 @@
         <td colspan="8">
           <div class="inv-empty">
             {% if q or status or location %}
-            No items match your filters. <a href="{{ base_path }}/inventory?category={{ category }}">Clear filters</a>
+            No items match your filters. <a href="{{ base_path }}/inventory/?category={{ category }}">Clear filters</a>
             {% else %}
             No items yet. <a href="{{ base_path }}/intake">Add your first item</a>.
             {% endif %}

@@ -92,7 +92,12 @@ def inventory_page(
     query = db.query(Item)
 
     if category and category != "all":
-        query = query.filter(Item.item_category == category)
+        # item_category is a Postgres enum: an unknown value (hand-edited URL)
+        # would 500 inside psycopg2. Unknown -> treated as "all".
+        if category in ALL_CATEGORIES:
+            query = query.filter(Item.item_category == category)
+        else:
+            category = "all"
 
     if status:
         query = query.filter(Item.item_status == status)

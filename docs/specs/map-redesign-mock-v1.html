@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Map Redesign Mock v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #0B0D12;
+    --card-bg: #151821;
+    --card-bg-hover: #202636;
+    --card-edge: rgba(255,255,255,0.10);
+    --hero-grad: linear-gradient(127deg, #1C2130 0%, #0F121A 100%);
+    --border: rgba(148,163,184,0.13);
+    --text: #EDF0F6;
+    --text-muted: #97A3B6;
+    --accent: #C29E9B;
+    --accent-l: #E3CBC7;
+    --accent-dim: rgba(194,158,155,0.12);
+    /* deal types */
+    --dt-purchased: #01B574;
+    --dt-pilot: #FFB547;
+    --dt-tryandbuy: #2C9FD9;
+    /* unit types (FL hues) */
+    --ut-cloud: #7FA3CE;
+    --ut-edge: #2CD9FF;
+    --ut-c2c: #01B574;
+}
+* { box-sizing: border-box; margin: 0; }
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+.page { display: grid; grid-template-columns: 300px 1fr; grid-template-rows: auto 1fr; height: 100vh; gap: 14px; padding: 16px; }
+
+/* ============ HERO METRIC STRIP (spans full width) ============ */
+.metrics { grid-column: 1 / 3; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.hero {
+    position: relative; border-radius: 14px; padding: 12px 16px;
+    background: var(--hero-grad); border: 1px solid var(--border); overflow: hidden;
+}
+.hairline { position: absolute; top: 0; left: 10%; right: 35%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--glow), transparent);
+    box-shadow: 0 0 12px 1px var(--glow-soft); }
+.hero .lbl { font-size: 11px; color: var(--text-muted); }
+.hero .val { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.hero .sub { font-size: 11px; margin-top: 2px; }
+
+/* ============ LEFT RAIL ============ */
+.rail { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-top-color: var(--card-edge); border-radius: 12px; padding: 14px;
+}
+.card h3 { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 10px; }
+
+/* color-by mode switcher */
+.mode { display: flex; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+.mode button {
+    flex: 1; border: none; background: none; color: var(--text-muted); border-radius: 7px;
+    font: 500 11px 'Plus Jakarta Sans', sans-serif; padding: 6px 4px; cursor: pointer;
+}
+.mode button.on { background: var(--accent-dim); color: var(--accent-l); }
+
+/* deal type bars (chart = filter, like the Land is a Map reference) */
+.bar-row { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 7px; cursor: pointer; font-size: 12px; }
+.bar-row:hover { background: var(--card-bg-hover); }
+.bar-row.dim { opacity: 0.35; }
+.bar-row .name { width: 82px; color: var(--text); }
+.bar-row .track { flex: 1; height: 8px; border-radius: 4px; background: rgba(148,163,184,0.10); overflow: hidden; }
+.bar-row .fill { height: 100%; border-radius: 4px; }
+.bar-row .n { width: 26px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+
+/* unit type chips */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+    display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500;
+    border-radius: 7px; padding: 4px 10px; cursor: pointer; border: 1px solid var(--border); color: var(--text-muted);
+}
+.chip.on { border-color: var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 12%, transparent); }
+.chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+
+/* org ranking */
+.rank { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 2px; border-bottom: 1px solid var(--border); }
+.rank:last-child { border-bottom: none; }
+.rank .n { font-family: 'JetBrains Mono', monospace; color: var(--text-muted); }
+
+/* needs location */
+.nl { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+.nl b { color: #FFB547; font-weight: 600; }
+
+/* ============ MAP AREA ============ */
+.maparea {
+    position: relative; border-radius: 14px; overflow: hidden;
+    background: #0D1016; border: 1px solid var(--border); border-top-color: var(--card-edge);
+}
+.gridbg { position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(148,163,184,0.07) 1px, transparent 1px); background-size: 26px 26px; }
+.landmass { position: absolute; inset: 8% 6% 12% 6%; opacity: 0.5; }
+.dot { position: absolute; width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid rgba(11,13,18,0.9);
+    box-shadow: 0 0 8px 0 color-mix(in srgb, var(--c) 55%, transparent); background: var(--c); cursor: pointer; }
+.dot.big { width: 15px; height: 15px; }
+.cluster { position: absolute; min-width: 22px; height: 22px; border-radius: 11px; background: var(--c); color: #0B0D12;
+    font: 600 11px 'Plus Jakarta Sans', sans-serif; display: flex; align-items: center; justify-content: center; padding: 0 5px;
+    border: 1.5px solid rgba(11,13,18,0.9); cursor: pointer; }
+
+/* zoom controls */
+.zoom { position: absolute; top: 14px; right: 14px; display: flex; flex-direction: column; gap: 4px; }
+.zoom button { width: 30px; height: 30px; border-radius: 8px; background: var(--card-bg); border: 1px solid var(--border);
+    color: var(--text); font-size: 15px; cursor: pointer; }
+
+/* legend on-map */
+.legend { position: absolute; left: 14px; bottom: 14px; background: rgba(21,24,33,0.92); border: 1px solid var(--border);
+    border-top-color: var(--card-edge); border-radius: 10px; padding: 10px 12px; font-size: 11px; }
+.legend div { display: flex; align-items: center; gap: 7px; padding: 2px 0; color: var(--text-muted); }
+.legend i { width: 8px; height: 8px; border-radius: 50%; }
+
+/* unit popup card */
+.pop { position: absolute; top: 24%; left: 46%; width: 240px; background: var(--card-bg);
+    border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.pop .org { font-size: 13px; font-weight: 600; }
+.pop .site { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+.pop .row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; }
+.pop .row span:first-child { color: var(--text-muted); }
+.pop .mono { font-family: 'JetBrains Mono', monospace; }
+.badge { font-size: 9px; font-weight: 700; letter-spacing: 1px; border-radius: 5px; padding: 2px 7px; }
+.pop a { display: block; text-align: center; margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--accent-l);
+    background: var(--accent-dim); border: 1px solid rgba(194,158,155,0.45); border-radius: 7px; padding: 5px; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+    <div class="metrics">
+        <div class="hero" style="--glow:#E3CBC7; --glow-soft:rgba(227,203,199,0.55);">
+            <div class="hairline"></div>
+            <div class="lbl">Deployed Units</div>
+            <div class="val">76</div>
+            <div class="sub" style="color:var(--accent);">28 Customers · 41 Sites</div>
+        </div>
+        <div class="hero" style="--glow:#01B574; --glow-soft:rgba(1,181,116,0.55);">
+            <div class="hairline"></div>
+            <div class="lbl">Purchased</div>
+            <div class="val">51</div>
+            <div class="sub" style="color:var(--dt-purchased);">67% of Fleet</div>
+        </div>
+        <div class="hero" style="--glow:#FFB547; --glow-soft:rgba(255,181,71,0.55);">
+            <div class="hairline"></div>
+            <div class="lbl">Pilots</div>
+            <div class="val">17</div>
+            <div class="sub" style="color:var(--dt-pilot);">3 Due Back in 30 Days</div>
+        </div>
+        <div class="hero" style="--glow:#2C9FD9; --glow-soft:rgba(44,159,217,0.55);">
+            <div class="hairline"></div>
+            <div class="lbl">Try &amp; Buy</div>
+            <div class="val">8</div>
+            <div class="sub" style="color:var(--dt-tryandbuy);">2 Converting This Month</div>
+        </div>
+        <div class="hero" style="--glow:#A492D6; --glow-soft:rgba(164,146,214,0.55);">
+            <div class="hairline"></div>
+            <div class="lbl">New (30 Days)</div>
+            <div class="val">+9</div>
+            <div class="sub" style="color:#A492D6;">Pilot → Purchase: 62%</div>
+        </div>
+    </div>
+
+    <div class="rail">
+        <div class="card">
+            <h3>COLOR UNITS BY</h3>
+            <div class="mode">
+                <button class="on">Deal Type</button>
+                <button>Unit Type</button>
+                <button>Status</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>DEAL TYPE — CLICK TO FILTER</h3>
+            <div class="bar-row">
+                <span class="name">Purchased</span>
+                <span class="track"><span class="fill" style="width:100%;background:var(--dt-purchased);"></span></span>
+                <span class="n">51</span>
+            </div>
+            <div class="bar-row">
+                <span class="name">Pilot</span>
+                <span class="track"><span class="fill" style="width:33%;background:var(--dt-pilot);"></span></span>
+                <span class="n">17</span>
+            </div>
+            <div class="bar-row">
+                <span class="name">Try &amp; Buy</span>
+                <span class="track"><span class="fill" style="width:16%;background:var(--dt-tryandbuy);"></span></span>
+                <span class="n">8</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>UNIT TYPE</h3>
+            <div class="chips">
+                <span class="chip on" style="--c:var(--ut-cloud);"><i></i>Cloud Box</span>
+                <span class="chip on" style="--c:var(--ut-edge);"><i></i>Edge Unit</span>
+                <span class="chip on" style="--c:var(--ut-c2c);"><i></i>C2C Camera</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>TOP CUSTOMERS BY UNITS</h3>
+            <div class="rank"><span>Globex Systems</span><span class="n">12</span></div>
+            <div class="rank"><span>Northwind Traders</span><span class="n">9</span></div>
+            <div class="rank"><span>Contoso Ltd</span><span class="n">7</span></div>
+            <div class="rank"><span>Vandelay Industries</span><span class="n">6</span></div>
+            <div class="rank"><span>Pilot Test Corp</span><span class="n">5</span></div>
+        </div>
+
+        <div class="card">
+            <div class="nl"><b>12</b> Units Missing Location Data <span style="margin-left:auto;color:var(--accent-l);cursor:pointer;">Fix →</span></div>
+        </div>
+    </div>
+
+    <div class="maparea">
+        <div class="gridbg"></div>
+        <svg class="landmass" viewBox="0 0 900 500" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M80 180 Q120 90 230 80 Q340 60 420 110 Q470 90 540 120 Q650 100 720 160 Q800 200 790 280 Q760 360 660 380 Q600 430 500 410 Q420 450 330 420 Q220 430 160 360 Q70 300 80 180 Z"
+                fill="none" stroke="rgba(148,163,184,0.25)" stroke-width="1.5"/>
+        </svg>
+
+        <span class="cluster" style="--c:var(--dt-purchased); top:32%; left:22%;">8</span>
+        <span class="dot" style="--c:var(--dt-purchased); top:28%; left:28%;"></span>
+        <span class="dot" style="--c:var(--dt-pilot); top:36%; left:26%;"></span>
+        <span class="dot big" style="--c:var(--dt-purchased); top:44%; left:33%;"></span>
+        <span class="dot" style="--c:var(--dt-tryandbuy); top:52%; left:30%;"></span>
+        <span class="cluster" style="--c:var(--dt-purchased); top:38%; left:48%;">14</span>
+        <span class="dot" style="--c:var(--dt-pilot); top:30%; left:52%;"></span>
+        <span class="dot" style="--c:var(--dt-pilot); top:47%; left:55%;"></span>
+        <span class="dot" style="--c:var(--dt-purchased); top:56%; left:50%;"></span>
+        <span class="cluster" style="--c:var(--dt-pilot); top:26%; left:64%;">5</span>
+        <span class="dot" style="--c:var(--dt-purchased); top:34%; left:70%;"></span>
+        <span class="dot big" style="--c:var(--dt-purchased); top:45%; left:73%;"></span>
+        <span class="dot" style="--c:var(--dt-tryandbuy); top:55%; left:68%;"></span>
+        <span class="dot" style="--c:var(--dt-purchased); top:62%; left:61%;"></span>
+        <span class="dot" style="--c:var(--dt-pilot); top:66%; left:44%;"></span>
+        <span class="dot" style="--c:var(--dt-tryandbuy); top:40%; left:60%;"></span>
+
+        <div class="pop">
+            <div class="org">Globex Systems</div>
+            <div class="site">Big Tech — Main Office · Austin, TX</div>
+            <div class="row"><span>Unit</span><span>1U Edge Box</span></div>
+            <div class="row"><span>Serial</span><span class="mono">USCFS0226001</span></div>
+            <div class="row"><span>Deal</span><span><span class="badge" style="color:var(--dt-pilot);background:rgba(255,181,71,0.12);border:1px solid rgba(255,181,71,0.4);">PILOT</span></span></div>
+            <div class="row"><span>Deployed</span><span class="mono">Jun 28, 2026</span></div>
+            <div class="row"><span>Due Back</span><span class="mono" style="color:var(--dt-pilot);">Jul 28, 2026</span></div>
+            <a href="#">View Item →</a>
+        </div>
+
+        <div class="zoom"><button>+</button><button>−</button></div>
+
+        <div class="legend">
+            <div><i style="background:var(--dt-purchased);"></i>Purchased</div>
+            <div><i style="background:var(--dt-pilot);"></i>Pilot</div>
+            <div><i style="background:var(--dt-tryandbuy);"></i>Try &amp; Buy</div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
