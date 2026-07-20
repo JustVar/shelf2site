@@ -246,18 +246,67 @@ after HTTPS (H13), reconciliation as its own slice (H16 → H17).
 4. **Routing table (§4):** approve as the Phase 2 lookup design?
 5. **Scope/sequence:** the suggested sequencing above, or reprioritize?
 
-## 8. Manual bench protocol (runs after Phase 2, needs HTTPS for camera)
+## 8. Manual bench protocol (finalized against shipped Phase 2)
 
-Once on webcam, once on phone; wedge on the receive bench. Expected outcomes
-to be finalized against the shipped Phase 2 behavior:
+Run once on webcam, once on phone (needs `LAN-CA.crt` installed — see
+`docs/CA_CERT_DISTRIBUTION.md`), plus the USB wedge on the receive bench.
+Guidance strings below are verbatim from `app/routes/receiving.py`; classes
+from `app/scan_routing.py`. **Core pass** = the eight rows marked ★ (~15 min);
+the rest is the full sweep.
 
-| Scan | Expected after Phase 2 |
+Rows marked **[EXPECTED]** are correct-but-surprising: the behavior looks wrong
+at the bench and is not. Do not file these as defects.
+
+### A. Device labels
+
+| Scan | Expected |
 |---|---|
-| Known device serial label | "already exists" with item card/link (view, not edit) |
-| MAC label (colon + bare formats) | MAC-classified lookup hit, or "no device with MAC — receive with MAC prefilled?" |
-| Vendor shipping label (1Z…/SSCC) | tracking-classified: offer receiving-event create/select |
-| Deliberately damaged/partial label | no decode → manual entry path prompted; wedge/manual fallback usable |
-| Random consumer barcode (EAN/UPC) | "unrecognized product code" guidance, never a phantom item |
+| ★ Known device serial | `already_exists`, class `serial`, item card + link |
+| Unknown serial | `unknown` — "Serial not found — fill in the details manually." |
+| ★ MAC label, colon or dash format | known → `already_exists` class `mac`; unknown → "No device with MAC {MAC} — receive it with the MAC prefilled?" with the MAC prefilled |
+| ★ MAC label, bare 12-hex containing letters | class `hex12` **[EXPECTED]** not `mac` — serial → MAC → OUI cascade; final miss: "Serial not found. 12 hex characters — could this be a MAC without separators?" |
+| MAC label, bare, all digits | class `ambiguous_digits` **[EXPECTED]** not `hex12` — product-code guidance. Correct: rule 8 requires at least one A-F character, or UPC-A would be unreachable |
+| Bare 12-hex, known OUI prefix, unknown device | `unknown` with response `class: "mac"` **[EXPECTED]** rewritten from `hex12` — "Looks like a {Manufacturer} MAC — receive with the MAC prefilled?" |
+| UUID label | known → `already_exists` matched on `uuid`; unknown → "UUID not linked to any unit — scan the serial instead." |
+| `USCF…` serial not in inventory | `recognized` — "New 2026 edge box — confirm intake.", prefills `edge_boxes` |
 
-Anything surprising goes back with the scanned string captured (routing-table
-misses should be logged server-side with their raw payloads during the pilot).
+### B. Shipping labels
+
+| Scan | Expected |
+|---|---|
+| ★ UPS `1Z…` matching a receiving event | `recognized`, class `tracking` — "Inbound shipment for receiving event #N (vendor) — event selected." The event auto-selects; this is the stated purpose working end to end |
+| ★ UPS `1Z…` with no match | `unknown` — "Shipping label — create or select a receiving event for this shipment?" |
+| SSCC (`00` + 18 digits) or 20–22 digit carrier code | class `tracking`, same cascade as above |
+| ★ FedEx/USPS 12–15 digit tracking matching an event | the event still auto-selects, but class is `ambiguous_digits` **[EXPECTED]** not `tracking` — rules 3 and 4 cover only UPS, SSCC and 20–22 digit forms |
+| ★ GS1-128 carton label (`]C1` + AI(01) + AI(21)) | unwraps to the AI(21) serial → `already_exists`; the response carries `gs1.serial` |
+
+### C. Catalog and SKU labels
+
+| Scan | Expected |
+|---|---|
+| SKU present in the catalog | `recognized` — "That's a SKU, not a unit serial — now scan the unit's serial." plus SKU and category prefill |
+| SKU absent from the catalog | `unknown` — the same string plus " (SKU not in the catalog.)" |
+| Unit PN | known → `already_exists` matched on `unit_pn`; unknown → "Unit PN not in inventory — receive it with the PN prefilled?" |
+| Order number `AT-####` | known → customer order card with order number and customer; unknown → "Order not found." |
+
+### D. Adversarial — must never create a phantom item
+
+| Scan | Expected |
+|---|---|
+| ★ Consumer EAN-13 or UPC-A | `unknown`, class `ambiguous_digits` — "Looks like a product or shipping code (UPC/EAN or carrier tracking) — use it as a serial only if the label says so." |
+| ★ QNAP-shaped serial not in inventory | `recognized` — "Recognized QNAP serial pattern — confirm before adding." Must require a confirm tap; a silent insert is the F6 regression |
+| Q-prefixed QR URL | class `serial` **[EXPECTED]** not `qnap_candidate` — falls through to "Serial not found — fill in the details manually." This is the F6 guard holding |
+| QR encoding HTML or JS | rendered as literal text, never executed — the `esc()` helper in `receive.html` escapes scanned strings before every `innerHTML` sink (F16) |
+| Deliberately damaged or partial label | no decode at all — the endpoint is never called; manual entry and the wedge stay usable |
+| Decoded junk (under 3 or over 100 characters) | `unknown`, class `unclassified` — "Could not read a usable code from that scan — try manual entry." |
+
+### E. Wedge and auth
+
+| Check | Expected |
+|---|---|
+| USB wedge: 20-character burst + Enter | routes identically to a camera scan; the field clears and refocuses so a second trigger pull cannot concatenate into `SER1SER2` |
+| Non-editor holding `can_access_receiving` | the page renders **and** the scan action works — no 403 (F10 / H14) |
+
+Anything surprising goes back to Code with the raw scanned string captured.
+Routing misses are logged server-side with their raw payloads during the pilot
+— keep the `scan-routing-pilot` logging enabled until this protocol completes.
