@@ -35,6 +35,7 @@ services:
       - /data/asset-tracker/receipts:/app/data/receipts
       - /data/asset-tracker/cert-reports:/app/data/cert-reports
       - /data/asset-tracker/c2c-cert-reports:/app/data/c2c-cert-reports
+      - /data/asset-tracker/install-cert-reports:/app/data/install-cert-reports
       - /data/asset-tracker/security:/app/data/security
       # Backup status.json for the maintenance page — read-only (docs/BACKUPS.md)
       - /data/asset-tracker/backups:/app/data/backups:ro
