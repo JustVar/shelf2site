@@ -435,31 +435,48 @@
     document.getElementById('depts-count').textContent = DEPARTMENTS_PAYLOAD.length;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  // ---- Init (boost-aware, idempotent): mirrors admin-users-v2.js ----
+  function initDeptsPage() {
+    const grid = document.getElementById('depts-grid');
+    if (!grid) return;
+    if (grid.dataset.deptsInit === '1') return;
     if (typeof DEPARTMENTS_PAYLOAD === 'undefined') {
-      console.error('DEPARTMENTS_PAYLOAD global not defined — admin_departments.html template did not inject it.');
+      console.error('DEPARTMENTS_PAYLOAD global not defined - admin_departments.html template did not inject it.');
       return;
     }
+    grid.dataset.deptsInit = '1';
     updateCounts();
     renderCards(DEPARTMENTS_PAYLOAD);
 
     document.getElementById('depts-search').addEventListener('input', applyFilters);
     document.getElementById('depts-add-btn').addEventListener('click', openDrawerForAdd);
-
     document.getElementById('dept-drawer-close').addEventListener('click', closeDrawer);
     document.getElementById('dept-drawer-overlay').addEventListener('click', closeDrawer);
     document.getElementById('dept-drawer-cancel').addEventListener('click', closeDrawer);
-
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && document.getElementById('dept-drawer').classList.contains('sx-drawer--open')) {
-        closeDrawer();
-      }
-    });
-
     document.getElementById('dept-drawer-save').addEventListener('click', () => {
       if (currentEditDeptId == null) saveDrawerAdd();
       else saveDrawerEdit();
     });
     document.getElementById('dept-drawer-delete').addEventListener('click', deleteDrawerDepartment);
-  });
+  }
+
+  // Document-level listeners bind exactly once: document is NOT replaced by a boost swap.
+  function bindDeptsGlobalOnce() {
+    if (window.__adminDeptsGlobalBound) return;
+    window.__adminDeptsGlobalBound = true;
+    document.addEventListener('keydown', (ev) => {
+      const drawer = document.getElementById('dept-drawer');
+      if (ev.key === 'Escape' && drawer && drawer.classList.contains('sx-drawer--open')) {
+        closeDrawer();
+      }
+    });
+    document.addEventListener('htmx:load', initDeptsPage);
+  }
+
+  bindDeptsGlobalOnce();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDeptsPage);
+  } else {
+    initDeptsPage();
+  }
 })();
