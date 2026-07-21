@@ -3920,6 +3920,12 @@ select.itk-input{cursor:pointer}
   z-index: 200;
   display: flex; flex-direction: column;
 }
+
+/* Compensate drawer height for body zoom (same as .sx-nav, main.css:2862):
+   100vh renders at 115% of viewport when zoomed, pushing the footer off-screen. */
+@media (max-width: 2560px) { .sx-drawer { height: calc(100vh / 1.15); } }
+@media (max-width: 767px)  { .sx-drawer { height: 100vh; } }
+
 .sx-drawer--open { transform: translateX(0); }
 
 .sx-drawer-header {
@@ -3946,6 +3952,7 @@ select.itk-input{cursor:pointer}
 
 .sx-drawer-body {
   flex: 1; overflow-y: auto;
+  min-height: 0;
   padding: 16px 18px 24px;
 }
 
