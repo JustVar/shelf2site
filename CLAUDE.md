@@ -96,6 +96,18 @@ Application code should never read raw `can_*` columns directly — always go th
 - Located at repo root `static/` (bind-mounted to `/app/static` in the container) — NOT `app/static/`.
 - CSS variables for dark/light theme in `static/css/main.css`.
 
+### Body zoom inflates 100vh — size fixed full-height elements with calc(100vh / 1.15)
+
+`body { zoom: 1.15 }` (static/css/main.css, on every monitor ≤2560px; reset to
+1 on phones <768px) scales the whole app up 15% for readability. Side effect:
+any `position: fixed` element sized `height: 100vh` renders at 115% of the real
+viewport, pushing its bottom (e.g. a pinned footer) off-screen. Fix by dividing
+the zoom out — `height: calc(100vh / 1.15)` inside `@media (max-width: 2560px)`,
+plain `100vh` on phones. Precedents: `.sx-nav` sidebar (main.css:2866) and the
+`.sx-drawer` edit drawer (2026-07). Viewport-measuring JS already compensates by
+reading `getComputedStyle(document.body).zoom` (fl-restyle.js, guide.js). A
+shared `--viewport-h` token would be the real cure.
+
 ### Tours (app/tours.py)
 - 33 tour definitions, 29 currently enabled (see app/tours.py; lint via lint_tour_selectors).
 - Each tour: id, name, page_pattern, steps (target selector + title + description). Engine in `static/js/guide.js`.
