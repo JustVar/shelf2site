@@ -3982,7 +3982,7 @@ select.itk-input{cursor:pointer}
   font-size: 11px; color: var(--sx-gray);
   margin-bottom: 4px;
 }
-.sx-drawer-field input,
+.sx-drawer-field input:not([type="checkbox"]),
 .sx-drawer-field select,
 .sx-drawer-field textarea {
   width: 100%; font-size: 13px;
