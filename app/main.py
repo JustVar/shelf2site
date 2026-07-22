@@ -195,13 +195,9 @@ async def security_headers_middleware(request: Request, call_next):
     # fetch() calls from HTTP pages (CORS mixed-content failure).
     if request.headers.get("x-forwarded-proto") == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # Allow the service worker (at /static/sw.js) to claim the full app scope.
-    # Without this header the browser restricts SW scope to /inventory/static/ only.
-    if path.endswith("/sw.js"):
-        response.headers["Service-Worker-Allowed"] = f"{BP}/"
     # No-store on dynamic HTML so a boosted navigation or back-forward cache never
     # serves a stale page after a deploy. Static assets are unaffected (their own
-    # ?v= cache-busting + SW stale-while-revalidate handle them). Fixes the class
+    # ?v= cache-busting and nginx immutable caching handle them). Fixes the class
     # where an HTML change rides in but the browser reuses the old document.
     if response.headers.get("content-type", "").startswith("text/html"):
         response.headers["Cache-Control"] = "no-store"

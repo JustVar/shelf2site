@@ -839,17 +839,6 @@
 
     {% block scripts %}{% endblock %}
 <script>
-if ("serviceWorker" in navigator) {
-    // Only register SW on HTTPS — required for PWA install prompt anyway.
-    // On HTTP (even with Chrome's insecure-origin flag), the SW fetch handler
-    // causes ~60s "Stalled" delays on all same-origin requests in Chrome.
-    // Enable HTTPS redirect (docs/NUC_HTTPS_SETUP.md) before relying on SW.
-    if (location.protocol === "https:") {
-        navigator.serviceWorker.register("{{ base_path }}/static/sw.js", {scope: "{{ base_path }}/"});
-    }
-}
-</script>
-<script>
 // ---------------------------------------------------------------------------
 // Credentials modal — available on all pages
 // ---------------------------------------------------------------------------

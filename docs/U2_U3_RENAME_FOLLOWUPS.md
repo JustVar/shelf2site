@@ -85,4 +85,3 @@ These items came out of the U2d.1 migration to ENUM types (`user_permission_stat
 
 - [ ] **CSRF guard on `GET /logout`.** Pre-existing risk — any third-party page can log a user out via `<img src="…/logout">`. Standard remediation is moving logout to POST-only with a CSRF token. Behavior change for any bookmarks; not in scope of nav work. Surfaced during U4b logout-link diagnosis.
 
-- [ ] **Audit service worker caching of auth-state-changing routes.** Check `/static/sw.js` does not cache `/logout` or `/login` (or any response that mutates session state). Should not, but worth verifying. Surfaced during U4b logout-link diagnosis.
