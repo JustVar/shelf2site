@@ -4238,6 +4238,60 @@ select.itk-input{cursor:pointer}
   font-weight: 500;
 }
 
+/* Progressive disclosure: collapsed permission summary <-> expandable grid.
+   drawerPermState is populated at render regardless of which view shows, so the
+   save path is unaffected (see admin-users-v2.js renderPermissionGrid). */
+.ud-perm-summary {
+  padding: 12px 14px;
+  background: var(--sx-surface-alt);
+  border: 1px solid var(--sx-border);
+  border-radius: 6px;
+}
+.ud-perm-summary-meta {
+  font-size: 11px;
+  color: var(--sx-gray);
+  margin-bottom: 8px;
+}
+.ud-perm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.ud-perm-chip {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  background: var(--green-dim);        /* effective .fl-restyle .user-card__tag--perm tokens */
+  color: var(--fl-green);
+  border: 1px solid var(--fl-green);
+}
+.ud-perm-chip--muted {
+  background: transparent;
+  color: var(--sx-gray);
+  border-color: var(--sx-border);
+}
+.ud-perm-edit-btn,
+.ud-perm-collapse-btn {
+  font-size: 12px;
+  color: var(--sx-white);
+  background: var(--sx-surface);
+  border: 1px solid var(--sx-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.ud-perm-edit-btn:hover,
+.ud-perm-collapse-btn:hover {
+  border-color: var(--sx-gray);
+  background: var(--sx-surface-alt);
+}
+.ud-perm-grid { display: none; }
+.ud-perm-grid--open { display: block; }
+.ud-perm-collapse-btn { margin-top: 12px; }
+
 /* ─────────────────────────────────────────────────────────────
    Departments page — card grid with heatmap permission summary
    ───────────────────────────────────────────────────────────── */
