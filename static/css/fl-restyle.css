@@ -558,7 +558,6 @@
 .fl-restyle .user-card__tag--role-editor { background: var(--accent-primary-dim); color: var(--accent-primary-l); border: 1px solid var(--accent-border); }
 [data-theme="light"] .fl-restyle .user-card__tag--role-editor { color: var(--accent-primary); }
 .fl-restyle .user-card__tag--role-viewer { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
-.fl-restyle .user-card__tag--perm { background: var(--green-dim); color: var(--fl-green); border: 1px solid var(--fl-green); }
 .fl-restyle .dd-members-chip { background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; }
 .fl-restyle .dd-members-empty { color: var(--text-muted); }
 

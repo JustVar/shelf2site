@@ -1,25 +1,6 @@
 (function () {
   'use strict';
 
-  // ---- Permission tags shown on cards ----
-  const PERM_TAGS = [
-    { key: 'can_view_financial',     label: 'Finance' },
-    { key: 'can_manage_warranty',    label: 'Warranty' },
-    { key: 'can_manage_trials',      label: 'Trials' },
-    { key: 'can_manage_procurement', label: 'Procurement' },
-    { key: 'can_manage_sites',       label: 'Sites' },
-    { key: 'can_manage_users',       label: 'User mgmt' },
-    { key: 'can_manage_system',      label: 'Admin tools' },
-    { key: 'can_view_audit_log',     label: 'Audit log' },
-    { key: 'can_access_receiving',   label: 'Receiving' },
-    { key: 'can_access_map',         label: 'Map' },
-    { key: 'can_access_disposal',    label: 'Disposal' },
-    { key: 'can_access_credentials', label: 'Credentials' },
-    { key: 'can_manage_provisioning',label: 'Prov. mgmt' },
-    { key: 'can_view_provisioning',  label: 'Prov. view' },
-    { key: 'view_sensitive_customers', label: 'Sensitive cust.' },
-  ];
-
   // ---- Permission groups + helper text for the drawer grid ----
   const PERMISSION_GROUPS = [
     {
@@ -116,11 +97,6 @@
 
       const rc = roleClass(u.role);
 
-      const permTags = PERM_TAGS
-        .filter(p => u[p.key] === 'grant')
-        .map(p => `<span class="user-card__tag user-card__tag--perm">${p.label}</span>`)
-        .join('');
-
       card.innerHTML = `
         <span class="user-card__status-dot user-card__status-dot--${u.is_active ? 'active' : 'inactive'}" title="${u.is_active ? 'Active' : 'Disabled'}"></span>
         <div class="user-card__top">
@@ -132,7 +108,6 @@
         </div>
         <div class="user-card__tags">
           <span class="user-card__tag user-card__tag--role-${rc}">${roleDisplayLabel(u.role)}</span>
-          ${permTags}
         </div>
       `;
 

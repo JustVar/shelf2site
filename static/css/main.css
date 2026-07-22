@@ -4094,7 +4094,6 @@ select.itk-input{cursor:pointer}
 .user-card__tag--role-admin { background: rgba(212,83,126,.15); color: #993556; font-weight: 500; }
 .user-card__tag--role-editor { background: rgba(127,119,221,.15); color: #534AB7; font-weight: 500; }
 .user-card__tag--role-viewer { background: rgba(150,150,150,.15); color: #5F5E5A; font-weight: 500; }
-.user-card__tag--perm { background: rgba(29,158,117,.15); color: #0F6E56; }
 
 /* Drawer footer button styling — generic */
 .users-btn {
@@ -4131,9 +4130,6 @@ select.itk-input{cursor:pointer}
 [data-theme="dark"] .user-card__avatar--viewer,
 [data-theme="dark"] .user-card__tag--role-viewer {
   color: #B4B2A9;  /* gray-200 */
-}
-[data-theme="dark"] .user-card__tag--perm {
-  color: #5DCAA5;  /* teal-200 */
 }
 [data-theme="dark"] .users-btn--danger {
   color: #F09595;  /* red-200 */
