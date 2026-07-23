@@ -72,6 +72,6 @@
 <script>
 var DEPARTMENTS_PAYLOAD = {{ departments_payload | tojson }};
 </script>
-<script src="{{ base_path }}/static/js/admin-departments-v2.js?v=20260723a"></script>
+<script src="{{ base_path }}/static/js/admin-departments-v2.js?v={{ request.state.js_v('js/admin-departments-v2.js') or '0' }}"></script>
 </div>{# /depts-page.fl-restyle #}
 {% endblock %}

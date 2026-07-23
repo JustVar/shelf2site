@@ -189,5 +189,5 @@
 
 {% block scripts %}
 <script>// BP available globally from base.html</script>
-<script src="{{ base_path }}/static/js/admin-part-numbers.js?v=20260616a"></script>
+<script src="{{ base_path }}/static/js/admin-part-numbers.js?v={{ request.state.js_v('js/admin-part-numbers.js') or '0' }}"></script>
 {% endblock %}

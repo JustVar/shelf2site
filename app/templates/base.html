@@ -76,14 +76,14 @@
     <meta name="apple-mobile-web-app-title" content="Asset Tracker">
     <meta name="base-path" content="{{ base_path | default('') }}">
     <script>window.BP = "{{ base_path }}";</script>
-    <script src="{{ base_path }}/static/js/theme.js"></script>
-    {% if not _kiosk %}<script src="{{ base_path }}/static/js/realtime.js?v=20260616a"></script>{% endif %}
-    <script src="{{ base_path }}/static/js/locks.js"></script>
-    <script src="{{ base_path }}/static/js/guide.js?v=20260602b"></script>
+    <script src="{{ base_path }}/static/js/theme.js?v={{ request.state.js_v('js/theme.js') or '0' }}"></script>
+    {% if not _kiosk %}<script src="{{ base_path }}/static/js/realtime.js?v={{ request.state.js_v('js/realtime.js') or '0' }}"></script>{% endif %}
+    <script src="{{ base_path }}/static/js/locks.js?v={{ request.state.js_v('js/locks.js') or '0' }}"></script>
+    <script src="{{ base_path }}/static/js/guide.js?v={{ request.state.js_v('js/guide.js') or '0' }}"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <script src="{{ base_path }}/static/js/toast.js"></script>
-  <script src="{{ base_path }}/static/js/shortcuts.js?v=20260710a"></script>
-    <script src="{{ base_path }}/static/js/fl-restyle.js?v=20260710b"></script>
+    <script src="{{ base_path }}/static/js/toast.js?v={{ request.state.js_v('js/toast.js') or '0' }}"></script>
+  <script src="{{ base_path }}/static/js/shortcuts.js?v={{ request.state.js_v('js/shortcuts.js') or '0' }}"></script>
+    <script src="{{ base_path }}/static/js/fl-restyle.js?v={{ request.state.js_v('js/fl-restyle.js') or '0' }}"></script>
     {% block head %}{% endblock %}
 {% if _kiosk %}<script>window.SX_SHORTCUTS_DISABLED = true;</script>{% endif %}
 </head>

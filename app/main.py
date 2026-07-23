@@ -140,6 +140,32 @@ def _compute_mobile_css_version():
 
 
 MOBILE_CSS_VERSION = _compute_mobile_css_version()
+
+
+# JS content-hash cache-bust, delivered via request.state (see
+# sidebar_counts_middleware) exactly like the CSS versions above -- env-independent
+# so it reaches every per-route Jinja2Templates instance, not just this module's.
+# Keyed on (rel, mtime_ns): stat() every call, sha1 recomputed only when the file
+# changes on disk, so edits are picked up WITHOUT a restart. Returns "0" on any
+# error, so a bad path can never raise into a template.
+_asset_hash_cache = {}
+
+
+def _asset_version(rel):
+    try:
+        p = _static_dir / rel
+        mtime = p.stat().st_mtime_ns
+        cached = _asset_hash_cache.get(rel)
+        if cached is None or cached[0] != mtime:
+            import hashlib
+            digest = hashlib.sha1(p.read_bytes()).hexdigest()[:10]
+            _asset_hash_cache[rel] = (mtime, digest)
+            return digest
+        return cached[1]
+    except Exception:
+        return "0"
+
+
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 templates = Jinja2Templates(directory=str(_base_dir / "app" / "templates"))
@@ -210,6 +236,11 @@ async def security_headers_middleware(request: Request, call_next):
 # bad DB query can never block a page load.
 @app.middleware("http")
 async def sidebar_counts_middleware(request: Request, call_next):
+    # Set FIRST, before any early return: js_v is a CALLABLE, and a missing
+    # callable raises UndefinedError (->500) rather than degrading to falsy like a
+    # missing string would. Unconditional here means every render path -- authed,
+    # unauthed, kiosk, static-skip -- carries it.
+    request.state.js_v = _asset_version
     path = request.url.path
     rel = path[len(BP):] if path.startswith(BP) else path
     # Skip static + SSE — neither renders a template.
