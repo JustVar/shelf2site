@@ -100,51 +100,10 @@ app = FastAPI(
 _base_dir = Path(__file__).resolve().parent.parent
 _static_dir = _base_dir / "static"
 
-# Derive the stylesheet cache-bust from main.css content so it updates
-# automatically on any CSS change. Computed once at startup; a redeploy (restart)
-# recomputes it. Kills the manual ?v= bump that silently broke returning users.
-_main_css_path = _static_dir / "css" / "main.css"
-_fl_css_path = _static_dir / "css" / "fl-restyle.css"
 
-
-def _compute_css_version():
-    try:
-        import hashlib
-        return hashlib.sha1(_main_css_path.read_bytes()).hexdigest()[:10]
-    except Exception:
-        return "0"
-
-
-CSS_VERSION = _compute_css_version()
-
-
-def _compute_fl_css_version():
-    try:
-        import hashlib
-        return hashlib.sha1(_fl_css_path.read_bytes()).hexdigest()[:10]
-    except Exception:
-        return "0"
-
-
-FL_CSS_VERSION = _compute_fl_css_version()
-
-_mobile_css_path = _static_dir / "css" / "mobile.css"
-
-
-def _compute_mobile_css_version():
-    try:
-        import hashlib
-        return hashlib.sha1(_mobile_css_path.read_bytes()).hexdigest()[:10]
-    except Exception:
-        return "0"
-
-
-MOBILE_CSS_VERSION = _compute_mobile_css_version()
-
-
-# JS content-hash cache-bust, delivered via request.state (see
-# sidebar_counts_middleware) exactly like the CSS versions above -- env-independent
-# so it reaches every per-route Jinja2Templates instance, not just this module's.
+# Static-asset content-hash cache-bust (JS + CSS), delivered via request.state
+# (see sidebar_counts_middleware) so it reaches every per-route Jinja2Templates
+# instance, not just this module's env.
 # Keyed on (rel, mtime_ns): stat() every call, sha1 recomputed only when the file
 # changes on disk, so edits are picked up WITHOUT a restart. Returns "0" on any
 # error, so a bad path can never raise into a template.
@@ -249,9 +208,6 @@ async def sidebar_counts_middleware(request: Request, call_next):
 
     request.state.triage_count = 0
     request.state.pending_count = 0
-    request.state.asset_v = CSS_VERSION
-    request.state.flcss_v = FL_CSS_VERSION
-    request.state.mobilecss_v = MOBILE_CSS_VERSION
 
     from .auth import get_session_user_id
     user_id = get_session_user_id(request)
