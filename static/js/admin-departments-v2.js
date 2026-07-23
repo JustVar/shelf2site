@@ -186,6 +186,13 @@
     container.innerHTML = '';
     drawerPermState = {};
 
+    // Toggle grid: built exactly as before, but into a collapsed container.
+    // Every row keeps its data-perm-key, toggle span, aria-pressed and click
+    // handler, and drawerPermState is populated here whether or not the grid is
+    // visible, so the save path (which reads drawerPermState) is unchanged.
+    const grid = document.createElement('div');
+    grid.className = 'ud-perm-grid';
+
     for (const group of DEPT_PERMISSION_GROUPS) {
       const groupEl = document.createElement('div');
       groupEl.className = 'ud-perm-group';
@@ -208,8 +215,50 @@
         row.addEventListener('click', () => togglePermissionRow(perm.key, row));
         groupEl.appendChild(row);
       }
-      container.appendChild(groupEl);
+      grid.appendChild(groupEl);
     }
+
+    // Collapsed summary: chips derived from drawerPermState + DEPT_PERMISSION_GROUPS.
+    const grantedNames = [];
+    let offCount = 0;
+    for (const group of DEPT_PERMISSION_GROUPS) {
+      for (const perm of group.perms) {
+        if (drawerPermState[perm.key] === 'grant') grantedNames.push(perm.name);
+        else offCount += 1;
+      }
+    }
+    const totalPerms = DEPT_PERMISSION_GROUPS.reduce((n, g) => n + g.perms.length, 0);
+    const chipsHtml = grantedNames.length
+      ? grantedNames.map(n => `<span class="ud-perm-chip">${escapeHtml(n)}</span>`).join('')
+      : `<span class="ud-perm-chip ud-perm-chip--muted">None granted</span>`;
+    const offHtml = offCount ? `<span class="ud-perm-chip ud-perm-chip--muted">+${offCount} off</span>` : '';
+    const summary = document.createElement('div');
+    summary.className = 'ud-perm-summary';
+    summary.innerHTML = `
+      <div class="ud-perm-summary-meta">${grantedNames.length} of ${totalPerms} granted</div>
+      <div class="ud-perm-chips">${chipsHtml}${offHtml}</div>
+      <button type="button" class="ud-perm-edit-btn">Edit permissions</button>
+    `;
+
+    // Collapse control at the end of the grid.
+    const collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'ud-perm-collapse-btn';
+    collapseBtn.textContent = 'Collapse permissions';
+    grid.appendChild(collapseBtn);
+
+    container.appendChild(summary);
+    container.appendChild(grid);
+
+    // Progressive disclosure: presentation only; toggles + drawerPermState wired above.
+    summary.querySelector('.ud-perm-edit-btn').addEventListener('click', () => {
+      summary.style.display = 'none';
+      grid.classList.add('ud-perm-grid--open');
+    });
+    collapseBtn.addEventListener('click', () => {
+      grid.classList.remove('ud-perm-grid--open');
+      summary.style.display = '';
+    });
   }
 
   function togglePermissionRow(permKey, rowEl) {
