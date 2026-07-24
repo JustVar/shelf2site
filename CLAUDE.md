@@ -70,6 +70,17 @@ Permission columns on `users` and `departments` use Postgres ENUM types instead 
 
 Application code should never read raw `can_*` columns directly — always go through the property layer. Reading raw columns gives you a string ('grant'/'block'/'inherit'), not a bool.
 
+### nginx config is a mirror, not a deploy source
+`deploy/nginx/asset-tracker.conf` is a REFERENCE COPY of the live file at
+`/etc/nginx/sites-available/asset-tracker`, which is root-owned and NOT deployed
+from this repo. Editing the repo copy changes nothing — wsync does not touch it.
+It exists so the config survives a host rebuild: if apphost is lost, restore
+nginx from this file. That only works if it stays current.
+To change nginx: edit the live file with sudo, `sudo cp` a timestamped backup to
+/tmp first, `sudo nginx -t` (STOP if it fails — never reload a failing config),
+then `sudo systemctl reload nginx` (reload, never restart). Then mirror the same
+edit into the repo copy and commit, so the two do not drift.
+
 ---
 
 ## Stack & Conventions
