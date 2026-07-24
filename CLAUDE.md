@@ -106,6 +106,14 @@ Verify they match after any nginx change:
 - apphost has **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `bash scripts/wsync PREV NEW` → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (employer-org).
 - wsync aborts if the workstation tree is dirty; run multi-commit hops sequentially.
 
+### git rm + at-sync-commit.sh: pass only the surviving files
+at-sync-commit.sh runs `git add -- "$@"`, which fails on a path already staged
+for deletion by `git rm` (nothing to add). So after `git rm <file>`, do NOT pass
+that file to the sync script — pass only the still-present modified files; the
+commit sweeps in the staged deletion automatically. (Bit us on sw.js and the
+procurement removal.) Fixing the script to skip already-staged deletions would
+close it for good.
+
 ### Static Files
 - Located at repo root `static/` (bind-mounted to `/app/static` in the container) — NOT `app/static/`.
 - CSS variables for dark/light theme in `static/css/main.css`.
