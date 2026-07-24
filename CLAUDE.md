@@ -106,13 +106,25 @@ Verify they match after any nginx change:
 - apphost has **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `bash scripts/wsync PREV NEW` → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (employer-org).
 - wsync aborts if the workstation tree is dirty; run multi-commit hops sequentially.
 
-### git rm + at-sync-commit.sh: pass only the surviving files
-at-sync-commit.sh runs `git add -- "$@"`, which fails on a path already staged
-for deletion by `git rm` (nothing to add). So after `git rm <file>`, do NOT pass
-that file to the sync script — pass only the still-present modified files; the
-commit sweeps in the staged deletion automatically. (Bit us on sw.js and the
-procurement removal.) Fixing the script to skip already-staged deletions would
-close it for good.
+### git rm + at-sync-commit.sh (fixed 2026-07-24)
+at-sync-commit.sh used to fail when passed a path already staged for deletion by
+`git rm` — `git add -- "$@"` errored with "pathspec did not match" (bit us on
+sw.js and the procurement removal). The script now filters staged-deletion paths
+out of the add automatically, so passing a `git rm`'d path alongside modified
+files is safe. Kept as history so the symptom is recognizable if it ever recurs.
+
+### Sync scripts are mirrored — keep live and repo copies in lockstep
+Each sync script exists twice: the live copy that's actually run, and a repo
+mirror under `scripts/` (so it survives a host rebuild). The live copies sit on
+DIFFERENT hosts:
+- `at-sync-commit.sh` — live `~/bin/at-sync-commit.sh` on **apphost**, mirror `scripts/at-sync-commit.sh`.
+- `wsync` — live `~/bin/wsync` on the **workstation**, mirror `scripts/wsync`.
+Editing either side means updating the other in the SAME change; a working live
+copy is not done until its mirror agrees (a stale mirror rots silently — this bit
+us when at-sync-commit.sh was fixed in `~/bin` but not `scripts/`). Verify with
+`diff`, run ON THE HOST WHERE THE LIVE COPY LIVES. Compare against the committed
+blob, not the working file — `git show HEAD:scripts/wsync | diff - ~/bin/wsync` —
+since a CRLF-smudged checkout reads as false drift.
 
 ### Static Files
 - Located at repo root `static/` (bind-mounted to `/app/static` in the container) — NOT `app/static/`.

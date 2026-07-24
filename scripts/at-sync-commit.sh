@@ -13,7 +13,23 @@ fi
 
 PREV=$(git rev-parse --short=7 HEAD)
 
-git add -- "$@" || { echo "ABORT: git add failed" >&2; exit 1; }
+# Skip paths already staged for deletion (e.g. via `git rm`): a plain `git add`
+# fails on them ("pathspec did not match"), aborting before the commit. Filter
+# those out but keep the add scoped to the surviving paths in "$@" — the staged
+# deletion rides into the commit on its own. A genuinely bad path (absent AND
+# not staged-deleted) still reaches git add and errors, exactly as before.
+staged_deletes=$(git diff --cached --name-only --diff-filter=D)
+declare -a to_add=()
+for p in "$@"; do
+  if printf '%s\n' "$staged_deletes" | grep -qxF -- "$p"; then
+    echo "note: '$p' already staged for deletion; not re-adding" >&2
+    continue
+  fi
+  to_add+=("$p")
+done
+if [ "${#to_add[@]}" -gt 0 ]; then
+  git add -- "${to_add[@]}" || { echo "ABORT: git add failed" >&2; exit 1; }
+fi
 
 if git diff --cached --quiet; then
   echo "ABORT: nothing staged. Paths unchanged?" >&2; exit 1
