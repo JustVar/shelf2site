@@ -274,14 +274,6 @@
           </a>
           {% endif %}
           {% if user.has_financial_access %}
-          <a href="{{ base_path }}/admin/procurement"
-             class="sx-nav__link {% if '/admin/procurement' in request.url.path %}sx-nav__link--active{% endif %}"
-             data-label="Procurement">
-            {{ fl_icon('procurement', 'mute', 16) }}
-            <span class="sx-nav__label">Procurement</span>
-          </a>
-          {% endif %}
-          {% if user.has_financial_access %}
           <a href="{{ base_path }}/receipts"
              class="sx-nav__link {% if '/receipts' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Receipts">

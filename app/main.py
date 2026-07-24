@@ -23,7 +23,7 @@ from .routes import (
     intake, intune_routes, inventory, item_detail,
     lifecycle, locks, maintenance_routes, map as map_route,
     mobile, nas_drives, notification_routes, orders, pending,
-    procurement, provisioning, receipts, receiving, search,
+    provisioning, receipts, receiving, search,
     sites, slack_bot_routes, sse, support,
     tours, trials, unit_photos, vendors, warranty,
     zendesk_routes,
@@ -501,7 +501,6 @@ app.include_router(warranty.router)
 app.include_router(trials.router)
 app.include_router(disposal.router)
 app.include_router(nas_drives.router)
-app.include_router(procurement.router)
 app.include_router(receipts.router)
 app.include_router(fulfillment.router)
 app.include_router(c2c.router)

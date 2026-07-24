@@ -81,7 +81,6 @@ def path_is_mobile_exempt(rel: str) -> bool:
         "/fulfillment/c2c/files/",
         "/inventory/export",
         "/triage/export",
-        "/admin/procurement/export",
     ))
 
 
