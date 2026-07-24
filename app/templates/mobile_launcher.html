@@ -8,7 +8,7 @@
 <div class="fl-lift ml-wrap">
 
     <header class="ml-header">
-        <img src="{{ base_path }}/static/img/logo-brand-full.png"
+        <img src="{{ base_path }}/static/img/logo-brand-full.png?v={{ request.state.js_v('img/logo-brand-full.png') or '0' }}"
              alt="Asset Tracker" class="ml-logo">
     </header>
 

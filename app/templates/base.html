@@ -62,7 +62,7 @@
       });
     })();
     </script>
-    <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v=3">
+    <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v={{ request.state.js_v('css/fonts.css') or '0' }}">
     <link rel="stylesheet" href="{{ base_path }}/static/css/main.css?v={{ request.state.js_v('css/main.css') or '0' }}">
     <link rel="stylesheet" href="{{ base_path }}/static/css/fl-restyle.css?v={{ request.state.js_v('css/fl-restyle.css') or '0' }}">
     <link rel="stylesheet" href="{{ base_path }}/static/css/mobile.css?v={{ request.state.js_v('css/mobile.css') or '0' }}">
@@ -96,7 +96,7 @@
       <!-- Header -->
       <div class="sx-nav__header">
         <div class="sx-nav__header-expanded">
-          <img src="{{ base_path }}/static/img/logo-horizontal.svg"
+          <img src="{{ base_path }}/static/img/logo-horizontal.svg?v={{ request.state.js_v('img/logo-horizontal.svg') or '0' }}"
                alt="the company" class="sx-nav__logo-horiz"
                onerror="this.style.display='none'">
           <button class="sx-nav__toggle-btn" onclick="sxNavCollapse()" title="Collapse sidebar">
@@ -104,7 +104,7 @@
           </button>
         </div>
         <div class="sx-nav__header-collapsed">
-          <img src="{{ base_path }}/static/img/logo-icon.svg"
+          <img src="{{ base_path }}/static/img/logo-icon.svg?v={{ request.state.js_v('img/logo-icon.svg') or '0' }}"
                alt="Company" class="sx-nav__logo-icon"
                onerror="this.style.display='none'">
           <button class="sx-nav__toggle-btn" onclick="sxNavExpand()" title="Expand sidebar">

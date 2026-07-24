@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Asset Tracker</title>
     <link rel="icon" type="image/png" sizes="96x96" href="{{ base_path }}/static/icons/icon-96.png">
-    <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v=2">
+    <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v={{ request.state.js_v('css/fonts.css') or '0' }}">
     <script>
         // Apply saved theme immediately to prevent flash
         (function() {
@@ -221,7 +221,7 @@
 
     <div class="login-card">
         <div style="text-align: center; margin-bottom: 1.25rem;">
-            <img src="{{ base_path }}/static/img/logo-brand-full.png?v=1" alt="the company" style="height: 110px; width: auto; max-width: 100%;">
+            <img src="{{ base_path }}/static/img/logo-brand-full.png?v={{ request.state.js_v('img/logo-brand-full.png') or '0' }}" alt="the company" style="height: 110px; width: auto; max-width: 100%;">
         </div>
         <h1>Asset Tracker</h1>
         <p class="subtitle">Sign in to continue</p>
