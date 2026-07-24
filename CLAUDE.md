@@ -80,6 +80,9 @@ To change nginx: edit the live file with sudo, `sudo cp` a timestamped backup to
 /tmp first, `sudo nginx -t` (STOP if it fails — never reload a failing config),
 then `sudo systemctl reload nginx` (reload, never restart). Then mirror the same
 edit into the repo copy and commit, so the two do not drift.
+Verify they match after any nginx change:
+`sudo diff /etc/nginx/sites-available/asset-tracker /opt/asset_tracker/deploy/nginx/asset-tracker.conf`
+(empty output = in sync)
 
 ---
 
