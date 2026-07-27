@@ -1,6 +1,8 @@
 # Endpoint Auth Census
 
-**Generated 2026-07-09** from live route introspection on apphost (267 routes at commit `b4fcd6c`).
+**Reconciled 2026-07-27** against live route introspection on apphost: 284 route entries
+(283 HTTP routes plus 1 static mount) across 253 unique paths. No commit pin, since any commit
+that updates this file changes the count it would name. Regenerate with the command below.
 This is the authoritative map of every route and its auth gate. **When you add an endpoint, add
 its row here** and make sure it fits one of the gate classes below.
 
@@ -186,6 +188,15 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 |---|---|---|---|
 | `/api/contact-admin` | POST | any authenticated | OK |
 
+### containment
+
+| Route | Methods | Required gate | Verdict / notes |
+|---|---|---|---|
+| `/api/containment/candidates` | GET | editor+ (incl. sub-admins) | OK |
+| `/api/containment/install` | POST | editor+ (incl. sub-admins) | OK |
+| `/api/containment/move` | POST | editor+ (incl. sub-admins) | OK |
+| `/api/containment/uninstall` | POST | editor+ (incl. sub-admins) | OK |
+
 ### creds
 
 | Route | Methods | Required gate | Verdict / notes |
@@ -226,6 +237,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
 | `/api/fulfillment/export` | GET | provisioning viewer | OK |
+| `/api/fulfillment/panel/{order_id}` | GET | provisioning viewer | OK |
 | `/api/provisioning/{prov_id}/technician` | PUT | provisioning manager | OK |
 | `/fulfillment/` | GET | provisioning viewer | OK |
 | `/fulfillment/certifications` | GET | provisioning viewer | OK |
@@ -319,6 +331,13 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/map/set-location` | POST | editor+ (incl. sub-admins) | OK |
 | `/map/visibility` | POST | editor+ (incl. sub-admins) | OK |
 
+### mobile
+
+| Route | Methods | Required gate | Verdict / notes |
+|---|---|---|---|
+| `/mobile` | GET | any authenticated | OK |
+| `/mobile/desktop` | GET | any authenticated | OK |
+
 ### nas_drives
 
 | Route | Methods | Required gate | Verdict / notes |
@@ -326,7 +345,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/nas-drives/` | POST | editor+ (incl. sub-admins) | OK |
 | `/api/nas-drives/{drive_id}` | PUT | editor+ (incl. sub-admins) | OK |
 | `/api/nas-drives/{drive_id}` | DELETE | admin tier | OK |
-| `/api/nas-drives/{nas_device_id}` | GET | any authenticated | OK |
+| `/api/nas-drives/{drive_id}` | GET | any authenticated | OK |
 
 ### notification_routes
 
@@ -352,6 +371,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/orders/open` | GET | provisioning manager | OK |
 | `/api/orders/{order_id}` | PUT | provisioning manager | OK |
 | `/api/orders/{order_id}` | DELETE | provisioning manager | OK |
+| `/api/orders/{order_id}/assign-items` | POST | provisioning manager | OK |
 | `/api/orders/{order_id}/availability` | GET | provisioning viewer | OK |
 | `/api/orders/{order_id}/oem-pos` | POST | provisioning manager | OK |
 | `/api/orders/{order_id}/oem-pos/{po_id}` | PUT | provisioning manager | OK |
@@ -366,14 +386,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 |---|---|---|---|
 | `/api/pending/{device_id}/approve` | POST | editor+ (incl. sub-admins) | OK |
 | `/api/pending/{device_id}/dismiss` | POST | editor+ (incl. sub-admins) | OK |
-
-### procurement
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/admin/procurement` | GET | financial access | OK |
-| `/admin/procurement/export` | GET | financial access | OK |
-| `/admin/vendors/{vendor_name}` | GET | financial access | OK |
 
 ### provisioning
 
@@ -413,23 +425,12 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/receive/check-duplicate` | GET | receiving access | OK — H14 closed the F15 viewer enumeration oracle; kiosk 403 stays pinned in the kiosk contract test |
 | `/api/receive/device` | POST | receiving access; direct_to_inventory additionally gated by `user_can_approve_table` per target (F9) | OK — flag-only users submit to the review queue |
 | `/api/receive/events` | POST | receiving access | OK — F10 fixed: flag-holders' page actions no longer 403 |
+| `/api/receive/events/{event_id}` | GET | receiving access | OK |
+| `/api/receive/events/{event_id}/close` | POST | receiving access | OK |
 | `/api/receive/photo` | POST | receiving access | OK |
 | `/api/receive/photo/{photo_id}` | GET | receiving access | OK — H14/F15: was any-authenticated (sequential-id browsing) |
 | `/api/receive/scan` | POST | receiving access OR provisioning view (`require_scan_access`) | OK — fulfillment scan-to-find works for board viewers (F8); bare viewers 403 |
 | `/receive` | GET | receiving access | OK |
-
-### unit photos (shipment-photos slice)
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/api/photos` | POST | editor+ | OK — size/count caps, HEIC rejected, EXIF (incl GPS) stripped on save |
-| `/api/photos` | GET | any authenticated | OK — sensitive-order photos masked without sensitive-customer access; kiosk 403 via middleware |
-| `/api/photos/{id}/file`, `/thumb` | GET | any authenticated | OK — same sensitive masking; hidden photos 404 |
-| `/api/photos/{id}/tags` | POST | editor+ | OK — N:M retag |
-| `/api/photos/{id}/hide` | POST | editor+ | OK — soft delete, audited |
-| `/api/photos/{id}` | DELETE | admin | OK — hard delete, removes files |
-| `/items/{id}/dossier.pdf` | GET | any authenticated | OK — sensitive rows/photos omitted per user |
-| `/orders/{id}/dossiers.zip` | GET | any authenticated | OK — sensitive orders masked as 404 |
 
 ### search
 
@@ -509,6 +510,20 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/trial/{trial_id}/decision` | PUT | editor+ (incl. sub-admins) | OK |
 | `/api/trial/{trial_id}/return` | PUT | editor+ (incl. sub-admins) | OK |
 | `/trials/` | GET | any authenticated | OK |
+
+### unit photos (shipment-photos slice)
+
+| Route | Methods | Required gate | Verdict / notes |
+|---|---|---|---|
+| `/api/photos` | POST | editor+ | OK — size/count caps, HEIC rejected, EXIF (incl GPS) stripped on save |
+| `/api/photos` | GET | any authenticated | OK — sensitive-order photos masked without sensitive-customer access; kiosk 403 via middleware |
+| `/api/photos/{photo_id}/file` | GET | any authenticated | OK — same sensitive masking; hidden photos 404 |
+| `/api/photos/{photo_id}/thumb` | GET | any authenticated | OK — same sensitive masking; hidden photos 404 |
+| `/api/photos/{photo_id}/tags` | POST | editor+ | OK — N:M retag |
+| `/api/photos/{photo_id}/hide` | POST | editor+ | OK — soft delete, audited |
+| `/api/photos/{photo_id}` | DELETE | admin | OK — hard delete, removes files |
+| `/items/{item_id}/dossier.pdf` | GET | any authenticated | OK — sensitive rows/photos omitted per user |
+| `/orders/{order_id}/dossiers.zip` | GET | any authenticated | OK — sensitive orders masked as 404 |
 
 ### vendors
 
