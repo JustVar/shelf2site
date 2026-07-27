@@ -182,16 +182,6 @@ def require_trials_manager(user: User = Depends(get_current_user)) -> User:
     )
 
 
-def require_procurement_manager(user: User = Depends(get_current_user)) -> User:
-    """Grants access if user is admin, procurement_admin, or has can_manage_procurement flag."""
-    if user.has_procurement_admin:
-        return user
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="This feature requires Procurement Admin access. Contact your administrator to request Procurement Management permission.",
-    )
-
-
 def require_sites_manager(user: User = Depends(get_current_user)) -> User:
     """Grants access if user is admin or has can_manage_sites flag."""
     if user.has_sites_admin:

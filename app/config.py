@@ -31,7 +31,7 @@ class Settings:
     ROOT_PATH: str = os.getenv("ROOT_PATH", "")
 
     # Base URL the app is reached at (used to build absolute links in notifications)
-    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://192.0.2.10:8100/assettracker")
+    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "https://192.0.2.10:8443/assettracker")
 
     # Set True when serving behind HTTPS (Cloudflare Tunnel, cloud VM).
     # Marks session cookie as Secure — browsers will NOT send it over plain HTTP.
