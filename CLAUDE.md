@@ -105,6 +105,12 @@ Verify they match after any nginx change:
 ### Deploy / sync (four locations)
 - apphost has **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `bash scripts/wsync PREV NEW` → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (employer-org).
 - wsync aborts if the workstation tree is dirty; run multi-commit hops sequentially.
+- apphost has ZERO git remotes as of 2026-07-27. A remote pointing at the
+  employer-org repo through an unresolvable github-asset-tracker SSH alias
+  was removed; it never resolved and nothing referenced it, so the one way
+  relay is structural. The workstation remote names are LOAD BEARING: wsync
+  hardcodes origin and company in both push commands and in the two ls-remote
+  calls that build the four HEAD line. Do not rename them.
 
 ### git rm + at-sync-commit.sh (fixed 2026-07-24)
 at-sync-commit.sh used to fail when passed a path already staged for deletion by
