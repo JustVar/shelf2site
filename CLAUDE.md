@@ -211,7 +211,7 @@ shared `--viewport-h` token would be the real cure.
 - **Attribute + checkout editing via forms:** the unified detail page shows per-category `attributes` read-only; check-out recipient/notes are set only on the checkout form. Form-based editing of `items.attributes` is deferred (data enters via Casey's import); revisit with the intake-form work.
 ## RBAC / Admin pages (post U4, 2026-05-18)
 
-The asset tracker has 13 admin routes. Each route is gated by a `require_*` dependency in the route signature; the matching sidenav link in `base.html` is gated by the same property on the User model. Route gate and nav gate stay in lockstep — change one, change the other.
+The asset tracker has 12 admin routes, 11 of which are gated by a `require_*` dependency in the route signature; the Slack-bot path is a public 301 redirect. The matching sidenav link in `base.html` is gated by the same property on the User model. Route gate and nav gate stay in lockstep — change one, change the other.
 
 ### Role × admin-page matrix
 
@@ -222,7 +222,6 @@ The asset tracker has 13 admin routes. Each route is gated by a `require_*` depe
 | Audit log | /admin/audit | require_audit_viewer | user.has_audit_access | admin tier + sub-admins + can_view_audit_log |
 | Error log | /admin/errors | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | OUI reference | /admin/oui | require_editor | user.is_editor_or_above | editor + sub-admins + admin tier |
-| Procurement | /admin/procurement | require_financial | user.has_financial_access | admin tier + procurement_admin + can_view_financial |
 | Storage | /admin/storage | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | Intune | /admin/intune | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | Notifications | /admin/notifications | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
@@ -236,9 +235,9 @@ The asset tracker has 13 admin routes. Each route is gated by a `require_*` depe
 The Admin section is a collapsible nested menu (`.sx-nav__section[data-section="admin"]`) containing four subgroups:
 
 - **People** — Users, Departments
-- **Data & logs** — Audit log, Error log, OUI reference, Procurement, Storage
+- **Data & logs** — Audit log, Error log, OUI reference, Part Numbers, Receipts
 - **Integrations** — Intune, Notifications, Spreadsheet sync, Zendesk
-- **System** — Maintenance
+- **System** — Maintenance, Storage
 
 Each subgroup auto-hides if no children inside it are visible to the current user. The Admin section + matching subgroup auto-expand on page load when the URL is `/admin/*`; otherwise everything collapses.
 

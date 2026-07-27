@@ -33,7 +33,7 @@ Suggested commit: `Opt pilots due back into the fl restyle language`
 
 ## Slice 9: Admin section — three commits
 
-Nav groups: PEOPLE (Users, Departments), DATA & LOGS (Audit log, Error log, OUI reference, Part Numbers, Procurement, Receipts, Storage), INTEGRATIONS, SYSTEM (contents undiscovered — inventory them first).
+Nav groups: PEOPLE (Users, Departments), DATA & LOGS (Audit log, Error log, OUI reference, Part Numbers, Receipts), INTEGRATIONS, SYSTEM (Maintenance, Storage).
 
 ### 9a. People
 
@@ -47,9 +47,9 @@ Contracts: add/edit user modals (modal archetype), role filtering, active/inacti
 
 Suggested commit: `Opt admin people pages into the fl restyle language`
 
-### 9b. Data and logs (7 table pages)
+### 9b. Data and logs (5 table pages)
 
-All are filter-bar + table pages -> select treatment + fl-table. Audit log specifics: event chips (user_login, oem_po_created...) = mono muted chips (info tint at most — they are taxonomy, not alerts); failed/error events (user_login_failed) = red tint; timestamps + IP mono muted; details column wraps. Error log: severity chips red/amber tint. Others (OUI, Part Numbers, Procurement, Receipts, Storage): fl-table + their action buttons as tints, one solid blush max per page.
+All are filter-bar + table pages -> select treatment + fl-table. Audit log specifics: event chips (user_login, oem_po_created...) = mono muted chips (info tint at most — they are taxonomy, not alerts); failed/error events (user_login_failed) = red tint; timestamps + IP mono muted; details column wraps. Error log: severity chips red/amber tint. Others (OUI, Part Numbers, Receipts): fl-table + their action buttons as tints, one solid blush max per page.
 
 Contracts: filter selects reload correctly, pagination if any, receipt file links open, no bulk-op regressions.
 
@@ -57,7 +57,9 @@ Suggested commit: `Opt admin data and log pages into the fl restyle language`
 
 ### 9c. Integrations + System
 
-Undiscovered — inventory first, map to archetypes, and if anything has no archetype STOP and bring it back to Chat for a mock before building. Danger zone actions (deletes, resets, integration keys) follow the tint rule with red tint for destructive; never a solid red.
+Inventoried: INTEGRATIONS (Intune, Notifications, Spreadsheet sync, Zendesk), SYSTEM (Maintenance, Storage). Map each to archetypes, and if anything has no archetype STOP and bring it back to Chat for a mock before building. Danger zone actions (deletes, resets, integration keys) follow the tint rule with red tint for destructive; never a solid red.
+
+Storage Monitor now lives in SYSTEM, moved out of Data and logs. Restyle it here with the same fl-table plus tint language as the data pages.
 
 Suggested commit: `Opt admin integrations and system pages into the fl restyle language`
 
