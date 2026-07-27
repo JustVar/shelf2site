@@ -80,7 +80,7 @@ container re-init use the matching value.
        docker compose logs --tail=30 app 2>&1 | grep -iE "error|database|connection" | tail -10
 
    No connection errors expected. Visit the app at
-   http://192.0.2.10:8100/assettracker/ — login flow and a data-loaded page (e.g.
+   https://192.0.2.10:8443/assettracker/ — login flow and a data-loaded page (e.g.
    /inventory) should both work.
 
 ### Expected downtime
@@ -186,7 +186,7 @@ flag. Adjust tone for the relationship.
 >
 > As part of our routine security cycle [or: due to <specific reason>], your
 > asset_tracker password needs to be reset. The next time you log in to
-> http://192.0.2.10:8100/assettracker/, you'll be prompted to choose a new
+> https://192.0.2.10:8443/assettracker/, you'll be prompted to choose a new
 > password.
 >
 > Your existing password will work one more time — it'll just take you

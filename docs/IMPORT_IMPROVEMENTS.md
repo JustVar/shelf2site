@@ -266,7 +266,7 @@ docker compose exec app python scripts/import_spreadsheet_v2.py --dry-run
 docker compose exec app python scripts/import_spreadsheet_v2.py
 
 # 4. Verify changes in dashboard
-open http://localhost:8100/assettracker/
+open https://localhost:8443/assettracker/
 ```
 
 ## Roadmap

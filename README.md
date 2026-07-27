@@ -97,7 +97,7 @@ docker compose exec app python scripts/seed_oui_allowlist.py
 docker compose exec app python scripts/import_spreadsheet.py
 ```
 
-Open the app at `http://<host>:8100/assettracker/`.
+Open the app at `https://<host>:8443/assettracker/`.
 
 ## Project Structure
 
