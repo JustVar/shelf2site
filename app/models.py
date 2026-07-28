@@ -631,6 +631,10 @@ class User(Base):
                 or self._resolve_perm("can_manage_procurement"))
 
     @property
+    def is_admin_tier(self):
+        return self.role in self._ADMIN_LEVEL_ROLES
+
+    @property
     def is_editor_or_above(self):
         return self.role in self._ADMIN_LEVEL_ROLES + ("editor", "warranty_admin", "trials_admin", "procurement_admin")
 

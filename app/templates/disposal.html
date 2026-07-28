@@ -80,14 +80,14 @@
                     {% if user.is_editor_or_above %}
                     <td>
                         <button class="btn btn-sm" onclick="openEditDispositionModal({{ item.disposition.id }})">Edit</button>
-                        {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                        {% if user.is_admin_tier %}
                         <button class="btn btn-sm btn-danger" onclick="deleteDisposition({{ item.disposition.id }})">Delete</button>
                         {% endif %}
                     </td>
                     {% endif %}
                 </tr>
                 {% else %}
-                <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No disposal records yet.</td></tr>
+                <tr><td colspan="{% if user.is_editor_or_above %}8{% else %}7{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">No disposal records yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
