@@ -1709,8 +1709,8 @@ def audit_log_page(
         query = query.filter(AuditLog.user_id == int(user_filter))
 
     # Area-scoped audit: non-admin users only see entries for their permitted areas
-    is_full_admin = user.role in ("justin_admin", "system_admin", "admin")
-    has_explicit_audit = user.can_view_audit_log is True  # explicit override, not inherited
+    is_full_admin = user.role in ADMIN_LEVEL_ROLES
+    has_explicit_audit = user.can_view_audit_log == 'grant'  # explicit user-level grant, not inherited
     if not is_full_admin and not has_explicit_audit:
         allowed_tables = set()
         for perm_col, tables in PERM_AUDIT_TABLES.items():
