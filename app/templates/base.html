@@ -180,6 +180,13 @@
         {% if user and user.has_provisioning_view %}
         <div class="sx-nav__section-label">Fulfillment</div>
 
+        <a href="{{ base_path }}/fulfillment/"
+           class="sx-nav__link {% if request.url.path.rstrip('/').endswith('/fulfillment') %}sx-nav__link--active{% endif %}"
+           data-label="Fulfillment Overview">
+          {{ fl_icon('truck', 'mute', 16) }}
+          <span class="sx-nav__label">Fulfillment Overview</span>
+        </a>
+
         <a href="{{ base_path }}/fulfillment/c2c"
            class="sx-nav__link {% if '/fulfillment/c2c' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="C2C Cameras">
