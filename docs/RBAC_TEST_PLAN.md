@@ -24,7 +24,7 @@ Create test users for each role and permission combination:
 ### Sub-Admin Roles (domain-specific)
 - **Warranty Admin**: Full warranty/RMA CRUD including delete
 - **Trials Admin**: Full trials CRUD including delete
-- **Procurement Admin**: Procurement analytics + financial data access
+- **Procurement Admin**: Financial data access (receipts, vendor analytics)
 
 ### Permission Flags (toggleable per user)
 - **Editor + Warranty Perm**: Editor with `can_manage_warranty=True`
@@ -44,7 +44,6 @@ Create test users for each role and permission combination:
 | Try & Buy Trials | ✅ View | ✅ Edit | ✅ Edit | ✅ **Delete** | ✅ Edit | ✅ **Delete** |
 | Disposal & EOL | ✅ View | ✅ Edit | ✅ Edit | ✅ Edit | ✅ Edit | ✅ Delete |
 | Sites & Ownership | ✅ View | ✅ View | ✅ View | ✅ View | ✅ View | ✅ Full |
-| Procurement Analytics | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
 | User Management | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Spreadsheet Sync | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Storage Monitor | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
@@ -85,43 +84,54 @@ Create test users for each role and permission combination:
 
 ---
 
-### 2. Financial Data Access (Procurement Analytics)
-**Test as Viewer:**
-- [ ] "Procurement Analytics" link should NOT appear in sidebar
-- [ ] Direct access to `/admin/procurement` should show permission denied page
-- [ ] Error message explains financial access requirement
+### 2. Financial Data Access (Receipts & Vendors)
 
-**Test as Editor (no financial access):**
-- [ ] "Procurement Analytics" link should NOT appear
-- [ ] Direct access blocked with permission page
-- [ ] Can still edit devices normally
+Financial access comes from `has_financial_access` (app/models.py): true for
+admin-level roles and `procurement_admin`, or for any user holding
+`can_view_financial` OR `can_manage_procurement`. The `require_financial`
+dependency (app/auth.py) is a thin wrapper over that property.
 
-**Test as Warranty Admin:**
-- [ ] NO procurement access (warranty domain only)
-- [ ] "Procurement Analytics" link does NOT appear
-- [ ] Direct access blocked
+The standalone `/admin/procurement` page no longer exists. Two surfaces consume
+financial access, and they gate differently: Receipts is all-or-nothing,
+Vendors is read-open with figures masked.
 
-**Test as Trials Admin:**
-- [ ] NO procurement access (trials domain only)
-- [ ] "Procurement Analytics" link does NOT appear
-- [ ] Direct access blocked
+**Receipts - uniformly gated by `require_financial` (all 4 routes):**
+
+**Test as Viewer / Editor (no financial flags):**
+- [ ] "Receipts" link does NOT appear under Admin > Data & logs
+- [ ] Direct access to `/receipts` is refused with the financial-access message
+- [ ] `/receipts/{id}` and `/receipts/{id}/file` also refused
 
 **Test as Procurement Admin:**
-- [ ] Sidebar shows "Management" section
-- [ ] "Procurement Analytics" link appears under "Management"
-- [ ] Can view procurement page with full data
-- [ ] Can see pricing, vendor information, analytics
-- [ ] Has financial data access
+- [ ] "Receipts" link appears under Admin > Data & logs
+- [ ] Receipt list loads with server-side filters
+- [ ] Receipt detail and file download both work
+- [ ] Can replace a receipt file
 
-**Test as Editor with Procurement Permission:**
-- [ ] Sidebar shows "Management" section
-- [ ] "Procurement Analytics" appears under "Management"
-- [ ] Full financial data access granted by permission flag
+**Test as Editor with can_view_financial only:**
+- [ ] Full receipts access (this flag alone is sufficient)
+
+**Test as Editor with can_manage_procurement only:**
+- [ ] Full receipts access (either flag independently grants access)
+
+**Vendors - three gate tiers, NOT uniformly financial:**
+
+**Test as Viewer:**
+- [ ] `/vendors/` list page loads (require_viewer, not financial)
+- [ ] `/vendors/{id}` detail page loads
+- [ ] Pricing and analytics figures are HIDDEN (show_financials false)
+- [ ] No edit controls (can_edit false)
+
+**Test as Procurement Admin:**
+- [ ] Vendor detail shows full procurement analytics
+- [ ] Can create a vendor (POST /api/vendors/)
+- [ ] Can update a vendor (PUT /api/vendors/{id})
+- [ ] CANNOT delete a vendor - delete requires admin
 
 **Test as Admin:**
-- [ ] Sidebar shows "Admin" section
-- [ ] "Procurement Analytics" appears under "Admin"
-- [ ] Full access to all financial data
+- [ ] All of the above
+- [ ] Can delete a vendor (DELETE /api/vendors/{id})
+- [ ] Can run vendor auto-create
 
 ---
 
@@ -248,7 +258,7 @@ Create test users for each role and permission combination:
   - [ ] "Warranty Management" column
   - [ ] "Trials Management" column
   - [ ] "Procurement Management" column
-  - [ ] "Financial Access" column (legacy, deprecated in favor of procurement permission)
+  - [ ] "Financial Access" column (can_view_financial - live, an independent OR branch of has_financial_access)
 - [ ] Sub-admin roles show "Role (Always)" - cannot toggle their own domain permission
   - [ ] Warranty admin shows "Role (Always)" for warranty permission
   - [ ] Trials admin shows "Role (Always)" for trials permission
@@ -280,9 +290,8 @@ Create test users for each role and permission combination:
 **Procurement Permission:**
 - [ ] Find an editor or viewer user
 - [ ] Check "Grant Access" for procurement permission
-- [ ] User gains access to Procurement Analytics
 - [ ] User gains financial data access
-- [ ] Sidebar shows "Management" section for them
+- [ ] Sidebar shows the "Receipts" link under Admin > Data & logs
 - [ ] Audit log records the change
 - [ ] Revoke and verify access removed
 
@@ -302,13 +311,11 @@ Create test users for each role and permission combination:
 - [ ] No "Edge Box Map" link
 - [ ] No "Management" section
 - [ ] No "Admin" section
-- [ ] No procurement link
 
 **Editor:**
 - [ ] Shows "Edge Box Map" link
 - [ ] No "Management" section (unless has permission flag)
 - [ ] No "Admin" section
-- [ ] No procurement link
 
 **Warranty Admin:**
 - [ ] Shows "Edge Box Map" link
@@ -316,7 +323,6 @@ Create test users for each role and permission combination:
 - [ ] "Management" section contains:
   - [ ] "Warranty & RMA" link
   - [ ] "Audit Log" link
-- [ ] No procurement link
 
 **Trials Admin:**
 - [ ] Shows "Edge Box Map" link
@@ -324,24 +330,25 @@ Create test users for each role and permission combination:
 - [ ] "Management" section contains:
   - [ ] "Try & Buy" link
   - [ ] "Audit Log" link
-- [ ] No procurement link
 
 **Procurement Admin:**
 - [ ] Shows "Edge Box Map" link
-- [ ] Shows "Management" section (not "Admin")
-- [ ] "Management" section contains:
-  - [ ] "Procurement Analytics" link
-  - [ ] "Audit Log" link
+- [ ] Shows "Admin" section
+- [ ] "Admin" > "Data & logs" contains:
+  - [ ] "Receipts" link (has_financial_access)
+  - [ ] "Audit log" link (has_audit_access includes procurement_admin)
 
 **Admin:**
 - [ ] Shows all main navigation links
-- [ ] Shows full "Admin" section (not "Management")
-- [ ] "Admin" section contains all admin features
+- [ ] Shows full "Admin" section
+- [ ] "Admin" section contains all four subgroups: People, Data &
+      logs, Integrations, System (subgroups auto-hide when no child
+      is visible)
 
 **Editor with Warranty Permission:**
 - [ ] Shows "Edge Box Map" link
-- [ ] Shows "Management" section
-- [ ] "Warranty & RMA" appears under "Management"
+- [ ] Shows "Admin" section with "Data & logs" (is_editor_or_above grants
+      OUI reference and Part Numbers)
 
 ---
 
@@ -428,10 +435,18 @@ Create test users for each role and permission combination:
 - [ ] Editor without permission gets 403
 - [ ] Warranty admin gets 403 (wrong domain)
 
-**Procurement Endpoints:**
-- [ ] `/admin/procurement` - requires procurement_admin OR can_manage_procurement OR admin
-- [ ] Editor without permission gets 403
-- [ ] Warranty/trials admins get 403 (wrong domain)
+**Financial & Vendor Endpoints:**
+- [ ] `/receipts` - requires require_financial
+- [ ] `/receipts/{id}` - requires require_financial
+- [ ] `/receipts/{id}/file` - requires require_financial
+- [ ] `/receipts/{id}/replace-file` (POST) - requires require_financial
+- [ ] `/vendors/` - requires require_viewer only
+- [ ] `/vendors/{id}` - requires require_viewer; analytics shown only if has_financial_access
+- [ ] `/api/vendors/` (POST) - requires require_financial
+- [ ] `/api/vendors/{id}` (PUT) - requires require_financial
+- [ ] `/api/vendors/{id}` (DELETE) - requires require_admin
+- [ ] `/api/vendors/auto-create` (POST) - requires require_admin
+- [ ] Editor without financial flags gets 403 on all require_financial routes
 
 **User Management Endpoints:**
 - [ ] `/api/admin/users/*` - requires admin only
