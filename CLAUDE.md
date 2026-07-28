@@ -148,6 +148,29 @@ plain `100vh` on phones. Precedents: `.sx-nav` sidebar (main.css:2866) and the
 reading `getComputedStyle(document.body).zoom` (fl-restyle.js, guide.js). A
 shared `--viewport-h` token would be the real cure.
 
+### Shared CSS classes: add a prefixed class, never edit a shared rule
+
+Board-level CSS classes are shared across several pages. Editing a shared rule
+to fix the layout of one board changes every other board that uses it, and the
+regression surfaces on a page the change never touched.
+
+To restyle one board, add a new board-prefixed class and apply it alongside the
+shared class. Do not edit the shared rule. Before editing any CSS rule, grep the
+class name across app/templates and static/css and confirm it is used only by
+the page you intend to change.
+
+### Inline event handlers: server data needs |tojson|forceescape
+
+Any server-side value interpolated into an inline handler attribute (onclick,
+onchange, oninput) must go through `|tojson|forceescape`. Bare `{{ value }}` or
+`'{{ value }}'` is an injection path for any field a user can write, including
+serial numbers, SKUs, notes, and names.
+
+`|tojson` renders the value as a valid JS literal and escapes quotes and
+backslashes. `|forceescape` then HTML-escapes the double quotes tojson produces,
+so they cannot terminate the attribute early. Either filter alone is not
+sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
+
 ### Tours (app/tours.py)
 - 33 tour definitions, 29 currently enabled (see app/tours.py; lint via lint_tour_selectors).
 - Each tour: id, name, page_pattern, steps (target selector + title + description). Engine in `static/js/guide.js`.
