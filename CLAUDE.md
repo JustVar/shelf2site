@@ -240,24 +240,38 @@ sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
 - **Attribute + checkout editing via forms:** the unified detail page shows per-category `attributes` read-only; check-out recipient/notes are set only on the checkout form. Form-based editing of `items.attributes` is deferred (data enters via Casey's import); revisit with the intake-form work.
 ## RBAC / Admin pages (post U4, 2026-05-18)
 
-The asset tracker has 12 admin routes, 11 of which are gated by a `require_*` dependency in the route signature; the Slack-bot path is a public 301 redirect. The matching sidenav link in `base.html` is gated by the same property on the User model. Route gate and nav gate stay in lockstep — change one, change the other.
+The asset tracker has 13 gated admin pages plus the Slack-bot path, which is a public 301 redirect. The matching sidenav link in `base.html` is gated by the same property on the User model. Route gate and nav gate stay in lockstep - change one, change the other.
+
+The lockstep rule pairs the PAGE gate with the nav gate. Mutation gates on the same page may be stricter, so a visible link does not imply the buttons on that page will work - OUI reference and Part Numbers are both editor-readable but system-admin-writable.
 
 ### Role × admin-page matrix
 
-| Page | URL | Route gate | Nav gate | Property |
-|---|---|---|---|---|
-| Users | /admin/users | require_user_manager | user.has_user_management | admin tier + can_manage_users |
-| Departments | /admin/departments | require_user_manager | user.has_user_management | admin tier + can_manage_users |
-| Audit log | /admin/audit | require_audit_viewer | user.has_audit_access | admin tier + sub-admins + can_view_audit_log |
-| Error log | /admin/errors | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| OUI reference | /admin/oui | require_editor | user.is_editor_or_above | editor + sub-admins + admin tier |
-| Storage | /admin/storage | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| Intune | /admin/intune | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| Notifications | /admin/notifications | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| Spreadsheet sync | /admin/spreadsheet-sync | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| Zendesk | /admin/zendesk | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| Maintenance | /admin/maintenance | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| Slack-bot redirect | /admin/slack-bot | (none — public 301) | (no link) | redirects to /admin/notifications |
+| Page | URL | Read gate | Write gate | Nav gate | Property |
+|---|---|---|---|---|---|
+| Users | /admin/users | require_user_manager | require_user_manager | user.has_user_management | admin tier + can_manage_users |
+| Departments | /admin/departments | require_user_manager | require_user_manager | user.has_user_management | admin tier + can_manage_users |
+| Audit log | /admin/audit | require_audit_viewer | (read only) | user.has_audit_access | admin tier + sub-admins + can_view_audit_log |
+| Error log | /admin/errors | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
+| OUI reference | /admin/oui | require_editor | require_system_admin | user.is_editor_or_above | editor + sub-admins + admin tier |
+| Part Numbers | /admin/part-numbers | require_editor | require_system_admin | user.is_editor_or_above | editor + sub-admins + admin tier |
+| Receipts | /receipts | require_financial | require_financial | user.has_financial_access | admin tier + procurement_admin + can_view_financial + can_manage_procurement |
+| Storage | /admin/storage | require_system_admin | (read only) | user.has_system_admin | admin tier + can_manage_system |
+| Intune | /admin/intune | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
+| Notifications | /admin/notifications | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
+| Spreadsheet sync | /admin/spreadsheet-sync | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
+| Zendesk | /admin/zendesk | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
+| Maintenance | /admin/maintenance | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
+| Slack-bot redirect | /admin/slack-bot | (none, public 301) | (none) | (no link) | redirects to /admin/notifications |
+
+Footnotes on rows that do not fit the pattern:
+
+- **Receipts** sits at `/receipts`, NOT under `/admin/`, even though its link lives in the Admin > Data & logs subgroup.
+- **Notifications** is served by `slack_bot_routes.py` - the same module as the `/admin/slack-bot` redirect - not by `notification_routes.py`. The 12 `/api/notifications/*` endpoints in `notification_routes.py` are the per-user notification feed and are gated by `get_current_user`, not by an admin dependency. Do not read that module and conclude the admin page is ungated.
+- **Error log** write is `DELETE /api/errors/prune` (require_system_admin). The ingest endpoint `POST /api/errors/report` is deliberately gated only by `get_current_user` so the browser JS error handler works for any signed-in user.
+
+### No router-level gates - every route carries its own
+
+`admin.py` declares a bare `APIRouter()` with no `dependencies=[...]`, and `main.py` includes it with no prefix. There is no router-level gate anywhere in the admin surface. Every route carries its own dependency, and a missing one fails silently - the route just becomes reachable, with nothing to raise. A per-route audit is the only check that catches it.
 
 ### Sidenav structure (post U4b)
 
@@ -268,7 +282,7 @@ The Admin section is a collapsible nested menu (`.sx-nav__section[data-section="
 - **Integrations** — Intune, Notifications, Spreadsheet sync, Zendesk
 - **System** — Maintenance, Storage
 
-Each subgroup auto-hides if no children inside it are visible to the current user. The Admin section + matching subgroup auto-expand on page load when the URL is `/admin/*`; otherwise everything collapses.
+Each subgroup auto-hides if no children inside it are visible to the current user. On page load the JS finds `.sx-nav__link--active` and walks up with `closest()` to expand that link's subgroup and section; it does NOT test the URL. Consequence: `/receipts` expands the Admin section even though its URL is not under `/admin/`.
 
 ### Property to require_* dependency mapping
 
@@ -276,11 +290,15 @@ When adding a new admin route, use these pairings:
 
 | `require_*` dependency | Matching User property | Used for |
 |---|---|---|
-| require_editor | user.is_editor_or_above | broad access — editor + sub-admins + admin tier |
+| require_editor | user.is_editor_or_above | broad access - editor + sub-admins + admin tier |
 | require_user_manager | user.has_user_management | user/dept admin |
 | require_audit_viewer | user.has_audit_access | audit log visibility (broader than admin tier) |
 | require_system_admin | user.has_system_admin | system operations |
 | require_financial | user.has_financial_access | finance & procurement views |
+| require_provisioning_viewer | user.has_provisioning_view | fulfillment reads |
+| require_provisioning_manager | user.has_provisioning_manage | fulfillment writes |
+
+This table covers the admin-page subset only. `app/auth.py` defines 14 `require_*` dependencies plus a `require_role()` factory; the rest gate non-admin surfaces (map, receiving, scanning, disposal, credentials, warranty, trials, sites).
 
 ### 403 handling (post U4c)
 
