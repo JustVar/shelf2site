@@ -30,7 +30,7 @@
 </div>
 
 <!-- Admin: Add New OUI -->
-{% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+{% if user.has_system_admin %}
 <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; margin-bottom: 2rem;">
     <h3 style="margin-bottom: 0.8rem;">Add OUI Prefix Manually</h3>
     <form id="add-oui-form" class="form-inline" onsubmit="addOUI(event)">
@@ -71,7 +71,7 @@
                     <th>OUI Prefixes</th>
                     <th>Categories</th>
                     <th>Devices</th>
-                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    {% if user.has_system_admin %}
                     <th>Actions</th>
                     {% endif %}
                 </tr>
@@ -102,7 +102,7 @@
                         <span style="color: var(--text-muted);">0</span>
                         {% endif %}
                     </td>
-                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    {% if user.has_system_admin %}
                     <td></td>
                     {% endif %}
                 </tr>
@@ -127,7 +127,7 @@
                         <span style="color: var(--text-muted);">0</span>
                         {% endif %}
                     </td>
-                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    {% if user.has_system_admin %}
                     <td>
                         <button class="btn btn-primary btn-sm"
                                 onclick="event.stopPropagation(); editOUI({{ stat.entry.id }}, '{{ stat.entry.manufacturer|e }}', '{{ stat.entry.maps_to_table or '' }}')">
@@ -144,7 +144,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="{% if user.role in ('justin_admin', 'system_admin', 'admin') %}6{% else %}5{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                    <td colspan="{% if user.has_system_admin %}6{% else %}5{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                         No OUI prefixes cataloged yet. They will be added automatically as devices are imported or approved.
                     </td>
                 </tr>

@@ -26,7 +26,7 @@
 </div>
 
 <!-- Admin: Add New SKU -->
-{% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+{% if user.has_system_admin %}
 <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; margin-bottom: 2rem;">
     <h3 style="margin-bottom: 0.8rem;">Add Part Number</h3>
     <form id="add-pn-form" class="form-inline" onsubmit="addPN(event)" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
@@ -77,7 +77,7 @@
                     <th>Description</th>
                     <th>Flags</th>
                     <th>In Use</th>
-                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    {% if user.has_system_admin %}
                     <th>Actions</th>
                     {% endif %}
                 </tr>
@@ -95,7 +95,7 @@
                         <span class="expand-arrow" id="arrow-pngrp-{{ ns.gidx }}" style="display: inline-block; transition: transform 0.2s; font-size: 0.7rem; color: var(--text-muted);">&#9654;</span>
                     </td>
                     <td style="font-weight: 600;" colspan="2">{{ (cat).replace('_', ' ').title() }}</td>
-                    <td colspan="{% if user.role in ('justin_admin', 'system_admin', 'admin') %}4{% else %}3{% endif %}" style="color: var(--text-muted); font-size: 0.85rem;"></td>
+                    <td colspan="{% if user.has_system_admin %}4{% else %}3{% endif %}" style="color: var(--text-muted); font-size: 0.85rem;"></td>
                 </tr>
                 {% endif %}
                 <tr class="pn-detail-row pngrp-{{ ns.gidx }}" id="pn-row-{{ row.pn.id }}" style="display: none;">
@@ -116,7 +116,7 @@
                         <span style="color: var(--text-muted);">0</span>
                         {% endif %}
                     </td>
-                    {% if user.role in ('justin_admin', 'system_admin', 'admin') %}
+                    {% if user.has_system_admin %}
                     <td style="white-space: nowrap;">
                         <button class="btn btn-primary btn-sm"
                                 onclick="event.stopPropagation(); editPN({{ row.pn.id }}, {{ row.pn.sku_description|tojson|forceescape }}, {{ (row.pn.item_category or '')|tojson|forceescape }}, {{ row.pn.is_legacy|tojson }}, {{ row.pn.is_customer_pn|tojson }}, {{ row.pn.notes|tojson|forceescape }})">
@@ -132,8 +132,8 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="{% if user.role in ('justin_admin', 'system_admin', 'admin') %}7{% else %}6{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                        No part numbers yet. {% if user.role in ('justin_admin', 'system_admin', 'admin') %}Add one above, or import via the spreadsheet sync.{% else %}They are managed by system admins.{% endif %}
+                    <td colspan="{% if user.has_system_admin %}7{% else %}6{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No part numbers yet. {% if user.has_system_admin %}Add one above, or import via the spreadsheet sync.{% else %}They are managed by system admins.{% endif %}
                     </td>
                 </tr>
                 {% endif %}
