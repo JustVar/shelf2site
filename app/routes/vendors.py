@@ -152,7 +152,7 @@ def vendor_profile_detail(
         "request": request,
         "user": user,
         "profile": profile,
-        "can_edit": user.has_financial_access or user.role in ("admin", "ceo", "system_admin", "justin_admin"),
+        "can_edit": user.has_financial_access or user.is_admin_tier,
         "show_financials": user.has_financial_access,
         **analytics,
     })

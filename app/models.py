@@ -27,6 +27,11 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+# Admin-level roles (CEO included, has all admin access except credentials).
+# Single home for this tuple; auth, api and admin import it from here.
+ADMIN_LEVEL_ROLES = ("justin_admin", "system_admin", "admin", "ceo")
+
+
 # ---------------------------------------------------------------------------
 # Mixin for common columns shared by all inventory tables
 # ---------------------------------------------------------------------------
@@ -582,7 +587,7 @@ class User(Base):
     department = relationship("Department", backref="members", lazy="joined")
 
     # Admin-level roles (CEO included — has all admin access except credentials)
-    _ADMIN_LEVEL_ROLES = ("justin_admin", "system_admin", "admin", "ceo")
+    _ADMIN_LEVEL_ROLES = ADMIN_LEVEL_ROLES
 
     # --- Three-state permission resolution ---
 

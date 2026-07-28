@@ -5,9 +5,9 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor, require_viewer, ADMIN_LEVEL_ROLES, User
+from ..auth import get_current_user, require_editor, require_viewer, User
 from ..database import get_db
-from ..models import TABLE_MODELS, compute_completeness, AuditLog
+from ..models import TABLE_MODELS, compute_completeness, AuditLog, ADMIN_LEVEL_ROLES
 from ..validation import validate_mac_address, validate_serial_number
 
 router = APIRouter()

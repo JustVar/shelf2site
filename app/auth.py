@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .database import get_db
-from .models import User
+from .models import User, ADMIN_LEVEL_ROLES
 from .password_blocklist import is_blocked
 from .password_rules import check_composition
 
@@ -117,7 +117,6 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
-ADMIN_LEVEL_ROLES = ("justin_admin", "system_admin", "admin", "ceo")
 VALID_ROLES = ("justin_admin", "system_admin", "ceo", "admin", "warranty_admin", "trials_admin", "procurement_admin", "editor", "viewer", "map_kiosk")
 SUB_ADMIN_ROLES = ("warranty_admin", "trials_admin", "procurement_admin")
 ROLE_DISPLAY = {
@@ -153,9 +152,9 @@ def require_role(*roles: str):
 
 
 # Convenience dependencies
-require_admin = require_role("justin_admin", "system_admin", "ceo", "admin")
-require_editor = require_role("justin_admin", "system_admin", "ceo", "admin", "editor", "warranty_admin", "trials_admin", "procurement_admin")
-require_viewer = require_role("justin_admin", "system_admin", "ceo", "admin", "editor", "viewer", "warranty_admin", "trials_admin", "procurement_admin")
+require_admin = require_role(*ADMIN_LEVEL_ROLES)
+require_editor = require_role(*ADMIN_LEVEL_ROLES, "editor", *SUB_ADMIN_ROLES)
+require_viewer = require_role(*ADMIN_LEVEL_ROLES, "editor", "viewer", *SUB_ADMIN_ROLES)
 
 
 # ---------------------------------------------------------------------------

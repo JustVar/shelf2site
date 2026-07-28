@@ -13,7 +13,7 @@ from ..audit import log_event
 from ..auth import (
     create_user, get_current_user, hash_password, require_admin,
     require_editor, require_user_manager, require_system_admin, require_audit_viewer,
-    VALID_ROLES, ROLE_DISPLAY, ADMIN_LEVEL_ROLES, SUB_ADMIN_ROLES,
+    VALID_ROLES, ROLE_DISPLAY, SUB_ADMIN_ROLES,
     ROLE_TIER, get_assignable_roles, can_manage_user, User, validate_password_strength,
 )
 from ..config import settings
@@ -21,7 +21,7 @@ from ..database import get_db
 from ..models import (
     AuditLog, OUIAllowlist, TABLE_DISPLAY_NAMES, Department, User as UserModel,
     USER_PERMISSION_COLUMNS, DEPARTMENT_PERMISSION_COLUMNS,
-    ItemPartNumber, Item,
+    ItemPartNumber, Item, ADMIN_LEVEL_ROLES,
 )
 from .dashboard import ALL_CATEGORIES, category_display
 from ..spreadsheet_sync import parse_excel, compare_with_database, apply_changes
