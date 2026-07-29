@@ -550,7 +550,7 @@
         </div>
         <div class="notif-panel-footer">
             {% if user.has_audit_access %}
-            <a href="{{ base_path }}/audit-log" style="font-size:0.78rem; color:var(--info,#3498db); text-decoration:none;">View full audit log &rarr;</a>
+            <a href="{{ base_path }}/admin/audit" style="font-size:0.78rem; color:var(--info,#3498db); text-decoration:none;">View full audit log &rarr;</a>
             {% else %}
             <span style="font-size:0.75rem; color:var(--text-muted,#95a5a6);">Your recent actions only</span>
             {% endif %}
