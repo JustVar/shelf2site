@@ -662,8 +662,7 @@ class User(Base):
 
     @property
     def has_audit_access(self):
-        return (self.role in self._ADMIN_LEVEL_ROLES + ("warranty_admin", "trials_admin", "procurement_admin")
-                or self._resolve_perm("can_view_audit_log"))
+        return self.is_admin_tier or self.can_view_audit_log == 'grant'
 
     @property
     def has_receiving_access(self):

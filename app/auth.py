@@ -232,7 +232,7 @@ def require_system_admin(user: User = Depends(get_current_user)) -> User:
 
 
 def require_audit_viewer(user: User = Depends(get_current_user)) -> User:
-    """Grants access if user is admin, sub-admin, or has can_view_audit_log flag."""
+    """Grants access if user is admin tier or has an explicit can_view_audit_log grant."""
     if user.has_audit_access:
         return user
     raise HTTPException(

@@ -48,22 +48,6 @@ def _perm_label(val):
     return {"inherit": "Inherit", "grant": "Granted", "block": "Revoked"}.get(val, str(val))
 
 
-# Permission → audit log target_tables mapping (for area-scoped audit filtering)
-PERM_AUDIT_TABLES = {
-    "can_view_financial": ("procurement",),
-    "can_manage_warranty": ("device_warranties", "warranty_claims"),
-    "can_manage_trials": ("vendor_trials",),
-    "can_manage_procurement": ("procurement",),
-    "can_manage_sites": ("sites", "device_assignments"),
-    "can_access_receiving": ("edge_boxes",),
-    "can_access_map": ("edge_boxes",),
-    "can_access_disposal": ("device_dispositions",),
-    "can_manage_provisioning": ("device_provisioning",),
-    "can_view_provisioning": ("device_provisioning",),
-    "can_view_audit_log": (),  # meta — full access when explicitly set
-}
-
-
 # USER_PERMISSION_COLUMNS imported from ..models — canonical home (15 names).
 # DEPARTMENT_PERMISSION_COLUMNS imported similarly (14 names, no view_sensitive_customers).
 
@@ -1696,10 +1680,11 @@ def audit_log_page(
     db: Session = Depends(get_db),
     user: User = Depends(require_audit_viewer),
 ):
-    """Render the audit log viewer (admin, sub-admin roles, or can_view_audit_log flag).
+    """Render the audit log viewer.
 
-    Non-admin users see only audit entries for tables related to their permissions.
-    Admins and users with explicit can_view_audit_log=True see everything.
+    Gated by require_audit_viewer: admin tier, or an explicit user-level
+    can_view_audit_log = 'grant'. Inherited department grants do not count.
+    Everyone who reaches this page sees every entry; there is no area scoping.
     """
     query = db.query(AuditLog).order_by(desc(AuditLog.timestamp))
 
@@ -1707,22 +1692,6 @@ def audit_log_page(
         query = query.filter(AuditLog.event_type == event_type)
     if user_filter:
         query = query.filter(AuditLog.user_id == int(user_filter))
-
-    # Area-scoped audit: non-admin users only see entries for their permitted areas
-    is_full_admin = user.role in ADMIN_LEVEL_ROLES
-    has_explicit_audit = user.can_view_audit_log == 'grant'  # explicit user-level grant, not inherited
-    if not is_full_admin and not has_explicit_audit:
-        allowed_tables = set()
-        for perm_col, tables in PERM_AUDIT_TABLES.items():
-            if user._resolve_perm(perm_col):
-                allowed_tables.update(tables)
-        # Always include user-related events for self
-        allowed_tables.add("users")
-        if allowed_tables:
-            query = query.filter(
-                AuditLog.target_table.in_(list(allowed_tables))
-                | AuditLog.target_table.is_(None)
-            )
 
     entries = query.limit(500).all()
 
