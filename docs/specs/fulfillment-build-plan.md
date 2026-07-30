@@ -291,8 +291,10 @@ Still open:
 ## 11. Status snapshot (2026-06-18)
 
 > Point in time and overtaken. Kept as history. Do not read the next-code line
-> below as a live instruction: migrations are past 070, and F1b through F4 have
-> shipped. See sections 3, 5 and 6 above for what actually landed.
+> below as a live instruction: migrations are past 070. F1b, F3 and F4 have
+> shipped, F2 is partial (tabs and scoped palette landed; grouped cards with
+> qty badge and expand to units did not), and F5 is unbuilt. See sections 3,
+> 5 and 6 above for what actually landed.
 
 - F1a shipped: migration 049 (fulfillment_type, default_fulfillment_type,
   po_number + unique index), models patched, ORM smoke-tested, commit 5e31941
