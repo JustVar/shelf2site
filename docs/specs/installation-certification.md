@@ -1,6 +1,9 @@
 # Installation Certification — schema and model spec
 
-Status: **APPROVED.** Design ratified; not yet built. This is the reference the
+Status: **APPROVED and BUILT.** Design ratified and shipped: migration 053
+created the table, `POST /fulfillment/deployments/{dep_id}/install/certify` is
+the certify path, and `GET /fulfillment/install-cert/{cert_id}/pdf` serves the
+document inline. This is the reference the
 I-slices are built against. Source artifacts:
 `docs/mockups/superdesign/installation_completion.html` (UI intent) and the
 Appliance Post-Install Checklist PDF (the real verification document).
@@ -144,3 +147,10 @@ emerald-on-slate tokens in `docs/mockups/README.md`:
 
 Not in scope: in-app checklist, site-detail form, files child table, composite
 report PDF (the uploaded PDF is the certificate), redeploy / re-install flow.
+
+The redeploy / re-install exclusion was attempted and reversed, so it is a
+decision rather than a gap. Commit 92bc60d dropped the unique constraint and
+added a reason column so one deployment could carry several attempts; 9cac4f9
+and migration 071 reversed it. The ratified mechanism stands: a re-install is a
+NEW deployment record through the normal order flow, which works today with no
+code changes.

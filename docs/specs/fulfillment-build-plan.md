@@ -119,6 +119,11 @@ match.
    on CustomerOrder. (Shipped in F1a.)
 3. Cert data: dedicated `build_certification` + `install_certification` tables.
    Checklists as JSONB. `install_certification` carries an internal-vs-partner field.
+   SUPERSEDED on the install side: that in-app checklist design shipped as
+   migration 050 and was retired in migration 054. The owning spec is
+   `installation-certification.md`, which ratifies a PDF based certification with
+   no in-app checklist and no internal-vs-partner field, in table
+   `installation_certification` (migration 053).
 4. File uploads (cert/checklist docs): filesystem path, reusing the
    `validation_report_path` volume.
 5. Board layout: status tabs + large grouped cards (no stage columns).
@@ -176,8 +181,8 @@ currently redirect into `/fulfillment/`.
 |---------|--------|-----|
 | fulfillment_type (per-device + order default) | DONE (F1a) | shipped, migration 049 |
 | po_number + pipeline gate | DONE (F1a) | column + UNIQUE shipped; app-level gate not yet enforced |
-| build_certification table | MISSING | UUID, hardware validation, Appliance version, license counts, signers, QA checklist JSONB, file path (full field list still needed, see open questions) |
-| install_certification table | MISSING | site, engineer, handoff date, site checklist JSONB, notes, optional doc, internal-vs-partner field (fields known from the SE panel mockup) |
+| build_certification table | DONE | shipped via migrations 051, 052 and 061; slices S6a through S6f implemented and verified, see `build-certification.md` |
+| install_certification table | SUPERSEDED | shipped as `installation_certification` (migration 053) with a different, PDF based design; the checklist model described here was retired in migration 054, see `installation-certification.md` |
 | tab + large grouped-card board | PARTIAL | dark mockups exist; need real grouped data binding, scoped palette, expand-to-units |
 | read/write of fulfillment_type in routes/UI | MISSING | F2 |
 | two gating axes + per-type chip templates | MISSING | F5 |
@@ -191,10 +196,10 @@ Each phase is its own commit + 4-location sync, browser-verified before commit.
 F1a - Data model: fulfillment_type, default, po_number + UNIQUE. **DONE.**
 (migration 049, commit 5e31941, synced across all four endpoints.)
 
-F1b - Cert tables (next): create `build_certification` + `install_certification`
-(migration 050). Install fields are known from the SE panel mockup; build-cert
-fields need the full list (the build-cert mockup is a stub). Migration + models +
-verify, no UI.
+F1b - Cert tables. **SHIPPED, but not as planned.** Migration 050 was retired in
+054; the tables arrived as `build_certification` (migrations 051, 052, 061) and
+`installation_certification` (053). The install side dropped the in-app checklist
+entirely, see `installation-certification.md`.
 
 F2 - Board: the tab + large grouped-card board for Building, Delivery, and the SE
 portal. Grouped cards (order x SKU x stage, `×qty`, expand to units), inline stage
@@ -205,14 +210,16 @@ F3 - Build Certification modal: UUID, hardware validation, Appliance version, li
 counts, signers, QA checklist, file upload. "Mark Complete" -> build_certification
 -> advance to Sign-off. Verify live.
 
-F4 - Delivery + Install panel: Delivery board; direct = full granular, partner =
-ship-out + "install confirmed". Install panel (site designation, engineer, handoff
-date, SE checklist upload, verification-task checklist, deployment summary) ->
-install_certification -> archive. Verify live.
+F4 - Delivery + Install panel. **SHIPPED, but not as planned.** The install side
+is a PDF based certification, not the SE checklist upload and verification-task
+checklist described here. See `installation-certification.md`.
 
 F5 - Type + deployment gating: fulfillment_type chip templates per (type x
-category), pre-built skips, C2C light on-device checks; deployment_type partner
-collapse. Needs the C2C mockup.
+category), pre-built skips; deployment_type partner collapse. **STILL UNBUILT:**
+`prebuilt_software` and `prebuilt_finished` appear in `models.py` and nowhere
+else, an enum nothing consumes. The C2C portion has LEFT this track and shipped
+under its own specs (`c2c-camera-certification.md`, `c2c-cert-pdf-history.md`,
+`c2c-return-ending.md`), so the missing C2C mockup is no longer this blocker.
 
 Deferred (not this track): legacy public.* -> item_schema migration (section 7),
 warranty model, components migration.
@@ -282,6 +289,10 @@ Still open:
 ---
 
 ## 11. Status snapshot (2026-06-18)
+
+> Point in time and overtaken. Kept as history. Do not read the next-code line
+> below as a live instruction: migrations are past 070, and F1b through F4 have
+> shipped. See sections 3, 5 and 6 above for what actually landed.
 
 - F1a shipped: migration 049 (fulfillment_type, default_fulfillment_type,
   po_number + unique index), models patched, ORM smoke-tested, commit 5e31941
