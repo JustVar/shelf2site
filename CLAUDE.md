@@ -103,7 +103,7 @@ Verify they match after any nginx change:
 - Always add a migration for schema changes — never modify the DB directly.
 
 ### Deploy / sync (four locations)
-- apphost has **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `bash scripts/wsync PREV NEW` → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (employer-org).
+- apphost has **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `~/bin/wsync PREV NEW` (the live copy; `scripts/wsync` is its repo mirror, see the mirroring rule below) → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (employer-org).
 - wsync aborts if the workstation tree is dirty; run multi-commit hops sequentially.
 - apphost has ZERO git remotes as of 2026-07-27. A remote pointing at the
   employer-org repo through an unresolvable github-asset-tracker SSH alias
@@ -211,7 +211,7 @@ sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
 - Open TODO: multi-viewer awareness (single-holder for now).
 
 ## Known TODOs / hygiene
-- **Test harness rebuild:** the previous E2E/smoke suite (tests/) targeted the retired NUC host (sudo psql on hardware_inventory, /opt/hardware_inventory paths, 192.0.2.174) and was removed. Rebuild against the apphost/Docker stack: add pytest to the image and write HTTP-based tests against https://192.0.2.10:8443/assettracker (or a container-internal URL).
+- **Contract test suite (rebuilt, replaces the retired NUC-era harness):** `tests/` holds 11 `test_*.py` files plus `conftest.py`, 858 passing and 39 skipped, run in-container with `docker compose exec -T app python -m pytest tests/ -q` in about 6 seconds. They drive httpx against `http://127.0.0.1:8081` and write to the LIVE `asset_tracker` database (no separate test cluster); fixtures prefix their rows `contract-test` and remove them afterwards, so a crashed run leaves obvious debris. There is no runner config file. **Coverage gap worth knowing: the audit page is untested.** No test references `has_audit_access`, `require_audit_viewer`, `can_view_audit_log` or `/admin/audit`, which is why a permanently-false boolean branch in the audit gate survived until 0c0ac31. A green suite says nothing about that surface.
 - Vendors table + dropdown — currently free-text input on intake + triage
 - **brand_sku managed vocabulary (B1 shipped; B2/B3 DEFERRED to Fulfillment):** Part Numbers admin CRUD (5414fe1), intake datalist (Phase 1), triage strict select (Phase 2) all shipped. The strict-select sweep across intake/item_detail/quick_view + shared macro (B2/B3) is DEFERRED: managed SKUs apply only to sellable categories (Edge Box, Camera 2 Cloud, Cloud Box); internal hardware uses serial number, not SKU. Per-category SKU filtering and the full cross-category SKU list are pending the Fulfillment phase. quick_view was prototyped as a flat select then reverted (would contradict the category model). Resume with the real catalog once Fulfillment defines the rules.
 - Multi-viewer lock awareness, when Users page is built
@@ -250,7 +250,7 @@ The lockstep rule pairs the PAGE gate with the nav gate. Mutation gates on the s
 |---|---|---|---|---|---|
 | Users | /admin/users | require_user_manager | require_user_manager | user.has_user_management | admin tier + can_manage_users |
 | Departments | /admin/departments | require_user_manager | require_user_manager | user.has_user_management | admin tier + can_manage_users |
-| Audit log | /admin/audit | require_audit_viewer | (read only) | user.has_audit_access | admin tier + sub-admins + can_view_audit_log |
+| Audit log | /admin/audit | require_audit_viewer | (read only) | user.has_audit_access | admin tier + explicit user-level can_view_audit_log grant |
 | Error log | /admin/errors | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | OUI reference | /admin/oui | require_editor | require_system_admin | user.is_editor_or_above | editor + sub-admins + admin tier |
 | Part Numbers | /admin/part-numbers | require_editor | require_system_admin | user.is_editor_or_above | editor + sub-admins + admin tier |
@@ -292,7 +292,7 @@ When adding a new admin route, use these pairings:
 |---|---|---|
 | require_editor | user.is_editor_or_above | broad access - editor + sub-admins + admin tier |
 | require_user_manager | user.has_user_management | user/dept admin |
-| require_audit_viewer | user.has_audit_access | audit log visibility (broader than admin tier) |
+| require_audit_viewer | user.has_audit_access | audit log visibility (admin tier, or an explicit user-level grant) |
 | require_system_admin | user.has_system_admin | system operations |
 | require_financial | user.has_financial_access | finance & procurement views |
 | require_provisioning_viewer | user.has_provisioning_view | fulfillment reads |
