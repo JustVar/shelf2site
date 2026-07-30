@@ -2099,7 +2099,7 @@ class InstallationCertification(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     deployment_record_id = Column(
         Integer, ForeignKey("deployment_records.id", ondelete="CASCADE"),
-        nullable=False, unique=True
+        nullable=False
     )
     status = Column(String(16), nullable=False, server_default="pending")
     installer_name = Column(String(128), nullable=True)
@@ -2114,6 +2114,11 @@ class InstallationCertification(Base):
     certified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     created_by = Column(String(128), nullable=True)
+
+    # Re-certification fields (migration 070): every attempt is its own row.
+    # reason is initial or recert; recert_reason carries the stated why.
+    reason = Column(String(20), nullable=False, server_default="initial")
+    recert_reason = Column(Text, nullable=True)
 
 
 class C2CCertification(Base):
