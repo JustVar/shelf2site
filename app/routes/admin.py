@@ -1693,6 +1693,7 @@ def audit_log_page(
     if user_filter:
         query = query.filter(AuditLog.user_id == int(user_filter))
 
+    total_entries = query.count()
     entries = query.limit(500).all()
 
     # Resolve user display names for the log entries
@@ -1702,13 +1703,34 @@ def audit_log_page(
         for u in db.query(UserModel).filter(UserModel.id.in_(user_ids)).all():
             users_map[u.id] = u.display_name
 
-    all_users = db.query(UserModel).order_by(UserModel.username).all()
+    # Both filter option lists are derived from the log itself. A hardcoded list
+    # drifts the moment a new log_event call site lands, which is how the old
+    # dropdown came to offer nine event types that matched no rows at all.
+    actor_ids = [r[0] for r in db.query(AuditLog.user_id)
+                 .filter(AuditLog.user_id.isnot(None)).distinct().all()]
+    all_users = (db.query(UserModel).filter(UserModel.id.in_(actor_ids))
+                 .order_by(UserModel.display_name).all()) if actor_ids else []
+
+    # Group event types on the leading segment. Groups of one collapse into
+    # Other, which sorts last; everything else sorts alphabetically.
+    seen_types = [r[0] for r in db.query(AuditLog.event_type).distinct().all() if r[0]]
+    buckets = {}
+    for et in seen_types:
+        buckets.setdefault(et.split("_", 1)[0], []).append(et)
+    loners = []
+    for key in [k for k, v in buckets.items() if len(v) < 2]:
+        loners.extend(buckets.pop(key))
+    event_groups = [(k, sorted(v)) for k, v in sorted(buckets.items())]
+    if loners:
+        event_groups.append(("Other", sorted(loners)))
 
     return templates.TemplateResponse("admin_audit.html", {
         "request": request,
         "entries": entries,
         "users_map": users_map,
         "all_users": all_users,
+        "event_groups": event_groups,
+        "total_entries": total_entries,
         "current_event_type": event_type,
         "current_user_filter": user_filter,
         "user": user,

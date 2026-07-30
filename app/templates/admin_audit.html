@@ -15,19 +15,13 @@
         <label>Event Type</label>
         <select id="filter-event" onchange="applyFilters()" style="width: 200px;">
             <option value="">All Events</option>
-            <option value="device_added" {% if current_event_type == 'device_added' %}selected{% endif %}>Device Added</option>
-            <option value="device_edited" {% if current_event_type == 'device_edited' %}selected{% endif %}>Device Edited</option>
-            <option value="device_deleted" {% if current_event_type == 'device_deleted' %}selected{% endif %}>Device Deleted</option>
-            <option value="device_approved" {% if current_event_type == 'device_approved' %}selected{% endif %}>Device Approved</option>
-            <option value="device_dismissed" {% if current_event_type == 'device_dismissed' %}selected{% endif %}>Device Dismissed</option>
-            <option value="credential_viewed" {% if current_event_type == 'credential_viewed' %}selected{% endif %}>Credential Viewed</option>
-            <option value="user_login" {% if current_event_type == 'user_login' %}selected{% endif %}>User Login</option>
-            <option value="user_logout" {% if current_event_type == 'user_logout' %}selected{% endif %}>User Logout</option>
-            <option value="user_login_failed" {% if current_event_type == 'user_login_failed' %}selected{% endif %}>Login Failed</option>
-            <option value="oui_added" {% if current_event_type == 'oui_added' %}selected{% endif %}>OUI Added</option>
-            <option value="oui_removed" {% if current_event_type == 'oui_removed' %}selected{% endif %}>OUI Removed</option>
-            <option value="scan_triggered" {% if current_event_type == 'scan_triggered' %}selected{% endif %}>Scan Triggered</option>
-            <option value="scan_completed" {% if current_event_type == 'scan_completed' %}selected{% endif %}>Scan Completed</option>
+            {% for group, types in event_groups %}
+            <optgroup label="{{ group }}">
+                {% for et in types %}
+                <option value="{{ et }}" {% if current_event_type == et %}selected{% endif %}>{{ et }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
         </select>
     </div>
     <div class="form-group" style="margin-bottom: 0;">
@@ -90,7 +84,7 @@
 </div>
 
 <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem;">
-    Showing most recent 500 entries.
+    {% if total_entries > 500 %}Showing most recent 500 of {{ total_entries }} entries.{% else %}Showing {{ total_entries }} entries.{% endif %}
 </p>
 </div>{# /fl-lift #}
 </div>{# /fl-restyle #}
