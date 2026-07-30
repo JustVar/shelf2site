@@ -508,11 +508,7 @@ def fulfillment_page(
     if dep_ids:
         for ic in db.query(InstallationCertification).filter(
             InstallationCertification.deployment_record_id.in_(dep_ids)
-        ).order_by(
-            InstallationCertification.created_at.asc(),
-            InstallationCertification.id.asc(),
         ).all():
-            # asc order -> last write per deployment wins (the latest attempt)
             cert_map[ic.deployment_record_id] = ic
 
     for dr in deployment_records:
@@ -1657,18 +1653,15 @@ async def certify_installation(
     installer_company: str = Form(""),
     notes: str = Form(""),
     completion_date: str = Form(""),
-    recert_reason: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
     """Atomic Complete & Certify for a deployment installation.
 
-    One request: stores the required post-install PDF, APPENDS a new
-    installation_certification row, records installer + notes, marks it
-    certified, and flips the deployment record to complete. Re-certifying a
-    deployment that is already certified is allowed but requires a stated
-    recert_reason; the prior attempt is never modified. PDF only, 20 MB cap.
-    Nothing commits unless all steps succeed.
+    One request: stores the required post-install PDF, creates the
+    installation_certification row (or reuses an existing pending one), records
+    installer + notes, marks it certified, and flips the deployment record to
+    complete. PDF only, 20 MB cap. Nothing commits unless all steps succeed.
     """
     dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
     if not dr:
@@ -1677,14 +1670,11 @@ async def certify_installation(
     existing = (
         db.query(InstallationCertification)
         .filter(InstallationCertification.deployment_record_id == dep_id)
-        .order_by(InstallationCertification.created_at.desc(),
-                  InstallationCertification.id.desc())
         .first()
     )
-    is_recert = existing is not None and existing.status == "certified"
-    if is_recert and not recert_reason.strip():
+    if existing and existing.status == "certified":
         return JSONResponse(status_code=400, content={
-            "detail": "Re-certifying an already certified deployment requires a reason"
+            "detail": "This deployment is already certified"
         })
 
     # validate type: PDF only, content-type AND extension
@@ -1714,11 +1704,7 @@ async def certify_installation(
     with open(dep_dir / stored_name, "wb") as fh:
         fh.write(content)
 
-    # Always a new row. Copy nothing forward: a re-install may be a different
-    # visit with a different installer, and the prior row holds the prior facts.
-    cert = InstallationCertification(deployment_record_id=dep_id)
-    cert.reason = "recert" if is_recert else "initial"
-    cert.recert_reason = (recert_reason.strip() or None) if is_recert else None
+    cert = existing or InstallationCertification(deployment_record_id=dep_id)
     cert.installer_name = installer_name.strip() or None
     cert.installer_company = installer_company.strip() or None
     cert.notes = notes.strip() or None
@@ -1730,8 +1716,10 @@ async def certify_installation(
     cert.status = "certified"
     cert.certified_by = user.display_name
     cert.certified_at = datetime.utcnow()
-    cert.created_by = user.display_name
-    db.add(cert)
+    if not cert.created_by:
+        cert.created_by = user.display_name
+    if cert.id is None:
+        db.add(cert)
 
     dr.status = "complete"
     if not dr.installed_date:
