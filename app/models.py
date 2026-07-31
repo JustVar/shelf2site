@@ -1136,6 +1136,12 @@ class DeviceProvisioning(Base):
     # order-level return status is derived (returned vs still-out).
     returned_date = Column(Date, nullable=True)
 
+    # Deployment visit link (Migration 072): which installation visit put this
+    # unit on site. Nullable because units are provisioned before visits are
+    # planned; SET NULL so deleting a visit does not delete its units. See
+    # docs/specs/link-units-to-deployments.md.
+    deployment_record_id = Column(Integer, ForeignKey("deployment_records.id", ondelete="SET NULL"), nullable=True)
+
     # Zendesk integration (Migration 006)
     zendesk_ticket_id = Column(Integer, nullable=True)
 

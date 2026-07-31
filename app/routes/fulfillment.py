@@ -87,6 +87,10 @@ class DeploymentCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class DeploymentUnitsAssign(BaseModel):
+    provisioning_ids: list[int]
+
+
 class CertComponent(BaseModel):
     type: str
     model: str
@@ -906,6 +910,74 @@ async def update_deployment_status(
 
     db.commit()
     return {"ok": True, "id": dr.id, "old_status": old_status, "status": new_status}
+
+
+# ---------------------------------------------------------------------------
+# Assign provisioned units to a deployment record
+# ---------------------------------------------------------------------------
+
+@router.post("/fulfillment/deployments/{dep_id}/units")
+async def assign_units_to_deployment(
+    dep_id: int,
+    payload: DeploymentUnitsAssign,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Link provisioned units to the deployment visit that installs them.
+
+    Validation rejects the whole batch rather than silently filtering it, so a
+    mis-assignment surfaces instead of vanishing. There is no unassign endpoint,
+    by design rather than omission: a unit pulled from an order is cancelled
+    with a reason, which DeviceProvisioning cannot express yet. See
+    docs/specs/link-units-to-deployments.md.
+    """
+    dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
+    if not dr:
+        return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
+
+    ids = list(dict.fromkeys(payload.provisioning_ids or []))
+    if not ids:
+        return JSONResponse(status_code=400, content={"detail": "No provisioning ids supplied"})
+
+    found = {
+        row.id: row
+        for row in db.query(DeviceProvisioning).filter(DeviceProvisioning.id.in_(ids)).all()
+    }
+
+    # Phase 1: validate every id before writing any of them.
+    for pid in ids:
+        row = found.get(pid)
+        if row is None:
+            return JSONResponse(status_code=404, content={
+                "detail": f"Provisioning {pid} not found",
+            })
+        if row.customer_order_id != dr.customer_order_id:
+            return JSONResponse(status_code=400, content={
+                "detail": (
+                    f"Provisioning {pid} belongs to order {row.customer_order_id}, "
+                    f"but deployment {dep_id} is for order {dr.customer_order_id}"
+                ),
+            })
+        if row.deployment_record_id is not None:
+            return JSONResponse(status_code=409, content={
+                "detail": (
+                    f"Provisioning {pid} is already assigned to deployment "
+                    f"{row.deployment_record_id} and cannot be reassigned"
+                ),
+            })
+
+    # Phase 2: every id checked out, so assign them.
+    for pid in ids:
+        found[pid].deployment_record_id = dep_id
+
+    db.commit()
+    return {
+        "ok": True,
+        "deployment_record_id": dep_id,
+        "assigned": ids,
+        "count": len(ids),
+    }
 
 
 # ---------------------------------------------------------------------------
