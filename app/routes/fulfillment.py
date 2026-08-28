@@ -851,6 +851,7 @@ async def create_deployment(
         integrator_contact=payload.integrator_contact,
         notes=payload.notes,
         status="scheduled",
+        created_by=user.id,
     )
     db.add(dr)
     db.commit()
