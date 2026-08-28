@@ -435,6 +435,31 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .fl-restyle .modal-close:hover { background: var(--accent-primary-dim); color: var(--accent-primary-l); border-color: var(--accent-border); }
 .fl-restyle .sp-field-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
 .fl-restyle .dm-step.dm-active .dm-step-num { background: var(--accent-primary); color: var(--on-accent); }
+
+/* Deployment unit picker. pk- prefixed; no shared class is touched. */
+.pk-body { padding: 4px 24px 16px; }
+.pk-scope { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 0 14px; }
+.pk-chip { font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--accent-border); background: var(--accent-primary-dim); color: var(--accent-primary-l); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+[data-theme="light"] .pk-chip { color: var(--accent-primary); }
+.pk-mchip { font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); color: var(--text-muted); }
+.pk-sect-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; padding: 10px 0 8px; }
+.pk-selall { background: none; border: none; padding: 0; font: inherit; text-transform: none; letter-spacing: 0; color: var(--accent-primary-l); cursor: pointer; }
+[data-theme="light"] .pk-selall { color: var(--accent-primary); }
+.pk-selall:hover { text-decoration: underline; }
+.pk-list { display: flex; flex-direction: column; gap: 6px; }
+.pk-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 10px; cursor: pointer; transition: background .15s, border-color .15s; }
+.pk-row:hover { background: var(--card-bg-hover); border-color: var(--border-hover); }
+.pk-row.is-sel { border-color: var(--accent-border); background: var(--accent-primary-dim); }
+.pk-row input[type=checkbox] { accent-color: var(--accent-primary); width: 15px; height: 15px; cursor: pointer; margin: 0; flex-shrink: 0; }
+.pk-row--locked { cursor: default; opacity: .72; background: transparent; border-style: dashed; }
+.pk-row--locked:hover { background: transparent; border-color: var(--border); }
+.pk-main { flex: 1; min-width: 0; display: block; }
+.pk-serial { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-sub { display: block; font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+.pk-stage { font-size: 10.5px; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.pk-lockmark { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.pk-empty { padding: 14px 12px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-muted); font-size: 12px; text-align: center; }
+.pk-note { margin-top: 12px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
 </style>
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
@@ -738,6 +763,8 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                         <button type="button" class="o-btn o-btn-cert" style="padding:2px 6px;font-size:10px;"
                                 onclick="openCertifyModal({{ dr.id }}, {{ (dr.order_number or '')|tojson|forceescape }}, {{ (dr.customer_name or '')|tojson|forceescape }})">Certify Installation</button>
                         {% endif %}
+                        <button type="button" class="o-btn" style="padding:2px 6px;font-size:10px;"
+                                onclick="openUnitPicker({{ dr.id }}, {{ (dr.order_number or '')|tojson|forceescape }}, {{ (status or '')|tojson|forceescape }})">Assign Units</button>
                         {% if dr.status == "complete" and dr.cert_status == "certified" %}
                         <span class="o-locked" title="Certified installation">✓ Certified</span>
                         {% else %}
@@ -1746,24 +1773,64 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     </div>
 </div>
 
+<!-- Deployment unit picker. Markup written clean: the classes already set
+     position, inset, z-index and centering, so nothing is repeated inline. -->
+<div class="fl-modal-overlay" id="unit-picker-overlay" onclick="closeUnitPicker()"></div>
+<div class="fl-modal" id="unit-picker-modal">
+    <div class="modal-head">
+        <div>
+            <div class="modal-title">Assign Units to Deployment</div>
+            <div class="modal-sub">Units already on another deployment are not shown</div>
+        </div>
+        <button class="modal-close" onclick="closeUnitPicker()">&#10005;</button>
+    </div>
+
+    <div class="pk-body">
+        <div class="pk-scope" id="pk-scope"></div>
+
+        <div>
+            <div class="pk-sect-head">
+                <span>Available &mdash; <span id="pk-avail-count">0</span></span>
+                <button class="pk-selall" id="pk-selall" onclick="pkSelectAll()">Select all</button>
+            </div>
+            <div class="pk-list" id="pk-avail"></div>
+        </div>
+
+        <div>
+            <div class="pk-sect-head"><span>Already on this deployment &mdash; <span id="pk-asgn-count">0</span></span></div>
+            <div class="pk-list" id="pk-asgn"></div>
+        </div>
+
+        <div class="pk-note">
+            Assignment is permanent. A unit pulled from this order is cancelled and replaced,
+            not unassigned.
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button class="modal-btn-sec" onclick="closeUnitPicker()">Cancel</button>
+        <button class="modal-btn-pri" id="pk-submit" disabled onclick="pkSubmit()">Assign 0 Units</button>
+    </div>
+</div>
+
 <script>
 /* ── State ────────────────────────────────────────────────────────── */
 // BP available globally from base.html
-let currentMode = 'inhouse';
-let openSpId = null;
-let pfbFilter = null;
-let skuFilter = null;
-let coverageOpen = false;
-let coverageSelected = new Set();
-let currentOrderId = null;
-const TEAM_MEMBERS = {{ team_members | tojson }};
-const CURRENT_USER = '{{ current_user_name | e }}';
-const LOGGED_IN = '{{ current_user_name | lower | replace(" ", "_") }}';
-const ORDER_DEVICES = {{ order_devices | tojson }};
+var currentMode = 'inhouse';
+var openSpId = null;
+var pfbFilter = null;
+var skuFilter = null;
+var coverageOpen = false;
+var coverageSelected = new Set();
+var currentOrderId = null;
+var TEAM_MEMBERS = {{ team_members | tojson }};
+var CURRENT_USER = '{{ current_user_name | e }}';
+var LOGGED_IN = '{{ current_user_name | lower | replace(" ", "_") }}';
+var ORDER_DEVICES = {{ order_devices | tojson }};
 
-const STAGE_GROUPS = {{ stage_groups | tojson }};
+var STAGE_GROUPS = {{ stage_groups | tojson }};
 
-const STAGE_LABELS = {{ stage_labels | tojson }};
+var STAGE_LABELS = {{ stage_labels | tojson }};
 
 function getStageGroup(stageName) {
     for (const [group, stages] of Object.entries(STAGE_GROUPS)) {
@@ -1885,7 +1952,7 @@ function setMode(m) {
 }
 
 /* ── Active Pipeline filter bar ───────────────────────────────────── */
-const pfbColMap = {
+var pfbColMap = {
     'new': 'col-new', 'sourcing': 'col-sourcing', 'building': 'col-building',
     'testing': 'col-testing', 'shipped': 'col-shipped'
 };
@@ -1906,14 +1973,14 @@ function filterPipe(stage) {
 /* ── Deployment Pipeline filter bar ───────────────────────────────── */
 
 /* ── OEM Pipeline filter bar ─────────────────────────────────────── */
-const oemColIds = {
+var oemColIds = {
     'ordered':       'oem-col-ordered',
     'in_production': 'oem-col-in_production',
     'acceptance':    'oem-col-acceptance',
     'receiving':     'oem-col-receiving',
     'verified':      'oem-col-verified',
 };
-let oemFilter = null;
+var oemFilter = null;
 function filterOem(stage) {
     oemFilter = oemFilter === stage ? null : stage;
     document.querySelectorAll('#pfb-oem .pfb-stage').forEach(el =>
@@ -2375,8 +2442,8 @@ function jumpToCard(colId) {
 }
 
 /* ── Search ────────────────────────────────────────────────────────── */
-let activeTab = null;
-let activeDepTab = 'scheduled';
+var activeTab = null;
+var activeDepTab = 'scheduled';
 var flattenAll = false;
 function recomputeVisibility() {
     var q = (document.getElementById('cb-search').value || '').trim().toLowerCase();
@@ -2557,9 +2624,9 @@ function clearCoverage() {
 }
 
 /* ── OEM PO modal ────────────────────────────────────────────────── */
-let oemCurrentStep = 1;
-let oemEditPoId = null;
-let oemEditOrderId = null;
+var oemCurrentStep = 1;
+var oemEditPoId = null;
+var oemEditOrderId = null;
 
 function openOemModal(orderId, orderNum, poData) {
     oemCurrentStep = 1;
@@ -2740,8 +2807,8 @@ async function deleteOemPo(orderId, poId) {
 }
 
 /* ── Deploy modal wizard ─────────────────────────────────────────── */
-let dmCurrentStep = 1;
-let dmCreatedSiteId = null;
+var dmCurrentStep = 1;
+var dmCreatedSiteId = null;
 
 function openDeployModal(orderId, orderNum) {
     dmCurrentStep = 1;
@@ -2993,7 +3060,7 @@ function renderDeployMiniSteps() {
 }
 
 /* ── Drag-and-drop between kanban columns ─────────────────────────── */
-let draggedOrderId = null;
+var draggedOrderId = null;
 function onOrderDragStart(e) {
     const card = e.target.closest('.o-card');
     if (!card || card.classList.contains('mock-card')) { e.preventDefault(); return; }
@@ -3145,6 +3212,174 @@ async function findBySerial() {
 /* ── Export fulfillment data ──────────────────────────────────────── */
 function exportFulfillment() {
     window.location.href = BP + '/api/fulfillment/export';
+}
+
+/* Deployment unit picker.
+
+   The assignable set is fetched when the modal opens, never rendered at page
+   load. Assignment validates the whole batch before writing any of it, so a
+   list built at load would 409 the entire request because of one unit taken
+   elsewhere since load, failing good assignments alongside it.
+
+   var, not let or const: hx-boost re-executes this block on a boosted return
+   to the page. See CLAUDE.md. */
+var pkDepId = null;
+
+function openUnitPicker(depId, orderNum, depStatus) {
+    pkDepId = depId;
+    var scope = document.getElementById('pk-scope');
+    scope.innerHTML = '';
+    var chip = document.createElement('span');
+    chip.className = 'pk-chip';
+    chip.textContent = orderNum || 'No Order';
+    scope.appendChild(chip);
+    var dep = document.createElement('span');
+    dep.className = 'pk-mchip';
+    dep.textContent = 'Deployment ' + depId;
+    scope.appendChild(dep);
+    if (depStatus) {
+        var st = document.createElement('span');
+        st.className = 'pk-mchip';
+        st.textContent = depStatus.replace(/_/g, ' ');
+        scope.appendChild(st);
+    }
+    document.getElementById('unit-picker-overlay').style.display = 'block';
+    document.getElementById('unit-picker-modal').style.display = 'flex';
+    pkLoad();
+}
+
+function closeUnitPicker() {
+    document.getElementById('unit-picker-overlay').style.display = 'none';
+    document.getElementById('unit-picker-modal').style.display = 'none';
+    pkDepId = null;
+}
+
+async function pkLoad() {
+    var avail = document.getElementById('pk-avail');
+    var asgn = document.getElementById('pk-asgn');
+    avail.innerHTML = '';
+    asgn.innerHTML = '';
+    document.getElementById('pk-selall').style.display = 'none';
+    try {
+        var res = await fetch(BP + '/fulfillment/deployments/' + pkDepId + '/units');
+        if (!res.ok) {
+            pkRenderList(avail, [], true, 'Could not load units (' + res.status + ')');
+            pkSync();
+            return;
+        }
+        var data = await res.json();
+        var a = data.available || [];
+        var b = data.assigned || [];
+        pkRenderList(avail, a, true, 'No unassigned units on this order');
+        pkRenderList(asgn, b, false, 'No units assigned yet');
+        document.getElementById('pk-avail-count').textContent = a.length;
+        document.getElementById('pk-asgn-count').textContent = b.length;
+        document.getElementById('pk-selall').style.display = a.length ? '' : 'none';
+    } catch (err) {
+        pkRenderList(avail, [], true, 'Could not load units');
+    }
+    pkSync();
+}
+
+function pkRenderList(container, rows, selectable, emptyText) {
+    if (!rows.length) {
+        var empty = document.createElement('div');
+        empty.className = 'pk-empty';
+        empty.textContent = emptyText;
+        container.appendChild(empty);
+        return;
+    }
+    rows.forEach(function (r) {
+        /* Assigned rows carry NO checkbox element, not a disabled one. There
+           must be nothing for the POST body to pick up, because re-assigning a
+           unit is a 409 that rejects the whole batch. */
+        var row = document.createElement(selectable ? 'label' : 'div');
+        row.className = 'pk-row' + (selectable ? '' : ' pk-row--locked');
+        if (selectable) {
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = r.id;
+            cb.onchange = function () { pkSync(this); };
+            row.appendChild(cb);
+        }
+        var main = document.createElement('span');
+        main.className = 'pk-main';
+        var ser = document.createElement('span');
+        ser.className = 'pk-serial';
+        ser.textContent = r.serial;
+        main.appendChild(ser);
+        /* Provisioning id is shown because two rows can point at one item, which
+           would otherwise render the same serial twice with nothing to tell the
+           two apart. */
+        var sub = document.createElement('span');
+        sub.className = 'pk-sub';
+        sub.textContent = 'Provisioning ' + r.id;
+        main.appendChild(sub);
+        row.appendChild(main);
+        if (r.stage) {
+            var stage = document.createElement('span');
+            stage.className = 'pk-stage';
+            stage.textContent = r.stage;
+            row.appendChild(stage);
+        }
+        if (!selectable) {
+            var lock = document.createElement('span');
+            lock.className = 'pk-lockmark';
+            lock.textContent = 'On this visit';
+            row.appendChild(lock);
+        }
+        container.appendChild(row);
+    });
+}
+
+function pkSync(cb) {
+    if (cb) cb.closest('.pk-row').classList.toggle('is-sel', cb.checked);
+    var n = document.querySelectorAll('#pk-avail input:checked').length;
+    var btn = document.getElementById('pk-submit');
+    btn.disabled = n === 0;
+    btn.textContent = 'Assign ' + n + (n === 1 ? ' Unit' : ' Units');
+}
+
+function pkSelectAll() {
+    var boxes = document.querySelectorAll('#pk-avail input');
+    var target = document.querySelectorAll('#pk-avail input:checked').length < boxes.length;
+    boxes.forEach(function (b) {
+        b.checked = target;
+        b.closest('.pk-row').classList.toggle('is-sel', target);
+    });
+    pkSync();
+}
+
+async function pkSubmit() {
+    var ids = Array.prototype.map.call(
+        document.querySelectorAll('#pk-avail input:checked'),
+        function (b) { return parseInt(b.value, 10); }
+    );
+    if (!ids.length) return;
+    var btn = document.getElementById('pk-submit');
+    btn.disabled = true;
+    try {
+        var res = await fetch(BP + '/fulfillment/deployments/' + pkDepId + '/units', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provisioning_ids: ids })
+        });
+        var data = await res.json();
+        if (!res.ok) {
+            alert(data.detail || 'Assignment failed');
+            /* Reload rather than just re-enabling. A rejection means the server
+               disagrees with what this list shows, which is the race the
+               fetch-on-open design exists for: another user took a unit while
+               this modal was open. Re-enabling alone leaves the taken unit
+               still offered. */
+            pkLoad();
+            return;
+        }
+        window.location.reload();
+    } catch (err) {
+        alert('Assignment failed');
+        btn.disabled = false;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {

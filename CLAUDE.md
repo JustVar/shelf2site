@@ -309,3 +309,23 @@ The global exception handler in `main.py` intercepts 403s and branches:
 3. **API/JSON** — preserves default `{"detail": ...}` shape for programmatic consumers.
 
 The HTMX branch was added because hx-boost on the sidenav was swallowing 403 redirects and producing in-shell swaps that left the user with a Frankenstein page. Same root cause as the logout bug fixed in U4b.
+
+## Page-level JS and hx-boost script re-execution
+
+An hx-boost swap re-executes every script inside the swapped region. Page-level
+JS must declare with `var`, never a top-level `let` or `const`. A top-level
+lexical binding survives removal of the old script element, so the second
+execution throws a redeclaration `SyntaxError` that aborts the whole block and
+leaves every function defined below it undefined. The failure is silent in the
+UI: no visible error, handlers simply stop responding. Init hooks must be
+idempotent and re-run on `htmx:load`.
+
+Only top-level declarations. A `let` or `const` inside a function is correctly
+scoped and must not be converted; converting one changes semantics. Do not wrap
+a page block in an IIFE either, since every inline `onclick` in the templates
+resolves against global scope.
+
+This is not hypothetical. `fulfillment.html` opened its main block with
+`let currentMode`, so returning to the board through the sidenav left all four
+modal openers and every board handler undefined. Loading the URL directly always
+worked, which is why it survived so long.

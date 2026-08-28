@@ -26,7 +26,7 @@ from ..config import settings
 from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
-    Item, OEMPurchaseOrder, Site, User, TABLE_MODELS,
+    Item, OEMPurchaseOrder, Site, User, TABLE_MODELS, get_serial,
     BuildCertification, BuildCertificationFile,
     InstallationCertification,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
@@ -977,6 +977,106 @@ async def assign_units_to_deployment(
         "deployment_record_id": dep_id,
         "assigned": ids,
         "count": len(ids),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Assignable units for a deployment record
+# ---------------------------------------------------------------------------
+
+def _resolve_unit_serial(db: Session, row: DeviceProvisioning) -> str:
+    """Serial for a provisioning row. Two paths, and they never overlap.
+
+    DeviceProvisioning carries no serial column. Rows on the item path set
+    item_id and resolve through item_schema.items; legacy rows leave item_id
+    NULL and resolve through the per-category table named by device_table.
+
+    Do NOT call get_serial() on an Item. It checks serial, gpu_serial and
+    part_number, has no item_sn branch, and Item declares part_number as a
+    RELATIONSHIP, so hasattr is True and the third branch fires. It returns an
+    ItemPartNumber object where a string is expected, and the failure is silent
+    because an object renders as a repr rather than raising.
+    """
+    fallback = f"{row.device_table}#{row.device_id}"
+
+    if row.item_id is not None:
+        item = db.query(Item).filter(Item.id == row.item_id).first()
+        if item is None:
+            return fallback
+        return item.item_sn or fallback
+
+    model = TABLE_MODELS.get(row.device_table)
+    if model is None:
+        return fallback
+    device = db.query(model).filter(model.id == row.device_id).first()
+    if device is None:
+        return fallback
+    serial = get_serial(device)
+    return fallback if not serial or serial == "-" else serial
+
+
+def _unit_stage_label(row: DeviceProvisioning):
+    """Stage label for a provisioning row, or None when it has no stage machine.
+
+    Suppressed on an empty stages array, which is the same property the advance
+    path keys on when it bails with "Current stage not found". Do NOT key on
+    device_table == "edge_boxes" instead: that correlation holds in the current
+    rows but is asserted nowhere in code, so it would be a second hand
+    maintained mapping to drift.
+
+    STAGE_LABELS.get, never a bare subscript. "acquired" is live on most rows
+    and is absent from STAGE_LABELS.
+    """
+    if not row.stages or not row.current_stage:
+        return None
+    return STAGE_LABELS.get(row.current_stage, row.current_stage)
+
+
+@router.get("/fulfillment/deployments/{dep_id}/units")
+def list_deployment_units(
+    dep_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Assignable and already assigned units for a deployment visit.
+
+    Fetched when the picker opens rather than rendered at page load. A list
+    built at load goes stale, and since assignment validates the whole batch
+    before writing any of it, one unit taken elsewhere since load would 409 the
+    entire request and fail good assignments alongside it.
+
+    Units assigned to a DIFFERENT visit on the same order appear in neither
+    list. They are not assignable and they are not on this visit.
+    """
+    dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
+    if not dr:
+        return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
+
+    rows = (
+        db.query(DeviceProvisioning)
+        .filter(DeviceProvisioning.customer_order_id == dr.customer_order_id)
+        .order_by(DeviceProvisioning.id)
+        .all()
+    )
+
+    available = []
+    assigned = []
+    for row in rows:
+        entry = {
+            "id": row.id,
+            "serial": _resolve_unit_serial(db, row),
+            "stage": _unit_stage_label(row),
+        }
+        if row.deployment_record_id is None:
+            available.append(entry)
+        elif row.deployment_record_id == dep_id:
+            assigned.append(entry)
+
+    return {
+        "deployment_record_id": dep_id,
+        "customer_order_id": dr.customer_order_id,
+        "available": available,
+        "assigned": assigned,
     }
 
 

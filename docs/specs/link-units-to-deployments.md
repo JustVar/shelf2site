@@ -1,6 +1,9 @@
 # Link provisioned units to deployment visits
 
-Status: specced, not built. Every premise read.
+Status: built. Commit 1 shipped the migration, the model column and the assign
+endpoint; commit 2 shipped the picker feed, the modal and the tests. Amended
+after the build with four corrections the reads turned up; see the marked
+paragraphs below.
 
 Owner note: WHAT and WHY only. The HOW is the `asset-tracker-workflow` skill.
 Repo facts live in `CLAUDE.md`. Background on the fulfillment model is in
@@ -55,8 +58,11 @@ is CANCELLED with a reason, and a new build starts for the replacement.
 
 That cancellation is a fact about the UNIT, not about the assignment. And
 `DeviceProvisioning` cannot express it: `current_stage` holds five live values,
-`acquired`, `building`, `certified`, `hw_check`, `staged`, all pipeline
-positions. `provisioning.py:755` advances and `897` walks back, so movement is
+measured as `acquired` 8, `certified` 2, `hw_check` 1, `building` 1, `staged` 1.
+Four are pipeline positions. `acquired` is NOT: it appears in none of
+`DEFAULT_PROVISIONING_STAGES`, `STAGE_GROUPS`, `STAGE_LABELS` or
+`STAGE_TO_GROUP`, and the string does not occur anywhere in `models.py`.
+`provisioning.py:755` advances and `897` walks back, so movement is
 bidirectional, but there is NO terminal cancelled state. There is no cancelled
 flag and no replacement pointer.
 
@@ -131,6 +137,39 @@ each, and posts the selected ids.
 impossible to see what the visit already covers, which is the question the user
 usually has.
 
+### 5. Picker feed endpoint
+
+New. `GET /fulfillment/deployments/{dep_id}/units`, same path and same auth gate
+as the assign POST. The modal cannot get the assignable set without it.
+
+Fetched when the modal opens, NOT rendered at page load. A list built at load
+goes stale, and since the assign endpoint validates the whole batch before
+writing any of it, a unit taken elsewhere since load would 409 the entire
+request and fail the good assignments alongside it.
+
+Returns `available` (the inverse query above) and `assigned` (the same order
+filtered to this deployment). Units on a DIFFERENT visit for the same order
+appear in neither list.
+
+**Serial resolution is two paths, and `get_serial()` covers only one.**
+`DeviceProvisioning` has no serial column. `item_id IS NOT NULL` resolves
+through `item_schema.items.item_sn`; `item_id IS NULL` resolves through
+`TABLE_MODELS[device_table]` and then `device_id`. The live split is 7 and 6
+across the 13 rows, so both branches carry real data.
+
+`get_serial()` must NOT be called on an `Item`. It checks `serial`,
+`gpu_serial` and `part_number`, has no `item_sn` branch, and `Item` declares
+`part_number` as a RELATIONSHIP, so `hasattr` is True and the third branch
+fires. It returns an `ItemPartNumber` object where a string is expected, and
+the failure is silent because an object renders as a repr rather than raising.
+
+**Stage is suppressed when `stages` is an empty array**, which is the same
+property the advance path keys on when it bails with "Current stage not found".
+Do NOT key on `device_table = 'edge_boxes'` instead: that correlation holds in
+the current rows but is asserted nowhere in code. Labels resolve through
+`STAGE_LABELS.get(stage, stage)`, never a bare subscript, because `acquired` is
+live on 8 rows and absent from the map.
+
 ## Verification
 
 Gate order is the skill's, section 3, plus the test step.
@@ -156,10 +195,36 @@ Gate order is the skill's, section 3, plus the test step.
 | Attempt to assign a unit from a different order | rejected with a specific message |
 | Console | clean |
 
-**Deployment 15 is the right test target.** It is in `installing` status with no
-certification, so assigning units to it disturbs nothing certified. Deployments
-13 and 14 carry the only live `InstallationCertification` rows and are the test
-targets for the re-certification UI track; leave them alone.
+**Two picker opens, not one.** Deployment 15 alone exercises one of the two
+serial resolution branches, because order 72 carries no items-path rows.
+
+| Target | Serial paths | Stage chips |
+|---|---|---|
+| Deployment 15, order 72 (rows 240, 241) | legacy only | both present, `Cert'd` |
+| Deployment 16, order 70 (rows 243, 244) | items and legacy, one each | both suppressed |
+
+Deployment 16 already exists on order 70 in `scheduled` status, so it renders in
+the active block and needs no setup. Order 70's rows are `cameras` and `items`,
+both with `stages = []`, so neither shows a chip; order 72's are `edge_boxes`
+with 40 stages, so both do. Neither target alone covers both axes, and either
+alone would look like a bug.
+
+Also verify the boosted path: leave fulfillment through the sidenav, return
+through it, then open the picker. It must still work.
+
+**Deployments 13 and 14 carry the only live `InstallationCertification` rows**
+and are the test targets for the re-certification UI track; leave them alone.
+
+**Tests.** Four cases are required, modelled on `tests/test_order_sku_flow.py`:
+happy path, cross-order reject, re-assign reject, and a batch carrying one
+already-assigned id. The batch case is the one that matters, since it is what
+proves validate-all-before-write; a refactor to a per-item loop would break it
+silently and nothing else would catch it. Cover the feed endpoint at the same
+time, including both serial branches.
+
+**The gate is not repeatable without a reset**, because assignment is one way by
+design. `UPDATE device_provisioning SET deployment_record_id = NULL;` restores
+the pre-gate state.
 
 ## Commit
 
@@ -204,6 +269,22 @@ until the above is resolved. Assign units to visits uniformly.
   linked directly rather than inferred. See `fulfillment-pipeline-direction.md`
   for why serial keyed is the wrong primary frame for installation
   certification.
+- **Page init does not re-run on a boosted navigation.** `fulfillment.html`
+  registers its init on `DOMContentLoaded`, which does not fire on an hx-boost
+  swap. Returning to the board through the sidenav leaves no active deployment
+  tab, every card unfiltered, and the mini-step trackers empty. Pre-existing and
+  independent of this track: before the top-level `let` fix in this commit the
+  whole script threw on a boosted return, so total failure masked it. Not a
+  one-liner, which is why it is deferred: moving the block to `htmx:load`
+  verbatim would re-run `switchBldTab` and `switchDeployTab` on every swap and
+  stomp the tab the user had chosen. Needs an idempotent hook that preserves
+  selection. The rule it violates is now in `CLAUDE.md`.
+- **Two error-shape conventions coexist.** `fulfillment.py` returns
+  `JSONResponse(content={"detail": ...})`, 60 sites against 2; `provisioning.py`
+  returns `content={"error": ...}`. Both are hand-built `JSONResponse` bodies
+  rather than raised `HTTPException`, so the key name was a free choice each
+  time and nothing owns it. Clients that hedge both keys already exist in
+  `fulfillment.html`. Pick one and sweep, or document the split.
 
 ## Incidental, found while reading, not in scope
 
