@@ -187,7 +187,7 @@
         {% if user and user.has_provisioning_view %}
         <div class="sx-nav__section-label">Fulfillment</div>
 
-        <a href="{{ base_path }}/fulfillment/"
+        <a href="{{ base_path }}/fulfillment/" hx-boost="false"
            class="sx-nav__link {% if request.url.path.rstrip('/').endswith('/fulfillment') %}sx-nav__link--active{% endif %}"
            data-label="Fulfillment Overview">
           {{ fl_icon('truck', 'mute', 16) }}
