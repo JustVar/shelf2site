@@ -18,17 +18,30 @@ from app.models import EdgeBox, Item, ItemPartNumber, Monitor, get_display_name,
 
 
 def test_get_serial_refuses_a_relationship_match():
-    """The original defect: a name collision with a relationship."""
+    """The original defect: hasattr matched Item.part_number, a RELATIONSHIP."""
     item = Item(item_name="C2C Camera SX-01", item_sn="C2C-SX-0001")
     item.part_number = ItemPartNumber(brand_sku="PVA-100-30NR")
+
+    assert hasattr(item, "part_number"), "the collision that caused the defect"
+    assert "part_number" not in Item.__mapper__.column_attrs, "but not a column"
 
     with pytest.raises(TypeError) as exc:
         get_serial(item)
 
     msg = str(exc.value)
-    assert "Item.part_number" in msg
-    assert "ItemPartNumber" in msg
+    assert "Item" in msg
     assert "_resolve_unit_serial" in msg, "the message must name what to call instead"
+
+
+def test_get_serial_refuses_regardless_of_relationship_state():
+    """Structure, not value. A value-shaped guard would pass here and raise on
+    the test above: same model, different row, different outcome. The column
+    check does not vary by row."""
+    item = Item(item_name="C2C Camera SX-02", item_sn="C2C-SX-0002")
+    assert item.part_number is None, "brand_sku is NULL, so the relationship is None"
+
+    with pytest.raises(TypeError):
+        get_serial(item)
 
 
 def test_get_display_name_refuses_a_model_with_no_branch():

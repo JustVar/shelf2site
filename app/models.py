@@ -1810,32 +1810,39 @@ def get_display_name(instance) -> str:
 def get_serial(instance) -> str:
     """Extract serial number from any inventory model.
 
-    Written for the TABLE_MODELS family, and it matches by attribute NAME. A
-    model outside that family whose field names happen to collide gets matched
-    and misread: Item declares part_number as a RELATIONSHIP, so the third
-    branch fired and this returned an ItemPartNumber where a string belongs.
-    Silent, because an object renders as a repr rather than raising.
+    Written for the TABLE_MODELS family. Membership is tested STRUCTURALLY, by
+    asking whether the name is a mapped column on this model, because that is a
+    property of the type and does not vary by row.
 
-    So the matched value is checked rather than trusted. The check is on the
-    CONDITION, not on Item, so a future model whose attribute collides is caught
-    the same way. Callers that know which field they want should resolve it
-    directly; see _resolve_unit_serial in routes/fulfillment.py.
+    This used hasattr, which is true for relationships, hybrid properties and
+    methods as well as columns. Item declares part_number as a RELATIONSHIP, so
+    hasattr matched and this returned an ItemPartNumber where a string belongs,
+    silently, since an object renders as a repr. Guarding the returned VALUE
+    instead would have been row-dependent: an Item with brand_sku set raises,
+    one with it NULL resolves the relationship to None and slips through as "-".
+    Same model, different rows, different outcome. The column check has no such
+    hole.
+
+    Callers that know which field they want should resolve it directly; see
+    _resolve_unit_serial in routes/fulfillment.py.
+
+    Note part_number is a mapped column on edge_boxes only, which also has
+    serial and matches first, so that name has never matched anything in the
+    family. It is kept because it costs nothing and states the intent.
     """
-    for attr in ("serial", "gpu_serial", "part_number"):
-        if not hasattr(instance, attr):
-            continue
-        value = getattr(instance, attr, None)
-        if value is not None and not isinstance(value, str):
-            raise TypeError(
-                "get_serial matched %s.%s, but it holds %s rather than a string. "
-                "That model is not one of the TABLE_MODELS inventory models this "
-                "accessor was written for. Resolve the field explicitly instead, "
-                "as _resolve_unit_serial (routes/fulfillment.py) and "
-                "_resolve_device_name (routes/provisioning.py) do."
-                % (type(instance).__name__, attr, type(value).__name__)
-            )
-        return value or "-"
-    return "-"
+    columns = type(instance).__mapper__.column_attrs
+    for name in ("serial", "gpu_serial", "part_number"):
+        if name in columns:
+            return getattr(instance, name, None) or "-"
+    raise TypeError(
+        "get_serial found no mapped serial column on %s: none of serial, "
+        "gpu_serial or part_number is a column on it. That model is not one of "
+        "the TABLE_MODELS inventory models this accessor was written for. "
+        "Resolve the field explicitly instead, as _resolve_unit_serial "
+        "(routes/fulfillment.py) and _resolve_device_name "
+        "(routes/provisioning.py) do."
+        % type(instance).__name__
+    )
 
 
 def get_status(instance) -> str:
