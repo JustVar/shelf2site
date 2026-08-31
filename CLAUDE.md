@@ -317,8 +317,10 @@ JS must declare with `var`, never a top-level `let` or `const`. A top-level
 lexical binding survives removal of the old script element, so the second
 execution throws a redeclaration `SyntaxError` that aborts the whole block and
 leaves every function defined below it undefined. The failure is silent in the
-UI: no visible error, handlers simply stop responding. Init hooks must be
-idempotent and re-run on `htmx:load`.
+UI: no visible error, handlers simply stop responding. Init hooks must run again
+on a boosted entry, but NOT via an htmx event: use `PageInit`, defined in
+`base.html` before `<main>`. See
+`docs/specs/page-init-on-boosted-navigation.md` for why an event cannot work.
 
 Only top-level declarations. A `let` or `const` inside a function is correctly
 scoped and must not be converted; converting one changes semantics. Do not wrap
@@ -329,3 +331,46 @@ This is not hypothetical. `fulfillment.html` opened its main block with
 `let currentMode`, so returning to the board through the sidenav left all four
 modal openers and every board handler undefined. Loading the URL directly always
 worked, which is why it survived so long.
+
+## Jinja parses its delimiters everywhere in a template
+
+Jinja reads a template as text, not as HTML. It expands `{% %}` and `{{ }}`
+inside a `<script>` element, inside a JS comment, and inside an HTML comment,
+because none of those mean anything to it.
+
+So quoting a Jinja tag to explain it opens a real one. A JS comment reading
+"loaded under a not-kiosk conditional" is safe; writing that conditional out
+verbatim inside the comment starts a block Jinja then expects to be closed, and
+the template fails to parse with an error pointing at a completely unrelated
+`endblock` further down the file. That cost one reverted patch during the boosted
+navigation track.
+
+Describe Jinja syntax in prose, or build the literal with concatenation. The
+jinja parse gate catches it, which is the argument for running that gate before
+anything slower.
+
+## The suite total moves when a route is added
+
+`tests/test_auth_census.py` generates cases from the live route table rather than
+listing them, so a new route adds cases with no test file in the diff: **2 for a
+write route** (gated, plus write-tier) and **1 for a read route**.
+`tests/test_nav_boost_census.py` does the same from the sidenav, one case per
+boosted link plus two fixed cases.
+
+Predict the expected total before running, and treat a difference from the
+prediction as a signal rather than noise. A route added without a test still
+moves the number, which is the point.
+
+## The suite writes to the live database
+
+There is no separate test cluster. `tests/` runs against `asset_tracker`, the
+same database the app serves, and relies on fixtures rolling back or deleting
+what they create. Two consequences:
+
+- **Sequences advance even when no row survives.** `nextval` is not
+  transactional, so a rolled-back insert still consumes an id.
+  `deployment_records_id_seq` moved 11 in a single run that retained nothing.
+  Gaps in id sequences are normal here and are not evidence of deleted data.
+- **A fixture that commits, or a run that dies mid-transaction, leaves real
+  rows.** Fixtures prefix theirs `contract-test` so the debris is identifiable.
+  Check for it after any interrupted run.

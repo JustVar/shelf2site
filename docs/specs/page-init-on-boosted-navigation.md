@@ -109,6 +109,10 @@ A test that fails when someone boosts a page whose JS lives outside `<main>`.
   `base.html`.** Every conclusion in this document turns on that. If a second
   element is ever boosted, all of it needs rechecking, and this fails at that
   moment.
+- Plus one anti-vacuity case, asserting the enumerator returned at least one
+  path. A parametrised test whose enumerator returns an empty list produces zero
+  cases and passes green, which is how an invariant goes quiet without anyone
+  noticing.
 
 Modelled on the endpoint auth census, which parametrises per route. Failure
 locality should name the page; which block it was belongs in the assertion
@@ -174,6 +178,19 @@ returns to boost and becomes the second caller.
 **Before migrating `triage.html`**, check it for top-level `let`, `const` and
 `class`. Its script already re-executes today, so any such declaration is a live
 bug rather than a new risk.
+
+**A per-node marker does not scope a per-document subscription.** `PageInit`
+marks the page root, and a boosted swap installs a new root, so the hook runs
+again on every entry. A singleton like `_sseManager` lives for the document, and
+`_sseManager.on` does not dedup, so an init that subscribes to it must guard
+that subscription with its own flag or it leaks one listener per entry.
+Measured on triage: the count must be 2 and stay 2 across at least three entries
+by mixed paths. One entry cannot see the leak.
+
+**Triage does not exercise the queue.** `_sseManager` is assigned synchronously
+in the head at `base.html:80`, and triage needs nothing from `_lockManager`, so
+its callback would run correctly whether `ready()` had fired or not. Do not cite
+triage as proof the queue works; that path is still unexercised.
 
 ## Verification
 
