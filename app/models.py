@@ -1787,18 +1787,54 @@ def get_display_name(instance) -> str:
     if table == "nucs":
         return getattr(instance, "serial", None) or getattr(instance, "org", None) or "-"
 
-    # Default: "device" column (monitors, phones, mobile_devices, etc.)
+    # Default: "device" column (monitors, phones, mobile_devices, etc.).
+    #
+    # Refuse rather than degrade. A model outside the TABLE_MODELS family has no
+    # "device" column, and returning "-" for it was silent and looked plausible:
+    # Item.__tablename__ is "items", which matches no branch above, so every Item
+    # rendered as a bare hyphen. Checked on the condition rather than on Item, so
+    # a future model outside the family is caught the same way.
+    if not hasattr(instance, "device"):
+        raise TypeError(
+            "get_display_name has no branch for %s (table %r) and it has no "
+            "'device' column to fall back on. That model is not one of the "
+            "TABLE_MODELS inventory models this accessor was written for. "
+            "Resolve the field explicitly instead, as _resolve_device_name "
+            "(routes/provisioning.py) and _resolve_unit_serial "
+            "(routes/fulfillment.py) do."
+            % (type(instance).__name__, table)
+        )
     return getattr(instance, "device", None) or "-"
 
 
 def get_serial(instance) -> str:
-    """Extract serial number from any inventory model."""
-    if hasattr(instance, "serial"):
-        return getattr(instance, "serial", None) or "-"
-    if hasattr(instance, "gpu_serial"):
-        return getattr(instance, "gpu_serial", None) or "-"
-    if hasattr(instance, "part_number"):
-        return getattr(instance, "part_number", None) or "-"
+    """Extract serial number from any inventory model.
+
+    Written for the TABLE_MODELS family, and it matches by attribute NAME. A
+    model outside that family whose field names happen to collide gets matched
+    and misread: Item declares part_number as a RELATIONSHIP, so the third
+    branch fired and this returned an ItemPartNumber where a string belongs.
+    Silent, because an object renders as a repr rather than raising.
+
+    So the matched value is checked rather than trusted. The check is on the
+    CONDITION, not on Item, so a future model whose attribute collides is caught
+    the same way. Callers that know which field they want should resolve it
+    directly; see _resolve_unit_serial in routes/fulfillment.py.
+    """
+    for attr in ("serial", "gpu_serial", "part_number"):
+        if not hasattr(instance, attr):
+            continue
+        value = getattr(instance, attr, None)
+        if value is not None and not isinstance(value, str):
+            raise TypeError(
+                "get_serial matched %s.%s, but it holds %s rather than a string. "
+                "That model is not one of the TABLE_MODELS inventory models this "
+                "accessor was written for. Resolve the field explicitly instead, "
+                "as _resolve_unit_serial (routes/fulfillment.py) and "
+                "_resolve_device_name (routes/provisioning.py) do."
+                % (type(instance).__name__, attr, type(value).__name__)
+            )
+        return value or "-"
     return "-"
 
 
