@@ -997,6 +997,11 @@ async def assign_units_to_deployment(
 def _resolve_unit_serial(db: Session, row: DeviceProvisioning) -> str:
     """Serial for a provisioning row. Two paths, and they never overlap.
 
+    SIBLING of _resolve_device_name in provisioning.py: same item_id dispatch,
+    DELIBERATELY different accessor. This one feeds the deployment picker, which
+    wants a serial. That one feeds provisioning lists and notification prose,
+    which want a name. Do not unify them.
+
     DeviceProvisioning carries no serial column. Rows on the item path set
     item_id and resolve through item_schema.items; legacy rows leave item_id
     NULL and resolve through the per-category table named by device_table.
@@ -1005,7 +1010,9 @@ def _resolve_unit_serial(db: Session, row: DeviceProvisioning) -> str:
     part_number, has no item_sn branch, and Item declares part_number as a
     RELATIONSHIP, so hasattr is True and the third branch fires. It returns an
     ItemPartNumber object where a string is expected, and the failure is silent
-    because an object renders as a repr rather than raising.
+    because an object renders as a repr rather than raising. get_display_name
+    fails on an Item too, differently: it dispatches on __tablename__, matches
+    no branch, and returns "-".
     """
     fallback = f"{row.device_table}#{row.device_id}"
 

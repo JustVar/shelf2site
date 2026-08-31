@@ -104,7 +104,7 @@ def provisioning_page(
     # Resolve device names, deployment types, and assignee names
     queue_items = []
     for rec in active_records:
-        device_name = _resolve_device_name(db, rec.device_table, rec.device_id)
+        device_name = _resolve_device_name(db, rec)
         display_table = TABLE_DISPLAY_NAMES.get(rec.device_table, rec.device_table)
         site_name = rec.site.name if rec.site else "—"
         assignee_name = rec.assignee.display_name if rec.assignee else "Unassigned"
@@ -164,7 +164,7 @@ def provisioning_page(
     for rec in completed_records:
         completed_items.append({
             "id": rec.id,
-            "device_name": _resolve_device_name(db, rec.device_table, rec.device_id),
+            "device_name": _resolve_device_name(db, rec),
             "display_table": TABLE_DISPLAY_NAMES.get(rec.device_table, rec.device_table),
             "deployment_type": _resolve_deployment_type(db, rec.device_id),
             "site_name": rec.site.name if rec.site else "—",
@@ -236,7 +236,7 @@ def provisioning_detail_page(
         return RedirectResponse(url=f"{BP}/provisioning/", status_code=302)
 
     # Resolve device info
-    device_name = _resolve_device_name(db, rec.device_table, rec.device_id)
+    device_name = _resolve_device_name(db, rec)
     deployment_type = _resolve_deployment_type(db, rec.device_id)
     display_table = TABLE_DISPLAY_NAMES.get(rec.device_table, rec.device_table)
 
@@ -348,7 +348,7 @@ def get_provisioning_by_bucket(
 
     now = datetime.utcnow()
     for rec in active_records:
-        device_name = _resolve_device_name(db, rec.device_table, rec.device_id)
+        device_name = _resolve_device_name(db, rec)
         deployment_type = _resolve_deployment_type(db, rec.device_id)
         assignee_name = rec.assignee.display_name if rec.assignee else "Unassigned"
 
@@ -703,13 +703,20 @@ async def advance_provisioning(
     if rec.is_complete:
         return JSONResponse(status_code=400, content={"error": "Provisioning already complete"})
 
-    # C2C cams (option D: device_table="items", item_id set) have no stage machine and
-    # must never complete through this edge-box advance pipeline. Under option D is_complete
-    # stays False for a C2C row for life (returned or not), so reject at the source.
-    # Defensive: today a C2C row carries stages=[] and already bails at the "Current stage
-    # not found" check below, but that is incidental - this makes the invariant explicit so
-    # a future stages change cannot silently open the (item_id set + is_complete +
-    # returned_date NULL) anomaly. Edge-box rows have item_id NULL and are unaffected.
+    # Rows with item_id set carry TWO shapes, not one. c2c.py:452 creates C2C
+    # cameras this way and orders.py:489 creates stock units the same way, both
+    # with current_stage="acquired" as a label only. Live data holds six cameras
+    # and one edge box (provisioning 267, item_category "edge_box", serial
+    # USCFS0226002), so device_table="items" does NOT imply a camera.
+    #
+    # None of them have a stage machine, and none must complete through this
+    # edge-box advance pipeline. is_complete stays False for such a row for life
+    # (returned or not), so reject at the source.
+    # Defensive: today these rows carry stages=[] and already bail at the "Current
+    # stage not found" check below, but that is incidental - this makes the
+    # invariant explicit so a future stages change cannot silently open the
+    # (item_id set + is_complete + returned_date NULL) anomaly. Edge-box-table
+    # rows have item_id NULL and are unaffected.
     if rec.item_id is not None:
         return JSONResponse(
             status_code=400,
@@ -799,7 +806,7 @@ async def advance_provisioning(
     )
 
     # Send notification
-    device_name = _resolve_device_name(db, rec.device_table, rec.device_id)
+    device_name = _resolve_device_name(db, rec)
     if rec.is_complete:
         await notify(
             db, "provisioning_complete",
@@ -827,7 +834,7 @@ async def advance_provisioning(
         try:
             client = get_zendesk_client()
             if client:
-                device_name = _resolve_device_name(db, rec.device_table, rec.device_id)
+                device_name = _resolve_device_name(db, rec)
                 if rec.is_complete:
                     await client.update_ticket_status(
                         rec.zendesk_ticket_id,
@@ -909,7 +916,7 @@ async def revert_provisioning(
     )
 
     # Send notification
-    device_name = _resolve_device_name(db, rec.device_table, rec.device_id)
+    device_name = _resolve_device_name(db, rec)
     await notify(
         db, "provisioning_revert",
         title="Stage Reverted",
@@ -1273,7 +1280,7 @@ def export_provisioning(
 
     rows = []
     for rec in records:
-        device_name = _resolve_device_name(db, rec.device_table, rec.device_id)
+        device_name = _resolve_device_name(db, rec)
         site_name = rec.site.name if rec.site else ""
         assignee_name = rec.assignee.display_name if rec.assignee else ""
         deployment_type = _resolve_deployment_type(db, rec.device_id)
@@ -1407,15 +1414,43 @@ async def bulk_assign_order(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _resolve_device_name(db: Session, device_table: str, device_id: int) -> str:
-    """Resolve a device name from table + id."""
-    model = TABLE_MODELS.get(device_table)
+def _resolve_device_name(db: Session, row: DeviceProvisioning) -> str:
+    """Human-readable name for a provisioning row. Two paths, one dispatch.
+
+    SIBLING of _resolve_unit_serial in fulfillment.py: same item_id dispatch,
+    DELIBERATELY different accessor. This one feeds provisioning lists and
+    notification prose, which want a name. That one feeds the deployment picker,
+    which wants a serial. Do not unify them. A merge would have to pick one
+    accessor and would silently put serials into "X fully provisioned by Y"
+    messages, with nothing failing.
+
+    Item is NOT a member of the inventory-model family get_display_name was
+    written for. Item.__tablename__ is "items", which matches none of that
+    function's branches, so it falls through to the "device" column default and
+    returns "-" for every Item. That is why the item path reads fields directly,
+    and why adding "items": Item to TABLE_MODELS makes this worse rather than
+    better: seven visibly wrong labels become seven bare hyphens.
+
+    item_name over manufacturer + model, to match the legacy semantic including
+    its weakness: the cameras branch renders every unit of one model
+    identically, and the live C2C cameras share a manufacturer and model. Unit
+    level disambiguation, if wanted, belongs on both paths rather than here.
+    """
+    fallback = f"{row.device_table}#{row.device_id}"
+
+    if row.item_id is not None:
+        item = db.query(Item).filter(Item.id == row.item_id).first()
+        if item is None:
+            return fallback
+        return item.item_name or item.item_sn or fallback
+
+    model = TABLE_MODELS.get(row.device_table)
     if not model:
-        return f"{device_table}#{device_id}"
-    device = db.query(model).filter(model.id == device_id).first()
+        return fallback
+    device = db.query(model).filter(model.id == row.device_id).first()
     if not device:
-        return f"{device_table}#{device_id}"
-    return get_display_name(device) or f"{device_table}#{device_id}"
+        return fallback
+    return get_display_name(device) or fallback
 
 
 def _resolve_deployment_type(db: Session, device_id: int) -> str:
