@@ -75,6 +75,19 @@ Four are pipeline positions. `acquired` is NOT: it appears in none of
 bidirectional, but there is NO terminal cancelled state. There is no cancelled
 flag and no replacement pointer.
 
+Correction, 2026-08-28: `returned_date` was not considered by the analysis above
+and it does carry return semantics. Row 249 went out on order 78, came back
+2026-07-02, and was re-provisioned that same evening as row 254 on order 76.
+That is the pull and replace flow this track was scoped around, already
+happening in live data through a column the survey missed. Returned is not
+necessarily the same concept as cancelled, but "no representation exists" is too
+strong and the cancellation track should start from `returned_date` rather than
+from nothing.
+
+Caveat on the column: row 250 carries returned_date 2026-06-20 against
+created_at 2026-07-02, returned twelve days before the row existed. Nothing
+validates it.
+
 So a unit pulled because a PO was cancelled has no representation today, with or
 without deployment records. That gap exists independently of this track.
 
@@ -120,6 +133,10 @@ ids.
   id, so a mis-assignment surfaces instead of vanishing.
 - A provisioning row already carrying a `deployment_record_id` is not
   reassignable. Reject.
+- A provisioning row carrying a `returned_date` is not assignable. Reject,
+  naming the offending id. Filtering it out of the feed is not sufficient on its
+  own, because the feed shapes the UI while the endpoint is what a crafted post
+  reaches.
 
 **Nullable until assigned, then effectively fixed.** Units are provisioned before
 visits are planned, so NULL is a normal state and not an error. There is NO
@@ -136,7 +153,9 @@ to specify only the forward direction and miss this:
 ```sql
 -- assignable set for a deployment on order N
 SELECT * FROM device_provisioning
-WHERE customer_order_id = N AND deployment_record_id IS NULL
+WHERE customer_order_id = N
+  AND deployment_record_id IS NULL
+  AND returned_date IS NULL
 ```
 
 The modal lists that set with checkboxes, shows the serial and current stage for
@@ -145,6 +164,11 @@ each, and posts the selected ids.
 **Show already assigned units too, read only.** A picker that hides them makes it
 impossible to see what the visit already covers, which is the question the user
 usually has.
+
+**Show returned units too, read only, for the same reason.** Silently dropping
+them produces an empty picker with no explanation on an order whose units all
+came back, which is strictly worse than showing two rows marked returned with
+their dates. This is the same argument as the paragraph above, not a new one.
 
 ### 5. Picker feed endpoint
 
@@ -156,9 +180,15 @@ goes stale, and since the assign endpoint validates the whole batch before
 writing any of it, a unit taken elsewhere since load would 409 the entire
 request and fail the good assignments alongside it.
 
-Returns `available` (the inverse query above) and `assigned` (the same order
-filtered to this deployment). Units on a DIFFERENT visit for the same order
-appear in neither list.
+Returns three lists. `available` is the inverse query above. `assigned` is the
+same order filtered to this deployment. `returned` is the same order filtered to
+rows carrying a `returned_date`, read only, showing the date. Units on a
+DIFFERENT visit for the same order appear in none of the three.
+
+A row that is both assigned and returned belongs in `assigned`. That state means
+a unit came back after it was placed on a visit, which is the swap case this
+track defers. No live row is in it. The cancellation track must define it rather
+than leaving it to whichever filter runs first.
 
 **Serial resolution is two paths, and `get_serial()` covers only one.**
 `DeviceProvisioning` has no serial column. `item_id IS NOT NULL` resolves
@@ -231,12 +261,14 @@ through it, then open the picker. It must still work.
 **Deployments 13 and 14 carry the only live `InstallationCertification` rows**
 and are the test targets for the re-certification UI track; leave them alone.
 
-**Tests.** Four cases are required, modelled on `tests/test_order_sku_flow.py`:
-happy path, cross-order reject, re-assign reject, and a batch carrying one
-already-assigned id. The batch case is the one that matters, since it is what
-proves validate-all-before-write; a refactor to a per-item loop would break it
-silently and nothing else would catch it. Cover the feed endpoint at the same
-time, including both serial branches.
+**Tests.** Five cases are required, modelled on `tests/test_order_sku_flow.py`:
+happy path, cross-order reject, re-assign reject, a batch carrying one
+already-assigned id, and a returned unit reject. The batch case is the one that
+matters, since it is what proves validate-all-before-write; a refactor to a
+per-item loop would break it silently and nothing else would catch it. Cover the
+feed endpoint at the same time, including both serial branches: a returned row
+must appear in `returned` and must NOT appear in `available`. Order 79 carries
+two returned rows and is the natural fixture.
 
 **The gate is not repeatable without a reset**, because assignment is one way by
 design. `UPDATE device_provisioning SET deployment_record_id = NULL;` restores
@@ -248,6 +280,22 @@ column has ever been exercised. Resetting would restore repeatability at the
 cost of the only proof the feature works. If a fresh multi-unit picker is needed
 for a future gate, reimport the master inventory spreadsheet instead. Owner
 decision, 2026-08-28.
+
+**Gate for the returned_date filter.** Reproduce before fixing, so the gate
+proves something.
+
+| Step | Expected |
+|---|---|
+| Create a deployment record on order 79, before the code change | Picker offers rows 250 and 251, both returned. This is the defect |
+| Apply the change | |
+| Picker on that order 79 deployment | `available` empty, `returned` lists 250 and 251 with their dates, read only |
+| Picker on order 73, deployment 73 | Its one unit is STILL offered. This is the control and it must not regress |
+| Post an assign for row 250 directly | Rejected, message names 250 |
+| Console | clean |
+
+Order 73 is the control because its single unassigned unit has `returned_date`
+NULL. Orders 78 and 80 are additional negative cases if wanted, one unit each,
+both returned.
 
 ## Commit
 
@@ -287,7 +335,9 @@ until the above is resolved. Assign units to visits uniformly.
 
 - **Unit cancellation.** `DeviceProvisioning` has no terminal state. Scope it
   around "a unit can be pulled from an order, with a reason" rather than around
-  deployments. Needed before a swap can be represented.
+  deployments. Needed before a swap can be represented. See the correction in
+  the cancellation section: `returned_date` is partial existing representation
+  and this track should begin there.
 - **Deployment keyed installation history.** Now cheaper, since units will be
   linked directly rather than inferred. See `fulfillment-pipeline-direction.md`
   for why serial keyed is the wrong primary frame for installation
