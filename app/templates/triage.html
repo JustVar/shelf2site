@@ -8,7 +8,7 @@
 {% block content %}
 {% from 'partials/icons.html' import icon %}
 
-<div class="triage-page fl-restyle">
+<div class="triage-page fl-restyle" data-page-init="triage">
 {% include "_fl_bg.html" %}
 
 <div class="page-header fl-lift" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem">
@@ -629,8 +629,32 @@ document.addEventListener('keydown', function(ev) {
 
 // Listen for global triage gap changes from any user's edits (including our own)
 // and update the tab badge counts live.
-document.addEventListener('DOMContentLoaded', function() {
+//
+// PageInit rather than DOMContentLoaded: that event belongs to the document,
+// and an hx-boost swap never replaces the document, so it does not fire on a
+// boosted return. Reaching triage by the sidenav without ever full-loading it
+// left this unregistered, so the sidenav badge updated live while the tab
+// badges beside it sat frozen. See docs/specs/page-init-on-boosted-navigation.md.
+PageInit.init('triage', function () {
+  // KIOSK GUARD, not a redundant one. base.html:80 loads realtime.js under
+  // a not-kiosk conditional, so in kiosk mode _sseManager does not exist at all
+  // and this is what stands between that and a TypeError. Do not delete it on
+  // the grounds that PageInit orders things correctly; ordering is not the
+  // reason it is here.
   if (!window._sseManager) return;
+
+  // ONCE PER DOCUMENT, inside a hook that runs once per ENTRY. PageInit marks
+  // the page root, and a boosted swap installs a new root, so this function
+  // runs again on every visit. _sseManager.on (realtime.js:58) does not dedup,
+  // so re-subscribing would leak one listener per visit for the life of the
+  // tab. The callback below re-queries .trg-tab at event time and captures
+  // nothing, so a single listener serves every later entry.
+  //
+  // Per-entry work belongs ABOVE this guard; document-scoped subscriptions
+  // belong below it.
+  if (window.__trgGapSubscribed) return;
+  window.__trgGapSubscribed = true;
+
   window._sseManager.on('triage_gap_changed', function(data) {
     if (!data || !data.role_counts) return;
     var tabs = document.querySelectorAll('.trg-tab');
