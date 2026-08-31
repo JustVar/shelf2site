@@ -211,3 +211,59 @@ def test_picker_markup_renders_on_fulfillment_board(admin_client):
     # lexical declaration would throw on the second execution. See CLAUDE.md.
     assert "\nlet " not in html
     assert "\nconst " not in html
+
+
+# -- returned units ---------------------------------------------------------
+
+def _set_returned(db, pid, when):
+    db.execute(sqltext(
+        "UPDATE device_provisioning SET returned_date = :d WHERE id = :p"),
+        {"d": when, "p": pid})
+    db.commit()
+
+
+def test_units_feed_lists_returned_separately(admin_client, db, dep_units):
+    """A returned unit moves to its own bucket and stops being assignable.
+
+    The sibling assertion is the control: narrowing the assignable set must not
+    drop a unit that has NOT come back.
+    """
+    dep, pid = dep_units["dep_id"], dep_units["unit_item"]
+    _set_returned(db, pid, "2026-07-02")
+
+    body = admin_client.get(f"/fulfillment/deployments/{dep}/units").json()
+    assert [u["id"] for u in body["returned"]] == [pid]
+    assert body["returned"][0]["returned_date"] == "2026-07-02"
+    assert pid not in [u["id"] for u in body["available"]]
+    assert dep_units["unit_legacy"] in [u["id"] for u in body["available"]]
+
+
+def test_assign_rejects_returned_unit(admin_client, db, dep_units):
+    """The endpoint enforces it too. The feed shapes the modal; this is what a
+    request that did not come from the modal reaches."""
+    dep, pid = dep_units["dep_id"], dep_units["unit_item"]
+    _set_returned(db, pid, "2026-07-02")
+
+    r = admin_client.post(f"/fulfillment/deployments/{dep}/units",
+                          json={"provisioning_ids": [pid]})
+    assert r.status_code == 409, r.text
+    assert str(pid) in r.json()["detail"]
+    assert _dep_of(db, pid) is None
+
+
+def test_units_feed_assigned_beats_returned(admin_client, db, dep_units):
+    """Precedence: assigned wins over returned.
+
+    No live row is in this state, so it is reachable only by construction. It is
+    also the branch most likely to be broken by a later refactor, since either
+    filter would look correct on its own.
+    """
+    dep, pid = dep_units["dep_id"], dep_units["unit_item"]
+    assert admin_client.post(f"/fulfillment/deployments/{dep}/units",
+                             json={"provisioning_ids": [pid]}).status_code == 200
+    _set_returned(db, pid, "2026-07-02")
+
+    body = admin_client.get(f"/fulfillment/deployments/{dep}/units").json()
+    assert [u["id"] for u in body["assigned"]] == [pid]
+    assert body["assigned"][0]["returned_date"] == "2026-07-02"
+    assert pid not in [u["id"] for u in body["returned"]]

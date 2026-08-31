@@ -967,6 +967,15 @@ async def assign_units_to_deployment(
                     f"{row.deployment_record_id} and cannot be reassigned"
                 ),
             })
+        # Checked here as well as filtered out of the feed. The feed shapes the
+        # modal; this is what a request that did not come from the modal hits.
+        if row.returned_date is not None:
+            return JSONResponse(status_code=409, content={
+                "detail": (
+                    f"Provisioning {pid} was returned on {row.returned_date} "
+                    f"and cannot be assigned to a deployment"
+                ),
+            })
 
     # Phase 2: every id checked out, so assign them.
     for pid in ids:
@@ -1039,15 +1048,19 @@ def list_deployment_units(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Assignable and already assigned units for a deployment visit.
+    """Assignable, already assigned, and returned units for a deployment visit.
 
     Fetched when the picker opens rather than rendered at page load. A list
     built at load goes stale, and since assignment validates the whole batch
     before writing any of it, one unit taken elsewhere since load would 409 the
     entire request and fail good assignments alongside it.
 
-    Units assigned to a DIFFERENT visit on the same order appear in neither
-    list. They are not assignable and they are not on this visit.
+    Returned units are listed separately rather than dropped. On an order whose
+    units have all come back, hiding them yields an empty picker with no
+    explanation, which is strictly worse than showing why it is empty.
+
+    Units assigned to a DIFFERENT visit on the same order appear in none of the
+    three lists. They are not assignable and they are not on this visit.
     """
     dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
     if not dr:
@@ -1062,22 +1075,33 @@ def list_deployment_units(
 
     available = []
     assigned = []
+    returned = []
     for row in rows:
         entry = {
             "id": row.id,
             "serial": _resolve_unit_serial(db, row),
             "stage": _unit_stage_label(row),
+            "returned_date": row.returned_date.isoformat() if row.returned_date else None,
         }
-        if row.deployment_record_id is None:
-            available.append(entry)
-        elif row.deployment_record_id == dep_id:
+        # Order matters. A row that is both assigned and returned belongs in
+        # assigned: it came back after it was placed on a visit, which is the
+        # swap case this track defers. Deciding it by whichever filter ran
+        # first would make the answer an accident.
+        if row.deployment_record_id == dep_id:
             assigned.append(entry)
+        elif row.deployment_record_id is not None:
+            continue
+        elif row.returned_date is not None:
+            returned.append(entry)
+        else:
+            available.append(entry)
 
     return {
         "deployment_record_id": dep_id,
         "customer_order_id": dr.customer_order_id,
         "available": available,
         "assigned": assigned,
+        "returned": returned,
     }
 
 

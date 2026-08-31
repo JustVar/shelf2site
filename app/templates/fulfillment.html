@@ -1801,6 +1801,11 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
             <div class="pk-list" id="pk-asgn"></div>
         </div>
 
+        <div id="pk-retd-sect" style="display:none;">
+            <div class="pk-sect-head"><span>Returned &mdash; <span id="pk-retd-count">0</span></span></div>
+            <div class="pk-list" id="pk-retd"></div>
+        </div>
+
         <div class="pk-note">
             Assignment is permanent. A unit pulled from this order is cancelled and replaced,
             not unassigned.
@@ -3257,9 +3262,12 @@ function closeUnitPicker() {
 async function pkLoad() {
     var avail = document.getElementById('pk-avail');
     var asgn = document.getElementById('pk-asgn');
+    var retd = document.getElementById('pk-retd');
     avail.innerHTML = '';
     asgn.innerHTML = '';
+    retd.innerHTML = '';
     document.getElementById('pk-selall').style.display = 'none';
+    document.getElementById('pk-retd-sect').style.display = 'none';
     try {
         var res = await fetch(BP + '/fulfillment/deployments/' + pkDepId + '/units');
         if (!res.ok) {
@@ -3270,18 +3278,27 @@ async function pkLoad() {
         var data = await res.json();
         var a = data.available || [];
         var b = data.assigned || [];
+        var c = data.returned || [];
         pkRenderList(avail, a, true, 'No unassigned units on this order');
         pkRenderList(asgn, b, false, 'No units assigned yet');
+        pkRenderList(retd, c, false, 'No returned units', function (r) {
+            return r.returned_date ? 'Returned ' + r.returned_date : 'Returned';
+        });
         document.getElementById('pk-avail-count').textContent = a.length;
         document.getElementById('pk-asgn-count').textContent = b.length;
+        document.getElementById('pk-retd-count').textContent = c.length;
         document.getElementById('pk-selall').style.display = a.length ? '' : 'none';
+        /* The returned section is hidden when empty. Most orders have no
+           returns, and an empty bucket on every picker is noise. It appears
+           only when it explains something. */
+        document.getElementById('pk-retd-sect').style.display = c.length ? '' : 'none';
     } catch (err) {
         pkRenderList(avail, [], true, 'Could not load units');
     }
     pkSync();
 }
 
-function pkRenderList(container, rows, selectable, emptyText) {
+function pkRenderList(container, rows, selectable, emptyText, lockText) {
     if (!rows.length) {
         var empty = document.createElement('div');
         empty.className = 'pk-empty';
@@ -3325,7 +3342,7 @@ function pkRenderList(container, rows, selectable, emptyText) {
         if (!selectable) {
             var lock = document.createElement('span');
             lock.className = 'pk-lockmark';
-            lock.textContent = 'On this visit';
+            lock.textContent = lockText ? lockText(r) : 'On this visit';
             row.appendChild(lock);
         }
         container.appendChild(row);

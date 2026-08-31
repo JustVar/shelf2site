@@ -307,6 +307,20 @@ Two commits, not one.
 Split because the modal should be mocked and reviewed before it is built, and the
 backend does not wait on that.
 
+Note, 2026-08-31: the track ran to five commits, not two. The plan above was
+correct as far as it went; the extra three came from findings the build itself
+surfaced, and each was split for the same reason the original two were.
+
+1. `15f0220` migration, model, assign endpoint.
+2. `3f3c0f7` picker feed, modal, tests.
+3. `0e8973c` date the historical figures in this file.
+4. `cd12da3` amend the spec to exclude returned units.
+5. this commit, implement that exclusion.
+
+Commits 4 and 5 were deliberately split so the design could be reviewed before
+it was built, which is the same rule as the original split. `af344a0`, which
+sets `created_by` on deployment creation, is NOT part of this track.
+
 ## Name collision, read before using `deployment_type`
 
 `fulfillment-build-plan.md` locked decision 8 defines a `deployment_type` axis
