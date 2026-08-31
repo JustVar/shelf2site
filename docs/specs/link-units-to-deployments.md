@@ -356,16 +356,11 @@ until the above is resolved. Assign units to visits uniformly.
   linked directly rather than inferred. See `fulfillment-pipeline-direction.md`
   for why serial keyed is the wrong primary frame for installation
   certification.
-- **Page init does not re-run on a boosted navigation.** `fulfillment.html`
-  registers its init on `DOMContentLoaded`, which does not fire on an hx-boost
-  swap. Returning to the board through the sidenav leaves no active deployment
-  tab, every card unfiltered, and the mini-step trackers empty. Pre-existing and
-  independent of this track: before the top-level `let` fix in this commit the
-  whole script threw on a boosted return, so total failure masked it. Not a
-  one-liner, which is why it is deferred: moving the block to `htmx:load`
-  verbatim would re-run `switchBldTab` and `switchDeployTab` on every swap and
-  stomp the tab the user had chosen. Needs an idempotent hook that preserves
-  selection. The rule it violates is now in `CLAUDE.md`.
+- **Page init does not re-run on a boosted navigation.** Owned by
+  `page-init-on-boosted-navigation.md`, which specs it across all eight affected
+  templates. Surfaced by this track rather than caused by it: before the
+  top-level `let` fix in `3f3c0f7` the whole script threw on a boosted return,
+  so total failure masked it.
 - **Two error-shape conventions coexist.** `fulfillment.py` returns
   `JSONResponse(content={"detail": ...})`, 60 sites against 2; `provisioning.py`
   returns `content={"error": ...}`. Both are hand-built `JSONResponse` bodies
