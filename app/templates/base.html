@@ -92,6 +92,13 @@
     {% from 'partials/icons.html' import icon %}
     {% if not _kiosk %}
     <nav class="sx-nav" id="sx-nav" hx-boost="true" hx-target="main" hx-select="main" hx-swap="innerHTML">
+    {# hx-select="main" means a boosted nav keeps ONLY main and discards the
+       rest of the response. A page that renders its JavaScript outside main
+       cannot be boosted: it arrives fully rendered and completely inert. Head
+       renders at 87 and the scripts block at 837, both outside main. Links to
+       such pages carry hx-boost="false" below. Same rule as the map link at
+       171, which hit this through the head block. Guarded by a test, so adding
+       a nav link to a scripts-block page fails the suite. #}
 
       <!-- Header -->
       <div class="sx-nav__header">
@@ -118,7 +125,7 @@
 
         <div class="sx-nav__section-label">Main</div>
 
-        <a href="{{ base_path }}/dashboard"
+        <a href="{{ base_path }}/dashboard" hx-boost="false"
            class="sx-nav__link {% if 'dashboard' in request.url.path and 'triage' not in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Dashboard">
           {{ fl_icon('dashboard', 'mute', 16) }}
@@ -141,7 +148,7 @@
                 style="{% if not request.state.triage_count or request.state.triage_count <= 0 %}display:none{% endif %}">{{ request.state.triage_count or 0 }}</span>
         </a>
 
-        <a href="{{ base_path }}/search"
+        <a href="{{ base_path }}/search" hx-boost="false"
            class="sx-nav__link {% if '/search' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Search">
           {{ fl_icon('search', 'mute', 16) }}
@@ -249,7 +256,7 @@
         </button>
         <div class="sx-nav__subgroup-content">
           {% if user.has_audit_access %}
-          <a href="{{ base_path }}/admin/audit"
+          <a href="{{ base_path }}/admin/audit" hx-boost="false"
              class="sx-nav__link {% if '/admin/audit' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Audit log">
             {{ fl_icon('book', 'mute', 16) }}
@@ -257,7 +264,7 @@
           </a>
           {% endif %}
           {% if user.has_system_admin %}
-          <a href="{{ base_path }}/admin/errors"
+          <a href="{{ base_path }}/admin/errors" hx-boost="false"
              class="sx-nav__link {% if '/admin/errors' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Error log">
             {{ fl_icon('audit', 'mute', 16) }}
@@ -265,7 +272,7 @@
           </a>
           {% endif %}
           {% if user.is_editor_or_above %}
-          <a href="{{ base_path }}/admin/oui"
+          <a href="{{ base_path }}/admin/oui" hx-boost="false"
              class="sx-nav__link {% if '/admin/oui' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="OUI reference">
             {{ fl_icon('network', 'mute', 16) }}
@@ -273,7 +280,7 @@
           </a>
           {% endif %}
           {% if user.is_editor_or_above %}
-          <a href="{{ base_path }}/admin/part-numbers"
+          <a href="{{ base_path }}/admin/part-numbers" hx-boost="false"
              class="sx-nav__link {% if '/admin/part-numbers' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Part Numbers">
             {{ fl_icon('network', 'mute', 16) }}
@@ -299,25 +306,25 @@
           <span class="sx-nav__subgroup-label">Integrations</span>
         </button>
         <div class="sx-nav__subgroup-content">
-          <a href="{{ base_path }}/admin/intune"
+          <a href="{{ base_path }}/admin/intune" hx-boost="false"
              class="sx-nav__link {% if '/admin/intune' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Intune">
             {{ fl_icon('intune', 'mute', 16) }}
             <span class="sx-nav__label">Intune</span>
           </a>
-          <a href="{{ base_path }}/admin/notifications"
+          <a href="{{ base_path }}/admin/notifications" hx-boost="false"
              class="sx-nav__link {% if '/admin/notifications' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Notifications">
             {{ fl_icon('mail', 'mute', 16) }}
             <span class="sx-nav__label">Notifications</span>
           </a>
-          <a href="{{ base_path }}/admin/spreadsheet-sync"
+          <a href="{{ base_path }}/admin/spreadsheet-sync" hx-boost="false"
              class="sx-nav__link {% if '/admin/spreadsheet-sync' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Spreadsheet sync">
             {{ fl_icon('upload', 'mute', 16) }}
             <span class="sx-nav__label">Spreadsheet sync</span>
           </a>
-          <a href="{{ base_path }}/admin/zendesk"
+          <a href="{{ base_path }}/admin/zendesk" hx-boost="false"
              class="sx-nav__link {% if '/admin/zendesk' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Zendesk">
             {{ fl_icon('zendesk', 'mute', 16) }}
@@ -334,7 +341,7 @@
           <span class="sx-nav__subgroup-label">System</span>
         </button>
         <div class="sx-nav__subgroup-content">
-          <a href="{{ base_path }}/admin/maintenance"
+          <a href="{{ base_path }}/admin/maintenance" hx-boost="false"
              class="sx-nav__link {% if '/admin/maintenance' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Maintenance">
             {{ fl_icon('wrench', 'mute', 16) }}
