@@ -470,6 +470,48 @@
         {% endif %}
         {% endif %}
 
+        <script>
+        /* PageInit: the trigger the app was missing.
+
+           Neither available event means "this page arrived". DOMContentLoaded
+           never fires on an hx-boost swap; htmx:load fires on every swap
+           including partial ones. A page's own inline script runs exactly once
+           per page entry on both paths, so the page script IS the trigger.
+
+           No htmx listener is used deliberately, so this does not depend on
+           htmx event semantics holding across versions.
+
+           Ordering: on a full load a page script runs before
+           _lockManager is constructed further down base.html, so callbacks
+           queue until ready(). On a boosted swap _lockManager was never
+           destroyed, so they run immediately. */
+        window.PageInit = (function () {
+            var isReady = false;
+            var queue = [];
+            return {
+                init: function (name, fn) {
+                    var root = document.querySelector('[data-page-init="' + name + '"]');
+                    if (!root) {
+                        /* console.error, never a throw: a throw inside swapped
+                           content can abort the remaining scripts in that
+                           fragment, turning one page's problem into a broken
+                           page. The browser console is this repo's real JS
+                           check, since node is not on apphost. */
+                        console.error('PageInit: no root found for page "' + name + '". Init skipped.');
+                        return;
+                    }
+                    if (root.dataset.pageInitDone === '1') { return; }
+                    root.dataset.pageInitDone = '1';
+                    if (isReady) { fn(); } else { queue.push(fn); }
+                },
+                ready: function () {
+                    isReady = true;
+                    while (queue.length) { queue.shift()(); }
+                }
+            };
+        })();
+        </script>
+
         <main>
             {% if user and request.state.pwd_warn_days %}
             <div class="pwd-warn-banner">
@@ -745,6 +787,7 @@
     // Init IIFE moved to <head> for FOUC prevention.
     </script>
     <script>window._lockManager = new LockManager('{{ base_path }}');</script>
+    <script>window.PageInit.ready();</script>
     <script>
         window._tourEngine = new TourEngine('{{ base_path }}');
         document.addEventListener('DOMContentLoaded', function() {

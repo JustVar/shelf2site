@@ -91,6 +91,12 @@ In `base.html`, before `<main>` (before line 473). Small, no dependencies.
 `PageInit` is a NEW top-level JS name. Assert it free before adding, per
 `CLAUDE.md`.
 
+`init()` MUST log a console error naming the page when the root is missing, and
+return without running. Not a throw: a throw inside swapped content can abort
+the remaining scripts in that fragment. A console error lands in the browser
+console, which this repo already treats as the real JS check because node is not
+on apphost.
+
 ### 2. The release call
 
 In `base.html`, after the `_lockManager` construction at line 747.
@@ -101,12 +107,32 @@ Each of the eight templates gets a root carrying `data-page-init="<page>"`. Use
 the existing outermost page container where one exists rather than adding a
 wrapper element.
 
+The root's opening tag must appear before the init script in document order. See
+section 4.
+
 ### 4. Eight migrations
 
 Each `DOMContentLoaded` registration becomes a `PageInit.init` call taking the
 former handler body as its function. `receive.html` has two registrations and
 needs a decision: two names, or one init that does both. Read them before
 choosing.
+
+Placement rule, structural rather than stylistic. The root's opening tag must
+appear BEFORE the init script in document order. `init()` resolves the root with
+`document.querySelector`, so on a full page load the root must already be parsed
+when the script runs. A script placed above its own root finds nothing, `init()`
+does nothing, and the only symptom is a page that looks unmigrated. An element is
+fully parsed before any script that follows it, so putting the script after the
+root's opening tag makes that failure impossible rather than merely detectable.
+
+Note this does NOT require the script to be inside the root. A script after the
+root's closing tag still finds it, because the root and its children are fully
+parsed by then.
+
+`fulfillment.html` already satisfies this: root at line 474, script at 3402.
+Confirm the other seven before writing. If a template puts its script above its
+container, either move the script or move the root, whichever is the smaller
+edit.
 
 ### 5. Re-execution safety, per template
 
@@ -144,7 +170,7 @@ admin_errors, certification_detail and provisioning:
 |---|---|
 | Load the page directly by URL | Init runs, page fully initialised |
 | Navigate away through the sidenav and back | Init runs again, page fully initialised, not the degraded state |
-| Console on both paths | Clean. In particular no redeclaration error on the return |
+| Console on both paths | Clean. Specifically no redeclaration error on the return, and no `PageInit` error, which would mean the root was not found |
 
 `fulfillment` carries the original symptom and is the sharpest check: on a
 boosted return it must show an active deployment tab, filtered cards and
