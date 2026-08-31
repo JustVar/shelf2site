@@ -1,210 +1,257 @@
-# Page init on boosted navigation
+# Boosted navigation and page JavaScript
 
-Status: specced, not built.
+Filename note: this file is `page-init-on-boosted-navigation.md`. The scope has
+since widened past page init. The name is kept because other documents point at
+it; a dangling pointer costs more than a slightly narrow filename.
+
+Status: partly built. `5e4cfb5` shipped the PageInit helper, inert, with nothing
+adopting it yet. This document has been corrected twice by reads: once because
+it under-scoped the defect, once because it over-scoped it.
+
 Owner note: WHAT and WHY only. The HOW is the `asset-tracker-workflow` skill.
 Repo facts live in `CLAUDE.md`.
 
 ## Why
 
-`app/templates/fulfillment.html` registers its page init on `DOMContentLoaded`.
-That event does not fire on an hx-boost swap, so returning to the board through
-the sidenav leaves no active deployment tab, every card unfiltered, and the
-mini-step trackers empty.
+One element in the app is boosted. `base.html:94`:
 
-Fulfillment is not the page with the bug. It is the page that was looked at.
-Nine registrations across eight templates, all inside `<main>` and therefore all
-inside the swap region:
+    <nav class="sx-nav" id="sx-nav" hx-boost="true" hx-target="main"
+         hx-select="main" hx-swap="innerHTML">
 
-    triage.html:632        provisioning_detail.html:803  fulfillment.html:3402
-    item_detail.html:681   receive.html:1202 and :1501   admin_errors.html:229
-    certification_detail.html:565                        provisioning.html:1287
+`hx-boost="true"` appears exactly once in the codebase. Three descendants opt
+out: `/map/` at 171, `/change-password` at 395, the logout form at 399. Links
+inside `<main>` inherit nothing from the nav, so every in-page link is a normal
+full-page navigation.
 
-`base.html`'s four registrations are NOT affected. The sidenav boosts with
-`hx-target="main"`, so `base.html` sits outside the swap, runs once, persists.
+`hx-select="main"` is the operative attribute. A boosted navigation fetches the
+whole rendered page and then keeps ONLY `<main>`. Everything the template
+rendered outside main is discarded from the response and never inserted.
+`<main>` spans `base.html:473` to `495`. `{% block head %}` renders at 87 and
+`{% block scripts %}` at 837, both outside it.
 
-**The root cause is that neither available event means "this page arrived."**
-`DOMContentLoaded` fires too rarely: never on a swap. `htmx:load` fires too
-often: on every swap, which is why moving the block verbatim would re-run
-`switchBldTab` and `switchDeployTab` and stomp the chosen tab. Choosing between
-them cannot work. Build the trigger that is missing instead.
+Two distinct defects follow from that one fact.
+
+### Defect A: page init does not re-run
+
+A page whose script IS inside main arrives with the swap and re-executes, but
+its `DOMContentLoaded` registration never fires again, because that event
+belongs to the document and the document was never replaced. Init never runs on
+a boosted return.
+
+**Scope: two templates.** `triage.html:632` and `fulfillment.html:3402`.
+
+Nine `DOMContentLoaded` registrations exist across eight templates, but six of
+those templates are not sidenav destinations. They are reached by in-page links,
+which are not boosted, so they always full-load and their init always fires.
+`admin_errors.html` is a sidenav destination but belongs to defect B: its script
+never arrives at all.
+
+Symptom on fulfillment, which is where this was first seen: returning to the
+board through the sidenav leaves no active deployment tab, every card
+unfiltered, and the mini-step trackers empty.
+
+### Defect B: page scripts never arrive
+
+A page whose script is in `{% block scripts %}` renders it at 837, outside main.
+On a boosted entry that content is discarded. The page renders completely and is
+entirely inert.
+
+**Scope: eleven sidenav destinations.**
+
+    dashboard.html            admin_audit.html          admin_intune.html
+    search.html               admin_errors.html         admin_notifications.html
+    admin_oui.html            admin_maintenance.html    admin_spreadsheet_sync.html
+    admin_part_numbers.html   admin_zendesk.html
+
+24 templates use `{% block scripts %}`; the other 13 are reached only by in-page
+links, always full-load, and always work.
+
+**This defect has been found before and fixed once.** `base.html:168-171`:
+
+    hx-boost="false" because MapLibre loads outside <main>; a boosted swap
+    of only <main> would leave the map uninitialized - a dead page.
+
+That is the general rule stated as a special case. Map hit it through
+`{% block head %}`; these eleven hit it through `{% block scripts %}`. Same rule:
+**a page whose JS renders outside `<main>` cannot be boosted.**
 
 ## What the reads established
 
 | Question | Answer |
 |---|---|
-| How many affected sites | 9 registrations across 8 templates, all inside `<main>` |
-| Does any page swap a fragment of itself | NO. `hx-target`, `hx-swap`, `hx-get` and `hx-post` appear nowhere outside `base.html`. Seven of the eight templates contain zero `hx-` occurrences; fulfillment's single hit at line 3229 is a comment, not an attribute |
-| The only swap in the app | The sidenav hx-boost with `hx-target="main"`, replacing main's children wholesale |
-| Where is `<main>` | `base.html:473` to `495` |
-| Where is `_lockManager` | `base.html:747`, after `<main>` and outside it |
-| Do swapped scripts re-execute | YES, established not assumed. `fulfillment.html:3229` carries the comment "var, not let or const: hx-boost re-executes this block on a boosted return", and `3f3c0f7` shipped the fix for that redeclaration |
-| htmx | 2.0.4, pulled from unpkg.com at runtime, not vendored. See follow ups |
+| What is boosted | The nav at `base.html:94`, and nothing else. Three opt-outs already exist |
+| What a boosted nav keeps | Only `<main>`, per `hx-select="main"`. Everything else in the response is discarded |
+| Boosted sidenav destinations | 21, after the two opt-outs |
+| Of those, how many use `{% block scripts %}` | 11 |
+| Defect A's real scope | 2 templates. The other six with `DOMContentLoaded` are not boosted destinations |
+| Does an inert page look broken | NO. Observed on `admin_errors`: root present, 9 rows rendered, filter select present, `filterErrors` undefined, `openErrorDetail` undefined |
+| Do stale scripts accumulate | NO. Observed: a full load replaces the document, so a tab carries exactly ONE page's script payload for its whole life, whichever page was hard-loaded. Hard-loading `/admin/errors` then `/search` leaves `filterErrors` undefined |
+| Does the leak cross pages | YES, within one document. Observed: `filterErrors` stays defined while the user sits on `/fulfillment/` |
+| Top-level `let`/`const` in the 11 | 10 of 11 have zero. `search.html` has 7 at lines 53-59, genuinely top-level. Zero `class` declarations anywhere in the 11 |
 
-The second row is what makes this tractable. With no partial swaps anywhere, a
-page's own inline script executes exactly once per page entry, on a full load and
-on a boosted swap alike. That script is the trigger the app was missing.
+The inert-page row is why this survived unnoticed: a page that renders correctly
+and whose filter silently does nothing gets blamed on the user.
 
-## The design
+## Defect B: the fix
 
-A helper defined in `base.html` BEFORE `<main>` so page scripts can call it,
-plus a release call at the END of `base.html`, after `_lockManager`.
+**Opt the eleven links out of boost**, following the map precedent. One attribute
+per link in `base.html`. No template restructuring.
 
-    PageInit.init(name, fn)   called by each page, at the end of its template
+### Why this and not moving the scripts inside main
+
+Three alternatives were considered and rejected. Recording them so the decision
+is not relitigated from scratch:
+
+- **Move `{% block scripts %}` inside `<main>`.** Fixes everything at once, but
+  the block currently renders after `_lockManager` at 747 and would then render
+  before it, and all 24 templates would begin re-executing simultaneously.
+- **Pull the block out of band** with an additional htmx select. Preserves
+  ordering, but depends on `hx-select-oob` semantics nobody here has verified.
+- **A new block inside main, migrated template by template.** Stageable, and the
+  best of the three, but still ends with eleven pages re-executing.
+
+**The deciding argument is not audit cost.** That was the first argument and it
+did not survive measurement: the greppable hazard is one template and seven
+declarations, a smaller change than `3f3c0f7` already made once.
+
+The deciding argument is that these scripts have NEVER re-executed. Zero
+top-level declarations proves one hazard absent. It does not show that eleven
+pages behave correctly when their scripts run a second time against a fresh DOM,
+and that property is not greppable. `search.html`'s seven are
+`document.getElementById` results captured at parse time, which is a small
+illustration of the general shape.
+
+Set against that: **boosting these eleven currently costs the full network
+payload and delivers a broken page**, because the server renders everything and
+htmx throws all but main away. Boost is strictly worse than no boost for them
+today. Opting out is a strict improvement with no downside against current
+behaviour. Moving scripts into the swap region is a further improvement, real
+client-side savings, bought with unexercised re-execution. Take the strict
+improvement.
+
+**This treats the instances, not the class.** A twelfth `{% block scripts %}`
+page added to the nav later would be silently broken exactly as these were. That
+is what the tripwire is for, and a note in `CLAUDE.md` is not sufficient because
+nobody reads documentation while adding a nav link.
+
+### The tripwire
+
+A test that fails when someone boosts a page whose JS lives outside `<main>`.
+
+Assert, for every boosted sidenav href: the template that href resolves to
+contributes no `<script>` to `{% block head %}` or to `{% block scripts %}`.
+
+**Both blocks, not just scripts.** Head renders at 87, also outside main, and is
+how the map page hit this. A test covering only `{% block scripts %}` would pass
+a future page that loads a library in head and is boosted, which is the map case
+reintroduced.
+
+Modelled on the endpoint auth census, which already generates a case per route.
+This adds cases per sidenav link, so the suite total moves and the movement is
+predictable in advance.
+
+## Defect A: the fix
+
+`PageInit`, shipped inert in `5e4cfb5`.
+
+    PageInit.init(name, fn)   called by the page, after its root
     PageInit.ready()          called once by base.html, after _lockManager
 
-Semantics:
+`init()` finds the root carrying `data-page-init="<name>"`, and does nothing if
+it is missing or already marked. It marks the root, then runs `fn` immediately if
+`ready()` has fired or queues it if not. `ready()` flushes and sets the flag.
+`init()` logs a console error naming the page when the root is missing, and
+returns; not a throw, because a throw inside swapped content can abort the
+remaining scripts in that fragment.
 
-- `init()` finds the page root carrying `data-page-init="<name>"`. If the root is
-  missing or already marked, it does nothing.
-- It marks the root, then either runs `fn` immediately, if `ready()` has already
-  fired, or queues it until `ready()` fires.
-- `ready()` flushes the queue and sets the flag.
+**Placement.** The root's opening tag must appear before the script in document
+order. Inside the root is sufficient but NOT required: a script after the root's
+closing tag still finds it, because the root and its children are parsed by then.
 
-Why each piece exists:
+**Queueing is the ordering guarantee.** On a full load a script inside main runs
+before `base.html:747`, so `_lockManager` does not exist yet. On a boosted swap
+it was never destroyed. Queueing covers both without an event.
 
-- **Queueing until `ready()`** is the ordering guarantee. On a full page load a
-  script at the end of `<main>` runs before `base.html:747`, so `_lockManager`
-  does not exist yet. That is exactly why `item_detail.html:679` wraps in
-  `DOMContentLoaded` today. Queueing preserves the guarantee without the event.
-- **Running immediately once ready** is the boosted case. On a swap
-  `_lockManager` was never destroyed, so there is nothing to wait for.
-- **The root marker** is a guard, not load bearing. With no partial swaps it
-  cannot fire twice today. It exists so that adding an `hx-get` to one of these
-  pages later does not silently reintroduce the stomp.
+**The design uses no htmx event.** With no partial swaps anywhere in the app, a
+page's own inline script executes exactly once per entry and is a more reliable
+trigger than an event whose semantics would need re-verifying per htmx version.
+That swapped scripts re-execute is established, not assumed:
+`fulfillment.html:3229` comments "var, not let or const: hx-boost re-executes
+this block on a boosted return", and `3f3c0f7` fixed that redeclaration.
 
-**No htmx event listener is required.** The design does not depend on when
-`htmx:load` fires, or whether it fires at initial load. That is deliberate: the
-page script is a more reliable trigger than an event whose semantics would have
-to be re-verified per htmx version.
+**Two migrations**, `triage.html` and `fulfillment.html`. Each gets
+`data-page-init` on its existing page root and its `DOMContentLoaded`
+registration becomes a `PageInit.init` call taking the former handler body.
 
-**"Preserve selection" is not a requirement.** The original framing asked for an
-idempotent hook that preserves the user's chosen tab. On a genuine re-entry the
-DOM is new and no selection exists, so setting the default is correct. The stomp
-case arose only from `htmx:load` firing on partial swaps, and there are none.
-
-## Changes
-
-### 1. The helper
-
-In `base.html`, before `<main>` (before line 473). Small, no dependencies.
-
-`PageInit` is a NEW top-level JS name. Assert it free before adding, per
-`CLAUDE.md`.
-
-`init()` MUST log a console error naming the page when the root is missing, and
-return without running. Not a throw: a throw inside swapped content can abort
-the remaining scripts in that fragment. A console error lands in the browser
-console, which this repo already treats as the real JS check because node is not
-on apphost.
-
-### 2. The release call
-
-In `base.html`, after the `_lockManager` construction at line 747.
-
-### 3. Page root elements
-
-Each of the eight templates gets a root carrying `data-page-init="<page>"`. Use
-the existing outermost page container where one exists rather than adding a
-wrapper element.
-
-The root's opening tag must appear before the init script in document order. See
-section 4.
-
-### 4. Eight migrations
-
-Each `DOMContentLoaded` registration becomes a `PageInit.init` call taking the
-former handler body as its function. `receive.html` has two registrations and
-needs a decision: two names, or one init that does both. Read them before
-choosing.
-
-Placement rule, structural rather than stylistic. The root's opening tag must
-appear BEFORE the init script in document order. `init()` resolves the root with
-`document.querySelector`, so on a full page load the root must already be parsed
-when the script runs. A script placed above its own root finds nothing, `init()`
-does nothing, and the only symptom is a page that looks unmigrated. An element is
-fully parsed before any script that follows it, so putting the script after the
-root's opening tag makes that failure impossible rather than merely detectable.
-
-Note this does NOT require the script to be inside the root. A script after the
-root's closing tag still finds it, because the root and its children are fully
-parsed by then.
-
-`fulfillment.html` already satisfies this: root at line 474, script at 3402.
-Confirm the other seven before writing. If a template puts its script above its
-container, either move the script or move the root, whichever is the smaller
-edit.
-
-### 5. Re-execution safety, per template
-
-Because swapped scripts re-execute, any TOP-LEVEL `let` or `const` in these
-templates throws on a boosted return. Moving a handler body into a function
-scopes what was inside it; declarations outside the old handler are not covered.
-
-Check each of the eight for top-level `let` and `const`, and for top-level
-function names, which `CLAUDE.md` already flags as a hazard.
-
-This is the same class of defect `3f3c0f7` fixed in `fulfillment.html`. Expect
-to find others. Any found are part of this track, not a separate one.
+**Check both for top-level `let`, `const` and `class`** before migrating. Their
+scripts already re-execute today, so any such declaration is a live bug, not a
+new risk.
 
 ## Verification
 
-Gate order is the skill's, plus the per-page browser check.
+Gate order is the skill's, plus the browser checks.
 
 1. pytest baseline immediately before editing. Current is 874 passed, 39
-   skipped. This change adds no routes, so the endpoint auth census contributes
-   nothing and the total should NOT move. Predict 874 and treat any movement as
-   a signal.
+   skipped. The opt-out commit and the migration commit add no routes and no
+   tests, so predict 874 and treat any movement as a signal. The tripwire commit
+   adds cases; state the expected number before running it.
 2. jinja parse on every changed template
 3. JS check: node is not on apphost, so the browser console after a fresh
-   reload is the real check. Read it on each of the eight pages
+   reload is the real check
 4. restart app, confirm worker up
-5. Browser gate, below
+5. Browser gates below
 6. `git diff` review, then commit, then four location sync
 
-**Browser gate, and it covers all eight pages, not just fulfillment.**
-
-For each of triage, provisioning_detail, fulfillment, item_detail, receive,
-admin_errors, certification_detail and provisioning:
+**Defect B gate.** For each of the eleven: reach it from the sidenav, confirm it
+full-loads, and confirm its page JavaScript works. `admin_errors` is the sharpest
+case, since it was observed broken: `filterErrors` must be defined and the filter
+must actually filter.
 
 | Check | Expected |
 |---|---|
-| Load the page directly by URL | Init runs, page fully initialised |
-| Navigate away through the sidenav and back | Init runs again, page fully initialised, not the degraded state |
-| Console on both paths | Clean. Specifically no redeclaration error on the return, and no `PageInit` error, which would mean the root was not found |
+| Each of the eleven, reached from the sidenav | Full load. Page JS present and working |
+| The ten unaffected sidenav pages | Still boosted, still working. No regression |
+| Locking and any live updates on one of the eleven | Still work. Full loading tears down and rebuilds `_lockManager` and any SSE connection, which map already does, but confirm |
+| Browser Back into one of the eleven after a boosted nav | Works. htmx history restore replays a main-only swap, so it is a third entry path into the same discard |
 
-`fulfillment` carries the original symptom and is the sharpest check: on a
-boosted return it must show an active deployment tab, filtered cards and
-populated mini-step trackers.
+**Defect A gate.** For `triage` and `fulfillment`:
 
-`item_detail` is the ordering check. Its init depends on `_lockManager`. Confirm
-locking still works on a DIRECT load, which is the case where ordering matters.
+| Check | Expected |
+|---|---|
+| Direct load by URL | Init runs, page fully initialised |
+| Sidenav away and back | Init runs again, fully initialised, not the degraded state |
+| Browser Back into the page | Same as the sidenav return |
+| Console on all paths | Clean. No redeclaration error, and no `PageInit` error, which would mean the root was not found |
+
+Fulfillment on a boosted return must show an active deployment tab, filtered
+cards and populated mini-step trackers.
 
 ## Commit plan
 
-Three commits.
+`5e4cfb5` already shipped the helper, inert. Then:
 
-1. The helper plus the release call. `base.html` only. Nothing uses it yet, so it
-   ships inert and is reviewable on its own.
-2. `fulfillment.html` migrated. One page, the page with the reported symptom, so
-   the pattern is proven against the known case before it is applied seven more
-   times.
-3. The remaining seven.
+1. **The eleven opt-outs.** `base.html` only. Fixes the more severe defect first
+   and carries no re-execution risk.
+2. **The tripwire test.** Lands right after the fix it guards.
+3. **The two PageInit migrations.** `triage.html` and `fulfillment.html`.
 
-Split this way because commit 2 is where the design is validated. If the pattern
-is wrong it is wrong on one page rather than eight.
+Ordered by severity. Defect B leaves eleven pages inert; defect A degrades two.
 
 ## Follow up tracks this creates
 
-- **htmx is loaded from unpkg.com at runtime.** `base.html:83` pulls
-  `htmx.org@2.0.4` from a public CDN, with no integrity attribute and no
-  vendored copy in `static/js/`. For a LAN tool that puts a third party on the
-  critical path of every page load: lose egress or hit a CDN outage and hx-boost
-  stops working. Blast radius is smaller than it looks, because the same read
-  that found no `hx-get` anywhere proves htmx does nothing in this app but the
-  sidenav boost. Losing it degrades navigation to full page loads, which would
-  ironically mask this track's bug by making `DOMContentLoaded` fire again.
-  Still worth vendoring, and the fix is one file plus one line.
+- **Moving page scripts inside `<main>`.** Not needed, but it is what would buy
+  boosted navigation back on those eleven pages. Cost is auditing eleven pages
+  for behaviour under re-execution, which is not greppable. Revisit only if the
+  client-side savings are wanted; the tripwire makes deferring it safe.
 
-- **The stomp guard is untestable by construction.** The root marker cannot be
-  exercised while no page issues an htmx request. Whoever first adds an `hx-get`
-  to one of these pages should verify it then.
+- **htmx is loaded from unpkg.com at runtime.** `base.html:83` pulls
+  `htmx.org@2.0.4` from a public CDN, no integrity attribute, no vendored copy in
+  `static/js/`. Lose egress and hx-boost stops working. Blast radius is small,
+  since htmx does nothing here but the nav boost, and the degraded state is full
+  page loads, which would incidentally mask both defects above. Fix is one
+  vendored file plus one line.
+
+- **`search.html` carries seven top-level `const` and `let` at 53-59.** Harmless
+  today because that script never re-executes. It becomes a live bug the moment
+  anyone boosts that page or moves its scripts inside main. Recorded so the next
+  person does not rediscover it.
