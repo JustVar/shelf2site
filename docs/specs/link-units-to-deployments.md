@@ -2,8 +2,7 @@
 
 Status: built. Commit 1 shipped the migration, the model column and the assign
 endpoint; commit 2 shipped the picker feed, the modal and the tests. Amended
-after the build with four corrections the reads turned up; see the marked
-paragraphs below.
+after the build; see the amendment log at the end of this file.
 
 Owner note: WHAT and WHY only. The HOW is the `asset-tracker-workflow` skill.
 Repo facts live in `CLAUDE.md`. Background on the fulfillment model is in
@@ -20,6 +19,10 @@ Read from the model: only two tables carry `deployment_record_id` -
 `customer_order_id`; deployment records hang off `customer_order_id`. They are
 siblings and are never joined.
 
+Note, 2026-08-28: three tables carry it now. `DeviceProvisioning` gained the
+column in commit 1 of this track. The count above records the state that made
+this track necessary and is left as written.
+
 So "which serials did this visit install" is an INFERENCE through the shared
 order. It resolves correctly today only because each live order has exactly one
 deployment record. `deployment_records.customer_order_id` has no uniqueness
@@ -33,6 +36,10 @@ the units themselves.
 **The window is open now.** The three live deployments are test data, so there is
 no legacy mapping to preserve and no careful backfill. Clean slate.
 
+Note, 2026-08-28: five deployment records now exist (13, 14, 15, 16, 73). Still
+all test data, so the rationale above is unchanged. Record 73 was created by the
+item 15 verification gate and is deliberately retained.
+
 ## What the reads established
 
 | Question | Answer |
@@ -41,6 +48,8 @@ no legacy mapping to preserve and no careful backfill. Clean slate.
 | What currently joins units to deployments | NOTHING. Every `customer_order_id` hit in the module is units grouped by order. The column is purely additive; there are no read paths to switch. |
 | Units per deployment | 2 across all three live deployments. One visit covers multiple serials. |
 | Can a deployment span certification subsystems | YES. Order 70 is a camera plus a generic item, neither on the build path. `fulfillment_type` is `build` for only 5 of 13 provisioning rows. |
+
+Figures in this table are as read during discovery, before commit 1.
 
 That last row matters for anything that tries to read unit state from
 certification records: build cert covers under half the units.
@@ -172,7 +181,9 @@ live on 8 rows and absent from the map.
 
 ## Verification
 
-Gate order is the skill's, section 3, plus the test step.
+Gate order is the skill's, section 3, plus the test step. The numbered steps
+below record the gate as run for commits 1 and 2. Step assertions describe what
+was true at the time each ran, not current state.
 
 1. Re run the pytest baseline immediately before editing
 2. Migration: column present, nullable, FK to `deployment_records`, `SET NULL`.
@@ -180,11 +191,16 @@ Gate order is the skill's, section 3, plus the test step.
 3. `py_compile` on changed Python, `cfile="/tmp/..."`
 4. Restart app, confirm worker up
 5. In container import check
-6. `pytest tests/ -q`, expect 858 passed, 39 skipped
+6. `pytest tests/ -q`. Pre-track baseline was 858 passed, 39 skipped. After
+   commit 2 the figure is 871 passed, 39 skipped.
 7. Browser gate, below
 8. `git diff` review, then commit, then four location sync
 
 **Browser gate:**
+
+Recorded as run at commit 2. Rows below describe the board state at that time.
+Deployment 15 now carries rows 240 and 241, so this gate is not re-runnable as
+written without the reset discussed below.
 
 | Check | Expected |
 |---|---|
@@ -225,6 +241,13 @@ time, including both serial branches.
 **The gate is not repeatable without a reset**, because assignment is one way by
 design. `UPDATE device_provisioning SET deployment_record_id = NULL;` restores
 the pre-gate state.
+
+Not run, deliberately, and it should stay unrun. The three live assignments
+(240 and 241 to deployment 15, 243 to deployment 16) are the only evidence this
+column has ever been exercised. Resetting would restore repeatability at the
+cost of the only proof the feature works. If a fresh multi-unit picker is needed
+for a future gate, reimport the master inventory spreadsheet instead. Owner
+decision, 2026-08-28.
 
 ## Commit
 
@@ -292,3 +315,32 @@ until the above is resolved. Assign units to visits uniformly.
   model's declared default is `po_in`. Default and actual entry point disagree.
 - `datetime.utcnow()` is deprecated on the container's Python 3.12 and is used
   throughout. Codebase wide sweep whenever it matters.
+
+## Amendment log
+
+This file has been amended twice since it was first committed. Commit 1 of the
+track (`15f0220`) did NOT touch it; it changed only `models.py`,
+`fulfillment.py` and migration 072.
+
+**`3f3c0f7`, 2026-08-28, commit 2 of the track.** Five changes, not the four the
+header previously claimed:
+
+1. Status line, from specced-not-built to built.
+2. Cancellation section, `current_stage` values replaced with measured counts,
+   and `acquired` identified as absent from every stage structure.
+3. New section 5, the picker feed endpoint, with the two path serial resolution
+   and the stage suppression rule.
+4. Verification, single deployment 15 target replaced with a two target gate,
+   and the test requirement added.
+5. Follow up tracks, page init not re-running on a boosted navigation, and the
+   two error shape conventions.
+
+**This commit, 2026-08-31.** Dated the historical figures rather than
+overwriting them, so the record of what was true at each gate survives. Marked
+the browser gate as run at commit 2. Labelled which baseline the pytest figure
+describes: 858 was the correct PRE-TRACK number, not an error. Commit 1 added no
+test files, but its new POST route generated 2 endpoint-census cases, giving the
+860 measured before commit 2; commit 2 then added 10 contract tests plus 1
+census case for its GET route, giving 871. Annotated the reset statement as
+deliberately not run. Replaced the header clause that pointed at marked
+paragraphs which were never marked.
