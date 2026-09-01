@@ -374,3 +374,10 @@ what they create. Two consequences:
 - **A fixture that commits, or a run that dies mid-transaction, leaves real
   rows.** Fixtures prefix theirs `contract-test` so the debris is identifiable.
   Check for it after any interrupted run.
+
+## A spec can be stale on arrival
+
+A spec written on the workstation and committed later can describe a codebase
+that has since moved. Re-verify a spec against HEAD before committing it.
+docs/audit-log-scope.md described three defects that had been fixed the day
+before it landed.
