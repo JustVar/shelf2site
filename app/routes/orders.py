@@ -20,7 +20,7 @@ from ..auth import get_current_user, require_editor, require_provisioning_viewer
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    CustomerOrder, OEMPurchaseOrder, DeviceProvisioning,
+    CustomerOrder, DeploymentRecord, OEMPurchaseOrder, DeviceProvisioning,
     Item, ItemPartNumber,
     User, TABLE_MODELS, get_display_name, get_serial,
 )
@@ -415,6 +415,18 @@ def delete_order(
     order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
     if not order:
         return JSONResponse(status_code=404, content={"error": "Order not found"})
+
+    # Refuse while any deployment record exists. Ratified in
+    # docs/specs/fulfillment-vendor-direction.md: no route deletes a deployment
+    # record directly, and without this guard the CASCADE took the visits and
+    # their installation certifications with the order.
+    n = db.query(DeploymentRecord).filter(
+        DeploymentRecord.customer_order_id == order_id).count()
+    if n:
+        return JSONResponse(status_code=409, content={
+            "error": f"Order {order.order_number} has {n} deployment record(s) - "
+                     "remove or complete handling before deleting",
+        })
 
     order_number = order.order_number
     db.delete(order)
