@@ -364,16 +364,24 @@ moves the number, which is the point.
 ## The suite writes to the live database
 
 There is no separate test cluster. `tests/` runs against `asset_tracker`, the
-same database the app serves, and relies on fixtures rolling back or deleting
-what they create. Two consequences:
+same database the app serves. Cleanup is commit-then-DELETE in fixture
+teardown; nothing rolls back, and the stray `db.rollback()` calls in fixtures
+are defensive resets of an aborted session, not cleanup. Three consequences:
 
-- **Sequences advance even when no row survives.** `nextval` is not
-  transactional, so a rolled-back insert still consumes an id.
-  `deployment_records_id_seq` moved 11 in a single run that retained nothing.
-  Gaps in id sequences are normal here and are not evidence of deleted data.
-- **A fixture that commits, or a run that dies mid-transaction, leaves real
-  rows.** Fixtures prefix theirs `contract-test` so the debris is identifiable.
-  Check for it after any interrupted run.
+- **Sequences advance even though no row survives**, because rows are committed
+  and then deleted, and deletion does not reset a sequence.
+  `deployment_records_id_seq` moved 11 across one run: eleven fixture
+  instantiations, one committed-then-deleted row each. Gaps are fixture churn,
+  not lost data.
+- **A run that dies before teardown leaves real rows.** Every fixture commits;
+  the teardown DELETE is the only thing that removes the data. Fixtures prefix
+  theirs `contract-test` so the debris is identifiable.
+- **A teardown DELETE fires foreign-key actions.** Deleting a test
+  `deployment_records` row cascades into `installation_certification` and sets
+  `device_provisioning.deployment_record_id` to NULL on anything linked to it.
+  Fixtures create their own linked rows today, so nothing real is touched, but
+  a fixture that ever links a test row to a real one will have its teardown
+  mutate real data. Rollback could not do that; DELETE can.
 
 ## A spec can be stale on arrival
 
