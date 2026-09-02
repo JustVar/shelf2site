@@ -29,7 +29,7 @@ is the sign-off.
 
 ## Relationship to the other cert flows (all distinct)
 
-| | Build Certification (SHIPPED) | Installation Certification (this doc) | Cloud2 cam certs (undesigned) |
+| | Build Certification (SHIPPED) | Installation Certification (this doc) | Cloud2 cam certs (specced: c2c-camera-certification.md, corrected 2026-09-01) |
 |---|---|---|---|
 | When | Build stage | Installation complete at site | Separate lighter process |
 | Grain | Per device (OEM serial) | Per deployment record | Per cam |
