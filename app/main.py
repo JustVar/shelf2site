@@ -19,13 +19,13 @@ from app import csrf
 from .routes import (
     admin, api, auth_routes, bulk,
     c2c, checkout, contact_admin, containment as containment_routes, creds,
-    dashboard, disposal, error_routes, fulfillment,
+    dashboard, error_routes, fulfillment,
     intake, intune_routes, inventory, item_detail,
     lifecycle, locks, maintenance_routes, map as map_route,
     mobile, nas_drives, notification_routes, orders, pending,
     provisioning, receipts, receiving, search,
     sites, slack_bot_routes, sse, support,
-    tours, trials, unit_photos, vendors, warranty,
+    tours, unit_photos, vendors, warranty,
     zendesk_routes,
 )
 
@@ -498,8 +498,6 @@ app.include_router(admin.router)
 app.include_router(receiving.router)
 app.include_router(unit_photos.router)
 app.include_router(warranty.router)
-app.include_router(trials.router)
-app.include_router(disposal.router)
 app.include_router(nas_drives.router)
 app.include_router(receipts.router)
 app.include_router(fulfillment.router)
