@@ -59,12 +59,18 @@ Required fields, all three, no defaults filled silently:
   client-supplied
 
 Blocking rule: decommission is REFUSED while the item is linked to any
-order, regardless of order status. There is no status enumeration to
-maintain: the presence of the link is the block. Release is unit removal
-from the order — a return brings the item back into inventory, and only
-then is it decommissionable. (Order cancellation would also release, but
-no customer-order cancel path exists at ratification; if one is built, it
-releases by removing or unlinking units, and this rule needs no change.)
+order by an UNRETURNED unit, regardless of order status. There is no
+status enumeration to maintain: the presence of the link is the block.
+Release is unit removal from the order — a return brings the item back
+into inventory, and only then is it decommissionable. (Order
+cancellation would also release, but no customer-order cancel path
+exists at ratification; if one is built, it releases by removing or
+unlinking units, and this rule needs no change.)
+
+Amended 2026-09-02: the ratified text read "linked to any order", which
+taken literally contradicted the release sentence, since a returned unit
+keeps its provisioning row. "Linked" means an unreturned unit; the built
+guard reads device_provisioning rows with returned_date IS NULL.
 
 Refusal shape: 409 with the `{"error": ...}` body, following the
 orders.py convention (same choice as the 51b5f9e order-delete guard; the
