@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Decommissioned Items - Asset Tracker{% endblock %}
+
+{% block content %}
+<div class="decommissioned-page fl-restyle">
+{% include "_fl_bg.html" %}
+
+<div class="page-header fl-lift" id="dec-header" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem">
+  <div>
+    <h1 style="font-size:1.25rem;font-weight:600;color:var(--text);margin:0">Decommissioned Items</h1>
+    <div style="font-size:12px;color:var(--text-muted)">
+      Retired from inventory, never erased: the row, its history, and its audit
+      trail all survive. Reactivating returns an item to Pending for re-triage.
+    </div>
+  </div>
+  <a href="{{ base_path }}/inventory/" class="inv-btn" style="white-space:nowrap">Back to Inventory</a>
+</div>
+
+<div class="table-section fl-lift">
+  <div style="overflow-x:auto">
+    <table class="inv-table" id="dec-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Serial</th>
+          <th>Category</th>
+          <th>Reason</th>
+          <th>Date</th>
+          <th>By</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><a href="{{ base_path }}/items/{{ row.id }}">{{ row.name }}</a></td>
+          <td class="dtl-mono">{{ row.sn }}</td>
+          <td>{{ row.category_display }}</td>
+          <td>{{ row.reason }}</td>
+          <td>{{ row.date }}</td>
+          <td>{{ row.who }}</td>
+          <td>
+            {% if user.is_editor_or_above %}
+            <button type="button" class="inv-btn dec-reactivate-btn"
+                    onclick="decReactivate({{ row.id }}, {{ row.name | tojson | forceescape }})">
+              Reactivate
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem">
+            No decommissioned items. Items are retired from their item page
+            with the Decommission action.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>{# /decommissioned-page.fl-restyle #}
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* var and function declarations only: page scripts re-execute if this page
+   is ever reached through a boosted swap. */
+function decReactivate(itemId, itemName) {
+  var reason = prompt('Reason for reactivating ' + itemName + ':');
+  if (reason === null) return;
+  if (!reason.trim()) { alert('A reason is required.'); return; }
+  var body = new URLSearchParams();
+  body.set('reason', reason.trim());
+  fetch(BP + '/items/' + itemId + '/reactivate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok) { alert(res.d.error || 'Reactivation failed'); return; }
+      window.location.reload();
+    })
+    .catch(function () { alert('Reactivation failed'); });
+}
+</script>
+{% endblock %}

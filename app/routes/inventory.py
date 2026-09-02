@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item, ItemLocation, Site
+from ..models import Item, ItemLocation, Site, ITEM_STATUSES
 from .dashboard import CATEGORY_COLORS, FL_CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
 from .intake import _get_locations as _get_locations_active, _get_all_places, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
 from .dashboard import category_display as _cat_display
@@ -23,27 +23,19 @@ templates.env.globals["base_path"] = BP
 
 ITEMS_PER_PAGE = 50
 
-STATUSES = [
-    "Deployed",
-    "Ready to Deploy",
-    "Pending",
-    "Un-deployable",
-    "Decommissioned",
-    "Unassigned",
-]
-
+# STATUSES (imported from .intake above) is the hand-editable
+# vocabulary, derived there from the item_statuses enum.
 # The FILTER dropdown also offers the containment/custody-managed statuses —
 # those items must be findable even though they are not hand-settable.
-FILTER_STATUSES = STATUSES + ["Checked Out", "Installed"]
+FILTER_STATUSES = list(ITEM_STATUSES)
 
 
-def _get_tile_stats(db: Session) -> list[dict]:
+def _get_tile_stats(db: Session, include_decommissioned: bool = False) -> list[dict]:
     """Compute per-category counts for the tile grid."""
-    raw = (
-        db.query(Item.item_category, func.count(Item.id))
-        .group_by(Item.item_category)
-        .all()
-    )
+    tile_q = db.query(Item.item_category, func.count(Item.id))
+    if not include_decommissioned:
+        tile_q = tile_q.filter(Item.item_status.is_distinct_from("Decommissioned"))
+    raw = tile_q.group_by(Item.item_category).all()
     counts = {str(cat): cnt for cat, cnt in raw if cat}
     total = sum(counts.values())
     tiles = [{"name": "all", "display": "All Items", "count": total, "color": "#C29E9B"}]
@@ -77,13 +69,14 @@ def inventory_page(
     status: str = Query(default=""),
     location: str = Query(default=""),
     q: str = Query(default=""),
+    include_decommissioned: bool = Query(default=False),
     page: int = Query(default=1),
 ):
     if not user:
         return RedirectResponse(f"{BP}/login")
 
     _t0 = _time.time()
-    tiles = _get_tile_stats(db)
+    tiles = _get_tile_stats(db, include_decommissioned)
     _log.warning(f"TIMING tiles: {_time.time()-_t0:.3f}s")
     _t1 = _time.time()
     locations = _get_locations(db)
@@ -101,6 +94,10 @@ def inventory_page(
 
     if status:
         query = query.filter(Item.item_status == status)
+    elif not include_decommissioned:
+        # Hidden by default (docs/specs/item-decommission.md): an explicit
+        # status filter or the include toggle brings decommissioned back.
+        query = query.filter(Item.item_status.is_distinct_from("Decommissioned"))
 
     if location:
         # Effective-place filter (Option A): an Installed component lives at
@@ -180,6 +177,7 @@ def inventory_page(
         "status":       status,
         "location":     location,
         "q":            q,
+        "include_decommissioned": include_decommissioned,
         "page":         "inventory",
         "users":        [{"id": u.id, "display_name": u.display_name} for u in _active_users(db)],
     })
@@ -249,6 +247,11 @@ def quick_view_save(
     if item.item_status == "Installed":
         item_status = item.item_status
         location_id = str(item.location_id) if item.location_id is not None else ""
+
+    # Decommissioned is code-mediated (docs/specs/item-decommission.md):
+    # a quick view save can neither set nor clear it.
+    if item.item_status == "Decommissioned" or _clean_str(item_status) == "Decommissioned":
+        item_status = str(item.item_status) if item.item_status else ""
 
     item.item_name = _clean_str(item_name)
     item.item_sn = _clean_str(item_sn)
@@ -327,6 +330,14 @@ async def inventory_bulk_update(
     if new_value is None or (isinstance(new_value, str) and new_value == ""):
         return JSONResponse({"success": False, "error": "Value cannot be empty"}, status_code=400)
 
+    if field_name == "item_status" and new_value == "Decommissioned":
+        # Code-mediated (docs/specs/item-decommission.md): entered only via
+        # the decommission action on the item page.
+        return JSONResponse({
+            "success": False,
+            "error": "Decommissioned is set from the item page decommission action",
+        }, status_code=400)
+
     # Lazy imports to avoid circular risk (locks/sse/triage pull from models too)
     from ..locks import get_lock
     from .sse import publish_event
@@ -348,6 +359,11 @@ async def inventory_bulk_update(
         # location is frozen — bulk writes would break the invariant /
         # create silent divergence, so they are skipped like locked rows.
         if item.item_status == "Installed" and field_name in ("item_status", "location_id"):
+            skipped += 1
+            skipped_ids.append(item.id)
+            continue
+        if field_name == "item_status" and str(item.item_status) == "Decommissioned":
+            # Decommissioned rows leave only via the reactivate action.
             skipped += 1
             skipped_ids.append(item.id)
             continue
@@ -447,3 +463,39 @@ def inventory_export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/decommissioned", response_class=HTMLResponse)
+def decommissioned_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Dedicated view of decommissioned items with a reactivation entry
+    point (docs/specs/item-decommission.md)."""
+    if not user:
+        return RedirectResponse(f"{BP}/login")
+
+    items = (
+        db.query(Item)
+        .filter(Item.item_status == "Decommissioned")
+        .order_by(Item.id.desc())
+        .all()
+    )
+    rows = []
+    for item in items:
+        rows.append({
+            "id": item.id,
+            "name": item.item_name or "-",
+            "sn": item.item_sn or "-",
+            "category_display": category_display(item.item_category) if item.item_category else "-",
+            "reason": item.decommission_reason or "-",
+            "date": item.decommission_date.isoformat() if item.decommission_date else "-",
+            "who": item.decommissioned_by or "-",
+        })
+    return templates.TemplateResponse("decommissioned.html", {
+        "request": request,
+        "user": user,
+        "rows": rows,
+        "page": "inventory",
+    })

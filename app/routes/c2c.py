@@ -370,6 +370,13 @@ async def c2c_acquire(
             content={"error": f"Item {device_id} is category '{camera.item_category}', not a C2C camera (camera_c2c)"},
         )
 
+    if str(camera.item_status) == "Decommissioned":
+        # Code-mediated (docs/specs/item-decommission.md): reactivate first.
+        return JSONResponse(
+            status_code=409,
+            content={"error": f"Item {device_id} is decommissioned. Reactivate it before acquiring it onto an order."},
+        )
+
     # Classification is driven by the chosen order's order_type (Migration 058), NOT by a
     # client-sent assignment_type. The body value defaults to "sale" and is only sanity-
     # checked against the vocabulary here; the row's assignment_type is derived from

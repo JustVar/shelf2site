@@ -28,6 +28,7 @@ from ..scan_routing import classify, mac_from_bare_hex, preprocess
 from ..validation import normalize_mac, validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
 from ..vendor_defaults import lookup_by_serial_prefix
 from .intake import STATUSES as ITEM_INTAKE_STATUSES, _get_locations, create_item
+from ..models import HAND_EDITABLE_ITEM_STATUSES
 
 # Pilot-period routing log (SCANNER_AUDIT §8): every miss/unclassified scan
 # is logged with its raw payload so misroutes can be diagnosed from journald.
@@ -146,10 +147,11 @@ TARGET_TABLE_TO_CATEGORY = {
 
 # item_status is a Postgres ENUM — legacy receive/quick-mode strings must be
 # translated or the insert fails (audit H2/H6).
-_ITEM_STATUS_VALUES = {
-    "Deployed", "Ready to Deploy", "Pending", "Un-deployable",
-    "Decommissioned", "Unassigned", "Checked Out",
-}
+# Derived per docs/specs/item-decommission.md: the hand-editable base
+# plus receiving's one declared extra, Checked Out (in-house items out
+# with a person; checked in on return). Decommissioned is code-mediated
+# and not valid receive input.
+_ITEM_STATUS_VALUES = set(HAND_EDITABLE_ITEM_STATUSES) | {"Checked Out"}
 _STATUS_TRANSLATION = {
     "received": "Pending",
     "in storage": "Unassigned",

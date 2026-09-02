@@ -51,7 +51,7 @@ def checkout_page(
     """Form to check an item out: pick an eligible item + a recipient."""
     eligible = (
         db.query(Item)
-        .filter(Item.item_status != "Checked Out")
+        .filter(Item.item_status.notin_(["Checked Out", "Decommissioned"]))
         .order_by(Item.item_name)
         .all()
     )
@@ -88,6 +88,13 @@ def do_checkout(
     if item.item_status == "Checked Out":
         return RedirectResponse(
             f"{BP}/items/{item.id}?toast=Already+checked+out", status_code=303
+        )
+
+    if item.item_status == "Decommissioned":
+        # Code-mediated (docs/specs/item-decommission.md): a decommissioned
+        # item cannot circulate; reactivate it first.
+        return RedirectResponse(
+            f"{BP}/items/{item.id}?toast=Item+is+decommissioned", status_code=303
         )
 
     uid = int(checked_out_to_user_id) if checked_out_to_user_id.strip() else None
@@ -246,7 +253,7 @@ async def do_bulk_checkout(
     updated, skipped_ids = 0, []
     new_checkouts = []
     for item in items:
-        if item.item_status == "Checked Out":
+        if item.item_status in ("Checked Out", "Decommissioned"):
             skipped_ids.append(item.id)
             continue
         co = ItemCheckout(

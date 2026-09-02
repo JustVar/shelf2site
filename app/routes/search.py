@@ -39,6 +39,7 @@ def search_results_partial(
     request: Request,
     q: str = Query("", description="Search term"),
     limit: int = Query(50, ge=1, le=200),
+    include_decommissioned: bool = Query(False),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -71,7 +72,11 @@ def search_results_partial(
         cast(getattr(Item, name), Text).ilike(search_term)
         for name in SEARCH_COLS
     ]
-    matches = db.query(Item).filter(or_(*filters)).all()
+    match_q = db.query(Item).filter(or_(*filters))
+    if not include_decommissioned:
+        # Hidden by default (docs/specs/item-decommission.md).
+        match_q = match_q.filter(Item.item_status.is_distinct_from("Decommissioned"))
+    matches = match_q.all()
 
     # Pre-fetch location names in one query
     loc_map = {s.id: s.name for s in db.query(Site).all()}  # Migration 063

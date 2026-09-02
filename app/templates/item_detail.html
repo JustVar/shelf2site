@@ -31,6 +31,11 @@
       {% if edit_mode %}
       <a href="{{ base_path }}/items/{{ item.id }}" class="inv-btn">Cancel</a>
       {% else %}
+      {% if item.item_status|string == 'Decommissioned' %}
+      <button type="button" class="inv-btn" id="dec-reactivate-btn" onclick="decOpenReactivate()">Reactivate</button>
+      {% else %}
+      <button type="button" class="inv-btn" id="dec-decommission-btn" onclick="decOpenModal()">Decommission</button>
+      {% endif %}
       <a href="{{ base_path }}/items/{{ item.id }}?edit=1" class="fl-cta">Edit</a>
       {% endif %}
     {% endif %}
@@ -79,9 +84,11 @@
       </div>
       <div class="itk-field">
         <label class="itk-label" for="item_status">Status</label>
-        <select name="item_status" id="item_status" class="itk-input"{% if containment.is_installed %} disabled{% endif %}>
+        <select name="item_status" id="item_status" class="itk-input"{% if containment.is_installed or item.item_status|string == 'Decommissioned' %} disabled{% endif %}>
           {% if containment.is_installed %}
           <option value="Installed" selected>Installed</option>
+          {% elif item.item_status|string == 'Decommissioned' %}
+          <option value="Decommissioned" selected>Decommissioned</option>
           {% else %}
           <option value="">Select status...</option>
           {% for s in statuses %}
@@ -90,6 +97,7 @@
           {% endif %}
         </select>
         {% if containment.is_installed %}<div class="itk-hint">Managed by containment &mdash; remove from its unit to change</div>{% endif %}
+        {% if item.item_status|string == 'Decommissioned' %}<div class="itk-hint">Decommissioned &mdash; reactivate from the item page header to change</div>{% endif %}
       </div>
     </div>
   </div>
@@ -200,6 +208,16 @@
 {% else %}
 <!-- ═══════════ READ MODE ═══════════ -->
 <div class="dtl-content fl-lift">
+
+{% if item.item_status|string == 'Decommissioned' %}
+<div class="dtl-section" id="dec-banner" style="border-left:3px solid var(--danger,#e74c3c);">
+  <div class="dtl-section-title">Decommissioned</div>
+  <div style="color:var(--text-muted);font-size:0.9rem;">
+    {{ item.decommission_date or 'date unknown' }} by {{ item.decommissioned_by or 'unknown' }}
+    &mdash; {{ item.decommission_reason or 'no reason recorded' }}
+  </div>
+</div>
+{% endif %}
 
   <!-- Details -->
   <div class="dtl-section">
@@ -836,4 +854,36 @@ async function ctmPrimary() {
 </script>
 {% endif %}
 </div>{# /item-detail-page.fl-restyle #}
+<script>
+/* var and function declarations only: hx-boost re-executes swapped blocks. */
+function decOpenModal() {
+  var reason = prompt('Reason for decommissioning this item:');
+  if (reason === null) return;
+  if (!reason.trim()) { alert('A reason is required.'); return; }
+  var dflt = new Date().toISOString().slice(0, 10);
+  var d = prompt('Decommission date (YYYY-MM-DD):', dflt);
+  if (d === null) return;
+  decPost('decommission', { reason: reason.trim(), decommission_date: (d || '').trim() });
+}
+function decOpenReactivate() {
+  var reason = prompt('Reason for reactivating this item:');
+  if (reason === null) return;
+  if (!reason.trim()) { alert('A reason is required.'); return; }
+  decPost('reactivate', { reason: reason.trim() });
+}
+function decPost(action, fields) {
+  var body = new URLSearchParams();
+  Object.keys(fields).forEach(function (k) { body.set(k, fields[k]); });
+  fetch(BP + '/items/{{ item.id }}/' + action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok) { alert(res.d.error || 'Action failed'); return; }
+      window.location.reload();
+    })
+    .catch(function () { alert('Action failed'); });
+}
+</script>
 {% endblock %}

@@ -25,6 +25,9 @@
             Clear
         </button>
         <span id="search-spinner" style="display:none; color: var(--text-muted); white-space: nowrap;">Searching...</span>
+        <label style="white-space:nowrap; font-size:0.85rem; color:var(--text-muted); display:flex; align-items:center; gap:0.35rem;">
+            <input type="checkbox" id="search-include-dec"> Include decommissioned
+        </label>
     </div>
 </div>
 
@@ -79,10 +82,17 @@
         _clearBtn.style.display = 'none';
     });
 
+    document.getElementById('search-include-dec').addEventListener('change', function() {
+        const q2 = _searchInput.value.trim();
+        if (q2.length >= 2) doSearch(q2);
+    });
+
     async function doSearch(q) {
         _searchSpinner.style.display = 'inline';
         try {
-            const resp = await fetch(`${BP}/search/results?q=${encodeURIComponent(q)}`);
+            const incDec = document.getElementById('search-include-dec');
+            const dec = incDec && incDec.checked ? '&include_decommissioned=1' : '';
+            const resp = await fetch(`${BP}/search/results?q=${encodeURIComponent(q)}${dec}`);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const html = await resp.text();
             _searchResults.innerHTML = html;

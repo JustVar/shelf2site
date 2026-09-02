@@ -10,18 +10,19 @@ import logging
 
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request, Form, UploadFile, File, Query
-from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from ..auth import get_current_user, User
+from ..auth import get_current_user, require_editor, User
 from ..config import settings
 from ..database import get_db
 from ..models import (
     CustomerOrder, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
-    ItemComponentHistory, ItemMaintenanceLog,
+    DeviceProvisioning, ItemComponentHistory, ItemMaintenanceLog,
     UnitPhoto, UnitPhotoItem, User as UserModel,
 )
 from ..locks import get_lock
+from ..audit import log_event
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, ALLOWED_RECEIPT_EXTENSIONS, RECEIPT_STORAGE_PATH,
@@ -353,6 +354,12 @@ async def item_update(
         item_status = item.item_status
         location_id = str(item.location_id) if item.location_id is not None else ""
 
+    # Decommissioned is code-mediated (docs/specs/item-decommission.md):
+    # entered and left only through the decommission and reactivate
+    # actions. A form save can neither set nor clear it.
+    if item.item_status == "Decommissioned" or _clean_str(item_status) == "Decommissioned":
+        item_status = str(item.item_status) if item.item_status else ""
+
     item.item_name = _clean_str(item_name)
     item.item_manufacturer = _clean_str(item_manufacturer)
     item.item_model = _clean_str(item_model)
@@ -476,3 +483,101 @@ def download_receipt(
         filename=receipt.original_filename or os.path.basename(receipt.file_path),
         media_type="application/octet-stream",
     )
+
+
+@router.post("/items/{item_id}/decommission")
+def item_decommission(
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_editor),
+    reason: str = Form(default=""),
+    decommission_date: str = Form(default=""),
+):
+    """Decommission an item (docs/specs/item-decommission.md): reason, date
+    and the acting user are all required; refused while the item has an
+    active order link (a device_provisioning row not yet returned)."""
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    if str(item.item_status) == "Decommissioned":
+        return JSONResponse({"error": "Item is already decommissioned"}, status_code=409)
+
+    if str(item.item_status) in ("Checked Out", "Installed"):
+        # Custody and containment own these states: a later checkin or
+        # uninstall would silently overwrite Decommissioned otherwise.
+        return JSONResponse({
+            "error": "Item is checked out or installed. Check it in or uninstall it before decommissioning.",
+        }, status_code=409)
+
+    reason = (reason or "").strip()
+    if not reason:
+        return JSONResponse({"error": "A reason is required to decommission"}, status_code=400)
+    dec_date = _safe_date(decommission_date)
+    if dec_date is None:
+        return JSONResponse(
+            {"error": "A valid decommission date (YYYY-MM-DD) is required"},
+            status_code=400)
+
+    active_link = db.query(DeviceProvisioning.id).filter(
+        DeviceProvisioning.item_id == item_id,
+        DeviceProvisioning.returned_date.is_(None),
+    ).first()
+    if active_link:
+        return JSONResponse({
+            "error": "Item is on an order. Remove the unit from the order or record its return first.",
+        }, status_code=409)
+
+    who = user.display_name or user.username
+    item.item_status = "Decommissioned"
+    item.decommission_reason = reason
+    item.decommission_date = dec_date
+    item.decommissioned_by = who
+    # Commit before log_event: log_event returns WITHOUT committing for
+    # svc_ accounts, and the status change must not depend on it.
+    db.commit()
+    log_event(
+        db, "item_decommissioned", request=request,
+        target_table="items", target_id=item.id,
+        new_values={"reason": reason, "date": dec_date.isoformat(), "who": who},
+    )
+    from ..sidebar_cache import invalidate_sidebar_counts
+    invalidate_sidebar_counts()
+    return JSONResponse({"ok": True})
+
+
+@router.post("/items/{item_id}/reactivate")
+def item_reactivate(
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_editor),
+    reason: str = Form(default=""),
+):
+    """Reverse a decommission (docs/specs/item-decommission.md). The item
+    returns to Pending: neutral, and implies re-triage rather than a
+    readiness it does not have."""
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    if str(item.item_status) != "Decommissioned":
+        return JSONResponse({"error": "Item is not decommissioned"}, status_code=409)
+
+    reason = (reason or "").strip()
+    if not reason:
+        return JSONResponse({"error": "A reason is required to reactivate"}, status_code=400)
+
+    who = user.display_name or user.username
+    item.item_status = "Pending"
+    item.decommission_reason = None
+    item.decommission_date = None
+    item.decommissioned_by = None
+    db.commit()
+    log_event(
+        db, "item_reactivated", request=request,
+        target_table="items", target_id=item.id,
+        new_values={"reason": reason, "who": who},
+    )
+    from ..sidebar_cache import invalidate_sidebar_counts
+    invalidate_sidebar_counts()
+    return JSONResponse({"ok": True})

@@ -502,6 +502,16 @@ async def triage_fix_save(
                 "error": f"'{new_value}' is not a valid Company SKU. It must match an entry in the Part Numbers table.",
             }, status_code=400)
 
+    if field_name == "item_status" and (
+        new_value == "Decommissioned" or str(item.item_status) == "Decommissioned"
+    ):
+        # Code-mediated (docs/specs/item-decommission.md): entered and
+        # left only through the decommission and reactivate actions.
+        return JSONResponse({
+            "success": False,
+            "error": "Decommissioned is set from the item page decommission action",
+        }, status_code=400)
+
     setattr(item, field_name, new_value)
 
     try:
@@ -593,6 +603,14 @@ async def triage_bulk_update(
     if new_value is None or (isinstance(new_value, str) and new_value == ""):
         return JSONResponse({"success": False, "error": "Value cannot be empty"}, status_code=400)
 
+    if field_name == "item_status" and new_value == "Decommissioned":
+        # Code-mediated (docs/specs/item-decommission.md): entered only via
+        # the decommission action on the item page.
+        return JSONResponse({
+            "success": False,
+            "error": "Decommissioned is set from the item page decommission action",
+        }, status_code=400)
+
     items = db.query(Item).filter(Item.id.in_(item_ids)).all()
     updated = 0
     skipped = 0
@@ -602,6 +620,11 @@ async def triage_bulk_update(
         # Lock check — skip items held by another user
         lock = get_lock(f"items:{item.id}")
         if lock and lock.get("user_id") != user.id:
+            skipped += 1
+            skipped_ids.append(item.id)
+            continue
+        if field_name == "item_status" and str(item.item_status) == "Decommissioned":
+            # Decommissioned rows leave only via the reactivate action.
             skipped += 1
             skipped_ids.append(item.id)
             continue

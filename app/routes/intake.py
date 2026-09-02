@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
-from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site
+from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site, HAND_EDITABLE_ITEM_STATUSES
 from .dashboard import ALL_CATEGORIES, category_display
 
 router = APIRouter(tags=["intake"])
@@ -26,14 +26,9 @@ templates = Jinja2Templates(
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
 
-STATUSES = [
-    "Deployed",
-    "Ready to Deploy",
-    "Pending",
-    "Un-deployable",
-    "Decommissioned",
-    "Unassigned",
-]
+# Derived from the item_statuses enum (docs/specs/item-decommission.md):
+# the hand-editable vocabulary, the enum minus code-managed statuses.
+STATUSES = list(HAND_EDITABLE_ITEM_STATUSES)
 
 ALLOWED_RECEIPT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".pdf", ".eml", ".msg", ".html"}
 RECEIPT_STORAGE_PATH = "/app/data/receipts"
@@ -143,13 +138,18 @@ def create_item(
     if mac_errors:
         raise ValueError(" | ".join(mac_errors))
 
+    _status = _clean_str(fields.get("item_status")) or None
+    if _status == "Decommissioned":
+        # Code-mediated (docs/specs/item-decommission.md): never on create.
+        _status = None
+
     new_item = Item(
         item_name=_clean_str(fields.get("item_name")),
         item_manufacturer=_clean_str(fields.get("item_manufacturer")),
         item_model=_clean_str(fields.get("item_model")),
         item_sn=_clean_str(fields.get("item_sn")),
         item_category=_clean_str(fields.get("item_category")) or None,
-        item_status=_clean_str(fields.get("item_status")) or None,
+        item_status=_status,
         location_id=_safe_int(fields.get("location_id")),
         department_or_owner=_clean_str(fields.get("department_or_owner")),
         item_mac_address_1=mac1,

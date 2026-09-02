@@ -19,7 +19,7 @@
 <!-- Category Tiles -->
 <div class="inv-tiles fl-filter-tiles fl-lift">
   {% for tile in tiles %}
-  <a href="{{ base_path }}/inventory/?category={{ tile.name }}{% if status %}&status={{ status }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+  <a href="{{ base_path }}/inventory/?category={{ tile.name }}{% if status %}&status={{ status }}{% endif %}{% if location %}&location={{ location }}{% endif %}{% if q %}&q={{ q }}{% endif %}{% if include_decommissioned %}&include_decommissioned=1{% endif %}"
      class="inv-tile fl-ftile{% if category == tile.name %} inv-tile--active fl-ftile--active{% endif %}" style="--tile-hue:{{ tile.color }}">
     <div class="fl-ftile-hairline"></div>
     <div class="inv-tile__count fl-ftile-count">{{ tile.count }}</div>
@@ -46,6 +46,10 @@
     <option value="{{ loc.id }}" {% if location == loc.id|string %}selected{% endif %}>{{ loc.name }}</option>
     {% endfor %}
   </select>
+  <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;color:var(--text-muted);white-space:nowrap;">
+    <input type="checkbox" id="inv-include-dec" {% if include_decommissioned %}checked{% endif %} onchange="applyFilters()"> Include decommissioned
+  </label>
+  <a href="{{ base_path }}/inventory/decommissioned" class="inv-btn">Decommissioned</a>
   {% if q or status or location %}
   <a href="{{ base_path }}/inventory/?category={{ category }}" class="inv-btn">Clear filters</a>
   {% endif %}
@@ -159,17 +163,17 @@
     Showing {{ (current_page - 1) * 50 + 1 }}–{{ [current_page * 50, total_count] | min }} of {{ total_count }}
   </div>
   <div class="inv-page-btns">
-    <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}&page={{ current_page - 1 }}"
+    <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}{% if include_decommissioned %}&include_decommissioned=1{% endif %}&page={{ current_page - 1 }}"
        class="inv-page-btn {% if current_page == 1 %}inv-page-btn--disabled{% endif %}">← Prev</a>
     {% for p in range(1, total_pages + 1) %}
       {% if p <= 2 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
-      <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}&page={{ p }}"
+      <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}{% if include_decommissioned %}&include_decommissioned=1{% endif %}&page={{ p }}"
          class="inv-page-btn {% if p == current_page %}inv-page-btn--active{% endif %}">{{ p }}</a>
       {% elif p == 3 or p == total_pages - 2 %}
       <span class="inv-page-btn inv-page-btn--disabled">…</span>
       {% endif %}
     {% endfor %}
-    <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}&page={{ current_page + 1 }}"
+    <a href="?category={{ category }}&status={{ status }}&location={{ location }}&q={{ q }}{% if include_decommissioned %}&include_decommissioned=1{% endif %}&page={{ current_page + 1 }}"
        class="inv-page-btn {% if current_page == total_pages %}inv-page-btn--disabled{% endif %}">Next →</a>
   </div>
 </div>
@@ -567,11 +571,14 @@ function applyFilters() {
   var q = document.getElementById('inv-search-input').value;
   var status = document.getElementById('inv-status-select').value;
   var location = document.getElementById('inv-location-select').value;
+  var incDec = document.getElementById('inv-include-dec');
   var url = new URL(window.location.href);
   url.searchParams.set('category', '{{ category }}');
   url.searchParams.set('q', q);
   url.searchParams.set('status', status);
   url.searchParams.set('location', location);
+  if (incDec && incDec.checked) { url.searchParams.set('include_decommissioned', '1'); }
+  else { url.searchParams.delete('include_decommissioned'); }
   url.searchParams.set('page', '1');
   window.location.href = url.toString();
 }

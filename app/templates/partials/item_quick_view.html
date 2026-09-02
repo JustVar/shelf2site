@@ -25,11 +25,15 @@
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="qv-field">
       <div class="qv-field-label">Status</div>
-      <select name="item_status" class="itk-input">
+      <select name="item_status" class="itk-input"{% if item.item_status|string == 'Decommissioned' %} disabled{% endif %}>
+        {% if item.item_status|string == 'Decommissioned' %}
+        <option value="Decommissioned" selected>Decommissioned</option>
+        {% else %}
         <option value="">Select status...</option>
         {% for s in statuses %}
         <option value="{{ s }}" {% if item.item_status|string == s %}selected{% endif %}>{{ s }}</option>
         {% endfor %}
+        {% endif %}
       </select>
     </div>
     <div class="qv-field">

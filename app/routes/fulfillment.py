@@ -786,7 +786,8 @@ async def update_ship_details(
     # Shipping moves the order's still-out item-linked units out the door:
     # their inventory rows go Deployed. Legacy edge-box rows (item_id NULL)
     # are untouched — their pipeline manages device state separately. The
-    # managed statuses (Installed / Checked Out) are never overwritten.
+    # managed statuses (Installed / Checked Out / Decommissioned) are never
+    # overwritten.
     if payload.shipped_date:
         linked = (
             db.query(DeviceProvisioning)
@@ -799,7 +800,7 @@ async def update_ship_details(
         )
         for rec in linked:
             item = db.query(Item).filter(Item.id == rec.item_id).first()
-            if item and item.item_status not in ("Installed", "Checked Out"):
+            if item and item.item_status not in ("Installed", "Checked Out", "Decommissioned"):
                 item.item_status = "Deployed"
 
     db.commit()

@@ -31,12 +31,18 @@ This spec ratifies:
    - `inventory.py:37` FILTER_STATUSES variant
    - `receiving.py:151` _ITEM_STATUS_VALUES
 2. Derived lists may declare EXTRAS where a surface legitimately needs
-   more than the enum. Exactly one exists today: `Checked Out` on the
+   more than the hand-editable base, the enum MINUS the code-managed
+   statuses (amended 2026-09-02: the earlier wording said "more than the
+   enum", which is false; Checked Out is IN the enum at
+   app/models.py:1876 as of 34309a5). Exactly one exists today: `Checked Out` on the
    receiving surface (in-house items taken by a person; checked in on
    return). Extras are declared additions to the derived list, never a
    fifth restated copy.
 3. `Decommissioned` becomes a real, code-mediated status. The
-   hand-settable paths (`intake.html:54`, `triage_fix_panel.html:32`)
+   hand-settable paths (`intake.html:54`; the triage bulk panel builds
+   its options from TRG_STATUSES at `triage.html:222`. Corrected
+   2026-09-02: the ratified text named `triage_fix_panel.html:32`,
+   which does not exist at 681a7b8)
    are REMOVED from the dropdowns; the status is entered and left only
    through the decommission and reactivation actions below.
 

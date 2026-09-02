@@ -71,6 +71,9 @@ async def install_component(
         return _err(400, f"{_label(component)} is a unit "
                          f"({component.item_category}) — units cannot be "
                          "installed as components")
+    if component.item_status == "Decommissioned":
+        # Code-mediated (docs/specs/item-decommission.md): reactivate first.
+        return _err(409, f"{_label(component)} is decommissioned - reactivate it first")
     if component.item_status == "Checked Out":
         return _err(409, f"{_label(component)} is checked out — check it in first")
     existing = get_current_parent(db, component.id)

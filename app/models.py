@@ -1880,6 +1880,18 @@ item_statuses_enum = SAEnum(
     schema='public'
 )
 
+# Status vocabulary derivation (docs/specs/item-decommission.md): the enum
+# above is the single authority. Code-managed statuses are entered and
+# cleared only by their owning routes (checkout/checkin, containment
+# install/uninstall, decommission/reactivate); hand-editable lists derive
+# by subtraction. A surface that needs one back (receiving's Checked Out)
+# declares it as an explicit extra, never as a restated list.
+ITEM_STATUSES = list(item_statuses_enum.enums)
+CODE_MANAGED_ITEM_STATUSES = ("Checked Out", "Installed", "Decommissioned")
+HAND_EDITABLE_ITEM_STATUSES = [
+    s for s in ITEM_STATUSES if s not in CODE_MANAGED_ITEM_STATUSES
+]
+
 component_actions_enum = SAEnum(
     'installed', 'uninstalled', 'moved',
     name='component_actions',
@@ -1937,6 +1949,13 @@ class Item(Base):
     created_at                 = Column(Date, server_default=func.current_date())
     last_updated               = Column(Date, server_default=func.current_date(), onupdate=func.current_date())
     attributes                 = Column(JSONB, nullable=True)
+
+    # Decommission lifecycle (migration 073, docs/specs/item-decommission.md):
+    # set by the decommission action, cleared by reactivation. The row and
+    # its history survive decommission.
+    decommission_reason        = Column(Text, nullable=True)
+    decommission_date          = Column(Date, nullable=True)
+    decommissioned_by          = Column(String(128), nullable=True)
 
     # Role-based required fields for triage
     REQUIRED_FIELDS_HARDWARE = [

@@ -2470,6 +2470,48 @@ TOURS: list[dict] = [
         ],
     },
 
+    {
+        "id": "decommissioned_tour",
+        "name": "Decommissioned Items",
+        "page_pattern": "/inventory/decommissioned",
+        "template": "decommissioned.html",
+        "description": "Where retired items live, and how to bring one back",
+        "required_access": None,
+        "enabled": True,
+        "group": "inventory",
+        "steps": [
+            {
+                "target": "#dec-header",
+                "title": "Retired, Not Deleted",
+                "description": (
+                    "Items here are out of service but never erased: the row, "
+                    "its history, and its audit trail all survive."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": "#dec-table",
+                "title": "Why, When, and Who",
+                "description": (
+                    "Every decommissioned item shows the reason, the "
+                    "effective date, and who retired it."
+                ),
+                "position": "top",
+            },
+            {
+                "target": ".dec-reactivate-btn",
+                "title": "Bring One Back",
+                "description": (
+                    "Reactivate returns an item to Pending so it can be "
+                    "re-triaged. A reason is required, and both directions "
+                    "are recorded in the audit log."
+                ),
+                "position": "left",
+                "optional": True,
+            },
+        ],
+    },
+
 ]
 
 
