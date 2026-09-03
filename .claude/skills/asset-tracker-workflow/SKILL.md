@@ -76,6 +76,17 @@ Never edit from memory or inference. Before changing anything:
   per record was never opened. A second track was specced on the premise that
   build certification had no audit trail, when its APPROVED spec opens by
   describing one.
+- **A spec is evidence, not an oracle.** The rule above stands and is the most
+  expensive one to skip. But a spec is a document someone wrote, and it drifts
+  from the code like any other. When a spec states a FACT about the codebase,
+  that statement is REPORTED until the code is read. Three shapes seen in a
+  single spec: a stale line-number anchor; a wrong failure-mode description
+  (the spec said a missing vocabulary site makes an order fail to render, while
+  the code renders it in the wrong column via a fallback the same spec
+  describes correctly seven lines later); and a justification citing a
+  precedent that does not exist as described. None of these makes the spec's
+  DECISIONS wrong, and none is grounds to re-litigate a ratified design. Fix
+  the prose in a rider on the commit that touches it, and keep the decision.
 - Read the actual code, model, template, or data the change depends on.
 - **Distinguish read facts from inference.** State plainly which is which. If a
   claim has not been read, say so and read it before building on it. Presenting
@@ -86,6 +97,17 @@ Never edit from memory or inference. Before changing anything:
 - **Re-read the exact anchor lines immediately before editing.** Line numbers
   drift between discovery and patch time. The pre-edit re-read is what the patch
   anchors on.
+- **Take anchors only from `grep -n` `:` lines, never from `-` context lines.**
+  `grep -n -A N` marks the matched line with `:` and every following context
+  line with `-`. Only the `:` line owns the number printed against it. Reading
+  a fact off a `-` line and attaching the match's number to it yields an anchor
+  wrong by however far down the block the fact sits, and it looks
+  authoritative. The same trap has a first form already known: deriving line
+  numbers by arithmetic off a `sed` range that opened one line early. **The
+  safe form for any anchor that will be written down or handed to another
+  surface is `grep -n '' FILE | sed -n 'A,Bp'`**, which numbers every line of
+  the file so each number belongs to the line it precedes, with no context
+  prefixes to misread.
 - **Widen the search before declaring a sweep complete.** A sweep scoped to one
   directory will miss the repo root. Reconcile with a whole-repo count
   (`git grep -c <term> -- . | sort`) and account for every remaining hit by
@@ -110,6 +132,17 @@ Never edit from memory or inference. Before changing anything:
   on both sides. Likewise, do not guess line ranges: to find the class owning a
   line, list every class declaration before it and `tail -2`, rather than an
   `awk` range that returns nothing when the guess is too narrow.
+- **Do not write `2>/dev/null` into a discovery read at all.** It is the
+  redirect that manufactures the ambiguity the previous bullet then has to
+  resolve: a missing path and an empty result print identically. `grep` rc 1 is
+  a clean no-match; rc 2 is a file error. Let the errors print. If a path may
+  not exist, that is exactly the fact worth seeing. When checking rc over SSH,
+  read the quoting gotcha in section 6 first, because the obvious form reports
+  the wrong shell's status.
+- **Absence is only as good as the term you searched for.** Before recording
+  that a document or a codebase does not mention X, grep for X and for the
+  words X would plausibly be written in, and show the rc. A grep for the wrong
+  synonym returns nothing and reads exactly like a real absence.
 
 ## 2. Guarded patch scripts
 
@@ -336,6 +369,14 @@ in `CLAUDE.md`.
   silently skips the rest of the chain. Separate verification from mutation and
   join steps with `;` not `&&`. Note `grep -c` exits 1 on a zero count, which is
   a pass, not a failure.
+- **Single-quote the SSH argument whenever the remote command contains `$`.**
+  In `ssh host "... ; echo \"rc=$?\""` the `$?` is expanded by the LOCAL shell
+  before transmission, so the remote never sees it and the printed rc is the
+  workstation's last exit status. It is indistinguishable from a real remote
+  result, which makes it worse than a visible failure. Use
+  `ssh host '... ; echo "rc=$?"'`. The same applies to any `$VAR`, `$(...)` or
+  backtick meant to run remotely. This bites hardest with the rc markers
+  section 1 recommends, since the entire point of those is to be trusted.
 - **There is a transmission ceiling on SSH heredocs.** Two failures in one
   session at roughly 139 and 182 lines; anything under about 130 went through.
   Split long patch scripts into appended parts (`cat >`, then `cat >>`) rather
