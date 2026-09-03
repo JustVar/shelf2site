@@ -30,12 +30,15 @@
     </div>
     {% if user.has_provisioning_manage %}
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        {# A cancelled order is terminal: edit, status and delete are all
+           refused server side, so none of them is offered. See
+           docs/specs/customer-order-cancel.md #}
+        {% if order.status != 'cancelled' %}
         <button class="btn btn-sm" onclick="openEditModal()">Edit Order</button>
         <button class="btn btn-sm" onclick="updateStatus()">Update Status</button>
-        {% if order.status != 'cancelled' %}
         <button class="btn btn-sm btn-danger" id="cancel-order-btn" onclick="openCancelModal()">Cancel Order</button>
-        {% endif %}
         <button class="btn btn-sm btn-danger" onclick="deleteOrder()">Delete</button>
+        {% endif %}
     </div>
     {% endif %}
 </div>
@@ -380,6 +383,7 @@
 <!-- Status update modal -->
 {% if user.has_provisioning_manage %}
 <!-- Edit order modal -->
+{% if order.status != 'cancelled' %}
 <div id="edit-order-modal" class="modal-overlay">
     <div class="modal-box" style="max-width:560px;">
         <div class="modal-header">
@@ -437,8 +441,14 @@
             <div class="form-group" style="flex:1;">
                 <label>Status</label>
                 <select id="edit-status" class="form-control">
+                    {# cancelled is omitted: it is set only by the Cancel
+                       action and cannot be cleared, so offering it here
+                       posts a value the route refuses. See
+                       docs/specs/customer-order-cancel.md #}
                     {% for key, label in ORDER_STATUSES.items() %}
+                    {% if key != 'cancelled' %}
                     <option value="{{ key }}"{% if key == order.status %} selected{% endif %}>{{ label }}</option>
+                    {% endif %}
                     {% endfor %}
                 </select>
             </div>
@@ -487,6 +497,7 @@
         <div id="edit-order-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
     </div>
 </div>
+{% endif %}
 
 <div id="cancel-modal" class="modal-overlay">
     <div class="modal-box" style="max-width:440px;">
@@ -514,6 +525,7 @@
     </div>
 </div>
 
+{% if order.status != 'cancelled' %}
 <div id="status-modal" class="modal-overlay">
     <div class="modal-box" style="max-width:380px;">
         <div class="modal-header">
@@ -540,6 +552,7 @@
         <div id="status-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
     </div>
 </div>
+{% endif %}
 
 <!-- Add OEM PO modal -->
 <div id="add-po-modal" class="modal-overlay">

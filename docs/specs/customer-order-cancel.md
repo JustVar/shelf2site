@@ -88,6 +88,13 @@ should be reusable is a separate question and is NOT settled here.
 Reversal was considered and deferred, not overlooked. It can be added
 later without undoing anything specced here.
 
+A cancelled order cannot be DELETED either. Added 2026-09-03: cancelled
+orders are retained as the historical record, so `DELETE
+/api/orders/{id}` refuses them with a 409. This closes an asymmetry. The
+existing deployment record guard incidentally protects delivered and
+installed orders, because those usually carry deployment records, while
+cancelled orders ended early and were the least protected of the three.
+
 ## Audit event
 
 `order_cancelled` — reason, who, and the unit list as it stood before
@@ -176,6 +183,14 @@ Cancellation is rare but must be properly built when it fires (Jus,
   that will be unlinked.
 - Cancelled orders appear in the archived section of the fulfillment
   board with their reason visible.
+- A cancelled order is terminal on its own surface: Edit Order, Update
+  Status and Delete are NOT rendered for it, matching how the Cancel
+  control already disappears once used. Added 2026-09-03, after all
+  three were found live and failing server side on a cancelled order:
+  Edit Order resent the cancelled status into a route that refuses it,
+  and Update Status could only attempt a transition away from cancelled,
+  which is refused because there is no un-cancel. Scope is cancelled
+  only; delivered and installed belong to N3.
 
 ## Out of scope
 

@@ -448,6 +448,19 @@ def delete_order(
     if not order:
         return JSONResponse(status_code=404, content={"error": "Order not found"})
 
+    # Refuse deletion of a cancelled order: cancelled orders are retained as
+    # the historical record (docs/specs/customer-order-cancel.md). Hiding the
+    # button is not retention, because the route stays reachable by URL and
+    # from any stale open tab. Note the asymmetry this closes: the deployment
+    # record guard below incidentally protects delivered and installed orders,
+    # which usually carry records, while cancelled orders ended early and were
+    # the least protected.
+    if order.status == "cancelled":
+        return JSONResponse(status_code=409, content={
+            "error": f"Order {order.order_number} is cancelled and is kept as a "
+                     "historical record. Cancelled orders are not deleted.",
+        })
+
     # Refuse while any deployment record exists. Ratified in
     # docs/specs/fulfillment-vendor-direction.md: no route deletes a deployment
     # record directly, and without this guard the CASCADE took the visits and

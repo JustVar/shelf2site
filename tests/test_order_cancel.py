@@ -262,3 +262,72 @@ def test_cancelled_order_is_not_offered_for_provisioning(admin_client, cancel_or
     assert _cancel(admin_client, cancel_order["order_id"]).status_code == 200
     after = admin_client.get("/provisioning/queue").text
     assert "CONTRACT-TEST Cancel Corp" not in after
+
+
+# -- Terminal-order controls (N4 follow-up) ---------------------------------
+
+def test_delete_refuses_a_cancelled_order(admin_client, db, cancel_order):
+    """Cancelled orders are retained as the historical record.
+
+    Discriminating on purpose: this order has ZERO deployment records, so the
+    pre-existing deployment guard cannot fire and the 409 can only come from
+    the cancelled guard. The error text is the observable that tells them
+    apart -- a test against an order carrying deployment records would pass
+    whether or not the cancelled guard exists.
+    """
+    order_id = cancel_order["order_id"]
+    assert _cancel(admin_client, order_id).status_code == 200
+
+    records = db.execute(sqltext(
+        "SELECT count(*) FROM deployment_records WHERE customer_order_id = :o"),
+        {"o": order_id}).scalar()
+    assert records == 0, "fixture must carry no deployment records to discriminate"
+
+    r = admin_client.delete(f"/api/orders/{order_id}")
+    assert r.status_code == 409
+    err = r.json()["error"].lower()
+    assert "cancelled" in err and "historical record" in err
+    assert "deployment record" not in err, (
+        "this 409 came from the deployment guard, so the test proves nothing")
+
+    assert _status_of(db, order_id) == "cancelled", "the order must survive"
+
+
+def test_edit_status_select_omits_cancelled(admin_client, cancel_order):
+    """The edit modal status select loops ORDER_STATUSES, so the eighth member
+    propagated into it automatically. Offering it there posts a value the PUT
+    route refuses, which made Edit Order dead on every cancelled order."""
+    html = admin_client.get(f"/orders/{cancel_order['order_id']}").text
+    m = re.search(r'<select id="edit-status".*?</select>', html, re.S)
+    assert m, "edit status select not found on an active order"
+    assert '<option value="cancelled"' not in m.group(0)
+    assert '<option value="building"' in m.group(0)
+    # The OEM PO select keeps its own cancelled option: a different vocabulary.
+    assert '<option value="cancelled"' in html
+
+
+def test_active_order_offers_edit_status_and_delete(admin_client, cancel_order):
+    """The other half of the pair below: these controls must be present while
+    the order is live, or the absence assertions prove nothing."""
+    html = admin_client.get(f"/orders/{cancel_order['order_id']}").text
+    assert 'onclick="openEditModal()"' in html
+    assert 'onclick="updateStatus()"' in html
+    assert 'onclick="deleteOrder()"' in html
+    assert 'id="edit-order-modal"' in html
+    assert 'id="status-modal"' in html
+    assert 'id="cancel-order-btn"' in html
+
+
+def test_cancelled_order_hides_edit_status_and_delete(admin_client, cancel_order):
+    """A cancelled order is terminal: every control that the server refuses is
+    absent from the DOM entirely, not merely hidden."""
+    assert _cancel(admin_client, cancel_order["order_id"]).status_code == 200
+    html = admin_client.get(f"/orders/{cancel_order['order_id']}").text
+
+    assert 'id="cancel-banner"' in html, "page did not render as cancelled"
+    assert 'onclick="openEditModal()"' not in html
+    assert 'onclick="updateStatus()"' not in html
+    assert 'onclick="deleteOrder()"' not in html
+    assert 'id="edit-order-modal"' not in html
+    assert 'id="status-modal"' not in html
+    assert 'id="cancel-order-btn"' not in html
