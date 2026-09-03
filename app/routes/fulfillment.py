@@ -30,6 +30,7 @@ from ..models import (
     BuildCertification, BuildCertificationFile,
     InstallationCertification,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
+    AuditLog,
 )
 from ..order_matching import candidate_items, requirement_lines
 from ..sku_conversion import is_legacy_sku, is_2026_sku
@@ -61,9 +62,15 @@ def _stage_label(value):
 
 templates.env.filters["stage_label"] = _stage_label
 
-# Active statuses shown as open columns; archived shown collapsed
-ACTIVE_STATUSES = ["new", "sourcing", "building", "testing", "shipped"]
-ARCHIVED_STATUSES = ["delivered", "installed"]
+# Archived statuses are the ended ones, shown collapsed; active ones are the
+# open columns. ARCHIVED is hand-held because "ended" is a judgement the
+# vocabulary cannot derive. ACTIVE derives from it by subtraction, so the
+# union always covers CustomerOrder.ORDER_STATUSES and a status added there
+# can never fall through the columns dict into New.
+# See docs/specs/customer-order-cancel.md.
+ARCHIVED_STATUSES = ["delivered", "installed", "cancelled"]
+ACTIVE_STATUSES = [s for s in CustomerOrder.ORDER_STATUSES
+                   if s not in ARCHIVED_STATUSES]
 
 
 class ShipDetailsUpdate(BaseModel):
@@ -561,13 +568,35 @@ def fulfillment_page(
         DeviceProvisioning.returned_date.is_(None),
     ).all():
         item_unit_counts[p.customer_order_id] = item_unit_counts.get(p.customer_order_id, 0) + 1
-    fulfillment_groups = build_fulfillment_groups(orders, order_devices, item_unit_counts)
+    # A cancelled order is ended and its units are unlinked, so it carries no
+    # build work: exclude it from the Building rollup, which reads the raw
+    # order list rather than the status columns
+    # (docs/specs/customer-order-cancel.md, reconciliation set).
+    _buildable = [o for o in orders if o.status != "cancelled"]
+    fulfillment_groups = build_fulfillment_groups(_buildable, order_devices, item_unit_counts)
 
     # Group by status
     columns: dict[str, list] = {s: [] for s in ACTIVE_STATUSES + ARCHIVED_STATUSES}
     for card in cards:
         status = card["status"] if card["status"] in columns else "new"
         columns[status].append(card)
+
+    # Cancel reasons have no column by design (docs/specs/customer-order-cancel.md):
+    # they live only in the order_cancelled audit event, so the board reads
+    # them back. Scoped to cancelled cards, which are expected to be rare.
+    # DORMANT: the archived section that renders these sits behind a false
+    # conditional in fulfillment.html until the archive feature ships, so
+    # nothing displays them yet. Kept so the data is ready when it does.
+    cancel_reasons: dict[int, str] = {}
+    cancelled_ids = [c["id"] for c in columns.get("cancelled", [])]
+    if cancelled_ids:
+        for _tid, _nv in db.query(AuditLog.target_id, AuditLog.new_values).filter(
+            AuditLog.event_type == "order_cancelled",
+            AuditLog.target_table == "customer_orders",
+            AuditLog.target_id.in_(cancelled_ids),
+        ).order_by(AuditLog.id.asc()).all():
+            if isinstance(_nv, dict) and _nv.get("reason"):
+                cancel_reasons[_tid] = _nv["reason"]
 
     # Summary counts
     total_active = sum(len(columns[s]) for s in ACTIVE_STATUSES)
@@ -596,6 +625,7 @@ def fulfillment_page(
         "columns": columns,
         "active_statuses": ACTIVE_STATUSES,
         "archived_statuses": ARCHIVED_STATUSES,
+        "cancel_reasons": cancel_reasons,
         "order_statuses": CustomerOrder.ORDER_STATUSES,
         "order_types": CustomerOrder.ORDER_TYPES,
         "status_colors": CustomerOrder.STATUS_COLORS,

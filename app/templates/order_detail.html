@@ -32,11 +32,27 @@
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button class="btn btn-sm" onclick="openEditModal()">Edit Order</button>
         <button class="btn btn-sm" onclick="updateStatus()">Update Status</button>
+        {% if order.status != 'cancelled' %}
+        <button class="btn btn-sm btn-danger" id="cancel-order-btn" onclick="openCancelModal()">Cancel Order</button>
+        {% endif %}
         <button class="btn btn-sm btn-danger" onclick="deleteOrder()">Delete</button>
     </div>
     {% endif %}
 </div>
 
+{% if order.status == 'cancelled' %}
+<div id="cancel-banner" style="border-left:3px solid var(--danger,#e74c3c);
+     padding:0.6rem 0.9rem; border-radius:6px; margin-bottom:1rem;
+     background:rgba(231,76,60,0.07);">
+    <div style="font-weight:600; font-size:0.9rem;">Order cancelled</div>
+    <div style="font-size:0.85rem; color:var(--text-muted);">
+        {{ cancel_reason or 'No reason recorded' }}
+    </div>
+    <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.2rem;">
+        Cancelled orders are terminal. Any units that were linked have been unlinked.
+    </div>
+</div>
+{% endif %}
 <!-- Summary cards — column layout so label sits on top, value below, all left-aligned -->
 <div class="summary-cards" style="margin-bottom:1.5rem;">
     <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
@@ -472,6 +488,32 @@
     </div>
 </div>
 
+<div id="cancel-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:440px;">
+        <div class="modal-header">
+            <h2>Cancel Order</h2>
+            <button class="modal-close" onclick="closeCancelModal()">&#10005;</button>
+        </div>
+        <p style="font-size:0.88rem; color:var(--text-muted); margin:0.5rem 0 0.75rem;">
+            Cancelling <strong>{{ order.order_number }}</strong> is permanent: there
+            is no un-cancel, and
+            <strong id="cancel-unit-count">{{ prov_records | length }}</strong>
+            linked unit(s) will be unlinked from this order. Correcting a mistaken
+            cancel means creating a new order.
+        </p>
+        <div class="form-group">
+            <label>Reason (required)</label>
+            <textarea id="cancel-reason-input" class="form-control" rows="3"
+                      placeholder="Why is this order being cancelled?"></textarea>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+            <button class="btn" onclick="closeCancelModal()">Keep Order</button>
+            <button class="btn btn-danger" onclick="confirmCancelOrder()">Cancel Order</button>
+        </div>
+        <div id="cancel-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
+    </div>
+</div>
+
 <div id="status-modal" class="modal-overlay">
     <div class="modal-box" style="max-width:380px;">
         <div class="modal-header">
@@ -481,8 +523,13 @@
         <div class="form-group" style="margin-top:0.75rem;">
             <label>New Status</label>
             <select id="status-select" class="form-control">
+                {# cancelled is omitted on purpose: it is set only by the
+                   Cancel action, which requires a reason. See
+                   docs/specs/customer-order-cancel.md #}
                 {% for key, label in ORDER_STATUSES.items() %}
+                {% if key != 'cancelled' %}
                 <option value="{{ key }}" {% if key == order.status %}selected{% endif %}>{{ label }}</option>
+                {% endif %}
                 {% endfor %}
             </select>
         </div>
@@ -632,6 +679,34 @@ async function saveStatus() {
             document.getElementById('status-error').textContent = d.error || 'Failed';
         }
     } catch(e) { document.getElementById('status-error').textContent = e.message; }
+}
+
+// ---------------------------------------------------------------------------
+// Cancel order (docs/specs/customer-order-cancel.md) - in-app modal, never a
+// chained prompt() - the reason is required and the action is terminal.
+// ---------------------------------------------------------------------------
+function openCancelModal() {
+    document.getElementById('cancel-error').textContent = '';
+    document.getElementById('cancel-reason-input').value = '';
+    document.getElementById('cancel-modal').classList.add('open');
+}
+function closeCancelModal() {
+    document.getElementById('cancel-modal').classList.remove('open');
+}
+async function confirmCancelOrder() {
+    const reason = document.getElementById('cancel-reason-input').value.trim();
+    const err = document.getElementById('cancel-error');
+    if (!reason) { err.textContent = 'A reason is required.'; return; }
+    try {
+        const resp = await fetch(`${BP}/api/orders/${ORDER_ID}/cancel`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({reason}),
+        });
+        if (resp.ok) { location.reload(); return; }
+        const d = await resp.json();
+        err.textContent = d.error || d.detail || 'Cancel failed';
+    } catch (e) { err.textContent = e.message; }
 }
 
 // ---------------------------------------------------------------------------

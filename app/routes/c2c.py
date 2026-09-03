@@ -163,6 +163,10 @@ def _c2c_board_data(db: Session) -> dict:
         need = sum(int(line.get("qty") or 0) for line in (o.sku_requirements or [])
                    if line.get("model") in c2c_skus)
         acq = acquired_by_order.get(o.id, 0)
+        if o.status == "cancelled":
+            # Ended order: no C2C work remains against it
+            # (docs/specs/customer-order-cancel.md).
+            continue
         if need == 0 and acq == 0:
             continue
         total_needed += need

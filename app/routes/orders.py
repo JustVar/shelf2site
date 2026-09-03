@@ -23,6 +23,7 @@ from ..models import (
     CustomerOrder, DeploymentRecord, OEMPurchaseOrder, DeviceProvisioning,
     Item, ItemPartNumber,
     User, TABLE_MODELS, get_display_name, get_serial,
+    AuditLog,
 )
 from ..order_matching import candidate_items, requirement_lines
 
@@ -186,6 +187,18 @@ def order_detail(
             "taken_at": p.taken_at,
         })
 
+    # The cancel reason has no column by design; it lives only in the
+    # order_cancelled audit event (docs/specs/customer-order-cancel.md).
+    cancel_reason = None
+    if order.status == "cancelled":
+        _ev = (db.query(AuditLog.new_values)
+                 .filter(AuditLog.event_type == "order_cancelled",
+                         AuditLog.target_table == "customer_orders",
+                         AuditLog.target_id == order.id)
+                 .order_by(AuditLog.id.desc()).first())
+        if _ev and isinstance(_ev[0], dict):
+            cancel_reason = _ev[0].get("reason")
+
     return templates.TemplateResponse("order_detail.html", {
         "request": request,
         "user": user,
@@ -202,6 +215,7 @@ def order_detail(
         "ORDER_STATUSES": CustomerOrder.ORDER_STATUSES,
         "ORDER_TYPES": CustomerOrder.ORDER_TYPES,
         "STATUS_COLORS": CustomerOrder.STATUS_COLORS,
+        "cancel_reason": cancel_reason,
         "se_names": se_names,
     })
 
@@ -263,7 +277,10 @@ async def create_order(
         integrator_name=(body.get("integrator_name") or "").strip() or None,
         distributor_name=(body.get("distributor_name") or "").strip() or None,
         due_date=body.get("due_date") or None,
-        status=body.get("status") or "new",
+        # Code-mediated: cancelled is reachable only through the cancel
+        # route (docs/specs/customer-order-cancel.md), never on create.
+        status=("new" if body.get("status") == "cancelled"
+                else (body.get("status") or "new")),
         sku_requirements=body.get("sku_requirements") or [],
         notes=(body.get("notes") or "").strip() or None,
         is_sensitive=bool(body.get("is_sensitive", False)),
@@ -309,6 +326,21 @@ async def update_order(
         "status", "notes", "pre_site_survey", "post_install_notes",
         "po_number", "default_fulfillment_type",
     ]
+    # Cancelled is code-mediated (docs/specs/customer-order-cancel.md): it is
+    # entered only through the cancel route, which requires a reason, unlinks
+    # the units and writes the audit event. It is also terminal, so a status
+    # edit can neither set it nor clear it.
+    if "status" in body:
+        _new_status = (body["status"] or "").strip()
+        if _new_status == "cancelled":
+            return JSONResponse(status_code=400, content={
+                "error": "Use the Cancel action to cancel an order; it requires a reason",
+            })
+        if order.status == "cancelled" and _new_status and _new_status != "cancelled":
+            return JSONResponse(status_code=409, content={
+                "error": "Cancelled is terminal. Create a new order rather than reopening this one",
+            })
+
     for field in str_fields:
         if field in body:
             setattr(order, field, (body[field] or "").strip() or None)
@@ -705,3 +737,67 @@ def open_orders_list(
         }
         for o in orders
     ])
+
+
+@router.post("/api/orders/{order_id}/cancel")
+async def cancel_order(
+    order_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Cancel an order (docs/specs/customer-order-cancel.md).
+
+    Terminal: there is no un-cancel. Linked units are HARD-UNLINKED
+    (customer_order_id set to NULL); the provisioning rows themselves
+    survive as the device history. The unit list is captured in the audit
+    event BEFORE unlinking, because afterwards the DB cannot reconstruct
+    the tie.
+    """
+    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    if not order:
+        return JSONResponse(status_code=404, content={"error": "Order not found"})
+    if order.status == "cancelled":
+        return JSONResponse(status_code=409, content={
+            "error": f"Order {order.order_number} is already cancelled",
+        })
+
+    body = await request.json()
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        return JSONResponse(status_code=400, content={
+            "error": "A reason is required to cancel an order",
+        })
+
+    # Rows are found by customer_order_id, NOT item_id: item_id is nullable
+    # and legacy-path rows carry device_table + device_id instead, so an
+    # item_id query would silently miss them.
+    units = db.query(DeviceProvisioning).filter(
+        DeviceProvisioning.customer_order_id == order_id).all()
+    unit_list = [{
+        "provisioning_id": u.id,
+        "item_id": u.item_id,
+        "device_table": u.device_table,
+        "device_id": u.device_id,
+    } for u in units]
+
+    who = user.display_name or user.username
+    prior_status = order.status
+    for u in units:
+        u.customer_order_id = None
+    order.status = "cancelled"
+    # Commit before log_event: log_event returns WITHOUT committing for svc_
+    # accounts, and neither the unlink nor the status change may depend on it.
+    db.commit()
+
+    log_event(db, "order_cancelled", request=request, user_id=user.id,
+              target_table="customer_orders", target_id=order_id, action="update",
+              new_values={
+                  "reason": reason,
+                  "who": who,
+                  "prior_status": prior_status,
+                  "units": unit_list,
+              },
+              details=f"Cancelled order {order.order_number}, "
+                      f"{len(unit_list)} unit(s) unlinked")
+    return JSONResponse(content={"status": "ok", "units_unlinked": len(unit_list)})

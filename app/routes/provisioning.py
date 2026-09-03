@@ -188,7 +188,9 @@ def provisioning_page(
     users = users_q.order_by(UserModel.display_name).all()
 
     # Open customer orders for the create modal — not yet shipped/delivered/installed
-    _terminal = ("shipped", "delivered", "installed")
+    # cancelled joins the terminal set: a cancelled order is ended and must
+    # not offer itself as provisionable (docs/specs/customer-order-cancel.md).
+    _terminal = ("shipped", "delivered", "installed", "cancelled")
     open_orders = (
         db.query(CustomerOrder)
         .filter(~CustomerOrder.status.in_(_terminal))

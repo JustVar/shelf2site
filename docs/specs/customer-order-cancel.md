@@ -16,7 +16,7 @@ None is terminal. An order that dies has nowhere to go and stays on the
 board in whatever stage it reached.
 
 The read side already defends a status the write side cannot produce.
-`GET /api/orders/open` (orders.py:680, the bulk-assign picker feed)
+`GET /api/orders/open` (orders.py:681, the bulk-assign picker feed)
 excludes `{installed, cancelled}`; no route writes `cancelled` and no row
 carries it (9 live orders: new 5, testing 2, building 1, shipped 1). All
 READ 2026-09-02.
@@ -109,10 +109,13 @@ than a violation.
 
 `ORDER_STATUSES` at models.py:1248 is the authority. Three further sites
 restate its members by hand, and adding an eighth status without touching
-them fails SILENTLY — no error, no column, the order simply does not
-render:
+them renders the order in the WRONG PLACE rather than not at all.
+The fallback at `:569` assigns any status missing from the columns
+dict to `"new"`, so the order appears under New, visibly and
+incorrectly (corrected 2026-09-03; the same fallback is described
+correctly below):
 
-1. `fulfillment.py:63` `ACTIVE_STATUSES` = new, sourcing, building,
+1. `fulfillment.py:65` `ACTIVE_STATUSES` = new, sourcing, building,
    testing, shipped
 2. `fulfillment.py:66` `ARCHIVED_STATUSES` = delivered, installed
 3. `fulfillment.py:567` builds the column dict from the union of the two;
@@ -122,8 +125,15 @@ render:
 All READ 2026-09-02 at HEAD 5753601. Line numbers are anchors at that
 HEAD; re-read before editing.
 
-`cancelled` belongs in `ARCHIVED_STATUSES`, matching how the OEM and
-deployment boards treat their own cancelled rows.
+`cancelled` belongs in `ARCHIVED_STATUSES` because the archived section is
+where ended orders live and a cancelled order is ended. The OEM and
+deployment boards are NOT a precedent for it: they do not match each other
+and neither archives. The deployment board FILTERS cancelled out at the
+query (`fulfillment.py:499`), the columns dict (`:507`) and the rendered
+list (`:635`), so those rows are invisible; the OEM board KEEPS cancelled
+as a live column with a dot colour (`:628`), so those rows are shown.
+Corrected 2026-09-03: the placement decision is unchanged, only its
+stated reason.
 
 This is the same drift shape `item-decommission.md` addressed for item
 statuses, and the derivation pattern established there ports directly.

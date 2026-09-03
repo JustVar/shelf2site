@@ -870,7 +870,11 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 {% if false %}  {# Archived Orders hidden until the archive feature exists #}
 <!-- ── ARCHIVED ORDERS ───────────────────────────────────────────── -->
 <div class="archived-section">
-{% set archived_total = columns['delivered'] | length + columns['installed'] | length %}
+{# Derived from archived_statuses: a hardcoded sum silently undercounts the
+   badge the moment a status joins the archived set. #}
+{% set arch_ns = namespace(total=0) %}
+{% for s in archived_statuses %}{% set arch_ns.total = arch_ns.total + (columns[s] | length) %}{% endfor %}
+{% set archived_total = arch_ns.total %}
 <div class="arch-wrap">
     <div class="arch-head" onclick="toggleArchived()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
@@ -879,7 +883,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         <span class="chevron" id="arch-chev">&#8964;</span>
     </div>
     <div class="arch-body" id="arch-body">
-        {% set arch_colors = {'shipped': 'var(--fl-orange)', 'delivered': 'var(--fl-green)', 'installed': 'var(--accent-blue)'} %}
+        {% set arch_colors = {'shipped': 'var(--fl-orange)', 'delivered': 'var(--fl-green)', 'installed': 'var(--accent-blue)', 'cancelled': 'var(--danger, #e74c3c)'} %}
         {% for status in archived_statuses %}
         {% set cards = columns[status] %}
         <div>
@@ -891,6 +895,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     <span class="arch-row-name">{{ card.order_number }} · {{ card.customer_name }}</span>
                     {% if card.order_type %}<span class="order-type-badge order-type-badge--{{ card.order_type }}">{{ order_types.get(card.order_type, card.order_type) }}</span>{% endif %}
                     {% if card.sales_engineer %}<span class="arch-se">{{ card.sales_engineer }}</span>{% endif %}
+                    {% if status == 'cancelled' and cancel_reasons.get(card.id) %}<span class="arch-se" title="{{ cancel_reasons.get(card.id) }}">{{ cancel_reasons.get(card.id) }}</span>{% endif %}
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
                     {% if card.sku_requirements %}

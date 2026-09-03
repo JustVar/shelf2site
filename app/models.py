@@ -1253,6 +1253,10 @@ class CustomerOrder(Base):
         "shipped": "Shipped",
         "delivered": "Delivered",
         "installed": "Installed",
+        # Terminal (docs/specs/customer-order-cancel.md). Code-mediated:
+        # set only by POST /api/orders/{id}/cancel, never by a status
+        # edit, and there is no un-cancel.
+        "cancelled": "Cancelled",
     }
 
     STATUS_COLORS = {
@@ -1263,6 +1267,7 @@ class CustomerOrder(Base):
         "shipped": "var(--accent, #9b59b6)",
         "delivered": "var(--success, #27ae60)",
         "installed": "var(--success, #27ae60)",
+        "cancelled": "var(--danger, #e74c3c)",
     }
 
     # Order classification vocabulary (Migration 058) - the single source of truth.
