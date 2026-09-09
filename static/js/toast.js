@@ -49,15 +49,48 @@
     info:    'var(--flc-info, #0075FF)'
   };
 
+  // Fallback bodies for the message guard in show(). Plain text only:
+  // these reach innerHTML at :70 through escapeHtml.
+  var EMPTY_DEFAULTS = {
+    success: 'Done',
+    error:   'Request failed. Try again, and tell an admin if it keeps happening.',
+    warning: 'Something needs attention',
+    info:    '(no message)'
+  };
+
   /**
    * Show a toast notification.
-   * @param {string} message
+   * @param {*} message — coerced and guarded; see EMPTY_DEFAULTS
    * @param {'success'|'error'|'warning'|'info'} type
    * @param {number} duration — ms before auto-dismiss (0 = sticky)
    */
   function show(message, type, duration) {
     type = type || 'info';
     duration = duration !== undefined ? duration : (type === 'error' ? 6000 : 4000);
+
+    var _s, _bad = '';
+    try {
+      _s = (message === null || message === undefined) ? '' : String(message);
+    } catch (e) {
+      _s = '';
+      _bad = 'non-serialisable';
+    }
+    if (!_bad && _s === '[object Object]') _bad = 'non-serialisable';
+    if (!_bad && _s.trim() === '') _bad = 'empty';
+    if (_bad) {
+      var _m = 'SxToast called with ' + _bad + ' message, type=' + type;
+      // NOTE: reportError no-ops today. It returns early at its
+      // inventory_session cookie check, and that cookie is HttpOnly
+      // (starlette SessionMiddleware hardcodes httponly in
+      // security_flags and exposes no parameter for it), so JS can
+      // never see it. error_log holds zero frontend rows, ever.
+      // Kept because it becomes correct the moment that is fixed.
+      reportError(_m, new Error().stack, window.location.pathname, 'warning');
+      console.warn(_m);
+      message = EMPTY_DEFAULTS[type] || EMPTY_DEFAULTS.info;
+    } else {
+      message = _s;
+    }
 
     var c = ensureContainer();
     var toast = document.createElement('div');

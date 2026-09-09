@@ -94,8 +94,9 @@ path.
 
 1. If `message` is `null`, `undefined`, or an empty string after trimming,
    substitute the type default below.
-2. Otherwise coerce with `String(message)`, so an Error object or a non-string
-   value produces readable text rather than `[object Object]`.
+2. If coercion yields `[object Object]`, or throws (a symbol), treat it as the
+   empty case and substitute the type default. Otherwise coerce with
+   `String(message)`, so an Error object or a number produces readable text.
 3. When the fallback fires, do both of the following:
    - `reportError('SxToast called with empty message, type=' + type,
      new Error().stack, window.location.pathname, 'warning')`
@@ -124,15 +125,20 @@ to "fix" this.
 
 **The guard calls the reporting pipeline; it does not modify it.** The region
 from the "Error capture & reporting" marker at `toast.js:116` to EOF was
-asserted byte-identical during R15 and stays untouched. But the guard is now a
-caller of it, which is why the gate below reads the database rather than the
-console.
+asserted byte-identical during R15 and stays untouched. The guard is a caller
+of it, but that call is a no-op today and the gate below reads the console
+only. See "Known gap" immediately following.
 
-**Known gap, accepted.** `reportError` returns early unless the
-`inventory_session` cookie is present (`toast.js:138`). A session that expired
-mid-action fails and also fails to report. Accepted: an expired session is
-self-explanatory and needs no `error_log` row to diagnose. The user-facing side
-of that case is a separate board item, see "Deferred, recorded".
+**Known gap, NOT narrow. Corrected 2026-09-09 by the gate.** `reportError`
+returns early unless the `inventory_session` cookie is present
+(`toast.js:138`). That cookie is HttpOnly: starlette's `SessionMiddleware`
+hardcodes `httponly` in `security_flags` and exposes no parameter to disable
+it, so `document.cookie` never contains it and the check fails on EVERY call,
+not only on expired sessions. READ: `error_log` holds nine rows, all
+`backend`, newest 2026-07-23; zero `frontend` rows have ever existed. The
+frontend reporting pipeline is unreachable and always has been. The guard
+keeps its `reportError` call because the call becomes correct the moment the
+pipeline is fixed, but it is a no-op today.
 
 **Default strings.** Plain text only. These land in `innerHTML` at :70 through
 `escapeHtml`, and the surrounding markup at :69 to :71 is assembled by string
@@ -160,13 +166,20 @@ state, and it should look like one.
 file starts emitting type errors. The guard is what makes the fourteen call
 sites above contract-legitimate, so this is not cosmetic.
 
-**Gate.** In the browser console, call `SxToast.error(undefined)` and
-`SxToast.error({})`. Each must render readable body text, emit one
-`console.warn`, and **produce one `warning`-level frontend row in `error_log`
-carrying the stack** (read on the admin error page or by SQL).
-`SxToast.error('real message')` must produce none of the three. This gate can
-fail: a guard that warns but does not report passes the console check and fails
-the database check.
+**Gate. Console half only; the database half is void.** In the browser
+console, call `SxToast.error(undefined)` and `SxToast.error({})`. Each must
+render readable body text and emit exactly one `console.warn`, branched:
+`empty` for the first, `non-serialisable` for the second.
+`SxToast.error('real message')` must render its own text and emit no warning.
+
+RESULT at this commit: PASSED. Three toasts rendered, the first two carrying
+the error default and the third carrying `real message`; exactly two warnings,
+correctly branched; no JS errors on the page, which is the real parse check
+since node is not on apphost.
+
+The originally specced database half CANNOT pass and is removed rather than
+weakened. It required one warning-level frontend row in `error_log` per
+fallback, and no frontend row can be written at all. See "Known gap" above.
 
 ## Rule 1: duration
 
@@ -591,9 +604,13 @@ board; none is a same-session add-on.
 fallback string, which is why the guard exists. Whether those endpoints ever
 actually omit a message is **UNREAD**. The `data.error || 'Failed to save'`
 pattern at most other sites suggests whoever wrote them expected omission, but
-that is inference. **The guard is the cheap way to find out:** if no
-`error_log` row ever appears, the problem does not exist and nothing was spent.
-If rows appear, they name the endpoint.
+that is inference. **The guard was specced as the cheap way to find out. It is
+not, and cannot be.** The plan was to read `error_log` for guard-generated
+rows: no rows meaning no problem, rows naming the endpoint. No frontend row can
+be written at all (see "Known gap"), so silence proves nothing and no row will
+ever name anything. This audit now needs either a direct read of the fourteen
+endpoints or a working frontend reporting pipeline, which is a board item and
+not track 1 work.
 
 **Session-expiry response shape.** When a session expires mid-action, what the
 fetch receives is **UNREAD**. If the API answers with an HTML login redirect,
