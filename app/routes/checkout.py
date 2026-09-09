@@ -213,14 +213,12 @@ def _broadcast_custody(db, user, source):
     so gap counts rarely move; we broadcast for cross-surface consistency."""
     from ..sidebar_cache import invalidate_sidebar_counts
     from .sse import publish_event
-    from .triage import TRIAGE_ROLES, _count_role_gaps, get_triage_total_count
+    from .triage import get_triage_total_count
     invalidate_sidebar_counts()
-    role_counts = {k: _count_role_gaps(db, k) for k in TRIAGE_ROLES.keys()}
     publish_event("triage_gap_changed", {
         "item_id": None,
         "field_name": "item_status",
         "user_id": user.id,
-        "role_counts": role_counts,
         "total_items_with_gaps": get_triage_total_count(db),
     })
 

@@ -295,7 +295,7 @@ async def inventory_bulk_update(
 ):
     """Bulk-apply a single-field update to many inventory items.
     Skips items locked by other users; returns counts. Broadcasts
-    triage_gap_changed so triage badges/tabs sync when an edit here
+    triage_gap_changed so the nav triage badge syncs when an edit here
     clears (or introduces) a triage gap."""
     if not user or not user.is_editor_or_above:
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
@@ -342,7 +342,7 @@ async def inventory_bulk_update(
     from ..locks import get_lock
     from .sse import publish_event
     from ..sidebar_cache import invalidate_sidebar_counts
-    from .triage import TRIAGE_ROLES, _count_role_gaps, get_triage_total_count
+    from .triage import get_triage_total_count
 
     items = db.query(Item).filter(Item.id.in_(item_ids)).all()
     updated = 0
@@ -384,13 +384,11 @@ async def inventory_bulk_update(
 
     # Broadcast — any bulk change can move items in/out of triage gaps.
     invalidate_sidebar_counts()
-    role_counts_global = {k: _count_role_gaps(db, k) for k in TRIAGE_ROLES.keys()}
     total_items_with_gaps = get_triage_total_count(db)
     publish_event("triage_gap_changed", {
         "item_id": None,
         "field_name": field_name,
         "user_id": user.id,
-        "role_counts": role_counts_global,
         "total_items_with_gaps": total_items_with_gaps,
     })
 

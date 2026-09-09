@@ -65,9 +65,12 @@ by vendor_id (546), brand_pn (530), location_id (529) and brand_sku
    `all_gaps["deploy"] + [...]` appends to `all_gaps["hw"]`. Fix the
    comment `# Deploy role also surfaces ...`.
 4. F2: add `.filter(Item.item_status.is_distinct_from("Decommissioned"))`
-   to the three queue queries: `_count_role_gaps`, `get_triage_total_count`,
-   and `base_query` in `triage_page`. Do not touch the per-item gap views;
-   they describe one item, they are not the queue.
+   to the two queue queries: `get_triage_total_count` and `base_query`
+   in `triage_page`. Do not touch the per-item gap views; they describe
+   one item, they are not the queue. Corrected 2026-09-09: this said
+   three queries and named `_count_role_gaps` first. That function was
+   deleted with the role_counts plumbing in the same commit as this note,
+   having lost its last caller.
 5. CSV export: drop the `acct_gaps` and `deploy_gaps` columns. The export
    docstring says it exists for people outside the app, e.g. accounting.
    **Tell Morgan before this ships** in case anything parses that file.

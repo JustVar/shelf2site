@@ -206,21 +206,6 @@ def _gap_filter(role_fields: list[str]):
     return or_(*conditions)
 
 
-def _count_role_gaps(db: Session, role_key: str, extra_ids: set = None) -> int:
-    """Number of items with at least one gap for the given role (plus any
-    extra ids, e.g. the deploy place-check set)."""
-    fields = TRIAGE_ROLES[role_key]["fields"]
-    cond = _gap_filter(fields)
-    if extra_ids:
-        cond = or_(cond, Item.id.in_(extra_ids))
-    return (
-        db.query(func.count(Item.id))
-        .filter(cond)
-        .filter(Item.item_status.is_distinct_from("Decommissioned"))
-        .scalar() or 0
-    )
-
-
 def get_triage_total_count(db: Session) -> int:
     """Count unique items with >=1 gap across ANY triage role (union).
     Public helper: used by sidebar_cache for the global nav badge."""
@@ -265,12 +250,6 @@ def triage_page(
     containment_divergence_ids = _containment_divergence_ids(db)
     installed_ids = _installed_ids(db)
     check_ids = place_mismatch_ids | containment_divergence_ids
-
-    # Count for the single role
-    role_counts = {
-        k: _count_role_gaps(db, k, check_ids)
-        for k in TRIAGE_ROLES.keys()
-    }
 
     # Fetch all items with at least one gap, including check-only items.
     # Decommissioned items are out of the queue (backlog F2, following
@@ -339,7 +318,6 @@ def triage_page(
         "items": items,
         "role": role,
         "roles": TRIAGE_ROLES,
-        "role_counts": role_counts,
         "field_labels": FIELD_LABELS,
         "page": page,
         "per_page": per_page,
@@ -526,14 +504,12 @@ async def triage_fix_save(
     from ..sidebar_cache import invalidate_sidebar_counts
     invalidate_sidebar_counts()
 
-    # Compute global per-role counts AFTER commit so all connected clients see the saved state.
-    role_counts_global = {k: _count_role_gaps(db, k) for k in TRIAGE_ROLES.keys()}
+    # Computed AFTER commit so all connected clients see the saved state.
     total_items_with_gaps = get_triage_total_count(db)
     publish_event("triage_gap_changed", {
         "item_id": item_id,
         "field_name": field_name,
         "user_id": user.id,
-        "role_counts": role_counts_global,
         "total_items_with_gaps": total_items_with_gaps,
     })
 
@@ -627,16 +603,14 @@ async def triage_bulk_update(
         user.display_name, user.id, action, updated, skipped,
     )
 
-    # Single global SSE event; badge/tab counts recompute from DB.
+    # Single global SSE event; the nav badge recomputes from DB.
     from ..sidebar_cache import invalidate_sidebar_counts
     invalidate_sidebar_counts()
-    role_counts_global = {k: _count_role_gaps(db, k) for k in TRIAGE_ROLES.keys()}
     total_items_with_gaps = get_triage_total_count(db)
     publish_event("triage_gap_changed", {
         "item_id": None,  # bulk — no single item
         "field_name": field_name,
         "user_id": user.id,
-        "role_counts": role_counts_global,
         "total_items_with_gaps": total_items_with_gaps,
     })
 
