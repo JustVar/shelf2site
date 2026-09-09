@@ -3728,12 +3728,6 @@ select.itk-input{cursor:pointer}
 @media(max-width:640px){.dtl-grid{grid-template-columns:1fr}}
 
 /* ── Asset Triage Page ── */
-.trg-tabs{display:flex;gap:0;border-bottom:1px solid var(--sx-border);margin-bottom:1rem}
-.trg-tab{padding:10px 18px;font-size:13px;color:var(--sx-gray);text-decoration:none;border-bottom:2px solid transparent;display:flex;align-items:center;gap:8px;transition:color .15s,border-color .15s}
-.trg-tab:hover{color:var(--sx-white)}
-.trg-tab--active{color:var(--sx-white);border-bottom-color:var(--sx-blue);font-weight:600}
-.trg-badge{font-size:11px;background:rgba(240,165,0,.14);color:#F0A500;padding:1px 7px;border-radius:10px;min-width:18px;text-align:center;font-weight:600}
-.trg-tab--active .trg-badge{background:var(--sx-blue-dim);color:var(--sx-blue-light)}
 .trg-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:1rem;flex-wrap:wrap}
 .trg-chevron{background:none;border:none;color:var(--sx-gray);cursor:pointer;font-size:10px;padding:2px 4px;font-family:var(--sx-font-mono)}
 .trg-chevron:hover{color:var(--sx-white)}
@@ -3746,10 +3740,6 @@ select.itk-input{cursor:pointer}
 .trg-gap-table th{padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--sx-gray);border-bottom:1px solid var(--sx-border)}
 .trg-gap-table td{padding:5px 10px;border-bottom:1px solid var(--sx-border);color:var(--sx-white);white-space:nowrap}
 .trg-gap-table tr:last-child td{border-bottom:none}
-.trg-role-chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:600;margin-right:4px;white-space:nowrap}
-.trg-role-chip--hw{background:rgba(55,138,221,.14);color:#378ADD}
-.trg-role-chip--acct{background:rgba(240,165,0,.14);color:#F0A500}
-.trg-role-chip--deploy{background:rgba(34,197,94,.14);color:#22c55e}
 .trg-fix-btn{display:inline-block;font-size:10px;padding:1px 10px;border-radius:3px;color:var(--sx-gray);background:transparent;border:1px solid var(--sx-border);text-decoration:none;transition:color .15s,border-color .15s}
 .trg-fix-btn:hover{color:var(--sx-white);border-color:var(--sx-gray)}
 .trg-pagination{display:flex;align-items:center;justify-content:space-between;padding:.75rem 0 2rem}

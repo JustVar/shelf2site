@@ -71,6 +71,8 @@ by vendor_id (546), brand_pn (530), location_id (529) and brand_sku
 5. CSV export: drop the `acct_gaps` and `deploy_gaps` columns. The export
    docstring says it exists for people outside the app, e.g. accounting.
    **Tell Morgan before this ships** in case anything parses that file.
+   The export stays fields-only: the two data checks are excluded from
+   it by decision 2026-09-09.
 
 ### app/models.py
 
@@ -106,9 +108,10 @@ by vendor_id (546), brand_pn (530), location_id (529) and brand_sku
 
 - Suite: 906 passed, 39 skipped. No route added or removed, so the auth
   census does not move. Baseline immediately before editing.
-- Badge: 548 becomes between 546 and 548 on mock data (hardware 546, plus
-  any check-only items among the 2 not in hardware). Pin the exact value
-  with the census SQL before the build; assert on it after.
+- Badge: 545 on the current mock data, pinned by census SQL 2026-09-09.
+  Decomposition: 548 at 2ce1720; minus 2 for the two dropped roles
+  (hardware alone flags 546); minus 1 for item 1058, decommissioned
+  2026-09-09 for the F2 gate. Assert on 545 after the build.
 - F2 gate, and it must be able to fail: decommission one mock item from
   its item page. Badge drops by one and the item is absent from the queue.
   Reactivate it. Badge returns and the item reappears. Zero decommissioned

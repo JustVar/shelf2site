@@ -461,12 +461,7 @@
 [data-theme="light"] .fl-restyle .btn-edit { color: var(--accent-primary); }
 .fl-restyle .btn-edit:hover { background: var(--accent-border); color: var(--text); }
 
-/* ── Triage page polish (tabs, gap chips, expand card, quick-fix) ────── */
-.fl-restyle .trg-tabs { border-bottom-color: var(--border); }
-.fl-restyle .trg-tab { color: var(--text-muted); border-bottom-width: 3px; }
-.fl-restyle .trg-tab:hover { color: var(--text); }
-.fl-restyle .trg-tab--active { color: var(--text); border-bottom-color: var(--accent-primary); }
-.fl-restyle .trg-badge, .fl-restyle .trg-tab--active .trg-badge { background: var(--amber-dim); color: var(--fl-amber); border: 1px solid var(--fl-amber); border-radius: 6px; }
+/* ── Triage page polish (gap chips, expand card, quick-fix) ────── */
 .fl-restyle .trg-gap-chip { background: var(--amber-dim); color: var(--fl-amber); border: 1px solid var(--fl-amber); border-radius: 6px; }
 .fl-restyle .trg-chevron { color: var(--text-muted); }
 .fl-restyle .trg-chevron:hover { color: var(--text); }

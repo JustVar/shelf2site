@@ -1,16 +1,13 @@
 """Asset Triage — surfaces items missing role-required fields.
 
-Three roles define which fields matter:
-  - Hardware Inventory (hw)
-  - Accounting / Auditing (acct)
-  - Deployment Tracking (deploy)
+One role defines which fields matter: Hardware Inventory (hw). The accounting
+and deployment roles were retired 2026-09-09; see
+docs/specs/triage-single-role.md.
 
-Items appear in a role's tab if they are missing ANY field required by that role.
-An item can appear in multiple tabs. The expansion view shows ALL gaps across
-all roles, not just the active tab's.
+An item appears in the queue if it is missing ANY required field, or if it
+fails one of the two data checks folded in from the retired deployment role
+(place mismatch, containment divergence). Decommissioned items are excluded.
 
-# TODO(rbac): When Users & Permissions is built, filter tabs by user role.
-#   e.g. Morgan (Accounting) only sees the Accounting tab by default.
 # TODO(perf): When item count exceeds ~5k, move gap computation from Python
 #   to SQL (generated columns or a materialized view). Current path fetches
 #   all matching rows, computes gaps in Python, then paginates.
@@ -49,30 +46,9 @@ templates.env.globals["base_path"] = BP
 TRIAGE_ROLES = {
     "hw": {
         "label": "Hardware inventory",
-        "fields": [
-            "item_name", "item_manufacturer", "item_model", "item_sn",
-            "item_category", "item_status", "location_id",
-            "department_or_owner", "brand_sku", "brand_pn", "vendor_id",
-        ],
-    },
-    "acct": {
-        "label": "Accounting / auditing",
-        "fields": [
-            "item_name", "item_model", "item_sn", "item_category",
-            "item_status", "location_id", "department_or_owner",
-            "brand_sku", "brand_pn", "vendor_id",
-            "date_purchased", "intended_purpose", "dispatched_date",
-        ],
-    },
-    "deploy": {
-        "label": "Deployment tracking",
-        "fields": [
-            "item_name", "item_sn", "item_category", "item_status",
-            "location_id", "department_or_owner", "item_mac_address_1",
-            "item_mac_address_2", "item_storage_size_gb", "appliance_uuid",
-            "brand_sku", "brand_pn", "intended_purpose",
-            "dispatched_date", "tracking_number",
-        ],
+        # Single source: the list lives on the model and is read here
+        # rather than restated (docs/specs/triage-single-role.md).
+        "fields": Item.REQUIRED_FIELDS_HARDWARE,
     },
 }
 
@@ -169,7 +145,7 @@ def _place_mismatch_ids(db: Session) -> set:
     """Item ids whose place and status disagree (Migration 063 lifecycle):
     a deployable unit marked Deployed that is not at a customer site, or one
     at a customer site whose status is not Deployed. A data smell, surfaced
-    in the deploy triage role rather than a new page."""
+    in the hardware triage role rather than a new page."""
     rows = (
         db.query(Item.id)
         .outerjoin(Site, Site.id == Item.location_id)
@@ -240,6 +216,7 @@ def _count_role_gaps(db: Session, role_key: str, extra_ids: set = None) -> int:
     return (
         db.query(func.count(Item.id))
         .filter(cond)
+        .filter(Item.item_status.is_distinct_from("Decommissioned"))
         .scalar() or 0
     )
 
@@ -254,6 +231,7 @@ def get_triage_total_count(db: Session) -> int:
     return (
         db.query(func.count(Item.id))
         .filter(union_filter)
+        .filter(Item.item_status.is_distinct_from("Decommissioned"))
         .scalar() or 0
     )
 
@@ -281,24 +259,30 @@ def triage_page(
 
     active_fields = TRIAGE_ROLES[role]["fields"]
 
-    # Deploy role also surfaces place/status mismatches (Migration 063).
+    # The hardware role also carries the two data checks (Migration 063),
+    # folded in when the deployment role was retired.
     place_mismatch_ids = _place_mismatch_ids(db)
     containment_divergence_ids = _containment_divergence_ids(db)
     installed_ids = _installed_ids(db)
-    deploy_extra_ids = place_mismatch_ids | containment_divergence_ids
+    check_ids = place_mismatch_ids | containment_divergence_ids
 
-    # Per-role counts for tab badges
+    # Count for the single role
     role_counts = {
-        k: _count_role_gaps(db, k, deploy_extra_ids if k == "deploy" else None)
+        k: _count_role_gaps(db, k, check_ids)
         for k in TRIAGE_ROLES.keys()
     }
 
-    # Fetch all items that have at least one gap in the active role
-    # (the deploy tab also pulls in place/containment-check-only items).
+    # Fetch all items with at least one gap, including check-only items.
+    # Decommissioned items are out of the queue (backlog F2, following
+    # docs/specs/item-decommission.md).
     gap_cond = _gap_filter(active_fields)
-    if role == "deploy" and deploy_extra_ids:
-        gap_cond = or_(gap_cond, Item.id.in_(deploy_extra_ids))
-    base_query = db.query(Item).filter(gap_cond)
+    if check_ids:
+        gap_cond = or_(gap_cond, Item.id.in_(check_ids))
+    base_query = (
+        db.query(Item)
+        .filter(gap_cond)
+        .filter(Item.item_status.is_distinct_from("Decommissioned"))
+    )
 
     # SQL-level sort where possible (modified, name)
     if sort == "modified_desc":
@@ -317,9 +301,9 @@ def triage_page(
     for itm in all_matching:
         all_gaps = {k: _compute_gaps(itm, TRIAGE_ROLES[k]["fields"], installed_ids) for k in TRIAGE_ROLES.keys()}
         if itm.id in place_mismatch_ids:
-            all_gaps["deploy"] = all_gaps["deploy"] + [_PLACE_CHECK]
+            all_gaps["hw"] = all_gaps["hw"] + [_PLACE_CHECK]
         if itm.id in containment_divergence_ids:
-            all_gaps["deploy"] = all_gaps["deploy"] + [_CONTAINMENT_CHECK]
+            all_gaps["hw"] = all_gaps["hw"] + [_CONTAINMENT_CHECK]
         active_gaps = all_gaps[role]
 
         union_gaps = []
@@ -700,8 +684,6 @@ def triage_export_csv(
             "location_id": item.location_id or "",
             "department_or_owner": item.department_or_owner or "",
             "hw_gaps": ";".join(all_gaps["hw"]),
-            "acct_gaps": ";".join(all_gaps["acct"]),
-            "deploy_gaps": ";".join(all_gaps["deploy"]),
             "all_missing_fields": ";".join(union),
             "gap_count_total": len(union),
         }
@@ -711,7 +693,7 @@ def triage_export_csv(
     writer = csv.DictWriter(buf, fieldnames=[
         "id", "name", "category", "status", "manufacturer", "model", "sn",
         "location_id", "department_or_owner",
-        "hw_gaps", "acct_gaps", "deploy_gaps", "all_missing_fields", "gap_count_total",
+        "hw_gaps", "all_missing_fields", "gap_count_total",
     ])
     writer.writeheader()
     for item in items:

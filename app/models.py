@@ -1962,26 +1962,14 @@ class Item(Base):
     decommission_date          = Column(Date, nullable=True)
     decommissioned_by          = Column(String(128), nullable=True)
 
-    # Role-based required fields for triage
+    # The triage required-field set. Single source: TRIAGE_ROLES in
+    # app/routes/triage.py reads this list rather than restating it.
     REQUIRED_FIELDS_HARDWARE = [
         "item_name", "item_manufacturer", "item_model", "item_sn",
         "item_category", "item_status", "location_id",
         "department_or_owner", "brand_sku", "brand_pn", "vendor_id",
     ]
-    REQUIRED_FIELDS_ACCOUNTING = [
-        "item_name", "item_model", "item_sn", "item_category",
-        "item_status", "location_id", "department_or_owner",
-        "brand_sku", "brand_pn", "vendor_id",
-        "date_purchased", "intended_purpose", "dispatched_date",
-    ]
-    REQUIRED_FIELDS_DEPLOYMENT = [
-        "item_name", "item_sn", "item_category", "item_status",
-        "location_id", "department_or_owner", "item_mac_address_1",
-        "item_mac_address_2", "item_storage_size_gb", "appliance_uuid",
-        "brand_sku", "brand_pn", "intended_purpose",
-        "dispatched_date", "tracking_number",
-    ]
-    # Default — broadest set for general triage checks
+    # Default — the only triage set, and what the generic dispatcher reads
     REQUIRED_FIELDS = REQUIRED_FIELDS_HARDWARE
 
     location = relationship('Site', foreign_keys=[location_id])  # Migration 063

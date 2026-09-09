@@ -8,25 +8,14 @@
 {% block content %}
 {% from 'partials/icons.html' import icon %}
 
-<div class="triage-page fl-restyle" data-page-init="triage">
+<div class="triage-page fl-restyle">
 {% include "_fl_bg.html" %}
 
 <div class="page-header fl-lift" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem">
   <div>
     <h1 style="font-size:1.25rem;font-weight:600;color:var(--text);margin:0 0 4px 0">Asset Triage</h1>
-    <div style="font-size:12px;color:var(--text-muted)">Items missing role-required fields</div>
+    <div style="font-size:12px;color:var(--text-muted)">Items missing required fields</div>
   </div>
-</div>
-
-<!-- Tabs -->
-<div class="trg-tabs fl-lift">
-  {% for key, cfg in roles.items() %}
-  <a href="{{ base_path }}/triage/?role={{ key }}&sort={{ sort }}&per_page={{ per_page }}&page=1"
-     class="trg-tab {% if role == key %}trg-tab--active{% endif %}">
-    {{ cfg.label }}
-    <span class="trg-badge">{{ role_counts[key] }}</span>
-  </a>
-  {% endfor %}
 </div>
 
 <!-- Controls -->
@@ -149,7 +138,6 @@
                 <thead>
                   <tr>
                     <th style="width:180px">Field</th>
-                    <th>Required by</th>
                     <th style="width:70px"></th>
                   </tr>
                 </thead>
@@ -157,14 +145,6 @@
                   {% for gap in union_gaps %}
                   <tr data-field="{{ gap }}">
                     <td>{{ field_labels.get(gap, gap) }}</td>
-                    <td>
-                      {% set role_short = {'hw': 'HW', 'acct': 'Acct', 'deploy': 'Deploy'} %}
-                      {% for r_key, r_cfg in roles.items() %}
-                        {% if gap in entry.all_gaps[r_key] %}
-                        <span class="trg-role-chip trg-role-chip--{{ r_key }}" title="{{ r_cfg.label }}">{{ role_short[r_key] }}</span>
-                        {% endif %}
-                      {% endfor %}
-                    </td>
                     <td style="text-align:right">
                       <button type="button" class="trg-fix-btn" onclick="trgQvOpen({{ itm.id }}, '{{ gap }}')">Fix</button>
                     </td>
@@ -627,50 +607,6 @@ document.addEventListener('keydown', function(ev) {
   if (ev.key === 'Escape') trgQvClose();
 });
 
-// Listen for global triage gap changes from any user's edits (including our own)
-// and update the tab badge counts live.
-//
-// PageInit rather than DOMContentLoaded: that event belongs to the document,
-// and an hx-boost swap never replaces the document, so it does not fire on a
-// boosted return. Reaching triage by the sidenav without ever full-loading it
-// left this unregistered, so the sidenav badge updated live while the tab
-// badges beside it sat frozen. See docs/specs/page-init-on-boosted-navigation.md.
-PageInit.init('triage', function () {
-  // KIOSK GUARD, not a redundant one. base.html:80 loads realtime.js under
-  // a not-kiosk conditional, so in kiosk mode _sseManager does not exist at all
-  // and this is what stands between that and a TypeError. Do not delete it on
-  // the grounds that PageInit orders things correctly; ordering is not the
-  // reason it is here.
-  if (!window._sseManager) return;
-
-  // ONCE PER DOCUMENT, inside a hook that runs once per ENTRY. PageInit marks
-  // the page root, and a boosted swap installs a new root, so this function
-  // runs again on every visit. _sseManager.on (realtime.js:58) does not dedup,
-  // so re-subscribing would leak one listener per visit for the life of the
-  // tab. The callback below re-queries .trg-tab at event time and captures
-  // nothing, so a single listener serves every later entry.
-  //
-  // Per-entry work belongs ABOVE this guard; document-scoped subscriptions
-  // belong below it.
-  if (window.__trgGapSubscribed) return;
-  window.__trgGapSubscribed = true;
-
-  window._sseManager.on('triage_gap_changed', function(data) {
-    if (!data || !data.role_counts) return;
-    var tabs = document.querySelectorAll('.trg-tab');
-    for (var i = 0; i < tabs.length; i++) {
-      var href = tabs[i].getAttribute('href') || '';
-      var match = href.match(/role=([^&]+)/);
-      if (!match) continue;
-      var roleKey = match[1];
-      var newCount = data.role_counts[roleKey];
-      if (typeof newCount !== 'undefined') {
-        var badge = tabs[i].querySelector('.trg-badge');
-        if (badge) badge.textContent = newCount;
-      }
-    }
-  });
-});
 </script>
 </div>{# /triage-page.fl-restyle #}
 {% endblock %}
