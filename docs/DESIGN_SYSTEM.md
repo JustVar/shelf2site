@@ -26,15 +26,15 @@ literals). This is why the tour engine and launcher use `var(--flc-accent, …)`
 | `--accent-primary-dim` / `--flc-accent-dim` | blush @ 12% | blush @ 8–10% | tint fills (hover, active nav, tint buttons) |
 | `--accent-border` / `--flc-accent-border` | blush @ 45% | blush @ 40% | borders on tint buttons/chips |
 | `--on-accent` / `--flc-on-accent` | `#17222E` | `#FFFFFF` | text on solid accent |
-| `--fl-green` | `#01B574` | `#1E8E63` | success / ready / complete |
+| `--fl-green` / `--flc-green` | `#01B574` | `#1E8E63` | success / ready / complete |
 | `--fl-amber` | `#FFB547` | `#C07220` | warning / due-soon / pending |
-| `--fl-red` (+`-deep`) | `#FF6B6B` | `#C43D45` | error / overdue / danger |
+| `--fl-red` (+`-deep`) / `--flc-red` | `#FF6B6B` | `#C43D45` | error / overdue / danger |
 | `--fl-purple` | `#A492D6` | `#7458B8` | installed / special states |
 | `--green-dim` `--amber-dim` `--red-dim` `--purple-dim` | color @ 12% | color @ 10% | status tint fills — always pair with the solid color as text+border |
-| `--info` / `--info-2` | `#0075FF` / `#2CD9FF` | blue both | info blue, **small doses only** (column dots, info icons; light theme collapses info-2 → info for contrast) |
+| `--info` / `--info-2` / `--flc-info` | `#0075FF` / `#2CD9FF` | blue both | info blue, **small doses only** (column dots, info icons; light theme collapses info-2 → info for contrast) |
 | `--card-bg` / `--flc-card` | `#151821` | `#FFFFFF` | card surface |
 | `--card-edge` / `--flc-card-edge` | white @ 10% | white @ 90% | the "lit top edge" — set as `border-top-color` on cards |
-| `--bg` / `--text` / `--text-muted` / `--border` | `#0B0D12` / `#EDF0F6` / `#97A3B6` / slate @ 13% | light equivalents | base surfaces and text |
+| `--bg` / `--text` (`--flc-text`) / `--text-muted` (`--flc-text-muted`) / `--border` | `#0B0D12` / `#EDF0F6` / `#97A3B6` / slate @ 13% | light equivalents | base surfaces and text |
 
 **The status recipe** (used everywhere — badges, chips, banners, statuses):
 `color: var(--fl-X); background: var(--X-dim); border: 1px solid var(--fl-X);`
@@ -69,6 +69,7 @@ lives in the named templates.
 | **Stage dots** | `.fl-stage`, `.fl-sdot`/`.fl-sline` (+`.done`/`.half`) | five-dot build tracker on device-linked cards |
 | **Nav chrome** | `.sx-nav__*` (link, section, badge, toggle) | styled via `--flc-*`; active link = blush tint + 2px left bar; flyout `.fl-nav-flyout` is JS-built |
 | **Scanner overlay** | `.scanner-*` (frame, toast, trail, torch, flash) | theme-independent (fixed dark rgba) by design — it covers the camera feed |
+| **Toast** | `SxToast` (`static/js/toast.js`, loaded on every page from `base.html`) | body-mounted, fixed top-right, z 100000. `SxToast.success/error/warning/info(msg, duration)`; duration 0 is sticky, default 6000ms for error and 4000 otherwise. Styled inline on `--flc-card`, `--flc-text`, `--flc-text-muted`, with the status colour on border and icon via `--flc-green`/`--flc-red`/`--flc-amber`/`--flc-info`. The same file owns the global error-capture pipeline (window error, unhandledrejection, HTMX handlers, rate-limited beacon to `/api/errors/report`), so touching toast.js touches that too |
 
 ## Rules that keep it coherent
 
@@ -83,7 +84,8 @@ lives in the named templates.
 4. **New page? Opt in.** Wrap the page content in `.fl-restyle`, reuse
    archetypes above; only mint a new token when no existing one fits, and add
    it to BOTH theme blocks (and to this doc).
-5. **Cache-busting:** `fl-restyle.css` is versioned via the `flcss_v` query
-   param in `base.html` — bump it when changing that file, then restart the app.
+5. **Cache-busting:** both stylesheets are versioned automatically via
+   `request.state.js_v()` in `base.html`. Edit the CSS, restart the app;
+   nothing to bump.
 6. **Comment density:** style rules carry a one-line "why" only when the value
    is load-bearing (zoom math, contrast collapses, scope reasons) — match this.

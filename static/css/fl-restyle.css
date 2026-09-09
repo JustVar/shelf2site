@@ -714,8 +714,8 @@
 /* ── Chrome (applies on every page - deliberately NOT under .fl-restyle).
    Sidebar, banners, footer chrome. Tokens live at :root as --flc-* so
    non-opted pages' content tokens stay untouched. Toasts need no rules:
-   toast.js styles inline via theme vars and its per-type border already
-   is the status tint edge. ─────────────────────────────────────────── */
+   toast.js styles inline on --flc-* tokens with dark fallbacks; its
+   per-type border and icon carry the status colour. ────────────────── */
 :root {
   --flc-accent: #C29E9B;
   --flc-accent-l: #E3CBC7;
@@ -724,6 +724,11 @@
   --flc-on-accent: #17222E;
   --flc-amber: #FFB547;
   --flc-amber-dim: rgba(255,181,71,0.12);
+  --flc-green: #01B574;
+  --flc-red: #FF6B6B;
+  --flc-info: #0075FF;
+  --flc-text: #EDF0F6;
+  --flc-text-muted: #97A3B6;
   --flc-card: #151821;
   --flc-card-edge: rgba(255,255,255,0.10);
 }
@@ -735,6 +740,11 @@
   --flc-on-accent: #FFFFFF;
   --flc-amber: #C07220;
   --flc-amber-dim: rgba(192,114,32,0.12);
+  --flc-green: #1E8E63;
+  --flc-red: #C43D45;
+  --flc-info: #0075FF;
+  --flc-text: #1B2028;
+  --flc-text-muted: #5C6675;
   --flc-card: #FFFFFF;
   --flc-card-edge: rgba(255,255,255,0.9);
 }

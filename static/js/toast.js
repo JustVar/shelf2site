@@ -33,17 +33,20 @@
   }
 
   var ICONS = {
-    success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#27ae60" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
-    error:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-    warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f39c12" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-    info:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3498db" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+    success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
+    error:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    info:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
   };
 
-  var BORDER_COLORS = {
-    success: '#27ae60',
-    error: '#e74c3c',
-    warning: '#f39c12',
-    info: '#3498db'
+  // Feeds both the border and the icon, hence TYPE_ not BORDER_.
+  // Fallbacks are the dark-theme values: a body-mounted element
+  // cannot rely on a page layer being present.
+  var TYPE_COLORS = {
+    success: 'var(--flc-green, #01B574)',
+    error:   'var(--flc-red, #FF6B6B)',
+    warning: 'var(--flc-amber, #FFB547)',
+    info:    'var(--flc-info, #0075FF)'
   };
 
   /**
@@ -59,13 +62,13 @@
     var c = ensureContainer();
     var toast = document.createElement('div');
     toast.style.cssText = 'pointer-events:auto;display:flex;align-items:flex-start;gap:0.5rem;padding:0.65rem 1rem;border-radius:6px;font-size:0.82rem;line-height:1.4;'
-      + 'background:var(--card-bg, #1a2332);color:var(--text, #ecf0f1);border:1px solid ' + BORDER_COLORS[type] + ';'
+      + 'background:var(--flc-card, #151821);color:var(--flc-text, #EDF0F6);border:1px solid ' + TYPE_COLORS[type] + ';'
       + 'box-shadow:0 4px 12px rgba(0,0,0,0.3);opacity:0;transform:translateX(20px);transition:opacity 0.25s, transform 0.25s;'
       + 'max-width:100%;word-break:break-word;';
 
-    toast.innerHTML = '<span style="flex-shrink:0;margin-top:1px;">' + (ICONS[type] || '') + '</span>'
+    toast.innerHTML = '<span style="flex-shrink:0;margin-top:1px;color:' + TYPE_COLORS[type] + ';">' + (ICONS[type] || '') + '</span>'
       + '<span style="flex:1;">' + escapeHtml(message) + '</span>'
-      + '<button style="background:none;border:none;color:var(--text-muted,#95a5a6);cursor:pointer;font-size:1rem;line-height:1;padding:0 0 0 0.5rem;flex-shrink:0;" title="Dismiss">&times;</button>';
+      + '<button style="background:none;border:none;color:var(--flc-text-muted, #97A3B6);cursor:pointer;font-size:1rem;line-height:1;padding:0 0 0 0.5rem;flex-shrink:0;" title="Dismiss">&times;</button>';
 
     toast.querySelector('button').addEventListener('click', function() { dismiss(toast); });
 
