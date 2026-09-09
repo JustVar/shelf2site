@@ -1,0 +1,638 @@
+# Native Dialogs, Track 1: alert() to SxToast
+
+    STATUS:   DRAFT rev 3, not yet committed
+    Written:  2026-09-09
+    Board:    BACKLOG-TRIAGE.md item N7, track 1
+    Taken at: HEAD 160d339, branch main
+    Scope:    102 native alert() call sites across 18 files, converted to
+              SxToast. Tracks 2 to 4 (confirm, prompt, credential display)
+              are named at the end and are NOT specified here.
+    Rev 2:    Totals corrected (warnings are 12, not 11). Ternary census
+              re-run and closed. order_detail.html:960 read and demoted
+              from exception to swap. SxToast availability on the two
+              admin pages confirmed. Four exceptions remain, not five.
+    Rev 3:    show() body READ; guard placement and duration mechanism
+              confirmed. Guard now reports to error_log via the existing
+              reportError pipeline, not console alone. Default strings
+              settled. All owed items closed. Verified by program: the
+              102 site rows and every line number diff clean against the
+              repo at 160d339.
+
+## Why
+
+`docs/specs/customer-order-cancel.md:177-181` bans native browser dialogs
+with three grounded reasons: they are untestable by automation, they are off
+the design system, and they fail silently on a second dismiss. That ruling
+names an in-app modal as the remedy, because its subject was a confirmation.
+
+**This spec extends that ruling to one-way notices.** An `alert()` asks the
+user nothing. It reports. The correct remedy for a report is a toast, not a
+modal, and `SxToast` is the shipped primitive for it (`static/js/toast.js`,
+loaded from `base.html:84` through the `js_v()` cache-busting helper,
+documented at `DESIGN_SYSTEM.md` archetype table, Toast row).
+
+The ban and its reasons are unchanged. Only the remedy differs, and only for
+the notice shape.
+
+## Census
+
+READ at HEAD 160d339, reconciled three ways.
+
+| Measure | Value |
+|---|---|
+| Occurrences, `app/templates/` + `static/js/` | 102 |
+| Occurrences, whole repo | 103 |
+| Files in scope | 18 |
+| Wrapper functions found (`showAlert(`, `.alert(`) | 0 |
+
+Two call forms, cleanly partitioned by file: `window.alert(` is 11 sites and
+all of them are in `c2c.html`. The other 91 sites use bare `alert(`.
+
+**Excluded, 1 site.** `docs/mockups/superdesign/installation_completion.html`
+carries the 103rd occurrence. It is a design mockup, not shipped code.
+`grep -rn 'installation_completion\|superdesign' app/ static/` returns rc 1:
+no route, template or script references it, so it is unreachable and
+converting it would ship nothing. The sibling mockup
+`building_delivery_board.html` carries zero native dialogs of any shape, so
+this exclusion names one file, not the directory.
+
+A future reader greping `alert(` will find this one hit. It survives by
+decision, not by omission.
+
+**SxToast availability confirmed.** Sixteen of the eighteen files are
+templates. The two standalone scripts are loaded by exactly one template
+each, `admin_part_numbers.html:192` and `admin_spreadsheet_sync.html:63`,
+and both templates open with `{% extends "base.html" %}`. `SxToast` is
+therefore defined on every page in scope. This was checked because a script
+loading on a page outside `base.html` would have turned a working alert into
+a silent throw.
+
+## Prerequisite commit: the SxToast message guard
+
+**This lands before the sweep, as its own commit, with its own gate.**
+
+`show(message, type, duration)` at `toast.js:58` already defaults its second
+and third arguments (`type = type || 'info'` at :59, duration at :60). It
+does not default the first.
+
+Fourteen of the 102 sites pass an argument that can be `undefined`, `null`,
+or a non-string:
+
+- Six bare calls in `provisioning.html` (`alert(data.error)`,
+  `alert(err.message)`, lines 1034, 1035, 1044, 1045, 1054, 1055)
+- Two in `warranty.html` (723, 777)
+- `map.html:564` and `:664`, bare `r.error` and `j.error || j.detail`
+- Four others carrying `data.error` with no fallback string
+
+Today these render the literal word `undefined` inside a native dialog. As a
+toast they render an empty or nonsense body, which reads as broken.
+
+**Required behaviour.** In `show`, at line 61, the blank line between the
+existing defaults and `ensureContainer()`. Everything downstream consumes
+`message` exactly once, at :70 via `escapeHtml`, so a guard at 61 covers every
+path.
+
+1. If `message` is `null`, `undefined`, or an empty string after trimming,
+   substitute the type default below.
+2. Otherwise coerce with `String(message)`, so an Error object or a non-string
+   value produces readable text rather than `[object Object]`.
+3. When the fallback fires, do both of the following:
+   - `reportError('SxToast called with empty message, type=' + type,
+     new Error().stack, window.location.pathname, 'warning')`
+   - `console.warn` with the same text.
+
+**Why both.** An empty toast message is **not** a JS error. Nothing throws:
+`escapeHtml(undefined)` assigns the literal word to `textContent` and the toast
+renders reading "undefined". The global handlers at `toast.js:167` and the
+`unhandledrejection` and HTMX capture never see it. The guard is what makes a
+silent condition visible. The console serves whoever is at the screen now; the
+`error_log` row is the durable, filterable record.
+
+**The report lands somewhere real.** `error_routes.py` carries the receiving
+endpoint at :80, a `log_error()` writer at :49, an admin page at
+`error_log_page:207` with 24-hour totals split by frontend and backend source,
+a detail view at :299, and a retention purge at :195.
+
+**Level is `warning`, deliberately.** `MAX_REPORTS = 5` per minute is shared
+across the whole pipeline, so a page firing many empty toasts would consume the
+budget genuine JS errors need. Reporting at warning level keeps these
+filterable and distinguishable from real errors on the admin page.
+
+**`reportError` is declared at :133, below `show` at :58.** Function
+declarations hoist within the IIFE, so the call works. Do not reorder the file
+to "fix" this.
+
+**The guard calls the reporting pipeline; it does not modify it.** The region
+from the "Error capture & reporting" marker at `toast.js:116` to EOF was
+asserted byte-identical during R15 and stays untouched. But the guard is now a
+caller of it, which is why the gate below reads the database rather than the
+console.
+
+**Known gap, accepted.** `reportError` returns early unless the
+`inventory_session` cookie is present (`toast.js:138`). A session that expired
+mid-action fails and also fails to report. Accepted: an expired session is
+self-explanatory and needs no `error_log` row to diagnose. The user-facing side
+of that case is a separate board item, see "Deferred, recorded".
+
+**Default strings.** Plain text only. These land in `innerHTML` at :70 through
+`escapeHtml`, and the surrounding markup at :69 to :71 is assembled by string
+concatenation, so no markup characters and no entities.
+
+| Type | Default |
+|---|---|
+| error | `Request failed. Try again, and tell an admin if it keeps happening.` |
+| success | `Done` |
+| warning | `Something needs attention` |
+| info | `(no message)` |
+
+The error default is the one a real user will hit, and it is **actionable
+rather than neutral**. The guard cannot manufacture a detail the server never
+sent, so the message tells the user what to do instead: retry, and escalate.
+Because the same fallback writes an `error_log` row carrying the URL and
+username, by the time the user reports it the detail is already waiting.
+
+`(no message)` for info is deliberately ugly. No info site in this census
+passes a server value, so an empty info is a coding mistake rather than a data
+state, and it should look like one.
+
+**`@ts-check` is on at `toast.js:1`,** and `show` carries
+`@param {string} message`. The JSDoc must widen when the guard lands, or the
+file starts emitting type errors. The guard is what makes the fourteen call
+sites above contract-legitimate, so this is not cosmetic.
+
+**Gate.** In the browser console, call `SxToast.error(undefined)` and
+`SxToast.error({})`. Each must render readable body text, emit one
+`console.warn`, and **produce one `warning`-level frontend row in `error_log`
+carrying the stack** (read on the admin error page or by SQL).
+`SxToast.error('real message')` must produce none of the three. This gate can
+fail: a guard that warns but does not report passes the console check and fails
+the database check.
+
+## Rule 1: duration
+
+`show` already defaults duration to 6000ms for `error` and 4000ms for every
+other type, and `if (duration > 0)` at `toast.js:84` registers no timeout when
+duration is 0. Both READ, not assumed. **Auto-dismiss is therefore the default and the sweep writes
+nothing for it.** Only sticky sites pass an explicit `0`.
+
+> **Sticky (`duration: 0`) when the message carries information the user
+> cannot reconstruct after it fades: a server-supplied error detail, or a
+> scan result. Auto-dismiss otherwise.**
+
+Applied across the census this yields **75 sticky, 27 auto-dismiss**. The
+rule discriminates rather than rubber-stamping, but errors interpolating a
+server value dominate this codebase, so the sticky share is high and that is
+correct.
+
+This rule is cheap to revise. It lives in this paragraph plus one column of
+the site table, so changing it means editing a table, not re-reading 102
+sites.
+
+## Rule 2: reload-adjacent sites
+
+Native `alert()` **blocks**. The browser halts until the user dismisses it,
+so any statement after the alert waits. `SxToast` does not block. A toast
+followed by a page load is destroyed before it can be read.
+
+> **Where an `alert` is followed by `location.reload()` or a `location.href`
+> assignment in the same branch, the toast is not a drop-in.** Either defer
+> the navigation until after the toast, or drop the reload where the toast
+> plus existing DOM already tells the story. Each such site is named in the
+> exception list and is out of the mechanical sweep.
+
+Censused two ways: same-line pairs by grep, then a five-line window after
+every `alert(` with each candidate block read in full. **Two sites qualify.**
+Both are success messages and both are already sticky under Rule 1.
+
+Three near-misses were read and cleared, and they are recorded so the census
+is not re-run:
+
+- `c2c.html:406` and `:415`. Reload and alert are in **opposite branches** of
+  an if/else. They never both run.
+- `fulfillment.html:2809` and `:3005`. Both sit inside
+  `if (!res.ok) { ... return; }`; the returns are at :2810 and :3007. The
+  reload is unreachable when the alert fires.
+- `decommissioned.html:82` and `item_detail.html:883`. Same guard-and-return
+  shape.
+
+## Rule 3: convert, do not add
+
+Track 1 converts existing notifications. **It does not add missing ones, and
+it does not change where an existing one is displayed.**
+
+`provisioning_detail.html:800` is the clearest case: that function tells the
+user when it fails and says nothing when it succeeds. Adding a success toast
+would be an improvement and it is out of scope.
+
+The second half of the rule is load-bearing at `order_detail.html:960`. See
+"Recorded, not resolved" below. Without this rule the sweep quietly becomes a
+UX redesign and its diff stops being reviewable.
+
+## Rule 4: ternaries
+
+**A ternary that selects between messages of different types is a split, not
+a swap.** A toast call takes its type as an argument, so one call cannot be
+two types. Such a site becomes an if/else with two toast calls.
+
+**A ternary inside a message string is a swap.** It selects text, not type.
+
+Censused with `grep -rn "alert([^;]*?[^;]*:"`, rc 0, two hits, both read:
+
+- `vendors.html:364` selects between an info message and a success message.
+  **Split.** See Exception 2.
+- `fulfillment.html:3214` carries `${data.location ? ' at ' + data.location :
+  ''}` inside a template literal. The type is `success` either way. **Swap.**
+
+**Residual.** That grep is line-scoped and `fulfillment.html:3214` proves
+multi-line `alert(` calls exist here. A ternary spanning two lines would not
+have matched. The earlier five-line-window reads surfaced no other
+continuation lines, so the population is believed empty, but it is not
+proven empty.
+
+## The four exceptions
+
+Every other site is a mechanical substitution. These four are not, and each
+needs a named decision before it is touched.
+
+**1. `site_detail.html:472`, reload hazard.**
+`if (data.geocoded) { alert('Pinned at ' + lat + ', ' + lng); location.reload(); }`
+Success, sticky, carries coordinates the user cannot recover. Rule 2 applies.
+Its else branch at :473 is an instructional warning ("Set the pin manually on
+the map (Fix flow), or correct the address") and converts normally, sticky.
+The two branches ship together.
+
+**2. `vendors.html:364`, reload hazard AND a ternary split.**
+```
+alert(count === 0 ? 'All vendors already have profiles.'
+                  : `Created ${count} new profile${count !== 1 ? 's' : ''}.`);
+location.reload();
+```
+One call, two messages, two types. `count === 0` is **info** and its reload is
+pointless. `count > 0` is **success** and is the only confirmation the user
+gets that the seed did anything. Splits into an if/else under Rule 4. Rule 2
+applies to the success branch.
+
+**3. `admin-spreadsheet-sync.js:172`, multi-line message.**
+```
+alert(`Success!\n${added} added, ${updated} updated, ${skipped} skipped`)
+```
+Native `alert` renders the newline. The toast will not: `escapeHtml`
+(`toast.js:99-103`) sets `textContent` and reads back `innerHTML`, and the
+container at `toast.js:30` sets no `white-space` override, so HTML collapses
+the newline to a space. It renders as one line. **Accepted.** Success, sticky
+under Rule 1 (the counts are unreconstructable). This is Casey's spreadsheet
+import path.
+
+**4. `map.html:564`, bare variable inside a then-chain.**
+`.then(function (r) { if (r && r.error) alert(r.error); else reloadData(); });`
+The runtime type of `r.error` is **UNREAD**. Covered by the prerequisite
+guard's coercion clause, but read it before converting so the message text is
+known to be sensible. Note the else branch calls `reloadData()`, not a page
+reload, so Rule 2 does not apply.
+
+**Demoted in rev 2.** `order_detail.html:960` was Exception 4 in rev 1 on the
+grounds that `err`'s type was unknown. Read at :950/:951: `err` comes from
+`await putSkuLines(lines)` and the sibling function assigns it directly to
+`errEl.textContent`, so it is a string or falsy. It is a plain swap, error,
+sticky.
+
+## Recorded, not resolved: the error-shape divergence
+
+`order_detail.html` calls `putSkuLines` twice, two functions apart, and
+handles the returned error two different ways:
+
+- `addSkuLine` at :951 writes it into an inline `errEl` element
+- `removeSkuLine` at :960 fires a native `alert`
+
+This is board item 5, "two error-shape conventions", appearing inside one
+file. **Track 1 converts :960 to a toast as specced.** The divergence stands
+and becomes more visible, because one function will show inline text and its
+sibling a toast.
+
+That is deliberate. Deciding where an error message belongs is a convention
+question, not a mechanical one, and settling it inside a conversion sweep is
+exactly what Rule 3 forbids. **A separate board item carries the real fix:**
+choose the rule (proposed: inline when the user is mid-form and can correct
+it in place, toast when the operation is over), write it into
+`DESIGN_SYSTEM.md` next to the Toast archetype row, and close item 5. That
+work needs a census of the inline-error sites this sweep never touches, and
+it is not a same-session add-on with track 1.
+
+## Site table
+
+Type and duration for all 102 sites. `auto` means pass no duration argument.
+
+### app/templates/fulfillment.html, 26 sites
+
+| Line | Type | Duration |
+|---|---|---|
+| 1938 | error | 0 |
+| 1943 | error | auto |
+| 2019 | error | 0 |
+| 2248 | error | 0 |
+| 2728 | warning | auto |
+| 2729 | warning | auto |
+| 2730 | warning | auto |
+| 2786 | error | 0 |
+| 2795 | error | auto |
+| 2809 | error | 0 |
+| 2815 | error | auto |
+| 2882 | warning | auto |
+| 2921 | warning | auto |
+| 2937 | error | 0 |
+| 2945 | error | auto |
+| 2980 | error | 0 |
+| 2989 | error | auto |
+| 3005 | error | 0 |
+| 3012 | error | auto |
+| 3111 | error | 0 |
+| 3126 | error | 0 |
+| 3206 | error | 0 |
+| 3214 | success | 0 |
+| 3218 | info | 0 |
+| 3391 | error | 0 |
+| 3402 | error | auto |
+
+Five warnings in this file: 2728, 2729, 2730, 2882, 2921. All are
+`if (!x) { alert(...); return; }` validation guards.
+
+3214 is a multi-line call: the string continues past the line with a `+`.
+3214 and 3218 are the barcode scanner result and miss. The user is holding a
+scanner and looking at hardware, not the screen, which is why both are sticky.
+
+### app/templates/c2c.html, 11 sites
+
+All eleven use the `window.alert(` form.
+
+| Line | Type | Duration |
+|---|---|---|
+| 289 | error | auto |
+| 336 | warning | auto |
+| 343 | error | 0 |
+| 345 | error | auto |
+| 353 | error | 0 |
+| 355 | error | auto |
+| 401 | warning | auto |
+| 406 | error | 0 |
+| 407 | error | auto |
+| 415 | error | 0 |
+| 416 | error | auto |
+
+Four then/catch pairs (343/345, 353/355, 406/407, 415/416). **Convert both
+halves of each pair or the error handling goes inconsistent inside one
+function.** Pair integrity is why this file is its own commit.
+
+### app/templates/vendors.html, 9 sites
+
+| Line | Type | Duration |
+|---|---|---|
+| 314 | error | 0 |
+| 315 | error | 0 |
+| 342 | error | 0 |
+| 343 | error | 0 |
+| 353 | error | 0 |
+| 354 | error | 0 |
+| 364 | EXCEPTION 2 | see above |
+| 366 | error | 0 |
+| 367 | error | 0 |
+
+### app/templates/provisioning_detail.html, 9 sites
+
+All error, all sticky: 658, 659, 668, 669, 678, 679, 714, 715, 800.
+
+800 is a lone catch whose success path notifies nothing. See Rule 3.
+
+### app/templates/provisioning.html, 8 sites
+
+All error, all sticky: 1034, 1035, 1044, 1045, 1054, 1055, 1214, 1217.
+
+**Six of the eight have no fallback string** (1034, 1035, 1044, 1045, 1054,
+1055). They depend on the prerequisite guard.
+
+### app/templates/site_detail.html, 6 sites
+
+| Line | Type | Duration |
+|---|---|---|
+| 389 | error | 0 |
+| 391 | error | 0 |
+| 401 | error | 0 |
+| 403 | error | 0 |
+| 472 | EXCEPTION 1 | 0 |
+| 473 | warning | 0 |
+
+### app/templates/support.html, 4 sites
+
+All error, all sticky: 146, 149, 169, 172.
+
+### app/templates/receive.html, 4 sites
+
+All error, all sticky: 1003, 1297, 1325, 1376.
+
+**The strongest-worded messages in the app.** 1003 "Photo NOT saved", 1297
+"the device was NOT submitted", 1376 "the device may not have been saved.
+Check the inventory before retrying." This is a receiving workflow: someone
+at a bench with hardware in hand. 1376 instructs the user to go verify
+something.
+
+1297 and 1376 contain em dashes. See the transport note.
+
+### app/templates/order_detail.html, 4 sites
+
+| Line | Type | Duration |
+|---|---|---|
+| 732 | error | 0 |
+| 793 | error | 0 |
+| 822 | error | auto |
+| 960 | error | 0 |
+
+960 was an exception in rev 1 and is now a swap. See "Recorded, not
+resolved" for the divergence it sits inside.
+
+### app/templates/item_detail.html, 4 sites
+
+| Line | Type | Duration |
+|---|---|---|
+| 862 | warning | auto |
+| 871 | warning | auto |
+| 883 | error | 0 |
+| 886 | error | auto |
+
+862 and 871 are identical "A reason is required." guards.
+
+### static/js/admin-spreadsheet-sync.js, 3 sites
+
+| Line | Type | Duration |
+|---|---|---|
+| 12 | warning | auto |
+| 172 | EXCEPTION 3 | 0 |
+| 177 | error | 0 |
+
+### app/templates/decommissioned.html, 3 sites
+
+| Line | Type | Duration |
+|---|---|---|
+| 73 | warning | auto |
+| 82 | error | 0 |
+| 85 | error | auto |
+
+### Remaining files, 11 sites
+
+| File | Line | Type | Duration |
+|---|---|---|---|
+| warranty.html | 723 | error | 0 |
+| warranty.html | 777 | error | 0 |
+| vendor_detail_profile.html | 392 | error | 0 |
+| vendor_detail_profile.html | 393 | error | 0 |
+| sites.html | 287 | error | 0 |
+| sites.html | 290 | error | 0 |
+| pilots_due_back.html | 74 | error | 0 |
+| pilots_due_back.html | 76 | error | auto |
+| map.html | 564 | EXCEPTION 4 | 0 |
+| map.html | 664 | error | 0 |
+| admin-part-numbers.js | 118 | error | 0 |
+
+`warranty.html:723` and `:777` are bare `alert(err.message)` with no
+fallback. Guard dependency.
+
+## Totals
+
+| Type | Sites |
+|---|---|
+| error | 85 |
+| warning | 12 |
+| success | 4 |
+| info | 2 |
+| **Total type assignments** | **103** |
+
+**103 = 102 distinct sites + 1**, because `vendors.html:364` is one call site
+that becomes two toasts of different types under Rule 4. It is counted once
+in success and once in info.
+
+The per-file tables sum to 102 (26+11+9+9+8+6+4+4+4+4+3+3+11). Gate 1 asserts
+a 102 to 0 delta on occurrences, which is unaffected by the split.
+
+Rev 1 recorded warnings as 11 and the total as 102, which could not hold
+alongside a split. `fulfillment.html` carries five warnings, not four.
+
+## Gates
+
+Line numbers drift. **Re-read every anchor immediately before editing.** The
+numbers in this table were READ at HEAD 160d339 and are stale the moment any
+commit touches these files.
+
+1. **Count.** `grep -ro 'alert(' app/templates/ static/js/ | wc -l` returns
+   102 before, 0 after. Assert the delta, not the absolute.
+2. **The excluded mockup stays.** Whole-repo count goes 103 to 1.
+3. **Jinja parse** on all 16 templates.
+4. **Browser console clean** after a fresh reload on each page touched.
+5. **Per-type render.** At least one site of each of the four types
+   triggered live and observed. The four barcode and geocode sites
+   (`fulfillment.html:3214/3218`, `site_detail.html:472/473`) cover success,
+   info and warning between them.
+6. **Both reload hazards observed.** The toast must be readable before the
+   page moves. This gate can fail: convert 472 naively and the toast is
+   destroyed within a frame, which is visible.
+7. **Suite** predicted before the run. These are template and JS changes with
+   no Python, so the expectation is 906 passed / 39 skipped unchanged. The
+   suite does not cover this work; it is a tripwire, not a proof.
+
+## Transport
+
+Generalising from three failures this session: **the local SSH heredoc
+collapses `\n` escapes inside Python string literals and mangles em dashes
+and other non-ASCII.** Checksums prove transport, not validity.
+
+> **Use base64-over-stdin with sha256 at both ends, then `ast.parse` on the
+> remote copy, for any generated script carrying escape sequences or
+> non-ASCII characters.**
+
+A 102-site sweep hits both hazards: `receive.html:1297/1376` carry em dashes,
+`admin-spreadsheet-sync.js:172` carries a literal `\n` in a template literal,
+and `vendors.html:358` (track 2) carries an escaped apostrophe and an em dash
+together.
+
+## Sweep discipline
+
+- The diff should be 98 near-identical substitutions plus four named
+  exceptions plus the guard commit. **Any line that does not look like the
+  others is a flag.** Preserving that property is why Rules 3 and 4 exist.
+- Account for every remaining `alert(` hit by name before declaring the sweep
+  complete.
+- Slice by file. **`fulfillment.html`** at 26 sites is a quarter of the work
+  and is its own commit. **`c2c.html`** is its own commit for pair integrity,
+  not for size.
+
+## Owed before the sweep starts
+
+**Nothing.** Every input is READ.
+
+**Closed in rev 2:** the ternary census (re-run, rc 0, two hits, one split);
+`order_detail.html:960`'s `err` type (string or falsy, demoted to a swap);
+SxToast availability on the two admin pages (both extend `base.html`).
+
+**Closed in rev 3:** the `show` body (`toast.js:58-98`), settling guard
+placement, the duration mechanism, and the fact that an empty message renders
+rather than throws; the four default strings; the admin error page
+(`error_routes.py:207`), which is what makes the tripwire durable.
+
+**Verified by program at HEAD 160d339.** The site tables parse to 102 rows;
+type assignments resolve to 85 error, 12 warning, 4 success, 2 info, summing
+to 103 with the one split; and every `file:line` in the spec diffs clean
+against `grep -rn 'alert(' app/templates/ static/js/` with rc 0.
+
+## Deferred, recorded
+
+Three items surfaced by this spec that are **not** track 1 work. Each is on the
+board; none is a same-session add-on.
+
+**Item 5, the error-shape convention.** See "Recorded, not resolved" above.
+
+**Endpoint error-message audit.** Fourteen sites pass a server value with no
+fallback string, which is why the guard exists. Whether those endpoints ever
+actually omit a message is **UNREAD**. The `data.error || 'Failed to save'`
+pattern at most other sites suggests whoever wrote them expected omission, but
+that is inference. **The guard is the cheap way to find out:** if no
+`error_log` row ever appears, the problem does not exist and nothing was spent.
+If rows appear, they name the endpoint.
+
+**Session-expiry response shape.** When a session expires mid-action, what the
+fetch receives is **UNREAD**. If the API answers with an HTML login redirect,
+`await res.json()` throws and the user sees a JSON parse error for a mundane
+event. Same family as the audit above and settled by the same read of a few
+routes; size them together.
+
+## Riders
+
+**Cache-busting on `admin-spreadsheet-sync.js`.**
+`admin_spreadsheet_sync.html:63` loads it with a bare `src` and no `js_v()`
+helper, unlike `admin-part-numbers.js` at `admin_part_numbers.html:192` and
+unlike `toast.js` at `base.html:84`. The sweep edits this file, and a stale
+cached copy would make the conversion look like it silently failed. Rides the
+commit that touches it. Related to R17.
+
+## Tracks 2 to 4, named not specified
+
+Blocked on board item 9: **there is no shared modal JS helper and no modal
+archetype.** Four competing modal class families exist in `fl-restyle.css`
+and every open/close function is defined inline per template. A
+value-returning modal API has to exist before any of these can be specified.
+
+- **Track 2: `confirm(`, 31 sites.** 29 follow a uniform
+  `if (!confirm('...')) return;` shape. `guide.js:810` fires a confirm from
+  inside an already-open in-app modal, which is a stacking case.
+- **Track 3: `prompt(`, 8 occurrences, 6 real sites.**
+- **Track 4: `admin-users-v2.js:642`,** which uses `prompt()` as a credential
+  display box. Unique; needs its own decision.
+
+Three notes carried forward from this census:
+
+- `vendors.html:358` is a track 2 confirm containing an escaped apostrophe
+  and an em dash. See the transport note.
+- `order_detail.html:957` is a track 2 confirm containing a non-ASCII
+  multiplication glyph, in the same function as track 1 site :960.
+- `c2c.html:401` is a track 1 warning sitting inside a function that a track
+  2 prompt conversion will rewrite. Not a blocker, but the two tracks meet
+  here.
+
+Precedent for a multi-slice spec of this shape:
+`docs/specs/fl-tail-slices-complete-coverage.md`.
