@@ -1,7 +1,7 @@
 # Native Dialogs, Track 1: alert() to SxToast
 
-    STATUS:   rev 4, committed
-    Written:  2026-09-09, rev 4 on 2026-09-10
+    STATUS:   rev 5, committed
+    Written:  2026-09-09, rev 4 and rev 5 on 2026-09-10
     Board:    BACKLOG-TRIAGE.md item N7, track 1
     Taken at: HEAD 160d339, branch main
     Scope:    102 native alert() call sites across 18 files, converted to
@@ -21,6 +21,12 @@
               reportError removed, frontend reporting live. Two paragraphs
               rewritten, stale toast.js anchors stripped, the endpoint
               audit plan restored, a wrong date fixed.
+    Rev 5:    Exception 2 decided: the success half carries across the
+              reload via the ?toast= parameter, the count-0 half drops
+              its reload. Rule 2 gains that third option. Stale
+              toast.js line anchors stripped to names.
+              provisioning_detail.html:800 corrected. Gates 2 and 6
+              restated.
 
 ## Why
 
@@ -75,8 +81,8 @@ a silent throw.
 
 **This lands before the sweep, as its own commit, with its own gate.**
 
-`show(message, type, duration)` at `toast.js:58` already defaults its second
-and third arguments (`type = type || 'info'` at :59, duration at :60). It
+`show(message, type, duration)` in `toast.js` already defaults its second
+and third arguments (`type = type || 'info'`, then duration). It
 does not default the first.
 
 Fourteen of the 102 sites pass an argument that can be `undefined`, `null`,
@@ -91,10 +97,9 @@ or a non-string:
 Today these render the literal word `undefined` inside a native dialog. As a
 toast they render an empty or nonsense body, which reads as broken.
 
-**Required behaviour.** In `show`, at line 61, the blank line between the
-existing defaults and `ensureContainer()`. Everything downstream consumes
-`message` exactly once, at :70 via `escapeHtml`, so a guard at 61 covers every
-path.
+**Required behaviour.** In `show`, between the existing defaults and
+`ensureContainer()`. Everything downstream consumes `message` exactly once,
+via `escapeHtml`, so a guard at that point covers every path.
 
 1. If `message` is `null`, `undefined`, or an empty string after trimming,
    substitute the type default below.
@@ -108,7 +113,7 @@ path.
 
 **Why both.** An empty toast message is **not** a JS error. Nothing throws:
 `escapeHtml(undefined)` assigns the literal word to `textContent` and the toast
-renders reading "undefined". The global handlers at `toast.js:167` and the
+renders reading "undefined". The global handlers in `toast.js` and the
 `unhandledrejection` and HTMX capture never see it. The guard is what makes a
 silent condition visible. The console serves whoever is at the screen now; the
 `error_log` row is the durable, filterable record.
@@ -148,8 +153,8 @@ fix. The check was removed, not replaced. The endpoint authenticates via
 to it, a logged-out beacon gets a JSON 401 that no handler logs, and the
 login page does not load `toast.js`.
 
-**Default strings.** Plain text only. These land in `innerHTML` at :70 through
-`escapeHtml`, and the surrounding markup at :69 to :71 is assembled by string
+**Default strings.** Plain text only. These land in `innerHTML` through
+`escapeHtml`, and the surrounding markup is assembled by string
 concatenation, so no markup characters and no entities.
 
 | Type | Default |
@@ -192,7 +197,7 @@ fallback, and no frontend row can be written at all. See "Known gap" above.
 ## Rule 1: duration
 
 `show` already defaults duration to 6000ms for `error` and 4000ms for every
-other type, and `if (duration > 0)` at `toast.js:84` registers no timeout when
+other type, and `if (duration > 0)` in `show` registers no timeout when
 duration is 0. Both READ, not assumed. **Auto-dismiss is therefore the default and the sweep writes
 nothing for it.** Only sticky sites pass an explicit `0`.
 
@@ -204,6 +209,11 @@ Applied across the census this yields **75 sticky, 27 auto-dismiss**. The
 rule discriminates rather than rubber-stamping, but errors interpolating a
 server value dominate this codebase, so the sticky share is high and that is
 correct.
+
+**Rev 5.** Exception 2's success half is now auto-dismiss (see Exception 2).
+The 75 and 27 above were not re-derived for that change. They sum to 102
+while the type assignments total 103, so how `vendors.html:364` was counted
+is not recorded here.
 
 This rule is cheap to revise. It lives in this paragraph plus one column of
 the site table, so changing it means editing a table, not re-reading 102
@@ -221,9 +231,22 @@ followed by a page load is destroyed before it can be read.
 > plus existing DOM already tells the story. Each such site is named in the
 > exception list and is out of the mechanical sweep.
 
+**Rev 5 adds a third option:** where the navigation is what shows the result
+and the message is a success, carry it across with the `?toast=` parameter.
+See Exception 2.
+
 Censused two ways: same-line pairs by grep, then a five-line window after
 every `alert(` with each candidate block read in full. **Two sites qualify.**
 Both are success messages and both are already sticky under Rule 1.
+
+**Rev 5.** Exception 2's success half no longer shows its toast before the
+navigation; it carries the message across it (see Exception 2).
+
+**Window residual.** A comment of five lines or more after an `alert(` fills
+the window, so a reload after it would not be seen. `fulfillment.html:3391`
+has a five-line comment after its toast. It was read in full and cleared:
+its reload is `pkLoad()`, a modal list refresh, and the branch returns
+before the page reload. The census itself was not re-run.
 
 Three near-misses were read and cleared, and they are recorded so the census
 is not re-run:
@@ -241,9 +264,11 @@ is not re-run:
 Track 1 converts existing notifications. **It does not add missing ones, and
 it does not change where an existing one is displayed.**
 
-`provisioning_detail.html:800` is the clearest case: that function tells the
-user when it fails and says nothing when it succeeds. Adding a success toast
-would be an improvement and it is out of scope.
+`provisioning_detail.html:800` is the clearest case. Its catch reports only
+thrown errors (a network failure, or a success response whose body is not
+JSON). An HTTP error status is silent, because the function has no else
+branch. Success updates the watch button and shows no message. Adding the
+missing notifications would be an improvement and it is out of scope.
 
 The second half of the rule is load-bearing at `order_detail.html:960`. See
 "Recorded, not resolved" below. Without this rule the sweep quietly becomes a
@@ -293,13 +318,35 @@ pointless. `count > 0` is **success** and is the only confirmation the user
 gets that the seed did anything. Splits into an if/else under Rule 4. Rule 2
 applies to the success branch.
 
+**Decided in rev 5 (2026-09-10): carry the success message across the
+reload.** The page's two lists are server-rendered (Jinja loops over
+`profiles` and `unlinked_vendors`) and no JS reloads them, so the reload is
+what shows the result. Dropping it leaves the unlinked list naming vendors
+that now have profiles. Deferring it destroys the toast.
+
+- `count === 0`: `SxToast.info`, auto-dismiss, reload dropped. Nothing
+  changed, so the existing page already tells the story.
+- `count > 0`: set the `toast` query parameter with `URLSearchParams`
+  (existing parameters survive, as they do under `location.reload()`) and
+  navigate. The `?toast=` handler in `base.html` renders a success toast at
+  the default duration and strips the parameter.
+
+Auto-dismiss, not sticky, for the success half. After the reload the new
+profiles are on screen, and the endpoint is admin-only and writes the count
+and the first ten names to the audit log, so Rule 1's test for sticky is not
+met. The limit: the screen does not mark which profiles are new.
+
+The handler hardcodes `SxToast.success`. Correct here, wrong for most of its
+22 server-side callers, which pass failures. Board item N10, outside this
+track.
+
 **3. `admin-spreadsheet-sync.js:172`, multi-line message.**
 ```
 alert(`Success!\n${added} added, ${updated} updated, ${skipped} skipped`)
 ```
 Native `alert` renders the newline. The toast will not: `escapeHtml`
-(`toast.js:99-103`) sets `textContent` and reads back `innerHTML`, and the
-container at `toast.js:30` sets no `white-space` override, so HTML collapses
+(in `toast.js`) sets `textContent` and reads back `innerHTML`, and the
+container it builds sets no `white-space` override, so HTML collapses
 the newline to a space. It renders as one line. **Accepted.** Success, sticky
 under Rule 1 (the counts are unreconstructable). This is Casey's spreadsheet
 import path.
@@ -413,7 +460,7 @@ function.** Pair integrity is why this file is its own commit.
 | 343 | error | 0 |
 | 353 | error | 0 |
 | 354 | error | 0 |
-| 364 | EXCEPTION 2 | see above |
+| 364 | EXCEPTION 2: info, or success via ?toast= | auto, see above |
 | 366 | error | 0 |
 | 367 | error | 0 |
 
@@ -421,7 +468,7 @@ function.** Pair integrity is why this file is its own commit.
 
 All error, all sticky: 658, 659, 668, 669, 678, 679, 714, 715, 800.
 
-800 is a lone catch whose success path notifies nothing. See Rule 3.
+800 is a lone catch: HTTP failures and success show no message. See Rule 3.
 
 ### app/templates/provisioning.html, 8 sites
 
@@ -543,16 +590,21 @@ commit touches these files.
 
 1. **Count.** `grep -ro 'alert(' app/templates/ static/js/ | wc -l` returns
    102 before, 0 after. Assert the delta, not the absolute.
-2. **The excluded mockup stays.** Whole-repo count goes 103 to 1.
+2. **The excluded mockup stays.** The `alert(` count in
+   `docs/mockups/superdesign/installation_completion.html` is 1 before and
+   after. A whole-repo count cannot serve, because this spec quotes
+   `alert(` itself.
 3. **Jinja parse** on all 16 templates.
 4. **Browser console clean** after a fresh reload on each page touched.
 5. **Per-type render.** At least one site of each of the four types
    triggered live and observed. The four barcode and geocode sites
    (`fulfillment.html:3214/3218`, `site_detail.html:472/473`) cover success,
    info and warning between them.
-6. **Both reload hazards observed.** The toast must be readable before the
-   page moves. This gate can fail: convert 472 naively and the toast is
-   destroyed within a frame, which is visible.
+6. **Both reload hazards observed.** Exception 1: the toast must be readable
+   before the page moves. This gate can fail: convert 472 naively and the
+   toast is destroyed within a frame, which is visible. Exception 2: the
+   success toast renders on the reloaded page and no `toast` parameter is
+   left in the URL.
 7. **Suite** predicted before the run. These are template and JS changes with
    no Python, so the expectation is 906 passed / 39 skipped unchanged. The
    suite does not cover this work; it is a tripwire, not a proof.
