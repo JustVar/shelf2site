@@ -655,8 +655,8 @@ async function advanceStage(id) {
         const resp = await fetch(`${BP}/api/provisioning/${id}/advance`, {method: 'POST'});
         const data = await resp.json();
         if (resp.ok) { location.reload(); }
-        else { alert(data.error || 'Failed to advance stage'); }
-    } catch (err) { alert('Error: ' + err.message); }
+        else { SxToast.error(data.error || 'Failed to advance stage', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 async function revertStage(id) {
@@ -665,8 +665,8 @@ async function revertStage(id) {
         const resp = await fetch(`${BP}/api/provisioning/${id}/revert`, {method: 'POST'});
         const data = await resp.json();
         if (resp.ok) { location.reload(); }
-        else { alert(data.error || 'Failed to revert stage'); }
-    } catch (err) { alert('Error: ' + err.message); }
+        else { SxToast.error(data.error || 'Failed to revert stage', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 async function deleteProvisioning(id) {
@@ -675,8 +675,8 @@ async function deleteProvisioning(id) {
         const resp = await fetch(`${BP}/api/provisioning/${id}`, {method: 'DELETE'});
         const data = await resp.json();
         if (resp.ok) { window.location.href = `${BP}/provisioning/`; }
-        else { alert(data.error || 'Failed to delete'); }
-    } catch (err) { alert('Error: ' + err.message); }
+        else { SxToast.error(data.error || 'Failed to delete', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 function toggleEditMode() {
@@ -711,8 +711,8 @@ async function saveMetadata(e) {
         });
         const data = await resp.json();
         if (resp.ok) { location.reload(); }
-        else { alert(data.error || 'Failed to save'); }
-    } catch (err) { alert('Error: ' + err.message); }
+        else { SxToast.error(data.error || 'Failed to save', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 async function loadZendeskTicket(ticketId) {
@@ -797,7 +797,7 @@ async function toggleWatch() {
             _watchSubId = data.sub_id || null;
             updateWatchBtn();
         }
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
