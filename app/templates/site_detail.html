@@ -386,9 +386,9 @@ async function returnDevice(assignmentId) {
         if (resp.ok) location.reload();
         else {
             const data = await resp.json();
-            alert(data.error || 'Failed to return device');
+            SxToast.error(data.error || 'Failed to return device', 0);
         }
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 async function deleteAssignment(assignmentId) {
@@ -398,9 +398,9 @@ async function deleteAssignment(assignmentId) {
         if (resp.ok) location.reload();
         else {
             const data = await resp.json();
-            alert(data.error || 'Failed to delete');
+            SxToast.error(data.error || 'Failed to delete', 0);
         }
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 // -- Edit Site Modal --
@@ -469,8 +469,12 @@ async function saveEditSite() {
 async function retryGeocode() {
     const resp = await fetch(BP + '/api/sites/' + SITE_ID + '/geocode', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
     const data = await resp.json();
-    if (data.geocoded) { alert('Pinned at ' + data.lat.toFixed(4) + ', ' + data.lng.toFixed(4)); location.reload(); }
-    else { alert('Still could not locate this address. Set the pin manually on the map (Fix flow), or correct the address.'); }
+    if (data.geocoded) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('toast', 'Pinned at ' + data.lat.toFixed(4) + ', ' + data.lng.toFixed(4));
+        window.location.search = params.toString();
+    }
+    else { SxToast.warning('Still could not locate this address. Set the pin manually on the map (Fix flow), or correct the address.', 0); }
 }
 
 // Escalate lock on edit site input
