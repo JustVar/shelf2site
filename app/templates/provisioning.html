@@ -1031,8 +1031,8 @@
             const resp = await fetch(`${BP}/api/provisioning/${id}/advance`, {method: 'POST'});
             const data = await resp.json();
             if (resp.ok) { location.reload(); }
-            else { alert(data.error); }
-        } catch (err) { alert(err.message); }
+            else { SxToast.error(data.error, 0); }
+        } catch (err) { SxToast.error(err.message, 0); }
     }
 
     async function revertStage(id) {
@@ -1041,8 +1041,8 @@
             const resp = await fetch(`${BP}/api/provisioning/${id}/revert`, {method: 'POST'});
             const data = await resp.json();
             if (resp.ok) { location.reload(); }
-            else { alert(data.error); }
-        } catch (err) { alert(err.message); }
+            else { SxToast.error(data.error, 0); }
+        } catch (err) { SxToast.error(err.message, 0); }
     }
 
     async function deleteProvisioning(id) {
@@ -1051,8 +1051,8 @@
             const resp = await fetch(`${BP}/api/provisioning/${id}`, {method: 'DELETE'});
             const data = await resp.json();
             if (resp.ok) { location.reload(); }
-            else { alert(data.error); }
-        } catch (err) { alert(err.message); }
+            else { SxToast.error(data.error, 0); }
+        } catch (err) { SxToast.error(err.message, 0); }
     }
 
     // -----------------------------------------------------------------------
@@ -1211,10 +1211,10 @@
                 loadBoardView(); // Refresh board
             } else {
                 const data = await resp.json();
-                alert(data.error || 'Failed to move card');
+                SxToast.error(data.error || 'Failed to move card', 0);
             }
         } catch (err) {
-            alert('Error: ' + err.message);
+            SxToast.error('Error: ' + err.message, 0);
         }
     }
 
