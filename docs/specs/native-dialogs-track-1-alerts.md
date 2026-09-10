@@ -1,7 +1,7 @@
 # Native Dialogs, Track 1: alert() to SxToast
 
-    STATUS:   rev 5, committed
-    Written:  2026-09-09, rev 4 and rev 5 on 2026-09-10
+    STATUS:   rev 6, committed
+    Written:  2026-09-09, rev 4 to rev 6 on 2026-09-10
     Board:    BACKLOG-TRIAGE.md item N7, track 1
     Taken at: HEAD 160d339, branch main
     Scope:    102 native alert() call sites across 18 files, converted to
@@ -27,6 +27,11 @@
               toast.js line anchors stripped to names.
               provisioning_detail.html:800 corrected. Gates 2 and 6
               restated.
+    Rev 6:    Exception 1 decided: the success message carries across the
+              reload via the ?toast= parameter, auto-dismiss. Its "cannot
+              recover" claim was false: the endpoint saves the coordinates
+              and the page prints them. Gate 6 restated. Rule 1 and Rule 2
+              notes added; Rule 2's stale "already sticky" corrected.
 
 ## Why
 
@@ -215,6 +220,9 @@ The 75 and 27 above were not re-derived for that change. They sum to 102
 while the type assignments total 103, so how `vendors.html:364` was counted
 is not recorded here.
 
+**Rev 6.** `site_detail.html:472` is now auto-dismiss too (see Exception 1).
+The 75 and 27 were not re-derived for this change either.
+
 This rule is cheap to revise. It lives in this paragraph plus one column of
 the site table, so changing it means editing a table, not re-reading 102
 sites.
@@ -237,10 +245,14 @@ See Exception 2.
 
 Censused two ways: same-line pairs by grep, then a five-line window after
 every `alert(` with each candidate block read in full. **Two sites qualify.**
-Both are success messages and both are already sticky under Rule 1.
+Both are success messages. Both were sticky under Rule 1 until rev 5 and
+rev 6 moved them to auto-dismiss.
 
 **Rev 5.** Exception 2's success half no longer shows its toast before the
 navigation; it carries the message across it (see Exception 2).
+
+**Rev 6.** Exception 1 takes the same third option. Both Rule 2 sites now
+carry their success message across the navigation.
 
 **Window residual.** A comment of five lines or more after an `alert(` fills
 the window, so a reload after it would not be seen. `fulfillment.html:3391`
@@ -301,11 +313,30 @@ Every other site is a mechanical substitution. These four are not, and each
 needs a named decision before it is touched.
 
 **1. `site_detail.html:472`, reload hazard.**
-`if (data.geocoded) { alert('Pinned at ' + lat + ', ' + lng); location.reload(); }`
-Success, sticky, carries coordinates the user cannot recover. Rule 2 applies.
-Its else branch at :473 is an instructional warning ("Set the pin manually on
-the map (Fix flow), or correct the address") and converts normally, sticky.
-The two branches ship together.
+`if (data.geocoded) { alert('Pinned at ' + data.lat.toFixed(4) + ', ' + data.lng.toFixed(4)); location.reload(); }`
+Success. Rule 2 applies. Its else branch at :473 is an instructional warning
+("Set the pin manually on the map (Fix flow), or correct the address") and
+converts normally, sticky. The two branches ship together.
+
+**Decided in rev 6 (2026-09-10): carry the success message across the
+reload, auto-dismiss.** Rev 5 and earlier called this site sticky because
+the coordinates could not be recovered. That was false. The geocode
+endpoint (`regeocode_site` in `sites.py`) writes `geo_lat` and `geo_lng`
+and commits before it responds, and the page's Map line prints both at
+four decimals, the same precision as the message. The reload is what shows
+the result, so Rule 1's test for sticky is not met.
+
+- Set the `toast` query parameter with `URLSearchParams` and navigate, the
+  same mechanism as Exception 2. The message keeps `toFixed(4)` so it
+  matches the page.
+- Deferring the reload was rejected: for the toast's lifetime the page
+  would show "Not located" beside "Pinned at". Dropping it was rejected:
+  the page would contradict the toast until a manual refresh.
+
+The limit: the page does not mark the pin as new; `geocoded_at` is not
+shown. The handler's hardcoded success (N10) is correct here. The message
+is fixed text plus two numbers holding only digits, minus signs and dots,
+so the double decode never meets a `%`.
 
 **2. `vendors.html:364`, reload hazard AND a ternary split.**
 ```
@@ -485,7 +516,7 @@ All error, all sticky: 1034, 1035, 1044, 1045, 1054, 1055, 1214, 1217.
 | 391 | error | 0 |
 | 401 | error | 0 |
 | 403 | error | 0 |
-| 472 | EXCEPTION 1 | 0 |
+| 472 | EXCEPTION 1: success via ?toast= | auto, see above |
 | 473 | warning | 0 |
 
 ### app/templates/support.html, 4 sites
@@ -600,11 +631,11 @@ commit touches these files.
    triggered live and observed. The four barcode and geocode sites
    (`fulfillment.html:3214/3218`, `site_detail.html:472/473`) cover success,
    info and warning between them.
-6. **Both reload hazards observed.** Exception 1: the toast must be readable
-   before the page moves. This gate can fail: convert 472 naively and the
-   toast is destroyed within a frame, which is visible. Exception 2: the
-   success toast renders on the reloaded page and no `toast` parameter is
-   left in the URL.
+6. **Both reload hazards observed.** Each success toast renders on the
+   reloaded page and no `toast` parameter is left in the URL. This gate can
+   fail: convert either site naively and the toast is destroyed within a
+   frame, which is visible. Exception 1 also: the toast's coordinates match
+   the page's Map line.
 7. **Suite** predicted before the run. These are template and JS changes with
    no Python, so the expectation is 906 passed / 39 skipped unchanged. The
    suite does not cover this work; it is a tripwire, not a proof.
