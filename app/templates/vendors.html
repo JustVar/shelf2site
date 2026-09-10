@@ -311,8 +311,8 @@ async function submitAdd(e) {
         });
         const data = await resp.json();
         if (resp.ok) { location.reload(); }
-        else { alert(data.error || 'Failed to create vendor profile'); }
-    } catch (err) { alert('Error: ' + err.message); }
+        else { SxToast.error(data.error || 'Failed to create vendor profile', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
     finally { if (btn) btn.disabled = false; }
 }
 
@@ -339,8 +339,8 @@ async function submitEdit(e) {
         });
         const data = await resp.json();
         if (resp.ok) { location.reload(); }
-        else { alert(data.error || 'Failed to update vendor profile'); }
-    } catch (err) { alert('Error: ' + err.message); }
+        else { SxToast.error(data.error || 'Failed to update vendor profile', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
     finally { if (btn) btn.disabled = false; }
 }
 
@@ -350,8 +350,8 @@ async function deleteVendor(id, name) {
         const resp = await fetch(`${BP}/api/vendors/${id}`, {method: 'DELETE'});
         const data = await resp.json();
         if (resp.ok) { location.reload(); }
-        else { alert(data.error || 'Failed to delete vendor profile'); }
-    } catch (err) { alert('Error: ' + err.message); }
+        else { SxToast.error(data.error || 'Failed to delete vendor profile', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 async function autoCreate() {
@@ -361,10 +361,15 @@ async function autoCreate() {
         const data = await resp.json();
         if (resp.ok) {
             const count = data.count || 0;
-            alert(count === 0 ? 'All vendors already have profiles.' : `Created ${count} new profile${count !== 1 ? 's' : ''}.`);
-            location.reload();
-        } else { alert(data.error || 'Failed to auto-create profiles'); }
-    } catch (err) { alert('Error: ' + err.message); }
+            if (count === 0) {
+                SxToast.info('All vendors already have profiles.');
+            } else {
+                const params = new URLSearchParams(window.location.search);
+                params.set('toast', `Created ${count} new profile${count !== 1 ? 's' : ''}.`);
+                window.location.search = params.toString();
+            }
+        } else { SxToast.error(data.error || 'Failed to auto-create profiles', 0); }
+    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
 // Close modals on overlay click
