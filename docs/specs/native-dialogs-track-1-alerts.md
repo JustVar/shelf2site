@@ -1,7 +1,7 @@
 # Native Dialogs, Track 1: alert() to SxToast
 
-    STATUS:   DRAFT rev 3, not yet committed
-    Written:  2026-09-09
+    STATUS:   rev 4, committed
+    Written:  2026-09-09, rev 4 on 2026-09-10
     Board:    BACKLOG-TRIAGE.md item N7, track 1
     Taken at: HEAD 160d339, branch main
     Scope:    102 native alert() call sites across 18 files, converted to
@@ -17,6 +17,10 @@
               settled. All owed items closed. Verified by program: the
               102 site rows and every line number diff clean against the
               repo at 160d339.
+    Rev 4:    Known gap CLOSED by item A (2026-09-10). Cookie check in
+              reportError removed, frontend reporting live. Two paragraphs
+              rewritten, stale toast.js anchors stripped, the endpoint
+              audit plan restored, a wrong date fixed.
 
 ## Why
 
@@ -119,26 +123,30 @@ across the whole pipeline, so a page firing many empty toasts would consume the
 budget genuine JS errors need. Reporting at warning level keeps these
 filterable and distinguishable from real errors on the admin page.
 
-**`reportError` is declared at :133, below `show` at :58.** Function
-declarations hoist within the IIFE, so the call works. Do not reorder the file
-to "fix" this.
+**`reportError` is declared below `show`.** Function declarations hoist
+within the IIFE, so the call works. Do not reorder the file to "fix" this.
 
-**The guard calls the reporting pipeline; it does not modify it.** The region
-from the "Error capture & reporting" marker at `toast.js:116` to EOF was
-asserted byte-identical during R15 and stays untouched. The guard is a caller
-of it, but that call is a no-op today and the gate below reads the console
-only. See "Known gap" immediately following.
+**The guard calls the reporting pipeline.** Through R15 and the guard commit,
+the region from the "Error capture & reporting" marker to EOF stayed
+byte-identical. Item A (2026-09-10) then removed one check inside
+`reportError` and nothing else in that region, so the guard's call is live and
+the gate can read `error_log` as well as the console. See "Known gap"
+immediately following.
 
-**Known gap, NOT narrow. Corrected 2026-09-09 by the gate.** `reportError`
-returns early unless the `inventory_session` cookie is present
-(`toast.js:138`). That cookie is HttpOnly: starlette's `SessionMiddleware`
-hardcodes `httponly` in `security_flags` and exposes no parameter to disable
-it, so `document.cookie` never contains it and the check fails on EVERY call,
-not only on expired sessions. READ: `error_log` holds nine rows, all
-`backend`, newest 2026-07-23; zero `frontend` rows have ever existed. The
-frontend reporting pipeline is unreachable and always has been. The guard
-keeps its `reportError` call because the call becomes correct the moment the
-pipeline is fixed, but it is a no-op today.
+**Known gap, CLOSED by item A on 2026-09-10.** `reportError` returned early
+unless the `inventory_session` cookie was visible in `document.cookie`. That
+cookie is HttpOnly: starlette's `SessionMiddleware` hardcodes `httponly` in
+`security_flags` and exposes no parameter to disable it, so the check failed
+on EVERY call, not only on expired sessions. When this was found, `error_log`
+held nine rows, all `backend`, newest 2026-07-23, and no `frontend` row had
+ever been written. Three deliberate rows followed, in this order: 78, a
+direct `fetch` POST from the console proving the endpoint and the admin page;
+79, a direct `sendBeacon` proving the path the JS actually uses; then the
+check was removed, and 80, the guard's own warning fired live, proved the
+fix. The check was removed, not replaced. The endpoint authenticates via
+`get_current_user`, `/api/` paths pass through the auth redirect middleware
+to it, a logged-out beacon gets a JSON 401 that no handler logs, and the
+login page does not load `toast.js`.
 
 **Default strings.** Plain text only. These land in `innerHTML` at :70 through
 `escapeHtml`, and the surrounding markup at :69 to :71 is assembled by string
@@ -604,13 +612,12 @@ board; none is a same-session add-on.
 fallback string, which is why the guard exists. Whether those endpoints ever
 actually omit a message is **UNREAD**. The `data.error || 'Failed to save'`
 pattern at most other sites suggests whoever wrote them expected omission, but
-that is inference. **The guard was specced as the cheap way to find out. It is
-not, and cannot be.** The plan was to read `error_log` for guard-generated
-rows: no rows meaning no problem, rows naming the endpoint. No frontend row can
-be written at all (see "Known gap"), so silence proves nothing and no row will
-ever name anything. This audit now needs either a direct read of the fourteen
-endpoints or a working frontend reporting pipeline, which is a board item and
-not track 1 work.
+that is inference. **The guard is the cheap way to find out, now that item A
+(2026-09-10) has made frontend reporting live.** Read `error_log` for
+guard-generated rows once the sweep slices have landed and real traffic has hit
+the fourteen sites: no rows meaning no problem, rows carrying the page URL and
+a stack that locates the call site. Silence is evidence only after that
+traffic, so this audit is sized after the sweep, not before.
 
 **Session-expiry response shape.** When a session expires mid-action, what the
 fetch receives is **UNREAD**. If the API answers with an HTML login redirect,

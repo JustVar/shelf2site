@@ -79,12 +79,8 @@
     if (!_bad && _s.trim() === '') _bad = 'empty';
     if (_bad) {
       var _m = 'SxToast called with ' + _bad + ' message, type=' + type;
-      // NOTE: reportError no-ops today. It returns early at its
-      // inventory_session cookie check, and that cookie is HttpOnly
-      // (starlette SessionMiddleware hardcodes httponly in
-      // security_flags and exposes no parameter for it), so JS can
-      // never see it. error_log holds zero frontend rows, ever.
-      // Kept because it becomes correct the moment that is fixed.
+      // warning, not error: keeps these filterable and distinguishable
+      // from real errors on the admin page.
       reportError(_m, new Error().stack, window.location.pathname, 'warning');
       console.warn(_m);
       message = EMPTY_DEFAULTS[type] || EMPTY_DEFAULTS.info;
@@ -167,8 +163,10 @@
     if (!canReport()) return;
     _reportCount++;
 
-    // Only report if we appear to be authenticated (session cookie exists)
-    if (!document.cookie.includes('inventory_session')) return;
+    // No client-side auth check. The session cookie is HttpOnly (starlette
+    // hardcodes it), so document.cookie can never see it. The endpoint
+    // authenticates via get_current_user and answers a logged-out beacon
+    // with a quiet JSON 401 that nothing logs.
 
     try {
       var payload = JSON.stringify({
