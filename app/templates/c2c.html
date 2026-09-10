@@ -286,7 +286,7 @@ function c2cSaveChecklist() {
   }).catch(function () {
     btn.disabled = false;
     btn.textContent = "Save checklist";
-    window.alert("Save failed. Please try again.");
+    SxToast.error("Save failed. Please try again.");
   });
 }
 
@@ -333,16 +333,16 @@ function c2cLoadCertFiles() {
 function c2cUploadCertFile() {
   if (!c2cCurrentProv) { return; }
   var input = document.getElementById("c2c-file-input");
-  if (!input.files || !input.files.length) { window.alert("Choose a file first."); return; }
+  if (!input.files || !input.files.length) { SxToast.warning("Choose a file first."); return; }
   var fd = new FormData();
   fd.append("file", input.files[0]);
   fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/files", { method: "POST", body: fd })
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
       if (res.ok) { input.value = ""; c2cLoadCertFiles(); }
-      else { window.alert((res.d && res.d.detail) || "Upload failed."); }
+      else { SxToast.error((res.d && res.d.detail) || "Upload failed.", 0); }
     })
-    .catch(function () { window.alert("Upload failed."); });
+    .catch(function () { SxToast.error("Upload failed."); });
 }
 
 function c2cDeleteCertFile(fileId) {
@@ -350,9 +350,9 @@ function c2cDeleteCertFile(fileId) {
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
       if (res.ok) { c2cLoadCertFiles(); }
-      else { window.alert((res.d && res.d.detail) || "Delete failed."); }
+      else { SxToast.error((res.d && res.d.detail) || "Delete failed.", 0); }
     })
-    .catch(function () { window.alert("Delete failed."); });
+    .catch(function () { SxToast.error("Delete failed."); });
 }
 
 function c2cApplyCertState(data) {
@@ -398,13 +398,13 @@ function c2cHideCancel() {
 function c2cSubmitCancel() {
   if (!c2cCurrentProv) { return; }
   var reason = document.getElementById("c2c-cancel-reason").value.trim();
-  if (!reason) { window.alert("Enter a reason for the cancellation."); return; }
+  if (!reason) { SxToast.warning("Enter a reason for the cancellation."); return; }
   fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/cancel-cert", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: reason })
   }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
-      if (res.ok) { window.location.reload(); } else { window.alert((res.d && res.d.detail) || "Cancel failed."); }
-    }).catch(function () { window.alert("Cancel failed."); });
+      if (res.ok) { window.location.reload(); } else { SxToast.error((res.d && res.d.detail) || "Cancel failed.", 0); }
+    }).catch(function () { SxToast.error("Cancel failed."); });
 }
 
 function c2cRecertify() {
@@ -412,8 +412,8 @@ function c2cRecertify() {
   fetch("{{ base_path }}/fulfillment/c2c/" + c2cCurrentProv + "/recertify", { method: "POST" })
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
-      if (res.ok) { window.location.reload(); } else { window.alert((res.d && res.d.detail) || "Re-certify failed."); }
-    }).catch(function () { window.alert("Re-certify failed."); });
+      if (res.ok) { window.location.reload(); } else { SxToast.error((res.d && res.d.detail) || "Re-certify failed.", 0); }
+    }).catch(function () { SxToast.error("Re-certify failed."); });
 }
 </script>
 
