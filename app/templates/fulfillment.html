@@ -1935,12 +1935,12 @@ async function submitNewOrder(e) {
         if (resp.ok && data.id) {
             window.location.href = `${BP}/orders/${data.id}`;
         } else {
-            alert(data.error || data.detail || 'Failed to create order');
+            SxToast.error(data.error || data.detail || 'Failed to create order', 0);
             btn.disabled = false;
             btn.textContent = 'Create Order';
         }
     } catch (err) {
-        alert('Network error');
+        SxToast.error('Network error');
         btn.disabled = false;
         btn.textContent = 'Create Order';
     }
@@ -2016,7 +2016,7 @@ async function openPanelFor(orderId, mode) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         data = await res.json();
     } catch (err) {
-        alert('Could not load order panel: ' + err.message);
+        SxToast.error('Could not load order panel: ' + err.message, 0);
         return;
     }
     currentOrderId = orderId;
@@ -2245,7 +2245,7 @@ async function submitAssignItems() {
     } catch (err) {
         btn.disabled = false;
         btn.textContent = origText;
-        alert('Assignment failed: ' + err.message);
+        SxToast.error('Assignment failed: ' + err.message, 0);
     }
 }
 
@@ -2725,9 +2725,9 @@ async function oemWizardNext() {
         var orderId = document.getElementById('oem-order-id').value;
         var vendor  = document.getElementById('oem-vendor-name').value.trim();
         var sku     = document.getElementById('oem-sku').value.trim();
-        if (!orderId) { alert('Please select a customer order.'); return; }
-        if (!vendor)  { alert('Vendor name is required.'); return; }
-        if (!sku)     { alert('SKU is required.'); return; }
+        if (!orderId) { SxToast.warning('Please select a customer order.'); return; }
+        if (!vendor)  { SxToast.warning('Vendor name is required.'); return; }
+        if (!sku)     { SxToast.warning('SKU is required.'); return; }
         oemCurrentStep = 2;
         updateOemWizard();
     } else {
@@ -2783,7 +2783,7 @@ async function submitOemPo() {
         });
         if (!res.ok) {
             var err = await res.json();
-            alert('Failed: ' + (err.detail || err.error || res.status));
+            SxToast.error('Failed: ' + (err.detail || err.error || res.status), 0);
             btn.disabled = false;
             btn.textContent = oemEditPoId ? 'Save Changes' : 'Create PO';
             return;
@@ -2792,7 +2792,7 @@ async function submitOemPo() {
         window.location.reload();
     } catch(e) {
         console.error('submitOemPo error:', e);
-        alert('Submission failed. Check console.');
+        SxToast.error('Submission failed. Check console.');
         btn.disabled = false;
         btn.textContent = oemEditPoId ? 'Save Changes' : 'Create PO';
     }
@@ -2806,13 +2806,13 @@ async function deleteOemPo(orderId, poId) {
         });
         if (!res.ok) {
             var err = await res.json();
-            alert('Delete failed: ' + (err.detail || err.error || res.status));
+            SxToast.error('Delete failed: ' + (err.detail || err.error || res.status), 0);
             return;
         }
         window.location.reload();
     } catch(e) {
         console.error('deleteOemPo error:', e);
-        alert('Delete failed. Check console.');
+        SxToast.error('Delete failed. Check console.');
     }
 }
 
@@ -2879,7 +2879,7 @@ function updateDeployWizard() {
 async function deployWizardNext() {
     if (dmCurrentStep === 1) {
         const orderId = document.getElementById('dm-order-id').value;
-        if (!orderId) { alert('Please select a customer order.'); return; }
+        if (!orderId) { SxToast.warning('Please select a customer order.'); return; }
         dmCurrentStep = 2;
         updateDeployWizard();
     } else if (dmCurrentStep === 2) {
@@ -2918,7 +2918,7 @@ function handleSiteSelect() {
 async function createSiteInline() {
     const name = document.getElementById('dm-site-name').value.trim();
     const siteType = document.getElementById('dm-site-type').value;
-    if (!name) { alert('Site name is required.'); return false; }
+    if (!name) { SxToast.warning('Site name is required.'); return false; }
     try {
         const res = await fetch(BP + '/api/sites', {
             method: 'POST',
@@ -2934,7 +2934,7 @@ async function createSiteInline() {
         });
         if (!res.ok) {
             const err = await res.json();
-            alert('Site creation failed: ' + (err.detail || res.status));
+            SxToast.error('Site creation failed: ' + (err.detail || res.status), 0);
             return false;
         }
         const data = await res.json();
@@ -2942,7 +2942,7 @@ async function createSiteInline() {
         return true;
     } catch(err) {
         console.error('createSiteInline error:', err);
-        alert('Site creation failed. Check console.');
+        SxToast.error('Site creation failed. Check console.');
         return false;
     }
 }
@@ -2977,7 +2977,7 @@ async function submitDeployment() {
         });
         if (!res.ok) {
             const err = await res.json();
-            alert('Failed: ' + (err.detail || res.status));
+            SxToast.error('Failed: ' + (err.detail || res.status), 0);
             btn.disabled = false;
             btn.textContent = 'Create Deployment';
             return;
@@ -2986,7 +2986,7 @@ async function submitDeployment() {
         window.location.reload();
     } catch(err) {
         console.error('submitDeployment error:', err);
-        alert('Submission failed. Check console.');
+        SxToast.error('Submission failed. Check console.');
         btn.disabled = false;
         btn.textContent = 'Create Deployment';
     }
@@ -3002,14 +3002,14 @@ async function updateDeployStatus(depId, newStatus, selectEl) {
         });
         if (!res.ok) {
             var err = await res.json();
-            alert('Failed: ' + (err.detail || res.status));
+            SxToast.error('Failed: ' + (err.detail || res.status), 0);
             selectEl.value = selectEl.dataset.prev || selectEl.querySelector('[selected]')?.value;
             return;
         }
         window.location.reload();
     } catch(e) {
         console.error('updateDeployStatus error:', e);
-        alert('Update failed.');
+        SxToast.error('Update failed.');
     }
 }
 
@@ -3108,7 +3108,7 @@ async function onOrderDrop(e, newStatus) {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            alert('Move failed: ' + (err.error || 'HTTP ' + res.status));
+            SxToast.error('Move failed: ' + (err.error || 'HTTP ' + res.status), 0);
             return;
         }
         /* Move card visually into the target column */
@@ -3123,7 +3123,7 @@ async function onOrderDrop(e, newStatus) {
             }
         }
     } catch (err) {
-        alert('Move failed: ' + err.message);
+        SxToast.error('Move failed: ' + err.message, 0);
     }
 }
 
@@ -3203,7 +3203,7 @@ async function findBySerial() {
         data = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(data.error || data.detail || `HTTP ${resp.status}`);
     } catch (err) {
-        alert('Lookup failed: ' + err.message);
+        SxToast.error('Lookup failed: ' + err.message, 0);
         return;
     }
     el.value = '';
@@ -3211,11 +3211,11 @@ async function findBySerial() {
     if (data.status === 'already_exists') {
         const target = scanTargetUrl(data);
         if (target) { window.location.href = target; return; }
-        alert(`Found in ${data.display_table}${data.location ? ' at ' + data.location : ''}` +
+        SxToast.success(`Found in ${data.display_table}${data.location ? ' at ' + data.location : ''}` +
               (data.device_status ? ` (status ${data.device_status})` : '') +
-              ' — that record type has no detail page.');
+              ' — that record type has no detail page.', 0);
     } else {
-        alert(data.guidance || `"${barcode}" is not in inventory.`);
+        SxToast.info(data.guidance || `"${barcode}" is not in inventory.`, 0);
     }
 }
 
@@ -3388,7 +3388,7 @@ async function pkSubmit() {
         });
         var data = await res.json();
         if (!res.ok) {
-            alert(data.detail || 'Assignment failed');
+            SxToast.error(data.detail || 'Assignment failed', 0);
             /* Reload rather than just re-enabling. A rejection means the server
                disagrees with what this list shows, which is the race the
                fetch-on-open design exists for: another user took a unit while
@@ -3399,7 +3399,7 @@ async function pkSubmit() {
         }
         window.location.reload();
     } catch (err) {
-        alert('Assignment failed');
+        SxToast.error('Assignment failed');
         btn.disabled = false;
     }
 }
