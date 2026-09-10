@@ -859,7 +859,7 @@ async function ctmPrimary() {
 function decOpenModal() {
   var reason = prompt('Reason for decommissioning this item:');
   if (reason === null) return;
-  if (!reason.trim()) { alert('A reason is required.'); return; }
+  if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
   var dflt = new Date().toISOString().slice(0, 10);
   var d = prompt('Decommission date (YYYY-MM-DD):', dflt);
   if (d === null) return;
@@ -868,7 +868,7 @@ function decOpenModal() {
 function decOpenReactivate() {
   var reason = prompt('Reason for reactivating this item:');
   if (reason === null) return;
-  if (!reason.trim()) { alert('A reason is required.'); return; }
+  if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
   decPost('reactivate', { reason: reason.trim() });
 }
 function decPost(action, fields) {
@@ -880,10 +880,10 @@ function decPost(action, fields) {
     body: body.toString()
   }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
-      if (!res.ok) { alert(res.d.error || 'Action failed'); return; }
+      if (!res.ok) { SxToast.error(res.d.error || 'Action failed', 0); return; }
       window.location.reload();
     })
-    .catch(function () { alert('Action failed'); });
+    .catch(function () { SxToast.error('Action failed'); });
 }
 </script>
 {% endblock %}
