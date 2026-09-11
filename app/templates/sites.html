@@ -284,10 +284,10 @@ async function deleteSite(siteId, siteName) {
         if (resp.ok) {
             location.reload();
         } else {
-            alert(data.error || 'Failed to delete site');
+            SxToast.error(data.error || 'Failed to delete site', 0);
         }
     } catch (err) {
-        alert('Error: ' + err.message);
+        SxToast.error('Error: ' + err.message, 0);
     }
 }
 

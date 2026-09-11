@@ -720,7 +720,7 @@
             document.getElementById('edit-warranty-modal').classList.add('open');
         } catch (err) {
             await window._lockManager.release(lockKey);
-            alert(err.message);
+            SxToast.error(err.message, 0);
         }
     }
 
@@ -774,7 +774,7 @@
             const resp = await fetch(`${BP}/api/warranty/${warrantyId}`, { method: 'DELETE' });
             if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Failed to delete'); }
             location.reload();
-        } catch (err) { alert(err.message); }
+        } catch (err) { SxToast.error(err.message, 0); }
     }
 
     async function submitWarranty(e) {

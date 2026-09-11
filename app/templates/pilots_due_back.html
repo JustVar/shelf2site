@@ -71,9 +71,9 @@ function _pilotsPost(url) {
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
       if (res.ok) { window.location.reload(); }
-      else { alert((res.d && res.d.error) || "Action failed"); }
+      else { SxToast.error((res.d && res.d.error) || "Action failed", 0); }
     })
-    .catch(function () { alert("Network error"); });
+    .catch(function () { SxToast.error("Network error"); });
 }
 function pilotsMarkReturned(provId) {
   _pilotsPost("{{ base_path }}/fulfillment/c2c/" + provId + "/return");

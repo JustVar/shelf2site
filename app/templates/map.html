@@ -561,7 +561,7 @@
                 go.addEventListener("click", function () {
                     postJSON("{{ base_path }}/map/set-location",
                              { kind: u.kind, id: u.id, lat: parseFloat(lat.value), lng: parseFloat(lng.value) })
-                        .then(function (r) { if (r && r.error) alert(r.error); else reloadData(); });
+                        .then(function (r) { if (r && r.error) SxToast.error(r.error, 0); else reloadData(); });
                 });
                 row.appendChild(btn);
                 var holder = el("div");
@@ -661,7 +661,7 @@
         }).then(function (r) {
             if (r.status === 401) { document.getElementById("mp-relogin").classList.add("open"); return null; }
             return r.json().then(function (j) {
-                if (!r.ok && j && (j.error || j.detail)) alert(j.error || j.detail);
+                if (!r.ok && j && (j.error || j.detail)) SxToast.error(j.error || j.detail, 0);
                 return j;
             });
         });

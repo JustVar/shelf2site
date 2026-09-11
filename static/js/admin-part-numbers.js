@@ -115,7 +115,7 @@ async function deletePN(id, sku) {
         location.reload();
     } else {
         const data = await resp.json().catch(() => ({ error: 'Delete failed' }));
-        alert(data.error || 'Delete failed');
+        SxToast.error(data.error || 'Delete failed', 0);
     }
 }
 
