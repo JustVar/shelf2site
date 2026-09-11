@@ -1000,7 +1000,7 @@ async function uploadEventPhoto(input) {
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
     } catch (e) {
-        alert('Photo NOT saved: ' + e.message);
+        SxToast.error('Photo NOT saved: ' + e.message, 0);
     }
     input.value = '';
     refreshEventPanel();
@@ -1294,7 +1294,7 @@ async function submitDevice() {
     } catch (e) {
         // Honest failure: the button used to stay bricked at "Submitting…"
         // forever on a network error (audit F12).
-        alert('Network error — the device was NOT submitted. Check the connection and try again.');
+        SxToast.error('Network error — the device was NOT submitted. Check the connection and try again.', 0);
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Device';
         return;
@@ -1322,7 +1322,7 @@ async function submitDevice() {
         }
 
         // Generic error
-        alert('Error: ' + (error.error || 'Failed to submit device'));
+        SxToast.error('Error: ' + (error.error || 'Failed to submit device'), 0);
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Device';
         return;
@@ -1373,7 +1373,7 @@ async function submitDevice() {
     } else {
         // 200 with an unrecognized body — say so instead of silently
         // re-enabling the button (audit F12).
-        alert('Unexpected server reply — the device may not have been saved. Check the inventory before retrying.');
+        SxToast.error('Unexpected server reply — the device may not have been saved. Check the inventory before retrying.', 0);
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Device';
     }
