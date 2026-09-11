@@ -143,10 +143,10 @@
                 if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
             } else {
                 const data = await resp.json();
-                alert(data.error || 'Failed to approve');
+                SxToast.error(data.error || 'Failed to approve', 0);
             }
         } catch (e) {
-            alert('Error: ' + e.message);
+            SxToast.error('Error: ' + e.message, 0);
         }
     }
 
@@ -166,10 +166,10 @@
                 if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
             } else {
                 const data = await resp.json();
-                alert(data.error || 'Failed to dismiss');
+                SxToast.error(data.error || 'Failed to dismiss', 0);
             }
         } catch (e) {
-            alert('Error: ' + e.message);
+            SxToast.error('Error: ' + e.message, 0);
         }
     }
 
