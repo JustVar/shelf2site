@@ -9,7 +9,7 @@ async function uploadFile() {
     const file = input && input.files ? input.files[0] : null;
 
     if (!file) {
-        alert('Please select a file');
+        SxToast.warning('Please select a file');
         return;
     }
 
@@ -169,12 +169,12 @@ async function applyChanges() {
 
         const result = await resp.json();
 
-        alert(`Success!\n${result.stats.added} added, ${result.stats.updated} updated, ${result.stats.skipped} skipped`);
+        SxToast.success(`Success!\n${result.stats.added} added, ${result.stats.updated} updated, ${result.stats.skipped} skipped`, 0);
 
         resetSync();
 
     } catch (e) {
-        alert(`Error: ${/** @type {Error} */ (e).message}`);
+        SxToast.error(`Error: ${/** @type {Error} */ (e).message}`, 0);
         if (btn) {
             btn.disabled = false;
             btn.textContent = 'Apply Changes to Database';

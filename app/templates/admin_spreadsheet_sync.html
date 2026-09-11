@@ -60,7 +60,7 @@
 
 {% block scripts %}
 <script>// BP available globally from base.html</script>
-<script src="{{ base_path }}/static/js/admin-spreadsheet-sync.js"></script>
+<script src="{{ base_path }}/static/js/admin-spreadsheet-sync.js?v={{ request.state.js_v('js/admin-spreadsheet-sync.js') or '0' }}"></script>
 
 <style>
 .tabs {
