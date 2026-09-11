@@ -64,6 +64,11 @@ sweep would have missed.
 Never report a gate as passed when its output was not shown. Never write "output
 shown above" when nothing is above.
 
+**Make every command print `== START` as its first line and `== END` as its
+last.** A paste that loses its head or its tail is otherwise indistinguishable
+from a short result, and both have happened repeatedly. With the markers, a cut
+is visible at a glance and the read is simply rerun.
+
 ## 1. Read-only discovery before any edit
 
 Never edit from memory or inference. Before changing anything:
@@ -152,10 +157,22 @@ Make edits with a Python patch script, not a freehand edit. Every script has:
   appears exactly N times (the N you read). A drifted count means the file
   changed under you. Stop, do not write.
 - **Idempotency guard.** If the change is already applied, no-op and exit 0.
-- **Backup to `/tmp`**, then the replacement, then a **post-check**. Keep backups
-  out of the repo tree so a missed cleanup cannot be swept into a commit.
-- Write the script to apphost `/tmp` via an **SSH heredoc**, NOT Write+scp
-  (Write+scp litters the workstation `/c/tmp`).
+- **Back up before the replacement, then post-check.** Where the backup goes
+  depends on the shape of the patch. A single-file script writes its `.bak` to
+  `/tmp`: there is only one thing to restore, and the repo tree stays clean, so
+  a missed cleanup cannot be swept into a commit. A multi-file script writes a
+  `.bak` beside each target instead, because phase 2 is recoverable rather than
+  atomic and the pairing of backup to file has to survive a partial write. That
+  puts untracked files in the tree deliberately, and the commit guard's
+  `git status --short` line count is what stops one being swept in. Delete them
+  by exact name before committing, never by glob.
+- **Transport the script by base64 over stdin**, not by heredoc and not by
+  Write+scp. Base64 the script locally, pipe it to `ssh apphost 'base64 -d >
+  /tmp/NAME.py'`, and verify with `sha256sum -c` on BOTH ends. Then run
+  `python3 -c "import ast, sys; ast.parse(open(sys.argv[1]).read())"` against
+  the remote copy before running the script itself. A heredoc mangles
+  backslashes and em dashes and has a transmission ceiling; base64 has neither
+  and the hash proves arrival byte for byte.
 - **Verify the written script by reading it back in full (`cat -A`) before
   running it.** The guards are the whole point; a script verified only by
   description is not verified.
@@ -167,10 +184,24 @@ anchor that matched twice because a sibling model carried an identical column
 tail, and a single-phase patch would have written new columns into the wrong
 class.
 
-**Prefer structural avoidance over escaping.** If an anchor would contain an em
-dash, anchor on an ASCII substring that stops before it. For inserted text,
-assert `ord(ch) < 128` over the whole string rather than counting em dashes
-afterward; that refuses to write anything mangled instead of detecting it later.
+**Phase 1 covers every file, including the `.bak` check.** Check that no `.bak`
+path already exists for ANY target before copying the first one, or a rerun
+over a partially-applied set overwrites a good backup with a bad one. Phase 2
+is recoverable, not atomic: a `.bak` sits beside each written file, which is
+why multi-file scripts back up into the tree rather than to `/tmp`, so a
+failure in the last file leaves the earlier ones written and restorable.
+
+**The script SOURCE is pure ASCII and contains no literal backslash.** Every
+non-ASCII character and every escape character in an anchor is built with
+`chr()`, and its count is asserted at import. Assert the file's whole-file
+non-ASCII and escape-character counts are identical before and after the write.
+
+An earlier rule here said to prefer structural avoidance: anchor on an ASCII
+substring that stops before the em dash. **That rule failed.** Two anchors in
+`receive.html` carried the em dash themselves, so an anchor that stops before
+it would have refused its own edits. Structural avoidance works only when the
+non-ASCII character sits off the anchor, which is not something you can assume.
+Build the character and assert the count.
 
 ### Post-checks: count before writing, assert on the delta
 
@@ -302,6 +333,18 @@ a bad font token in generated output. Only the live gate catches those.
 nothing calls proves only that it compiles. If the feature is unreachable from
 the UI, say so plainly rather than reporting the browser gate as passed.
 
+**Block every non-GET fetch in the page before firing a gate.** Override
+`window.fetch` to reject or to return a chosen status for anything that is not
+a GET, then fire each site and read what it produced. This makes the gate able
+to fail in the direction that matters, and it means a gate can never write to
+the database by accident. Confirm afterwards with a network read that no
+request left the page, and check the database counts either side regardless.
+
+**Check `typeof NAME` on `window` before planning to fire a function.** A page
+script inside an IIFE or a module is closure-scoped and the console cannot
+reach it. If it comes back `undefined`, the only paths are the page's own
+controls, and the gate must state which of those existed and which were closed.
+
 ## 4. Four-location sync
 
 The four locations are **apphost / workstation / origin / company**. A commit
@@ -326,6 +369,13 @@ already-committed tree proves nothing.
 Both pushes inside `wsync` are **separate commands, never `&&`-chained**, each
 with its own exit check. Cleanup runs only after the four-HEAD verify passes, so
 a mismatch aborts with the bundles left in place for diagnosis.
+
+**The commit itself is one guarded command.** In order: `rm -v` the named
+artifacts, refuse to continue unless `git status --short` has exactly the
+expected number of lines, refuse if the message file already exists,
+`sha256sum -c` the message file or exit, run `at-sync-commit.sh`, then `rm -v`
+the message file. Two of those guards can stop it before the commit and both
+are visible in the output. Delete artifacts by exact filename, never by glob.
 
 The remote names `origin` and `company` are **fixed identifiers that `wsync`
 hardcodes**, in both push commands and in the two `ls-remote` calls that build
@@ -377,20 +427,6 @@ in `CLAUDE.md`.
   `ssh host '... ; echo "rc=$?"'`. The same applies to any `$VAR`, `$(...)` or
   backtick meant to run remotely. This bites hardest with the rc markers
   section 1 recommends, since the entire point of those is to be trusted.
-- **There is a transmission ceiling on SSH heredocs.** Two failures in one
-  session at roughly 139 and 182 lines; anything under about 130 went through.
-  Split long patch scripts into appended parts (`cat >`, then `cat >>`) rather
-  than switching to Write+scp, which section 2 rules out. Read the assembled
-  file back in full before running it.
-- **SSH-heredoc does not preserve literal backslash escapes.** `\u2715`,
-  `\u00b7`, `\x27` and friends mangle across the boundary. Embed the real glyph
-  or build it with `chr(...)`.
-- **Em dashes also mangle across the heredoc.** Build with `chr(8212)` only if
-  unavoidable; prefer avoiding it structurally per section 2.
-- **Quote the heredoc delimiter** (`<< "PYEOF"` or `<< 'PYEOF'`) so backticks
-  and `$` in the script body are not expanded in transit. Note that backslash
-  escapes inside a double-quoted `ssh "..."` argument are processed by the local
-  shell before sending.
 - **New top-level JS function names must be asserted free** (`count == 0`)
   before adding one; duplicates silently clobber.
 - **Root-owned `__pycache__`.** A root `docker exec` importing from a

@@ -1,6 +1,6 @@
 # Native Dialogs, Track 1: alert() to SxToast
 
-    STATUS:   rev 6, committed
+    STATUS:   rev 7, committed
     Written:  2026-09-09, rev 4 to rev 6 on 2026-09-10
     Board:    BACKLOG-TRIAGE.md item N7, track 1
     Taken at: HEAD 160d339, branch main
@@ -32,6 +32,14 @@
               recover" claim was false: the endpoint saves the coordinates
               and the page prints them. Gate 6 restated. Rule 1 and Rule 2
               notes added; Rule 2's stale "already sticky" corrected.
+    Rev 7:    Track 1 COMPLETE at 0dc0059. Closing census added after the
+              Totals section, with the per-type reconciliation against the
+              site table. M1 recorded as served-and-parsed by decision, with
+              the recipe that makes it observable. N14 recorded. Exception 3
+              confirmed observed live. Exception 4's runtime type READ and no
+              longer open. R28 and R29 corrected. The site table is
+              deliberately unchanged: it is a record of where the sites were
+              at 160d339, and its line numbers are stale by design.
 
 ## Why
 
@@ -373,7 +381,7 @@ track.
 
 **3. `admin-spreadsheet-sync.js:172`, multi-line message.**
 ```
-alert(`Success!\n${added} added, ${updated} updated, ${skipped} skipped`)
+alert(`Success!\n${result.stats.added} added, ${result.stats.updated} updated, ${result.stats.skipped} skipped`)
 ```
 Native `alert` renders the newline. The toast will not: `escapeHtml`
 (in `toast.js`) sets `textContent` and reads back `innerHTML`, and the
@@ -382,12 +390,19 @@ the newline to a space. It renders as one line. **Accepted.** Success, sticky
 under Rule 1 (the counts are unreconstructable). This is Casey's spreadsheet
 import path.
 
+**Observed live at 0dc0059.** The toast renders green and sticky, and the
+newline renders as a single space under `white-space: normal`, exactly as
+accepted above. The quoted call above was corrected in rev 7: the code reads
+`${result.stats.added}`, not `${added}`.
+
 **4. `map.html:564`, bare variable inside a then-chain.**
 `.then(function (r) { if (r && r.error) alert(r.error); else reloadData(); });`
-The runtime type of `r.error` is **UNREAD**. Covered by the prerequisite
-guard's coercion clause, but read it before converting so the message text is
-known to be sensible. Note the else branch calls `reloadData()`, not a page
-reload, so Rule 2 does not apply.
+The runtime type of `r.error` is a **string on every server path** (READ at
+0dc0059 in `map.py`: every failure path returns `{"error": "<string>"}`). The
+prerequisite guard's coercion clause is therefore not load-bearing here. Note
+the else branch calls `reloadData()`, not a page reload, so Rule 2 does not
+apply. Converted and shipped in the small-files bundle at 49d468e; see the
+closing census for why it was never fired.
 
 **Demoted in rev 2.** `order_detail.html:960` was Exception 4 in rev 1 on the
 grounds that `err`'s type was unknown. Read at :950/:951: `err` comes from
@@ -400,7 +415,7 @@ sticky.
 `order_detail.html` calls `putSkuLines` twice, two functions apart, and
 handles the returned error two different ways:
 
-- `addSkuLine` at :951 writes it into an inline `errEl` element
+- `saveSkuLine` at :951 writes it into an inline `errEl` element
 - `removeSkuLine` at :960 fires a native `alert`
 
 This is board item 5, "two error-shape conventions", appearing inside one
@@ -612,6 +627,74 @@ a 102 to 0 delta on occurrences, which is unaffected by the split.
 
 Rev 1 recorded warnings as 11 and the total as 102, which could not hold
 alongside a split. `fulfillment.html` carries five warnings, not four.
+
+## Closing census at 0dc0059
+
+READ at HEAD 0dc0059 on 2026-09-11, on the workstation clone, after the last
+track 1 slice shipped. Track 1 is COMPLETE.
+
+| Measure | Value |
+|---|---|
+| Sweep-target occurrences, `app/` + `static/` | 0 (rc 1, clean no-match) |
+| Sweep-target occurrences, whole repo | 27 |
+| `SxToast.error(` app-wide | 97 |
+| `SxToast.warning(` app-wide | 17 |
+| `SxToast.success(` app-wide | 10 |
+| `SxToast.info(` app-wide | 3 |
+
+Both the bounded form and the unbounded form return rc 1 against `app/` and
+`static/`. Every surviving occurrence is named:
+
+| File | Occurrences |
+|---|---|
+| `docs/mockups/superdesign/installation_completion.html` | 1 |
+| `docs/specs/native-dialogs-track-1-alerts.md` | 26 |
+
+The mockup is the exclusion decided in the Census section. The 26 are this
+spec quoting its own sites. Neither is shipped code, and 1 + 26 reconciles
+with the whole-repo total.
+
+**These counts are measured at 0dc0059, the parent of the revision that
+added this section.** This file is itself 26 of the 27, so any text added
+here that quotes a site moves the whole-repo number. The figures above
+describe the tree before this revision and do not rot.
+
+The four toast types sum to 127 calls at 0dc0059, against 89 at bd913d4
+(error 65, warning 12, success 9, info 3, READ at that commit). The delta is
++38, and it reconciles per type, not merely in total:
+
+| Type | bd913d4 | 0dc0059 | Delta | Predicted by the site table |
+|---|---|---|---|---|
+| error | 65 | 97 | +32 | 32 |
+| warning | 12 | 17 | +5 | 5 |
+| success | 9 | 10 | +1 | 1 |
+| info | 3 | 3 | 0 | 0 |
+
+The prediction column sums the types this spec assigned to the 39 sites
+shipped after bd913d4, counting Exception 4 as the sticky error it was
+decided to be and Exception 3 as its success. The 39th site is Exception 1,
+which produces no direct call: its success travels through the `toast` query
+parameter and is rendered by the handler in `base.html`. Every type matches
+independently.
+
+**M1, `map.html:564`, accepted as served-and-parsed only.** By decision, not
+by observation. The converted line was served and parsed with a clean
+console, but it was never fired: `postJSON` is closure-scoped, so the console
+cannot reach it, and all three of its UI paths were closed at gate time. No
+needs-location row qualified for a Fix button (all twelve shown are placeless
+items), the hidden list was empty, and marker popups need a canvas that
+renders blank in a hidden tab. **It becomes observable when an edge box or a
+placed item enters the top twelve of the needs-location list:** click Fix,
+enter a latitude of 999, Save. The server answers 400 "coordinates out of
+range" and both `:664` and `:564` fire, with no write.
+
+**N14, on the board.** Every `set-location` failure is reported twice. The
+shared helper at `map.html:664` toasts on any non-OK response and returns the
+body; the Fix form's `.then` at `:564` toasts the same error again. Every
+failure path in `map.py` is non-OK, so there is no single-report path. Two
+native dialogs before, two toasts now: Rule 3 kept both in the sweep and did
+not create the duplication. Which line owns the report is a decision for N14,
+outside this track.
 
 ## Gates
 
