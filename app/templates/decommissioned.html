@@ -70,7 +70,7 @@
 function decReactivate(itemId, itemName) {
   var reason = prompt('Reason for reactivating ' + itemName + ':');
   if (reason === null) return;
-  if (!reason.trim()) { alert('A reason is required.'); return; }
+  if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
   var body = new URLSearchParams();
   body.set('reason', reason.trim());
   fetch(BP + '/items/' + itemId + '/reactivate', {
@@ -79,10 +79,10 @@ function decReactivate(itemId, itemName) {
     body: body.toString()
   }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
     .then(function (res) {
-      if (!res.ok) { alert(res.d.error || 'Reactivation failed'); return; }
+      if (!res.ok) { SxToast.error(res.d.error || 'Reactivation failed', 0); return; }
       window.location.reload();
     })
-    .catch(function () { alert('Reactivation failed'); });
+    .catch(function () { SxToast.error('Reactivation failed'); });
 }
 </script>
 {% endblock %}
