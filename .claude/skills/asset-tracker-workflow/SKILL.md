@@ -264,6 +264,41 @@ print(f"OK: {EXPECT} replaced. Backup at {BAK}")
 Delete the backup before committing. Always show the `git diff` before the
 commit, as actual diff output.
 
+### Markdown edits: print the staged section before the write
+
+For a markdown target, print every section the edit lands in after the
+replacement is computed and before it is written. A correct anchor can still
+land in a section that contradicts it elsewhere, and the staged text is the
+last point where that is cheap to see. Call this between the replace and the
+write, using the already-staged `out`.
+
+```python
+def print_staged_sections(out, markers):
+    lines = out.splitlines()
+    heads = [i for i, l in enumerate(lines)
+             if l.startswith("## ") or l.startswith("### ")]
+    shown = set()
+    for m in markers:
+        hit = next((i for i, l in enumerate(lines) if m in l), None)
+        if hit is None:
+            print("MARKER NOT FOUND:", m)
+            continue
+        start = max([h for h in heads if h <= hit], default=0)
+        later = [h for h in heads if h > hit]
+        end = later[0] if later else len(lines)
+        if start in shown:
+            print("(also lands in the section printed at line", start + 1, ")")
+            continue
+        shown.add(start)
+        print("--- staged section, lines", start + 1, "to", end, "---")
+        for line in lines[start:end]:
+            print(line)
+```
+
+A section runs from its nearest preceding `##` or `###` heading to the line
+before the next one. A second edit landing in a span already printed reports
+its position rather than repeating the section.
+
 ### Reversals: restore from the parent blob, do not invert edits
 
 For a pure reversal where no other commit has touched the files, verify with
