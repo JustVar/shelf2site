@@ -532,8 +532,11 @@
               var params = new URLSearchParams(window.location.search);
               var msg = params.get("toast");
               if (msg && window.SxToast) {
-                SxToast.success(decodeURIComponent(msg.replace(/\+/g, " ")));
+                var kind = params.get("toast_type");
+                if (["success", "error", "warning", "info"].indexOf(kind) === -1) kind = "success";
+                SxToast[kind](msg);
                 params.delete("toast");
+                params.delete("toast_type");
                 var clean = window.location.pathname;
                 var remaining = params.toString();
                 if (remaining) clean += "?" + remaining;
