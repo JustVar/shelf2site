@@ -148,7 +148,10 @@ class LockManager {
         el.className = level === 'editing'
             ? 'lock-indicator lock-hard'
             : 'lock-indicator lock-soft';
-        el.innerHTML = icon + '<span>' + msg + '</span>';
+        el.innerHTML = icon;
+        const span = document.createElement('span');
+        span.textContent = msg;
+        el.appendChild(span);
         el.style.display = 'flex';
     }
 
@@ -177,7 +180,10 @@ class LockManager {
             ? lockResult.locked_by + ' is currently editing this record. Please wait.'
             : lockResult.locked_by + ' is also viewing this record.';
         el.className = isHard ? 'lock-indicator lock-hard' : 'lock-indicator lock-soft';
-        el.innerHTML = icon + '<span>' + msg + '</span>';
+        el.innerHTML = icon;
+        const span = document.createElement('span');
+        span.textContent = msg;
+        el.appendChild(span);
         el.style.display = 'flex';
 
         if (isHard && formId) {
