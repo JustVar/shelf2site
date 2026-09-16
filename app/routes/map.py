@@ -303,6 +303,7 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
             "label": it.item_name or f"Item #{it.id}",
             "serial": it.item_sn or "",
             "hasLocation": it.location_id is not None,  # False = no place at all
+            "viewUrl": f"{BP}/items/{it.id}",
         })
     legacy = (
         db.query(EdgeBox)
@@ -324,6 +325,7 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
             "label": eb.org or eb.serial or f"Edge box #{eb.id}",
             "serial": eb.serial or "",
             "hasLocation": True,
+            "viewUrl": "",
         })
     return out
 
@@ -423,7 +425,13 @@ def map_data(request: Request, db: Session = Depends(get_db),
             "unitCounts": unit_counts,
             "statusCounts": status_counts,
             "topCustomers": top_customers,
-            "needsLocation": {"count": len(needs), "items": needs[:50]},  # editor-only: [] otherwise
+            "needsLocation": {  # editor-only: [] otherwise
+                "count": len(needs),
+                "fixable": [u for u in needs if u["hasLocation"]][:50],
+                "fixableCount": sum(1 for u in needs if u["hasLocation"]),
+                "placeless": [u for u in needs if not u["hasLocation"]][:50],
+                "placelessCount": sum(1 for u in needs if not u["hasLocation"]),
+            },
             "colors": {"deal": DEAL_COLORS, "unit": UNIT_COLORS, "status": STATUS_COLORS},
             "labels": {"deal": DEAL_LABELS, "unit": UNIT_LABELS},
             "canEdit": bool(user.is_editor_or_above),

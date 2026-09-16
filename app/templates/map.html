@@ -67,6 +67,7 @@
         border-bottom: 1px solid var(--border); color: var(--text-muted); }
     .mp-nl-row:last-child { border-bottom: none; }
     .mp-nl-row .mono { font-family: var(--sx-font-mono, monospace); }
+    .mp-nl-link { margin-left: auto; font-size: 11px; color: var(--accent-primary); text-decoration: none; }
     .mp-fixbtn { margin-left: auto; background: var(--accent-primary-dim); border: 1px solid var(--accent-border);
         color: var(--accent-primary-l); border-radius: 6px; font-size: 10px; padding: 2px 8px; cursor: pointer; font-family: inherit; }
     [data-theme="light"] .mp-fixbtn { color: var(--accent-primary); }
@@ -208,7 +209,14 @@
 
         <div class="mp-card">
             <div class="mp-nl"><b id="mp-nl-count">0</b> units missing location data</div>
-            <div id="mp-nl-list" style="margin-top:6px;"></div>
+            <div id="mp-nl-fix-wrap" style="margin-top:6px; display:none;">
+                <div class="mp-nl"><b id="mp-nl-fix-count">0</b> can be pinned here</div>
+                <div id="mp-nl-fix-list"></div>
+            </div>
+            <div id="mp-nl-place-wrap" style="margin-top:6px; display:none;">
+                <div class="mp-nl"><b id="mp-nl-place-count">0</b> need a place assigned first</div>
+                <div id="mp-nl-place-list"></div>
+            </div>
         </div>
 
         {% if is_kiosk %}
@@ -541,37 +549,51 @@
     function renderNeedsLocation() {
         var nl = meta.needsLocation;
         document.getElementById("mp-nl-count").textContent = nl.count;
-        var list = document.getElementById("mp-nl-list");
+        renderNlGroup("fix", nl.fixable || [], nl.fixableCount || 0);
+        renderNlGroup("place", nl.placeless || [], nl.placelessCount || 0);
+    }
+
+    function renderNlGroup(name, rows, total) {
+        var wrap = document.getElementById("mp-nl-" + name + "-wrap");
+        var list = document.getElementById("mp-nl-" + name + "-list");
+        document.getElementById("mp-nl-" + name + "-count").textContent = total;
         list.textContent = "";
-        if (nl.count > 12) list.appendChild(el("div", "mp-nl", "Showing 12 of " + nl.count));
-        nl.items.slice(0, 12).forEach(function (u) {
-            var row = el("div", "mp-nl-row");
-            row.appendChild(el("span", null, u.label));
-            if (u.serial) row.appendChild(el("span", "mono", u.serial));
-            if (CAN_EDIT && u.hasLocation) {
-                var btn = el("button", "mp-fixbtn", "Fix");
-                btn.type = "button";
-                var form = el("div", "mp-fixform");
-                var lat = el("input"); lat.placeholder = "lat"; lat.name = "fix-lat-" + u.kind + u.id;
-                var lng = el("input"); lng.placeholder = "lng"; lng.name = "fix-lng-" + u.kind + u.id;
-                var go = el("button", "mp-fixbtn", "Save");
-                go.type = "button";
-                form.appendChild(lat); form.appendChild(lng); form.appendChild(go);
-                btn.addEventListener("click", function () { form.classList.toggle("open"); });
-                go.addEventListener("click", function () {
-                    postJSON("{{ base_path }}/map/set-location",
-                             { kind: u.kind, id: u.id, lat: parseFloat(lat.value), lng: parseFloat(lng.value) })
-                        .then(function (r) { if (!r || !r.error) reloadData(); });
-                });
-                row.appendChild(btn);
-                var holder = el("div");
-                holder.appendChild(row);
-                holder.appendChild(form);
-                list.appendChild(holder);
-                return;
-            }
-            list.appendChild(row);
-        });
+        wrap.style.display = total > 0 ? "" : "none";
+        if (total > 12) list.appendChild(el("div", "mp-nl", "Showing 12 of " + total));
+        rows.slice(0, 12).forEach(function (u) { list.appendChild(nlRow(u)); });
+    }
+
+    function nlRow(u) {
+        var row = el("div", "mp-nl-row");
+        row.appendChild(el("span", null, u.label));
+        if (u.serial) row.appendChild(el("span", "mono", u.serial));
+        if (CAN_EDIT && u.hasLocation) {
+            var btn = el("button", "mp-fixbtn", "Fix");
+            btn.type = "button";
+            var form = el("div", "mp-fixform");
+            var lat = el("input"); lat.placeholder = "lat"; lat.name = "fix-lat-" + u.kind + u.id;
+            var lng = el("input"); lng.placeholder = "lng"; lng.name = "fix-lng-" + u.kind + u.id;
+            var go = el("button", "mp-fixbtn", "Save");
+            go.type = "button";
+            form.appendChild(lat); form.appendChild(lng); form.appendChild(go);
+            btn.addEventListener("click", function () { form.classList.toggle("open"); });
+            go.addEventListener("click", function () {
+                postJSON("{{ base_path }}/map/set-location",
+                         { kind: u.kind, id: u.id, lat: parseFloat(lat.value), lng: parseFloat(lng.value) })
+                    .then(function (r) { if (!r || !r.error) reloadData(); });
+            });
+            row.appendChild(btn);
+            var holder = el("div");
+            holder.appendChild(row);
+            holder.appendChild(form);
+            return holder;
+        }
+        if (u.viewUrl) {
+            var a = el("a", "mp-nl-link", "View item");
+            a.href = u.viewUrl;
+            row.appendChild(a);
+        }
+        return row;
     }
 
     // ── popup (single reused instance, DOM-built) ───────────────────────────
