@@ -561,7 +561,7 @@
                 go.addEventListener("click", function () {
                     postJSON("{{ base_path }}/map/set-location",
                              { kind: u.kind, id: u.id, lat: parseFloat(lat.value), lng: parseFloat(lng.value) })
-                        .then(function (r) { if (r && r.error) SxToast.error(r.error, 0); else reloadData(); });
+                        .then(function (r) { if (!r || !r.error) reloadData(); });
                 });
                 row.appendChild(btn);
                 var holder = el("div");
