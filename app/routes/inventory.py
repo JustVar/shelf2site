@@ -229,8 +229,8 @@ def quick_view_save(
     notes: str = Form(default=""),
 ):
     """Save Quick View edits and return updated read-mode partial."""
-    if not user or not user.is_editor_or_above:
-        return HTMLResponse("Unauthorized", status_code=401)
+    if not user.is_editor_or_above:
+        return HTMLResponse("Not permitted: editor access required", status_code=403)
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
@@ -291,8 +291,8 @@ async def inventory_bulk_update(
     Skips items locked by other users; returns counts. Broadcasts
     triage_gap_changed so the nav triage badge syncs when an edit here
     clears (or introduces) a triage gap."""
-    if not user or not user.is_editor_or_above:
-        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+    if not user.is_editor_or_above:
+        return JSONResponse({"success": False, "error": "Not permitted: editor access required"}, status_code=403)
 
     form = await request.form()
     action = form.get("action", "")

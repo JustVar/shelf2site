@@ -79,7 +79,7 @@ def do_checkout(
 ):
     """Open a checkout: flip status to 'Checked Out', insert checkouts row."""
     if not user.is_editor_or_above:
-        return toast_redirect(f"{BP}/checkout", "Not permitted", "warning")
+        return toast_redirect(f"{BP}/checkout", "Not permitted: editor access required", "warning")
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
@@ -163,7 +163,7 @@ def do_checkin(
 ):
     """Close an open checkout: set checkin_date, restore item.item_status."""
     if not user.is_editor_or_above:
-        return toast_redirect(f"{BP}/checkin", "Not permitted", "warning")
+        return toast_redirect(f"{BP}/checkin", "Not permitted: editor access required", "warning")
 
     co = (
         db.query(ItemCheckout)
@@ -219,7 +219,7 @@ async def do_bulk_checkout(
 ):
     """Check out many items to one shared recipient. Skips items already out."""
     if not user.is_editor_or_above:
-        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+        return JSONResponse({"success": False, "error": "Not permitted: editor access required"}, status_code=403)
 
     form = await request.form()
     item_ids = [int(i) for i in form.getlist("item_ids")]
@@ -289,7 +289,7 @@ async def do_bulk_checkin(
     """Check in many items: close each open checkout, restore prior_status.
     Skips items with no open checkout."""
     if not user.is_editor_or_above:
-        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+        return JSONResponse({"success": False, "error": "Not permitted: editor access required"}, status_code=403)
 
     form = await request.form()
     item_ids = [int(i) for i in form.getlist("item_ids")]

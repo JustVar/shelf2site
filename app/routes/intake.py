@@ -256,8 +256,8 @@ async def intake_submit(
     purchase_order: str = Form(default=""),
     receipt_notes: str = Form(default=""),
 ):
-    if not user or not user.is_editor_or_above:
-        return toast_redirect(f"{BP}/dashboard", "Not permitted", "warning")
+    if not user.is_editor_or_above:
+        return toast_redirect(f"{BP}/dashboard", "Not permitted: editor access required", "warning")
 
     import logging
     _log = logging.getLogger(__name__)

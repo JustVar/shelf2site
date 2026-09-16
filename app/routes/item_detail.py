@@ -274,8 +274,8 @@ async def item_update(
     tracking_number: str = Form(default=""),
     notes: str = Form(default=""),
 ):
-    if not user or not user.is_editor_or_above:
-        return toast_redirect(f"{BP}/items/{item_id}", "Not permitted", "warning")
+    if not user.is_editor_or_above:
+        return toast_redirect(f"{BP}/items/{item_id}", "Not permitted: editor access required", "warning")
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
@@ -396,8 +396,8 @@ async def add_receipt(
     purchase_order: str = Form(default=""),
     receipt_notes: str = Form(default=""),
 ):
-    if not user or not user.is_editor_or_above:
-        return toast_redirect(f"{BP}/items/{item_id}", "Not permitted", "warning")
+    if not user.is_editor_or_above:
+        return toast_redirect(f"{BP}/items/{item_id}", "Not permitted: editor access required", "warning")
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:

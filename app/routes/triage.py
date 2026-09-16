@@ -395,8 +395,8 @@ async def triage_fix_save(
     user: User = Depends(get_current_user),
 ):
     """Save a single field. Returns JSON with remaining gap counts for this item."""
-    if not user or not user.is_editor_or_above:
-        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+    if not user.is_editor_or_above:
+        return JSONResponse({"success": False, "error": "Not permitted: editor access required"}, status_code=403)
     if field_name not in FIELD_LABELS:
         return JSONResponse({"success": False, "error": "Unknown field"}, status_code=400)
 
@@ -524,8 +524,8 @@ async def triage_bulk_update(
 ):
     """Apply a single-field update to many items at once.
     Skips items that are locked by other users; returns counts."""
-    if not user or not user.is_editor_or_above:
-        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+    if not user.is_editor_or_above:
+        return JSONResponse({"success": False, "error": "Not permitted: editor access required"}, status_code=403)
 
     form = await request.form()
     action = form.get("action", "")

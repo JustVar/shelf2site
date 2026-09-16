@@ -1,13 +1,13 @@
 # Toast Redirect Kind: the ?toast= handler learns a type
 
-    STATUS:   rev 1, ratified 2026-09-15
+    STATUS:   rev 2, ratified 2026-09-15, amended 2026-09-16
     Written:  2026-09-15
     Board:    BACKLOG-TRIAGE.md item N10. Commit 2 also closes N15.
     Taken at: HEAD d5f9cfb, branch main
     Scope:    The ?toast= handler in base.html, its 24 callers, and how
               those callers encode the message. Nothing else.
-    Anchors:  Every file:line below is at d5f9cfb and ages from the first
-              commit that touches the file.
+    Anchors:  Every file:line below is at d5f9cfb, except under After
+              ratification, and ages from the first commit that touches the file.
 
 ## Why
 
@@ -179,3 +179,18 @@ no route is added.
   `get_lock` returns viewing-level locks is UNREAD.
 - `item_decommission` and `item_reactivate` in `item_detail.py` do not use
   `?toast=`. How they report results is UNREAD.
+
+## After ratification
+
+The anchors above stay pinned at d5f9cfb. Later changes to the callers are
+recorded here instead of edited into the tables. Anchors in this section are
+at the N19 commit.
+
+- **N17 (eeb9cc4)** added three warning callers on viewer form posts:
+  `intake.py:260`, `item_detail.py:278` and `:400`.
+- **N19** changed the message on all five permission warnings from
+  "Not permitted" to "Not permitted: editor access required":
+  `checkout.py:82`, `:166`, `intake.py:260`, `item_detail.py:278`, `:400`.
+- **N16 (fe3f118)** closed the first item under Out of scope: only user
+  managers can set `display_name`, and `_showLockIndicator` and `showConflict`
+  in `locks.js` now insert the name with `textContent`.

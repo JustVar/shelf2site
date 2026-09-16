@@ -44,8 +44,8 @@ PUBLIC_ROUTES = {
     ("GET", "/items/{item_id}/edit"),     # 303 redirect; target page enforces
 }
 
-# Write routes that enforce editor tier INSIDE the handler (redirect+toast UX)
-# rather than via a require_* dependency. See the census doc, "In-body checks".
+# Write routes that enforce editor tier INSIDE the handler rather than via a
+# require_* dependency. See the census doc, "In-body checks".
 IN_BODY_EDITOR_ROUTES = {
     ("POST", "/intake"),
     ("POST", "/items/{item_id}"),

@@ -238,11 +238,19 @@ function saveQvEdit(form) {
   fetch(BP + '/inventory/quick-view/' + _qvItemId, {
     method: 'POST',
     body: formData
-  }).then(function(r) { return r.text(); })
-    .then(function(html) {
-      document.getElementById('qv-content').innerHTML = html;
-      SxToast.success('Item updated');
-    });
+  }).then(function(r) {
+    return r.text().then(function(body) { return { ok: r.ok, status: r.status, body: body }; });
+  }).then(function(res) {
+    if (!res.ok) {
+      var msg = (res.status === 403 || res.status === 404) ? res.body : 'Save failed (HTTP ' + res.status + ')';
+      SxToast.error(msg);
+      return;
+    }
+    document.getElementById('qv-content').innerHTML = res.body;
+    SxToast.success('Item updated');
+  }).catch(function() {
+    SxToast.error('Network error');
+  });
   return false;
 }
 

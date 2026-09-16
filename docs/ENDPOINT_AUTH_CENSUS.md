@@ -27,10 +27,11 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
    `/events/*` get JSON 403, everything else 302s to the map.
 3. **Route dependencies** (`app/auth.py`): `get_current_user` (login required) and the
    `require_*` family (tier/grant). This is the preferred gate for everything.
-4. **In-body checks**: the inventory-mutation form posts (intake, item edit, triage, checkout,
-   bulk) check `user.is_editor_or_above` inside the handler and answer with a friendly
-   redirect + toast instead of a 403 page. Equivalent enforcement, different UX. Marked
-   "editor+ (in-body check)" below.
+4. **In-body checks**: the inventory-mutation routes (intake, item edit, triage, checkout,
+   bulk) check `user.is_editor_or_above` inside the handler rather than through a dependency.
+   Form posts answer with a friendly redirect + toast instead of a 403 page. Fetch endpoints
+   answer 403 with the same message, which the calling page shows. Equivalent enforcement,
+   different UX. Marked "editor+ (in-body check)" below.
 
 ## Gate classes (use these when adding a route)
 
@@ -41,7 +42,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `require_editor` | editor, sub-admins, admin tier |
 | `require_admin` | admin tier (justin_admin, system_admin, ceo, admin) |
 | `require_*` domain deps | admin tier OR the matching permission grant (see `app/auth.py`) |
-| in-body `is_editor_or_above` | editor enforcement with redirect+toast UX (form posts only) |
+| in-body `is_editor_or_above` | editor enforcement in the handler: redirect+toast for form posts, 403 with a message for fetch endpoints |
 | self-auth | handler checks the session itself (SSE stream only) |
 | public | login page/POST, logout, static assets, pure redirects |
 
