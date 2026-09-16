@@ -128,7 +128,8 @@ callers keep working unchanged, and the 8 successes stay correct.
 
 One Python helper builds every redirect toast. It encodes the message, adds
 `toast_type` when the kind is not success, and always returns 303. The 22
-route callers switch to it. Where the helper lives is decided at commit 2.
+route callers switch to it. The helper is `toast_redirect` in
+`app/toast_redirect.py`, tested by `tests/test_toast_redirect.py`.
 The 2 JavaScript callers are successes and need no change.
 
 Commit 2 also closes:

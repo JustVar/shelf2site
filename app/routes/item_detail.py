@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, require_editor, User
 from ..config import settings
+from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import (
     CustomerOrder, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
@@ -199,16 +200,13 @@ def item_detail_page(
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
-        return RedirectResponse(f"{BP}/inventory/?toast=Item+not+found")
+        return toast_redirect(f"{BP}/inventory/", "Item not found", "error")
 
     # Lock check: pass existing_lock to template; gate entry into edit mode.
     existing_lock = get_lock(f"items:{item_id}")
     if edit == "1" and existing_lock and existing_lock.get("user_id") != user.id:
         holder = existing_lock.get("display_name") or "another user"
-        return RedirectResponse(
-            f"{BP}/items/{item_id}?toast=This+item+is+being+edited+by+" + holder.replace(" ", "+"),
-            status_code=303,
-        )
+        return toast_redirect(f"{BP}/items/{item_id}", "This item is being edited by " + holder, "warning")
 
     locations = _get_all_places(db)
     loc_map = {r["id"]: r["name"] for r in locations}
@@ -284,7 +282,7 @@ async def item_update(
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
-        return RedirectResponse(f"{BP}/inventory/?toast=Item+not+found")
+        return toast_redirect(f"{BP}/inventory/", "Item not found", "error")
 
     # Lock enforcement: reject the save if another user currently holds the lock.
     lock = get_lock(f"items:{item_id}")
@@ -294,10 +292,7 @@ async def item_update(
             "Item %d save blocked: locked by %s (user_id=%s), attempted by %s (user_id=%s)",
             item_id, holder, lock.get("user_id"), user.display_name, user.id,
         )
-        return RedirectResponse(
-            f"{BP}/items/{item_id}?toast=This+item+is+being+edited+by+" + holder.replace(' ', '+'),
-            status_code=303,
-        )
+        return toast_redirect(f"{BP}/items/{item_id}", "This item is being edited by " + holder, "warning")
 
     errors = []
     mac1_clean = None
@@ -388,13 +383,9 @@ async def item_update(
     except Exception as e:
         db.rollback()
         _log.error(f"Item update failed: {e}", exc_info=True)
-        return RedirectResponse(
-            f"{BP}/items/{item_id}?toast=Update+failed", status_code=303
-        )
+        return toast_redirect(f"{BP}/items/{item_id}", "Update failed", "error")
 
-    return RedirectResponse(
-        f"{BP}/items/{item_id}?toast=Item+updated+successfully", status_code=303
-    )
+    return toast_redirect(f"{BP}/items/{item_id}", "Item updated successfully")
 
 
 @router.post("/items/{item_id}/receipt", response_class=HTMLResponse)
@@ -413,7 +404,7 @@ async def add_receipt(
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
-        return RedirectResponse(f"{BP}/inventory/?toast=Item+not+found")
+        return toast_redirect(f"{BP}/inventory/", "Item not found", "error")
 
     saved_path = None
     original_name = None
@@ -453,13 +444,9 @@ async def add_receipt(
     except Exception as e:
         db.rollback()
         _log.error(f"Receipt add failed: {e}", exc_info=True)
-        return RedirectResponse(
-            f"{BP}/items/{item_id}?toast=Receipt+upload+failed", status_code=303
-        )
+        return toast_redirect(f"{BP}/items/{item_id}", "Receipt upload failed", "error")
 
-    return RedirectResponse(
-        f"{BP}/items/{item_id}?toast=Receipt+added+successfully", status_code=303
-    )
+    return toast_redirect(f"{BP}/items/{item_id}", "Receipt added successfully")
 
 
 @router.get("/api/receipts/{receipt_id}/download")

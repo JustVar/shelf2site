@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
 from ..config import settings
+from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site, HAND_EDITABLE_ITEM_STATUSES
 from .dashboard import ALL_CATEGORIES, category_display
@@ -361,7 +362,4 @@ async def intake_submit(
         }, status_code=500)
 
     # Redirect to inventory with success message via query param
-    return RedirectResponse(
-        f"{BP}/inventory/?toast=Item+created+successfully",
-        status_code=303,
-    )
+    return toast_redirect(f"{BP}/inventory/", "Item created successfully")

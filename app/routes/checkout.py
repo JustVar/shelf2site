@@ -16,12 +16,13 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
 from ..audit import log_event
 from ..config import settings
+from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import Item, ItemCheckout, User as UserModel
 
@@ -78,31 +79,23 @@ def do_checkout(
 ):
     """Open a checkout: flip status to 'Checked Out', insert checkouts row."""
     if not user.is_editor_or_above:
-        return RedirectResponse(f"{BP}/checkout?toast=Not+permitted", status_code=303)
+        return toast_redirect(f"{BP}/checkout", "Not permitted", "warning")
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
-        return RedirectResponse(
-            f"{BP}/checkout?toast=Item+not+found", status_code=303
-        )
+        return toast_redirect(f"{BP}/checkout", "Item not found", "error")
     if item.item_status == "Checked Out":
-        return RedirectResponse(
-            f"{BP}/items/{item.id}?toast=Already+checked+out", status_code=303
-        )
+        return toast_redirect(f"{BP}/items/{item.id}", "Already checked out", "warning")
 
     if item.item_status == "Decommissioned":
         # Code-mediated (docs/specs/item-decommission.md): a decommissioned
         # item cannot circulate; reactivate it first.
-        return RedirectResponse(
-            f"{BP}/items/{item.id}?toast=Item+is+decommissioned", status_code=303
-        )
+        return toast_redirect(f"{BP}/items/{item.id}", "Item is decommissioned", "warning")
 
     uid = int(checked_out_to_user_id) if checked_out_to_user_id.strip() else None
     name = checked_out_to_name.strip() or None
     if uid is None and name is None:
-        return RedirectResponse(
-            f"{BP}/checkout?toast=Pick+a+recipient", status_code=303
-        )
+        return toast_redirect(f"{BP}/checkout", "Pick a recipient", "warning")
 
     co = ItemCheckout(
         item_id=item.id,
@@ -127,9 +120,7 @@ def do_checkout(
         action="create",
         details=f"Checked out item #{item.id} to {name or 'user#' + str(uid)}",
     )
-    return RedirectResponse(
-        f"{BP}/items/{item.id}?toast=Checked+out", status_code=303
-    )
+    return toast_redirect(f"{BP}/items/{item.id}", "Checked out")
 
 
 @router.get("/checkin", response_class=HTMLResponse)
@@ -172,7 +163,7 @@ def do_checkin(
 ):
     """Close an open checkout: set checkin_date, restore item.item_status."""
     if not user.is_editor_or_above:
-        return RedirectResponse(f"{BP}/checkin?toast=Not+permitted", status_code=303)
+        return toast_redirect(f"{BP}/checkin", "Not permitted", "warning")
 
     co = (
         db.query(ItemCheckout)
@@ -180,10 +171,7 @@ def do_checkin(
         .first()
     )
     if not co:
-        return RedirectResponse(
-            f"{BP}/checkin?toast=Checkout+not+found+or+already+returned",
-            status_code=303,
-        )
+        return toast_redirect(f"{BP}/checkin", "Checkout not found or already returned", "warning")
 
     item = db.query(Item).filter(Item.id == co.item_id).first()
     co.checkin_date = date.today()
@@ -204,7 +192,7 @@ def do_checkin(
         details=f"Checked in item #{co.item_id}",
     )
     target = f"{BP}/items/{co.item_id}" if item else f"{BP}/checkin"
-    return RedirectResponse(f"{target}?toast=Checked+in", status_code=303)
+    return toast_redirect(target, "Checked in")
 
 
 def _broadcast_custody(db, user, source):

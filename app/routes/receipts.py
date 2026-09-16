@@ -11,7 +11,7 @@ from datetime import date as _date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_financial, User
 from ..config import settings
+from ..toast_redirect import toast_redirect
 from ..csrf import require_csrf
 from ..database import get_db
 from ..models import Item, ItemReceipt, ReceiptItem, VendorProfile
@@ -209,11 +210,11 @@ async def receipt_replace_file(
         return HTMLResponse("Receipt not found.", status_code=404)
 
     if not (receipt_file and receipt_file.filename):
-        return RedirectResponse(f"{BP}/receipts/{receipt_id}?toast=No+file+selected", status_code=303)
+        return toast_redirect(f"{BP}/receipts/{receipt_id}", "No file selected", "warning")
 
     ext = Path(receipt_file.filename).suffix.lower()
     if ext not in ALLOWED_RECEIPT_EXTENSIONS:
-        return RedirectResponse(f"{BP}/receipts/{receipt_id}?toast=Unsupported+file+type", status_code=303)
+        return toast_redirect(f"{BP}/receipts/{receipt_id}", "Unsupported file type", "warning")
 
     # save the new file with the intake naming scheme
     unique_name = f"receipt_{_date.today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
@@ -245,4 +246,4 @@ async def receipt_replace_file(
         details=f"Replaced file for receipt #{rec.id}: {rec.original_filename}",
     )
 
-    return RedirectResponse(f"{BP}/receipts/{receipt_id}?toast=Receipt+file+replaced", status_code=303)
+    return toast_redirect(f"{BP}/receipts/{receipt_id}", "Receipt file replaced")
