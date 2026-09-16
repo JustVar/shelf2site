@@ -2,7 +2,7 @@ from pathlib import Path
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request, Query, Form
-from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
@@ -72,9 +72,6 @@ def inventory_page(
     include_decommissioned: bool = Query(default=False),
     page: int = Query(default=1),
 ):
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     _t0 = _time.time()
     tiles = _get_tile_stats(db, include_decommissioned)
     _log.warning(f"TIMING tiles: {_time.time()-_t0:.3f}s")
@@ -192,9 +189,6 @@ def quick_view(
     edit: str = Query(default=""),
 ):
     """HTMX partial — Quick View panel for a single item."""
-    if not user:
-        return HTMLResponse("Unauthorized", status_code=401)
-
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return HTMLResponse("Item not found", status_code=404)
@@ -408,9 +402,6 @@ def inventory_export_csv(
     user: User = Depends(get_current_user),
 ):
     """Stream a CSV of selected items (full asset list, not gap-focused)."""
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     try:
         item_ids = [int(i) for i in ids.split(",") if i.strip()]
     except ValueError:
@@ -471,9 +462,6 @@ def decommissioned_page(
 ):
     """Dedicated view of decommissioned items with a reactivation entry
     point (docs/specs/item-decommission.md)."""
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     items = (
         db.query(Item)
         .filter(Item.item_status == "Decommissioned")

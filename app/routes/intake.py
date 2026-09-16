@@ -200,8 +200,6 @@ def intake_page(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not user:
-        return RedirectResponse(f"{BP}/login")
     if not user.is_editor_or_above:
         return RedirectResponse(f"{BP}/dashboard")
 
@@ -259,7 +257,7 @@ async def intake_submit(
     receipt_notes: str = Form(default=""),
 ):
     if not user or not user.is_editor_or_above:
-        return RedirectResponse(f"{BP}/login")
+        return toast_redirect(f"{BP}/dashboard", "Not permitted", "warning")
 
     import logging
     _log = logging.getLogger(__name__)

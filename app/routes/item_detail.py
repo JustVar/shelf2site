@@ -195,9 +195,6 @@ def item_detail_page(
     user: User = Depends(get_current_user),
     edit: str = Query(default=""),
 ):
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return toast_redirect(f"{BP}/inventory/", "Item not found", "error")
@@ -278,7 +275,7 @@ async def item_update(
     notes: str = Form(default=""),
 ):
     if not user or not user.is_editor_or_above:
-        return RedirectResponse(f"{BP}/login")
+        return toast_redirect(f"{BP}/items/{item_id}", "Not permitted", "warning")
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
@@ -400,7 +397,7 @@ async def add_receipt(
     receipt_notes: str = Form(default=""),
 ):
     if not user or not user.is_editor_or_above:
-        return RedirectResponse(f"{BP}/login")
+        return toast_redirect(f"{BP}/items/{item_id}", "Not permitted", "warning")
 
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
@@ -455,9 +452,6 @@ def download_receipt(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     receipt = db.query(ItemReceipt).filter(ItemReceipt.id == receipt_id).first()
     if not receipt or not receipt.file_path:
         return HTMLResponse("File not found", status_code=404)

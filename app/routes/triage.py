@@ -18,7 +18,7 @@ from pathlib import Path
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request, Query, Form
-from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
@@ -231,9 +231,6 @@ def triage_page(
     per_page: int = Query(default=25),
     sort: str = Query(default="modified_desc"),
 ):
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     # Validate query params
     if role not in TRIAGE_ROLES:
         role = "hw"
@@ -340,8 +337,6 @@ def triage_fix_panel(
     user: User = Depends(get_current_user),
 ):
     """Render the single-field editor partial for the fix panel."""
-    if not user:
-        return HTMLResponse("Unauthorized", status_code=401)
     if field_name not in FIELD_LABELS:
         return HTMLResponse("Unknown field", status_code=400)
 
@@ -631,9 +626,6 @@ def triage_export_csv(
 ):
     """Stream a CSV of selected items' gap info. Useful for sharing triage
     work with people who don't use the app directly (e.g. accounting)."""
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     try:
         item_ids = [int(i) for i in ids.split(",") if i.strip()]
     except ValueError:

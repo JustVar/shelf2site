@@ -2,7 +2,6 @@ from pathlib import Path
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
@@ -104,9 +103,6 @@ def dashboard(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    if not user:
-        return RedirectResponse(f"{BP}/login")
-
     # --- Total items ---
     total_items = db.query(func.count(Item.id)).scalar() or 0
 
