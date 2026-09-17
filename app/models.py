@@ -1205,6 +1205,12 @@ class CustomerOrder(Base):
     # Loan due date (Migration 058) for non-sale order types; per-camera return
     # lives on device_provisioning.returned_date and order return status derives.
     expected_return = Column(Date, nullable=True)
+    # Build ownership (Migration 074): brand or oem, see OWNERS. The partner
+    # is set exactly when the OEM owns the order. The CHECK
+    # customer_orders_owner_partner_check in migration 074 enforces that, not
+    # this model. See docs/specs/order-owner-split-slice-1.md.
+    owner = Column(String(16), nullable=False, server_default="brand")
+    oem_partner_id = Column(Integer, ForeignKey("oem_partners.id"), nullable=True)
     customer_name = Column(String(256), nullable=False)
     customer_account = Column(String(256), nullable=True)
     sales_engineer = Column(String(128), nullable=True)
@@ -1239,6 +1245,7 @@ class CustomerOrder(Base):
     creator = relationship("User", foreign_keys=[created_by])
     provisioning_records = relationship("DeviceProvisioning", back_populates="customer_order")
     oem_pos = relationship("OEMPurchaseOrder", back_populates="customer_order", cascade="all, delete-orphan")
+    oem_partner = relationship("OEMPartner")
     deployment_records = relationship(
         "DeploymentRecord",
         back_populates="customer_order",
@@ -1280,6 +1287,14 @@ class CustomerOrder(Base):
         "demo": "Demo",
     }
 
+    # Build ownership vocabulary (migration 074). Plain varchar, app-level
+    # vocabulary, same pattern as ORDER_TYPES. See
+    # docs/specs/order-owner-split-slice-1.md.
+    OWNERS = {
+        "brand": "Company",
+        "oem": "OEM",
+    }
+
 
 class OEMPurchaseOrder(Base):
     __tablename__ = "oem_purchase_orders"
@@ -1317,6 +1332,23 @@ class OEMPurchaseOrder(Base):
     }
 
     customer_order = relationship("CustomerOrder", back_populates="oem_pos")
+
+
+class OEMPartner(Base):
+    """Who builds, certifies and ships an order (Migration 074).
+
+    Deliberately separate from VendorProfile, which is supplier and
+    manufacturer analytics name-matched to inventory strings, and from
+    OEMPurchaseOrder.vendor_name, which records who a procurement PO line
+    was placed with. See docs/specs/order-owner-split-slice-1.md.
+    """
+    __tablename__ = "oem_partners"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(128), unique=True, nullable=False)
+    active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 # ---------------------------------------------------------------------------
