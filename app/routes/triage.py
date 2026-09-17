@@ -28,7 +28,7 @@ from ..models import Item, ItemPartNumber, Site
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, _clean_str, _safe_int, _safe_float, _safe_date,
-    _normalize_mac, _get_locations,
+    _normalize_mac, _get_locations, _get_vendors, _vendor_id_or_error,
 )
 from ..locks import get_lock
 from .sse import publish_event
@@ -63,7 +63,7 @@ FIELD_LABELS = {
     "department_or_owner": "Dept / owner",
     "brand_sku": "Company SKU",
     "brand_pn": "Company P/N",
-    "vendor_id": "Vendor ID",
+    "vendor_id": "Vendor",
     "date_purchased": "Date purchased",
     "intended_purpose": "Intended purpose",
     "dispatched_date": "Dispatched date",
@@ -372,6 +372,8 @@ def triage_fix_panel(
     }
     if field_type == "location":
         ctx["locations"] = _get_locations(db)
+    elif field_type == "vendor":
+        ctx["vendors"] = _get_vendors(db)
     elif field_type == "status":
         ctx["statuses"] = STATUSES
     elif field_type == "category":
@@ -424,8 +426,15 @@ async def triage_fix_save(
             new_value = _safe_date(raw)
         elif field_type == "number":
             new_value = _safe_float(raw)
-        elif field_type in ("location", "vendor"):
+        elif field_type == "location":
             new_value = _safe_int(raw)
+        elif field_type == "vendor":
+            # N11: a vendor must be an existing vendor_profiles id. A blank still
+            # falls through to the _is_missing check below, so the fix panel can
+            # set a vendor but not clear one.
+            new_value, vendor_err = _vendor_id_or_error(db, raw)
+            if vendor_err:
+                return JSONResponse({"success": False, "error": vendor_err}, status_code=400)
         elif field_type in ("category", "status"):
             # SQLAlchemy SAEnum accepts the raw string value; None clears the column.
             new_value = _clean_str(raw) or None

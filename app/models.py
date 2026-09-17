@@ -1976,7 +1976,8 @@ class Item(Base):
     brand_sku                = Column(String(512), ForeignKey('item_schema.part_numbers.brand_sku'), nullable=True)
     brand_pn                 = Column(String(512), nullable=True)
     item_associated_brand_pn = Column(String(512), nullable=True)
-    vendor_id                  = Column(Integer, nullable=True)
+    # Real FK to public.vendor_profiles (migration 075), ON DELETE SET NULL.
+    vendor_id                  = Column(Integer, ForeignKey("vendor_profiles.id", ondelete="SET NULL"), nullable=True)
     item_vendor                = Column(String(1024), nullable=True)
     date_purchased             = Column(Date, nullable=True)
     intended_purpose           = Column(String(1024), nullable=True)
@@ -2058,7 +2059,8 @@ class ItemReceipt(Base):
     __table_args__ = {'schema': 'item_schema'}
 
     id                = Column(Integer, primary_key=True, autoincrement=True)
-    vendor_id         = Column(Integer, nullable=True)
+    # Real FK to public.vendor_profiles (migration 075), ON DELETE SET NULL.
+    vendor_id         = Column(Integer, ForeignKey("vendor_profiles.id", ondelete="SET NULL"), nullable=True)
     purchase_order    = Column(String(100), nullable=True)
     record_type       = Column(String(20), nullable=False)
     transaction_date  = Column(Date, nullable=False)

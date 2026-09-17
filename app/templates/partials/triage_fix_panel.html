@@ -9,9 +9,12 @@
   {% if field_type == "text" %}
     <input type="text" name="value" class="itk-input" value="{{ current_value }}" autofocus>
   {% elif field_type == "vendor" %}
-    <input type="number" name="value" class="itk-input" value="{{ current_value }}"
-           placeholder="Vendor ID" autofocus>
-    <div class="trg-qv-hint">Enter the vendor ID (number). Vendor lookup is coming in a later update.</div>
+    <select name="value" class="itk-input" autofocus>
+      <option value="">— Select vendor —</option>
+      {% for v in vendors %}
+      <option value="{{ v.id }}" {% if current_value == v.id|string %}selected{% endif %}>{{ v.name }}</option>
+      {% endfor %}
+    </select>
   {% elif field_type == "mac" %}
     <input type="text" name="value" class="itk-input" value="{{ current_value }}"
            placeholder="AA:BB:CC:DD:EE:FF" autofocus>

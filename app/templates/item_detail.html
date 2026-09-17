@@ -164,8 +164,13 @@
         <input type="text" name="item_vendor" id="item_vendor" class="itk-input" value="{{ item.item_vendor or '' }}">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="vendor_id">Vendor ID</label>
-        <input type="text" name="vendor_id" id="vendor_id" class="itk-input" value="{{ item.vendor_id or '' }}">
+        <label class="itk-label" for="vendor_id">Vendor</label>
+        <select name="vendor_id" id="vendor_id" class="itk-input">
+          <option value="">Select vendor...</option>
+          {% for v in vendors %}
+          <option value="{{ v.id }}"{% if item.vendor_id == v.id %} selected{% endif %}>{{ v.name }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="itk-field">
         <label class="itk-label" for="date_purchased">Date Purchased</label>
@@ -345,8 +350,8 @@
       {% endif %}
       {% if item.vendor_id %}
       <div class="dtl-field">
-        <div class="dtl-label">Vendor ID</div>
-        <div class="dtl-value">{{ item.vendor_id }}</div>
+        <div class="dtl-label">Vendor profile</div>
+        <div class="dtl-value">{{ vendor_name or item.vendor_id }}</div>
       </div>
       {% endif %}
       {% if item.date_purchased %}

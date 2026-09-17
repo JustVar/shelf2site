@@ -126,8 +126,13 @@
         <input type="text" name="item_vendor" id="item_vendor" class="itk-input" placeholder="e.g. Amazon, CDW, B&H">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="vendor_id">Vendor ID</label>
-        <input type="text" name="vendor_id" id="vendor_id" class="itk-input" placeholder="Vendor reference number">
+        <label class="itk-label" for="vendor_id">Vendor</label>
+        <select name="vendor_id" id="vendor_id" class="itk-input">
+          <option value="">Select vendor...</option>
+          {% for v in vendors %}
+          <option value="{{ v.id }}">{{ v.name }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="itk-field">
         <label class="itk-label" for="date_purchased">Date Purchased</label>

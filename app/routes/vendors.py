@@ -245,7 +245,8 @@ def delete_vendor(
     db: Session = Depends(get_db),
     user: User = Depends(require_admin),
 ):
-    """Delete a vendor profile (does not affect inventory vendor strings)."""
+    """Delete a vendor profile. Items and receipts that referenced it lose the
+    link (FK ON DELETE SET NULL, migration 075) and keep their vendor text."""
     profile = db.query(VendorProfile).filter(VendorProfile.id == vendor_id).first()
     if not profile:
         return JSONResponse(status_code=404, content={"error": "Vendor profile not found"})

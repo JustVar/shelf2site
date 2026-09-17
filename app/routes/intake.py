@@ -17,7 +17,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..toast_redirect import toast_redirect
 from ..database import get_db
-from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site, HAND_EDITABLE_ITEM_STATUSES
+from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site, VendorProfile, HAND_EDITABLE_ITEM_STATUSES
 from .dashboard import ALL_CATEGORIES, category_display
 
 router = APIRouter(tags=["intake"])
@@ -55,6 +55,38 @@ def _get_all_places(db: Session) -> list[dict]:
     full-form save would then blank location_id."""
     rows = db.query(Site).order_by(Site.name).all()
     return [{"id": r.id, "name": r.name} for r in rows]
+
+
+def _get_vendors(db: Session) -> list[dict]:
+    """Vendor profiles for the vendor selects (N11). The pretty name wins
+    when display_name is set; the ordering stays on name so the list is
+    stable whether or not a profile has one.
+    """
+    rows = db.query(VendorProfile).order_by(VendorProfile.name).all()
+    return [{"id": r.id, "name": r.display_name or r.name} for r in rows]
+
+
+def _vendor_id_or_error(db: Session, value) -> tuple[int | None, str | None]:
+    """Validate a submitted vendor_id against vendor_profiles (migration 075).
+
+    Blank clears the link. Anything that is not an existing profile id is an
+    error the user sees, never a silent NULL, which is what the free-text
+    input used to do through _safe_int.
+    """
+    if value is None:
+        return (None, None)
+    if isinstance(value, str) and not value.strip():
+        return (None, None)
+    try:
+        vendor_id = int(str(value).strip())
+    except ValueError:
+        return (None, "Vendor must be chosen from the list")
+    exists = (db.query(VendorProfile.id)
+              .filter(VendorProfile.id == vendor_id)
+              .first())
+    if not exists:
+        return (None, "Vendor must be chosen from the list")
+    return (vendor_id, None)
 
 
 def _get_categories() -> list[dict]:
@@ -211,6 +243,7 @@ def intake_page(
         "request": request,
         "user": user,
         "locations": locations,
+        "vendors": _get_vendors(db),
         "categories": categories,
         "statuses": STATUSES,
         "part_numbers": part_numbers,
@@ -238,11 +271,7 @@ async def intake_submit(
     brand_sku: str = Form(default=""),
     brand_pn: str = Form(default=""),
     item_associated_brand_pn: str = Form(default=""),
-    # TODO(vendor-ui): Align vendor_id input with triage fix panel pattern —
-    # use type="number" input + hint text. When a vendors table is built, swap
-    # both intake and triage to a <select> populated from the table.
-    # Currently both accept free text; _safe_int silently coerces non-numeric
-    # input to None, causing "saved" toasts with no actual DB change.
+    # vendor_id is a vendor_profiles id from a select, validated by _vendor_id_or_error.
     vendor_id: str = Form(default=""),
     item_vendor: str = Form(default=""),
     date_purchased: str = Form(default=""),
@@ -261,6 +290,10 @@ async def intake_submit(
 
     import logging
     _log = logging.getLogger(__name__)
+
+    # N11: validate the vendor before anything is built, so the receipt payload
+    # and the item both carry a real vendor_profiles id or nothing.
+    vendor_value, vendor_err = _vendor_id_or_error(db, vendor_id)
 
     # --- Optional receipt upload (async read stays in the route) ---
     has_receipt_data = any([
@@ -284,7 +317,7 @@ async def intake_submit(
                 original_name = receipt_file.filename
 
         receipt_payload = {
-            "vendor_id": vendor_id,
+            "vendor_id": vendor_value,
             "purchase_order": purchase_order,
             "record_type": record_type,
             "transaction_date": _safe_date(date_purchased) or date.today(),
@@ -300,6 +333,8 @@ async def intake_submit(
         # rows (e.g. item 39) that only the triage page ever surfaced.
         if not (item_name or "").strip() or not (item_category or "").strip():
             raise ValueError("Item name and category are required")
+        if vendor_err:
+            raise ValueError(vendor_err)
         create_item(
             db,
             fields={
@@ -318,7 +353,7 @@ async def intake_submit(
                 "brand_sku": brand_sku,
                 "brand_pn": brand_pn,
                 "item_associated_brand_pn": item_associated_brand_pn,
-                "vendor_id": vendor_id,
+                "vendor_id": vendor_value,
                 "item_vendor": item_vendor,
                 "date_purchased": date_purchased,
                 "intended_purpose": intended_purpose,
@@ -336,6 +371,7 @@ async def intake_submit(
             "request": request,
             "user": user,
             "locations": locations,
+            "vendors": _get_vendors(db),
             "categories": categories,
             "statuses": STATUSES,
             "part_numbers": _get_part_numbers(db),
@@ -353,6 +389,7 @@ async def intake_submit(
             "request": request,
             "user": user,
             "locations": locations,
+            "vendors": _get_vendors(db),
             "categories": categories,
             "statuses": STATUSES,
             "part_numbers": _get_part_numbers(db),

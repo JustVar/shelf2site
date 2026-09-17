@@ -28,7 +28,7 @@ from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
     STATUSES, ALLOWED_RECEIPT_EXTENSIONS, RECEIPT_STORAGE_PATH,
     _get_locations, _get_all_places, _get_categories, _normalize_mac,
-    _clean_str, _safe_float, _safe_int, _safe_date,
+    _clean_str, _safe_float, _safe_int, _safe_date, _get_vendors, _vendor_id_or_error,
 )
 from ..item_fields import attributes_for
 
@@ -208,6 +208,8 @@ def item_detail_page(
     locations = _get_all_places(db)
     loc_map = {r["id"]: r["name"] for r in locations}
     categories = _get_categories()
+    vendors = _get_vendors(db)
+    vendor_name = next((v["name"] for v in vendors if v["id"] == item.vendor_id), None)
     receipts = _get_item_receipts(db, item_id)
     components = _get_component_history(db, item_id)
     maintenance = _get_maintenance_log(db, item_id)
@@ -224,6 +226,8 @@ def item_detail_page(
         "containment": containment,
         "location_name": loc_map.get(effective_location_id, "\u2014"),
         "locations": locations,
+        "vendors": vendors,
+        "vendor_name": vendor_name,
         "categories": categories,
         "statuses": STATUSES,
         "color": FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
@@ -294,6 +298,9 @@ async def item_update(
     errors = []
     mac1_clean = None
     mac2_clean = None
+    vendor_value, vendor_err = _vendor_id_or_error(db, vendor_id)
+    if vendor_err:
+        errors.append(vendor_err)
     try:
         mac1_clean = _normalize_mac(item_mac_address_1)
     except ValueError as e:
@@ -306,6 +313,7 @@ async def item_update(
     if errors:
         locations = _get_all_places(db)
         categories = _get_categories()
+        vendors = _get_vendors(db)
         loc_map = {r["id"]: r["name"] for r in locations}
         receipts = _get_item_receipts(db, item_id)
         components = _get_component_history(db, item_id)
@@ -321,6 +329,7 @@ async def item_update(
             "containment": containment,
             "location_name": loc_map.get(effective_location_id, "\u2014"),
             "locations": locations,
+            "vendors": vendors,
             "categories": categories,
             "statuses": STATUSES,
             "color": FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
@@ -367,7 +376,7 @@ async def item_update(
     item.brand_sku = _clean_str(brand_sku)
     item.brand_pn = _clean_str(brand_pn)
     item.item_associated_brand_pn = _clean_str(item_associated_brand_pn)
-    item.vendor_id = _safe_int(vendor_id)
+    item.vendor_id = vendor_value
     item.item_vendor = _clean_str(item_vendor)
     item.date_purchased = _safe_date(date_purchased)
     item.intended_purpose = _clean_str(intended_purpose)
