@@ -1,6 +1,6 @@
 # Order owner split, slice 1: who builds an order
 
-    STATUS:   rev 1, ratified 2026-09-17 by Jus
+    STATUS:   rev 2, ratified 2026-09-17 by Jus, build reads recorded 2026-09-17
     Written:  2026-09-17 by Chat, from decisions Jus made the same day
     Board:    BACKLOG-TRIAGE.md (item number assigned at board rev 42)
     Taken at: HEAD f2c9064, branch main. Anchors were read at eeb9cc4;
@@ -160,3 +160,21 @@ columns (skill, Migrations rule).
    slice 1.
 2. **OEM order cards**: read-only coordination cards, with a link to the
    existing order panel. Status edits stay where they are today.
+
+## After build (rev 2)
+
+Six reads resolved while building N20, recorded here rather than edited into
+the sections above. Anchors in this section are at the N20 commit 2.
+
+- The edit surface is the Edit Order modal in `order_detail.html`, beside the
+  order type select.
+- The create route gate is `require_provisioning_manager`, and the new partner
+  route `POST /api/oem-partners/` carries the same gate.
+- The three In-House counters are Company-only by structure: the card list is
+  built after the owner split, and the columns and counters read it. The OEM
+  board carries its own OEM Orders count tile.
+- The SE coverage panel is not owner-filtered and stays as it is.
+- An OEM order card links to the order page, `/orders/{id}`, which is what the
+  In-House card does. There is no panel link.
+- The migration number is 074. The create handler starts at `orders.py:228`
+  and its constructor spans `:268-294`.

@@ -423,6 +423,15 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 #board-inhouse .cb-tools { border-left: none; background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 10px 16px; }
 #board-oem .fl-hero { cursor: default; }
 #kanban-oem .fl-otop, #kanban-oem .fl-ofoot { flex-wrap: wrap; } /* 5-col grid is narrow */
+/* OEM Orders section (owner split, migration 074). New .oemo- classes only;
+   no shared rule is edited. */
+.oemo-section { margin-top: 24px; }
+.oemo-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.oemo-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--fl-t2); }
+.oemo-count { font-size: 11px; font-weight: 700; color: var(--text-muted); }
+.oemo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.oemo-card { cursor: pointer; }
+.oemo-empty { padding: 18px; text-align: center; color: var(--text-muted); font-size: 13px; }
 /* modal + wizard surfaces: neutral, lit top edge, blush controls, no glow */
 .fl-restyle .fl-modal { border-radius: 16px; border-top-color: var(--card-edge); }
 .fl-restyle .fl-modal-overlay { background: rgba(8,9,13,0.6); }
@@ -942,7 +951,56 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                 </div>
                 {{ fl_icon('chart', 'blush', 38, 'm-icon') }}
             </div>
+            <div class="fl-hero" style="--glow-color:var(--info); --glow-soft:rgba(0,117,255,0.45);">
+                <div class="fl-hairline"></div>
+                <div>
+                    <div class="m-label">OEM Orders</div>
+                    <div class="m-value">{{ oem_order_count }}</div>
+                    <div class="m-sub" style="color:var(--info);">Built By Partners</div>
+                </div>
+                {{ fl_icon('box', 'info', 38, 'm-icon') }}
+            </div>
         </div>
+    </div>
+
+    <!-- OEM Orders (owner split, migration 074): read-only coordination cards -->
+    <div class="oemo-section">
+        <div class="oemo-head">
+            <span class="oemo-title">OEM Orders</span>
+            <span class="oemo-count">{{ oem_order_count }}</span>
+        </div>
+        {% if oem_orders %}
+        <div class="oemo-grid">
+        {% for c in oem_orders %}
+        <div class="o-card fl-card fl-ocard oemo-card"
+            data-search="{{ c.order_number }} {{ c.customer_name | e }} {{ c.partner_name or '' }}"
+             onclick="window.location.href=&#39;{{ base_path }}/orders/{{ c.id }}&#39;">
+            <div class="fl-otop">
+                <div class="fl-otitle">{{ c.customer_name }}</div>
+            </div>
+            <div class="fl-osub">
+                <span class="fl-osub-l">
+                    <span class="fl-ochip">{{ c.order_number }}</span>
+                    {% if c.partner_name %}<span class="fl-mchip">{{ c.partner_name }}</span>{% endif %}
+                    <span class="fl-mchip">{{ order_statuses.get(c.status, c.status) }}</span>
+                    <span class="fl-mchip">{{ c.prov_count }} / {{ c.total_sku_qty }} units</span>
+                </span>
+                <span class="fl-due">
+                    {% if c.due_date %}
+                    {% set _dd = (c.due_date - today).days %}
+                    {% if _dd < 0 %}{{ fl_icon('alert', 'mute', 13) }}{{ -_dd }} Day{{ 's' if _dd != -1 else '' }} Late
+                    {% elif _dd == 0 %}{{ fl_icon('clock', 'mute', 13) }}Due Today
+                    {% elif _dd == 1 %}{{ fl_icon('clock', 'mute', 13) }}Due Tomorrow
+                    {% else %}{{ fl_icon('clock', 'mute', 13) }}Due in {{ _dd }} Days{% endif %}
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+        </div>
+        {% else %}
+        <div class="oemo-empty">No OEM-owned orders yet</div>
+        {% endif %}
     </div>
 
     <!-- OEM Pipeline filter bar -->
@@ -1343,6 +1401,26 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     <option value="{{ k }}" {% if k == 'sale' %}selected{% endif %}>{{ v }}</option>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="sp-field-group">
+                <label class="sp-field-lbl">Build Owner</label>
+                <select class="sp-field-input" name="owner" id="no-owner" onchange="toggleOwnerFields()">
+                {% for k, v in owners.items() %}
+                <option value="{{ k }}" {% if k == 'brand' %}selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="sp-field-group" id="no-oem-partner-wrap" style="display:none;">
+                <label class="sp-field-lbl">OEM Partner *</label>
+                <select class="sp-field-input" name="oem_partner_id" id="no-oem-partner" disabled>
+                {% for p in oem_partners %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+                </select>
+                <div class="sp-field-row" style="margin-top:6px;">
+                    <input type="text" class="sp-field-input" id="no-oem-partner-new" placeholder="New partner name">
+                    <button type="button" class="fl-btn" onclick="createOemPartner('no')">Add Partner</button>
+                </div>
             </div>
             <div class="sp-field-group">
                 <label class="sp-field-lbl">Customer Name *</label>
@@ -1891,6 +1969,7 @@ function openNewOrderModal() {
     document.getElementById('new-order-overlay').style.display = 'block';
     document.getElementById('new-order-modal').style.display = 'flex';
     toggleOrderTypeFields();
+    toggleOwnerFields();
 }
 function closeNewOrderModal() {
     document.getElementById('new-order-overlay').style.display = 'none';
@@ -1913,6 +1992,48 @@ function toggleOrderTypeFields() {
     const er = document.getElementById('no-expected-return');
     er.disabled = isSale;
     if (isSale) er.value = '';
+}
+
+/* Build owner (owner split, migration 074). Same disable-when-hidden shape as
+   toggleOrderTypeFields, so FormData omits the partner for Company orders. */
+function toggleOwnerFields() {
+    const isOem = document.getElementById('no-owner').value === 'oem';
+    const wrap = document.getElementById('no-oem-partner-wrap');
+    const sel = document.getElementById('no-oem-partner');
+    wrap.style.display = isOem ? '' : 'none';
+    sel.required = isOem;
+    sel.disabled = !isOem;
+}
+
+async function createOemPartner(prefix) {
+    const input = document.getElementById(prefix + '-oem-partner-new');
+    const sel = document.getElementById(prefix + '-oem-partner');
+    const name = (input.value || '').trim();
+    if (!name) {
+        SxToast.error('Enter a partner name', 0);
+        return;
+    }
+    try {
+        const resp = await fetch(`${BP}/api/oem-partners/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            SxToast.error(data.error || data.detail || 'Could not add partner', 0);
+            return;
+        }
+        const opt = document.createElement('option');
+        opt.value = data.id;
+        opt.textContent = data.name;
+        sel.appendChild(opt);
+        sel.value = String(data.id);
+        input.value = '';
+        SxToast.success('Partner added');
+    } catch (err) {
+        SxToast.error('Network error adding partner', 0);
+    }
 }
 
 async function submitNewOrder(e) {

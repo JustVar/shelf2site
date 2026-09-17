@@ -22,6 +22,7 @@
                 {{ ORDER_STATUSES.get(order.status, order.status) | title }}
             </span>
             <span class="order-type-badge order-type-badge--{{ order.order_type }}">{{ ORDER_TYPES.get(order.order_type, order.order_type) }}</span>
+            {% if order.owner == 'oem' %}<span class="order-type-badge">OEM: {{ order.oem_partner.name if order.oem_partner else 'Unassigned' }}</span>{% endif %}
         </div>
         <div style="font-size:1.1rem; font-weight:500; margin-top:0.35rem;">{{ order.customer_name }}</div>
         {% if order.customer_account and order.customer_account != order.customer_name %}
@@ -397,6 +398,26 @@
                 <option value="{{ k }}"{% if k == order.order_type %} selected{% endif %}>{{ v }}</option>
                 {% endfor %}
             </select>
+        </div>
+        <div class="form-group" style="margin-top:0.75rem;">
+            <label>Build Owner</label>
+            <select id="edit-owner" class="form-control" onchange="toggleEditOwnerFields()">
+                {% for k, v in OWNERS.items() %}
+                <option value="{{ k }}"{% if k == order.owner %} selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" id="edit-oem-partner-wrap" style="margin-top:0.75rem; display:none;">
+            <label>OEM Partner *</label>
+            <select id="edit-oem-partner" class="form-control">
+                {% for p in oem_partners %}
+                <option value="{{ p.id }}"{% if order.oem_partner_id == p.id %} selected{% endif %}>{{ p.name }}</option>
+                {% endfor %}
+            </select>
+            <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                <input type="text" id="edit-oem-partner-new" class="form-control" placeholder="New partner name">
+                <button type="button" class="btn btn-sm" onclick="createOemPartner('edit')">Add Partner</button>
+            </div>
         </div>
         <div class="form-group" style="margin-top:0.75rem;">
             <label>Customer Name *</label>
@@ -964,6 +985,7 @@ function openEditModal() {
     // Navigate to orders list with edit intent — for simplicity redirect to orders page
     document.getElementById('edit-order-modal').classList.add('open');
     toggleEditOrderTypeFields();
+    toggleEditOwnerFields();
 }
 
 function toggleEditOrderTypeFields() {
@@ -976,6 +998,42 @@ function toggleEditOrderTypeFields() {
     const er = document.getElementById('edit-expected-return');
     er.disabled = isSale;
     if (isSale) er.value = '';
+}
+
+function toggleEditOwnerFields() {
+    const isOem = document.getElementById('edit-owner').value === 'oem';
+    document.getElementById('edit-oem-partner-wrap').style.display = isOem ? '' : 'none';
+}
+
+async function createOemPartner(prefix) {
+    const input = document.getElementById(prefix + '-oem-partner-new');
+    const sel = document.getElementById(prefix + '-oem-partner');
+    const name = (input.value || '').trim();
+    if (!name) {
+        SxToast.error('Enter a partner name', 0);
+        return;
+    }
+    try {
+        const resp = await fetch(`${BP}/api/oem-partners/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: name }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            SxToast.error(data.error || data.detail || 'Could not add partner', 0);
+            return;
+        }
+        const opt = document.createElement('option');
+        opt.value = data.id;
+        opt.textContent = data.name;
+        sel.appendChild(opt);
+        sel.value = String(data.id);
+        input.value = '';
+        SxToast.success('Partner added');
+    } catch (err) {
+        SxToast.error('Network error adding partner', 0);
+    }
 }
 
 async function saveEditOrder() {
@@ -997,6 +1055,8 @@ async function saveEditOrder() {
         default_fulfillment_type: $('edit-default-fulfillment-type').value || null,
         notes: $('edit-notes').value.trim() || null,
         is_sensitive: $('edit-sensitive').checked,
+        owner: $('edit-owner').value,
+        oem_partner_id: $('edit-owner').value === 'oem' ? parseInt($('edit-oem-partner').value, 10) : null,
     };
     if (!body.customer_name) {
         $('edit-order-error').textContent = 'Customer name is required';

@@ -1,7 +1,7 @@
 # Endpoint Auth Census
 
-**Reconciled 2026-07-27** against live route introspection on apphost: 284 route entries
-(283 HTTP routes plus 1 static mount) across 254 unique paths. No commit pin, since any commit
+**Reconciled 2026-09-17** against live route introspection on apphost: 275 route entries
+(274 HTTP routes plus 1 static mount) across 248 unique paths. No commit pin, since any commit
 that updates this file changes the count it would name. Regenerate with the command below.
 This is the authoritative map of every route and its auth gate. **When you add an endpoint, add
 its row here** and make sure it fits one of the gate classes below.
@@ -371,6 +371,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
+| `/api/oem-partners/` | POST | provisioning manager | OK |
 | `/api/orders/` | POST | provisioning manager | OK |
 | `/api/orders/open` | GET | provisioning manager | OK |
 | `/api/orders/{order_id}` | PUT | provisioning manager | OK |

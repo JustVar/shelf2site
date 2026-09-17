@@ -20,7 +20,7 @@ from ..auth import get_current_user, require_editor, require_provisioning_viewer
 from ..config import settings
 from ..database import get_db
 from ..models import (
-    CustomerOrder, DeploymentRecord, OEMPurchaseOrder, DeviceProvisioning,
+    CustomerOrder, DeploymentRecord, OEMPartner, OEMPurchaseOrder, DeviceProvisioning,
     Item, ItemPartNumber,
     User, TABLE_MODELS, get_display_name, get_serial,
     AuditLog,
@@ -214,6 +214,9 @@ def order_detail(
         "photos_by_direction": photos_by_direction,
         "ORDER_STATUSES": CustomerOrder.ORDER_STATUSES,
         "ORDER_TYPES": CustomerOrder.ORDER_TYPES,
+        "OWNERS": CustomerOrder.OWNERS,
+        "oem_partners": (db.query(OEMPartner).filter(OEMPartner.active.is_(True))
+                        .order_by(OEMPartner.name.asc()).all()),
         "STATUS_COLORS": CustomerOrder.STATUS_COLORS,
         "cancel_reason": cancel_reason,
         "se_names": se_names,
@@ -243,6 +246,26 @@ async def create_order(
     order_type = (body.get("order_type") or "sale").strip()
     if order_type not in CustomerOrder.ORDER_TYPES:
         return JSONResponse(status_code=400, content={"error": "Invalid order type"})
+
+    # Build ownership (migration 074, docs/specs/order-owner-split-slice-1.md):
+    # whitelist the owner and couple the partner. Validate here and never lean
+    # on the CHECK: the IntegrityError catch below reports every integrity
+    # failure as a duplicate PO.
+    owner = (body.get("owner") or "brand").strip()
+    if owner not in CustomerOrder.OWNERS:
+        return JSONResponse(status_code=400, content={"error": "Invalid owner"})
+    oem_partner_id = None
+    if owner == "oem":
+        try:
+            oem_partner_id = int(body.get("oem_partner_id"))
+        except (TypeError, ValueError):
+            oem_partner_id = None
+        partner = (db.query(OEMPartner)
+                   .filter(OEMPartner.id == oem_partner_id, OEMPartner.active.is_(True))
+                   .first()) if oem_partner_id else None
+        if not partner:
+            return JSONResponse(status_code=400, content={
+                "error": "Choose an OEM partner for an OEM-owned order"})
 
     po_number = (body.get("po_number") or "").strip() or None
     expected_return = None
@@ -290,6 +313,8 @@ async def create_order(
         default_fulfillment_type=(body.get("default_fulfillment_type") or "").strip() or None,
         order_type=order_type,
         expected_return=expected_return,
+        owner=owner,
+        oem_partner_id=oem_partner_id,
         created_by=user.id,
     )
     db.add(order)
@@ -420,6 +445,31 @@ async def update_order(
                     return JSONResponse(status_code=400, content={"error": "Invalid loan due date, use YYYY-MM-DD"})
             else:
                 order.expected_return = None
+
+    # Build ownership, parity with create_order (migration 074). The partner is
+    # read only when owner is in the body; the edit form always sends both.
+    if "owner" in body:
+        owner = (body.get("owner") or "brand").strip()
+        if owner not in CustomerOrder.OWNERS:
+            db.rollback()
+            return JSONResponse(status_code=400, content={"error": "Invalid owner"})
+        if owner == "oem":
+            try:
+                new_partner_id = int(body.get("oem_partner_id"))
+            except (TypeError, ValueError):
+                new_partner_id = None
+            partner = (db.query(OEMPartner)
+                       .filter(OEMPartner.id == new_partner_id, OEMPartner.active.is_(True))
+                       .first()) if new_partner_id else None
+            if not partner:
+                db.rollback()
+                return JSONResponse(status_code=400, content={
+                    "error": "Choose an OEM partner for an OEM-owned order"})
+            order.owner = owner
+            order.oem_partner_id = partner.id
+        else:
+            order.owner = owner
+            order.oem_partner_id = None
 
     if old_status == "new" and order.status != "new" and order.order_type == "sale" and not order.po_number:
         db.rollback()
@@ -814,3 +864,44 @@ async def cancel_order(
               details=f"Cancelled order {order.order_number}, "
                       f"{len(unit_list)} unit(s) unlinked")
     return JSONResponse(content={"status": "ok", "units_unlinked": len(unit_list)})
+
+
+@router.post("/api/oem-partners/")
+async def create_oem_partner(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_provisioning_manager),
+):
+    """Create an OEM build partner inline from the order modals.
+
+    Slice 1 of docs/specs/order-owner-split-slice-1.md. There is no admin
+    page, no partner list route (the page context carries the roster), and
+    no edit or deactivate route yet.
+    """
+    body = await request.json()
+    name = (body.get("name") or "").strip()
+    if not name:
+        return JSONResponse(status_code=400, content={"error": "Partner name is required"})
+    if len(name) > 128:
+        return JSONResponse(status_code=400, content={
+            "error": "Partner name is too long, 128 characters maximum"})
+
+    existing = db.query(OEMPartner).filter(
+        sqlfunc.lower(OEMPartner.name) == name.lower()).first()
+    if existing:
+        return JSONResponse(status_code=409, content={"error": "That partner already exists"})
+
+    partner = OEMPartner(name=name, active=True)
+    db.add(partner)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return JSONResponse(status_code=409, content={"error": "That partner already exists"})
+    db.refresh(partner)
+
+    log_event(db, "oem_partner_created", request=request, user_id=user.id,
+              target_table="oem_partners", target_id=partner.id, action="create",
+              details=f"Created OEM partner {partner.name}")
+
+    return JSONResponse(content={"status": "ok", "id": partner.id, "name": partner.name})

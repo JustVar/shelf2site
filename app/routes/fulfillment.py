@@ -26,7 +26,7 @@ from ..config import settings
 from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
-    Item, OEMPurchaseOrder, Site, User, TABLE_MODELS, get_serial,
+    Item, OEMPartner, OEMPurchaseOrder, Site, User, TABLE_MODELS, get_serial,
     BuildCertification, BuildCertificationFile,
     InstallationCertification,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
@@ -382,6 +382,13 @@ def fulfillment_page(
     can_see_sensitive = user.has_sensitive_customers_access
     orders = [o for o in all_orders if not o.is_sensitive or can_see_sensitive]
 
+    # Owner split (migration 074, docs/specs/order-owner-split-slice-1.md): the
+    # In-House board is company-owned work only, and every tile, column, group
+    # and counter below reads this list. In-house is not oem rather than equal
+    # to brand, so an unexpected value cannot vanish from both boards.
+    oem_orders = [o for o in orders if o.owner == "oem"]
+    orders = [o for o in orders if o.owner != "oem"]
+
     # Provisioning counts per order
     prov_counts: dict[int, int] = {}
     for p in db.query(DeviceProvisioning.customer_order_id).filter(
@@ -560,6 +567,14 @@ def fulfillment_page(
     # Build card dicts
     cards = [_build_order_card(o, prov_counts.get(o.id, 0)) for o in orders]
 
+    # OEM-owned coordination cards: the same card dict as the In-House cards,
+    # plus the partner name for display. Read-only in slice 1.
+    oem_cards = []
+    for _o in oem_orders:
+        _card = _build_order_card(_o, prov_counts.get(_o.id, 0))
+        _card["partner_name"] = _o.oem_partner.name if _o.oem_partner else None
+        oem_cards.append(_card)
+
     # S1: order x SKU grouped cards for the Building board (least-advanced rollup)
     item_unit_counts: dict[int, int] = {}
     for p in db.query(DeviceProvisioning.customer_order_id).filter(
@@ -632,6 +647,11 @@ def fulfillment_page(
         "total_active": total_active,
         "overdue_count": overdue_count,
         "due_soon_count": due_soon_count,
+        "owners": CustomerOrder.OWNERS,
+        "oem_partners": (db.query(OEMPartner).filter(OEMPartner.active.is_(True))
+                        .order_by(OEMPartner.name.asc()).all()),
+        "oem_orders": oem_cards,
+        "oem_order_count": len(oem_cards),
         "stock_known": stock_known,
         "stock_unclassified": stock_unclassified,
         "unclassified_count": unclassified_count,
