@@ -109,7 +109,7 @@ async function savePNEdit() {
  * @param {string} sku
  */
 async function deletePN(id, sku) {
-    if (!confirm(`Delete SKU ${sku} from the catalog?\n\nBlocked at server if any item still references it.`)) return;
+    if (!(await SxDialog.confirm({ title: 'Delete SKU', message: `Delete SKU ${sku} from the catalog?\n\nBlocked at server if any item still references it.`, okLabel: 'Delete', danger: true }))) return;
     const resp = await fetch(`${BP}/admin/part-numbers/${id}`, { method: 'DELETE' });
     if (resp.ok) {
         location.reload();

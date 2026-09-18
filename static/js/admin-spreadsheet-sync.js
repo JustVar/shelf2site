@@ -142,7 +142,7 @@ function showTab(tabName, evt) {
 }
 
 async function applyChanges() {
-    if (!confirm(`Apply ${currentChanges.filter(c => c.action !== 'skip').length} changes to the database?`)) {
+    if (!(await SxDialog.confirm({ title: 'Apply changes', message: `Apply ${currentChanges.filter(c => c.action !== 'skip').length} changes to the database?`, okLabel: 'Apply' }))) {
         return;
     }
 

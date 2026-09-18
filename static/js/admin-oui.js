@@ -85,7 +85,7 @@ async function saveEdit() {
  * @param {string} prefix
  */
 async function deleteOUI(id, prefix) {
-    if (!confirm(`Delete OUI ${prefix} from the catalog?`)) return;
+    if (!(await SxDialog.confirm({ title: 'Delete OUI', message: `Delete OUI ${prefix} from the catalog?`, okLabel: 'Delete', danger: true }))) return;
     const resp = await fetch(`${BP}/admin/oui/${id}`, { method: 'DELETE' });
     if (resp.ok) location.reload();
 }

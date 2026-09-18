@@ -58,7 +58,7 @@ async function announce() {
 }
 
 async function clearAnnouncement() {
-    if (!confirm('Clear the maintenance announcement? The banner will disappear for all users.')) return;
+    if (!(await SxDialog.confirm({ title: 'Clear announcement', message: 'Clear the maintenance announcement? The banner will disappear for all users.', okLabel: 'Clear' }))) return;
     try {
         const resp = await fetch(`${BP}/api/maintenance/clear`, {method: 'POST'});
         const data = await resp.json();
@@ -74,7 +74,7 @@ async function clearAnnouncement() {
 }
 
 async function forceReload() {
-    if (!confirm('This will immediately reload the page for all active users. Proceed?')) return;
+    if (!(await SxDialog.confirm({ title: 'Force reload', message: 'This will immediately reload the page for all active users. Proceed?', okLabel: 'Reload all users', danger: true }))) return;
     try {
         const resp = await fetch(`${BP}/api/maintenance/force-reload`, {method: 'POST'});
         const data = await resp.json();

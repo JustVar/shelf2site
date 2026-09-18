@@ -162,5 +162,5 @@ INTUNE_AUTO_SYNC=true</div>
 
 {% block scripts %}
 <script>// BP available globally from base.html</script>
-<script src="{{ base_path }}/static/js/admin-intune.js"></script>
+<script src="{{ base_path }}/static/js/admin-intune.js?v={{ request.state.js_v('js/admin-intune.js') or '0' }}"></script>
 {% endblock %}

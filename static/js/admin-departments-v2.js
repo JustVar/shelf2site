@@ -465,7 +465,7 @@
     const warn = memberCount > 0
       ? `Delete department "${d.name}"? Its ${memberCount} member${memberCount === 1 ? '' : 's'} will become unassigned.`
       : `Delete department "${d.name}"?`;
-    if (!confirm(warn)) return;
+    if (!(await SxDialog.confirm({ title: 'Delete department', message: warn, okLabel: 'Delete', danger: true }))) return;
 
     try {
       const r = await fetch(`${BP}/api/admin/departments/${d.id}`, { method: 'DELETE' });

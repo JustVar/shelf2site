@@ -611,7 +611,7 @@
     const u = USERS.find(x => x.id === currentEditUserId);
     if (!u) return;
     const action = u.is_active ? 'Disable' : 'Enable';
-    if (!confirm(`${action} user '${u.username}'?`)) return;
+    if (!(await SxDialog.confirm({ title: `${action} user`, message: `${action} user '${u.username}'?`, okLabel: action, danger: action === 'Disable' }))) return;
 
     try {
       const r = await fetch(`${BP}/admin/users/${u.id}/toggle`, { method: 'POST' });
@@ -630,7 +630,7 @@
     if (currentEditUserId == null) return;
     const u = USERS.find(x => x.id === currentEditUserId);
     if (!u) return;
-    if (!confirm(`Reset password for '${u.username}'? They will be required to change it on next login.`)) return;
+    if (!(await SxDialog.confirm({ title: 'Reset password', message: `Reset password for '${u.username}'? They will be required to change it on next login.`, okLabel: 'Reset password', danger: true }))) return;
 
     try {
       const r = await fetch(`${BP}/api/admin/reset-password/${u.id}`, { method: 'POST' });

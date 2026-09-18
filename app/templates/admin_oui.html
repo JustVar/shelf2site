@@ -184,5 +184,5 @@
 
 {% block scripts %}
 <script>// BP available globally from base.html</script>
-<script src="{{ base_path }}/static/js/admin-oui.js"></script>
+<script src="{{ base_path }}/static/js/admin-oui.js?v={{ request.state.js_v('js/admin-oui.js') or '0' }}"></script>
 {% endblock %}

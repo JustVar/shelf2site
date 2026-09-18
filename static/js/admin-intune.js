@@ -31,7 +31,7 @@ async function testConnection() {
 }
 
 async function runSync() {
-    if (!confirm('Run Intune device sync now? This will import/update Windows devices from Intune.')) return;
+    if (!(await SxDialog.confirm({ title: 'Run Intune sync', message: 'Run Intune device sync now? This will import/update Windows devices from Intune.', okLabel: 'Run sync' }))) return;
     showBanner('Syncing devices from Intune... this may take a moment.', true);
     try {
         const resp = await fetch(`${BP}/api/intune/sync`, {method: 'POST'});
