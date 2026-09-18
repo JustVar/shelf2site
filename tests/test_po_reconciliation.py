@@ -22,6 +22,9 @@ def oem_po(db):
     db.execute(sqltext(
         "DELETE FROM item_schema.receipt_items WHERE item_id IN "
         "(SELECT id FROM item_schema.items WHERE item_sn LIKE 'CONTRACT-TEST-H16%')"))
+    db.execute(sqltext(
+        "DELETE FROM item_schema.receipts WHERE purchase_order LIKE 'CT H16%' "
+        "AND id NOT IN (SELECT receipt_id FROM item_schema.receipt_items)"))
     db.execute(sqltext("DELETE FROM item_schema.items WHERE item_sn LIKE 'CONTRACT-TEST-H16%'"))
     db.execute(sqltext("DELETE FROM pending_devices WHERE serial LIKE 'CONTRACT-TEST-H16%'"))
     db.execute(sqltext("DELETE FROM receiving_events WHERE vendor LIKE 'CONTRACT-TEST-H16%'"))
