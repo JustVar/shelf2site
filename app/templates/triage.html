@@ -394,7 +394,7 @@ function trgClearSelection() {
   trgUpdateBulkBar();
 }
 
-function trgApplyBulk() {
+async function trgApplyBulk() {
   var action = trgBulkCurrentAction;
   var ids = trgGetSelectedIds();
   if (!action || ids.length === 0) return;
@@ -413,7 +413,7 @@ function trgApplyBulk() {
     return;
   }
 
-  if (!confirm('Apply this change to ' + ids.length + ' item(s)?')) return;
+  if (!(await SxDialog.confirm({ title: 'Apply bulk change', message: 'Apply this change to ' + ids.length + ' item(s)?', okLabel: 'Apply' }))) return;
 
   var applyBtn = document.getElementById('trg-bulk-apply');
   applyBtn.disabled = true;

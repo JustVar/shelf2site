@@ -128,7 +128,7 @@
     // BP available globally from base.html
 
     async function approveDevice(deviceId) {
-        if (!confirm('Approve this device and add it to inventory?')) return;
+        if (!(await SxDialog.confirm({ title: 'Approve device', message: 'Approve this device and add it to inventory?', okLabel: 'Approve' }))) return;
         const targetTable = document.getElementById(`table-override-${deviceId}`).value;
         try {
             const resp = await fetch(`${BP}/api/pending/${deviceId}/approve`, {
@@ -151,7 +151,7 @@
     }
 
     async function dismissDevice(deviceId) {
-        const reason = prompt('Reason for dismissing (optional):');
+        const reason = await SxDialog.prompt({ title: 'Dismiss device', message: 'Reason for dismissing (optional):', label: 'Reason', okLabel: 'Dismiss', danger: true });
         if (reason === null) return; // cancelled
         try {
             const resp = await fetch(`${BP}/api/pending/${deviceId}/dismiss`, {

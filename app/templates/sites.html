@@ -277,7 +277,7 @@ async function saveSite() {
 }
 
 async function deleteSite(siteId, siteName) {
-    if (!confirm(`Delete site "${siteName}"? This cannot be undone.`)) return;
+    if (!(await SxDialog.confirm({ title: 'Delete site', message: `Delete site "${siteName}"? This cannot be undone.`, okLabel: 'Delete', danger: true }))) return;
     try {
         const resp = await fetch(`${BP}/api/sites/${siteId}`, {method: 'DELETE'});
         const data = await resp.json();

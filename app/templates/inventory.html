@@ -463,7 +463,7 @@ function invBulkValueReady(action) {
   return !!(sel && sel.value);
 }
 
-function invApplyBulk() {
+async function invApplyBulk() {
   var action = invBulkCurrentAction;
   var ids = invGetSelectedIds();
   if (!action || ids.length === 0) return;
@@ -485,7 +485,7 @@ function invApplyBulk() {
     if (window.SxToast) window.SxToast.error('Please choose a value');
     return;
   }
-  if (!confirm('Apply this change to ' + ids.length + ' item(s)?')) return;
+  if (!(await SxDialog.confirm({ title: 'Apply bulk change', message: 'Apply this change to ' + ids.length + ' item(s)?', okLabel: 'Apply' }))) return;
 
   var applyBtn = document.getElementById('inv-bulk-apply');
   applyBtn.disabled = true;
@@ -519,12 +519,12 @@ function invApplyBulk() {
     });
 }
 
-function invApplyCustody(action, ids) {
+async function invApplyCustody(action, ids) {
   var uid = document.getElementById('inv-bulk-co-user').value;
   var name = document.getElementById('inv-bulk-co-name').value.trim();
   var notes = document.getElementById('inv-bulk-co-notes').value.trim();
   var verb = (action === 'checkout') ? 'Check out' : 'Check in';
-  if (!confirm(verb + ' ' + ids.length + ' item(s)?')) return;
+  if (!(await SxDialog.confirm({ title: verb + ' items', message: verb + ' ' + ids.length + ' item(s)?', okLabel: verb }))) return;
   var applyBtn = document.getElementById('inv-bulk-apply');
   applyBtn.disabled = true;
   applyBtn.textContent = 'Applying…';

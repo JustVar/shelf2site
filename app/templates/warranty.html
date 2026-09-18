@@ -769,7 +769,7 @@
     }
 
     async function deleteWarranty(warrantyId) {
-        if (!confirm('Delete this warranty record? This cannot be undone.')) return;
+        if (!(await SxDialog.confirm({ title: 'Delete warranty', message: 'Delete this warranty record? This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
         try {
             const resp = await fetch(`${BP}/api/warranty/${warrantyId}`, { method: 'DELETE' });
             if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Failed to delete'); }

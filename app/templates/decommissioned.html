@@ -67,8 +67,8 @@
 <script>
 /* var and function declarations only: page scripts re-execute if this page
    is ever reached through a boosted swap. */
-function decReactivate(itemId, itemName) {
-  var reason = prompt('Reason for reactivating ' + itemName + ':');
+async function decReactivate(itemId, itemName) {
+  var reason = await SxDialog.prompt({ title: 'Reactivate item', message: 'Reason for reactivating ' + itemName + ':', label: 'Reason', required: true });
   if (reason === null) return;
   if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
   var body = new URLSearchParams();
