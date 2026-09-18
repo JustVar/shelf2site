@@ -747,7 +747,7 @@ async function confirmCancelOrder() {
 // Delete order
 // ---------------------------------------------------------------------------
 async function deleteOrder() {
-    if (!confirm('Delete this order? Provisioning records will be unlinked but not deleted.')) return;
+    if (!(await SxDialog.confirm({ title: 'Delete order', message: 'Delete this order? Provisioning records will be unlinked but not deleted.', okLabel: 'Delete', danger: true }))) return;
     const resp = await fetch(`${BP}/api/orders/${ORDER_ID}`, {method: 'DELETE'});
     if (resp.ok) window.location.href = `${BP}/orders/`;
     else { const d = await resp.json(); SxToast.error(d.error || 'Failed to delete', 0); }
@@ -808,7 +808,7 @@ async function savePO() {
 }
 
 async function deletePO(poId) {
-    if (!confirm('Delete this OEM purchase order?')) return;
+    if (!(await SxDialog.confirm({ title: 'Delete purchase order', message: 'Delete this OEM purchase order?', okLabel: 'Delete', danger: true }))) return;
     const resp = await fetch(`${BP}/api/orders/${ORDER_ID}/oem-pos/${poId}`, {method: 'DELETE'});
     if (resp.ok) location.reload();
     else { const d = await resp.json(); SxToast.error(d.error || 'Failed', 0); }
@@ -833,7 +833,7 @@ document.querySelector('[onclick*="add-po-modal"]') && document.querySelector('[
 // Unlink provisioning
 // ---------------------------------------------------------------------------
 async function unlinkProvisioning(provId) {
-    if (!confirm('Unlink this provisioning record from the order?')) return;
+    if (!(await SxDialog.confirm({ title: 'Unlink provisioning', message: 'Unlink this provisioning record from the order?', okLabel: 'Unlink' }))) return;
     const resp = await fetch(`${BP}/api/provisioning/${provId}/link-order`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -975,7 +975,7 @@ async function saveSkuLine() {
 async function removeSkuLine(idx) {
     const line = SKU_LINES[idx];
     if (!line) return;
-    if (!confirm(`Remove requirement ${line.model} ×${line.qty}?`)) return;
+    if (!(await SxDialog.confirm({ title: 'Remove requirement', message: `Remove requirement ${line.model} ×${line.qty}?`, okLabel: 'Remove', danger: true }))) return;
     const lines = SKU_LINES.filter((_, i) => i !== idx).map(l => ({...l}));
     const err = await putSkuLines(lines);
     if (err) SxToast.error(err, 0);

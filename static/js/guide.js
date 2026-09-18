@@ -807,7 +807,7 @@ class TourEngine {
         });
 
         modal.querySelector('#tour-reset-all').addEventListener('click', async function() {
-            if (!confirm('Reset every tour to Not started? Completed ticks will clear.')) return;
+            if (!(await SxDialog.confirm({ title: 'Reset tours', message: 'Reset every tour to Not started? Completed ticks will clear.', okLabel: 'Reset', danger: true }))) return;
             try {
                 await fetch(self.bp + '/api/tours/progress', { method: 'DELETE' });
             } catch (e) { /* non-critical */ }

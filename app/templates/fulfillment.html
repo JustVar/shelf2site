@@ -2920,7 +2920,7 @@ async function submitOemPo() {
 }
 
 async function deleteOemPo(orderId, poId) {
-    if (!confirm('Delete this OEM PO? This cannot be undone.')) return;
+    if (!(await SxDialog.confirm({ title: 'Delete OEM PO', message: 'Delete this OEM PO? This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
     try {
         var res = await fetch(BP + '/api/orders/' + orderId + '/oem-pos/' + poId, {
             method: 'DELETE'
