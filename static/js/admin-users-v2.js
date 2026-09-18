@@ -639,7 +639,7 @@
         showDrawerError(j.error || 'Could not reset password');
         return;
       }
-      window.prompt(`Temp password for '${u.username}' (copy this — it won't be shown again):`, j.temp_password);
+      await SxDialog.reveal({ title: 'Temp password', message: `Temp password for '${u.username}'. Copy it now, it will not be shown again.`, value: j.temp_password });
     } catch (e) {
       showDrawerError('Network error: ' + e.message);
     }
