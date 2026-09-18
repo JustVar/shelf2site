@@ -814,6 +814,17 @@ value-returning modal API has to exist before any of these can be specified.
 - **Track 4: `admin-users-v2.js:642`,** which uses `prompt()` as a credential
   display box. Unique; needs its own decision.
 
+**R43, corrected at 094807d.** The counts above are the census at 160d339,
+and two of them did not survive contact with the build. Tracks 2 and 3
+were never executed separately: the shipped Track 2 converted the confirm
+sites and the prompt sites together, in five slices. Measured at af97f70
+and closed at b6b8e03, the true figures are 31 confirm sites, 5 prompt
+sites and 1 credential prompt, 37 in all, of which 36 are converted.
+Track 3 is therefore not an open track. The authoritative per-site census
+lives in `docs/specs/native-dialogs-track-2-dialogs.md` rev 2, in its
+section on the census at b6b8e03 by state. Track 4 is closed by 094807d;
+see the section at the end of this file.
+
 Three notes carried forward from this census:
 
 - `vendors.html:358` is a track 2 confirm containing an escaped apostrophe
@@ -826,3 +837,72 @@ Three notes carried forward from this census:
 
 Precedent for a multi-slice spec of this shape:
 `docs/specs/fl-tail-slices-complete-coverage.md`.
+
+## Track 4: the credential readout, closed at 094807d
+
+`admin-users-v2.js:642` was the last native dialog in the repo. It used
+`window.prompt` to display a generated temporary password so an admin
+could copy it. That is not a question, so `SxDialog.prompt` was the wrong
+replacement: a required input preselected with a secret is a text field
+pretending to be a readout, and cancelling it returns null for something
+nobody asked.
+
+**Decision (Jus, 2026-09-18).** Add a third kind to SxDialog rather than
+build a page-level reveal panel or copy silently to the clipboard. A
+page-level panel would hold the secret in the drawer DOM for as long as
+the drawer stays open and needs its own clearing path. A silent clipboard
+copy gives the admin no sight of what was copied and still needs a visible
+fallback for when the clipboard refuses, which is this dialog anyway.
+
+**The contract.**
+
+    SxDialog.reveal({title, message, value, okLabel, copyLabel})
+        -> Promise<true>
+
+Defaults are title 'Copy this value', okLabel 'Done', copyLabel 'Copy'.
+The value renders in a div, not an input, with `user-select:all` and a
+monospace face, so one click takes the whole string. There is no Cancel,
+because a readout that has been shown has been shown: Esc, the backdrop
+and Done all resolve `true`, and callers do not branch on the result.
+Copy calls the clipboard API and, when that is missing or refuses,
+selects the value and relabels itself to 'Press Ctrl+C' for a beat. Focus
+lands on Copy with the value already selected, so Ctrl+C works before the
+mouse moves.
+
+**Threaded, not duplicated.** reveal is a third `kind` inside the existing
+`show()`. That edited six lines the other kinds share: the role ternary,
+the cancel resolution, the Enter guard, the Tab ring, the listener binding
+and the focus block. The role line now reads `confirm` as `alertdialog`
+and everything else as `dialog`, which is byte for byte the same output
+confirm and prompt had before. A second builder with its own overlay and
+focus trap was the alternative and was rejected: two focus traps drift.
+
+**An ordering trap the harness caught.** `focus()` clears the document
+selection, so selecting the value and then focusing Copy threw the
+selection away and left the readout unselected. The working order is focus
+first, then select. That is the order the prompt path already used at
+`input.focus(); input.select();`, so the convention was in the file
+already.
+
+**Gates.** A jsdom harness ran a 43 case confirm and prompt regression
+suite against dialog.js before and after the change: 43 pass both times,
+which is the no-regression evidence. A 50 case reveal suite passes after
+and fails at its first case before, so the suite can fail. The guarded
+patch script pinned all three targets by sha256 and cleared 24 synthetic
+cases, every refusal path included, before transport. The live gate on
+`/admin/users` drove the real reset flow behind a fetch guard that faked a
+success response, so the readout rendered with a known value while no
+request reached the server: the resource count was unchanged across the
+whole flow and the console was clean against a probe proven live.
+
+**Not verified live.** The clipboard success path relabels Copy to
+'Copied' in the jsdom suite. A browser automation tab cannot hold the
+focus that `navigator.clipboard.writeText` requires, so the live gate
+exercised the refusal branch instead. The success branch is REPORTED, not
+READ.
+
+**Left as it is.** The reveal call sits inside the `try` that wraps the
+fetch, so a throw inside it would surface as a network error. SxDialog
+loads on every page from `base.html`, so that is theoretical; hoisting the
+value out of the try to avoid it was judged a worse trade than the one
+line it would save.
