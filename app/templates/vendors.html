@@ -345,7 +345,7 @@ async function submitEdit(e) {
 }
 
 async function deleteVendor(id, name) {
-    if (!confirm(`Delete vendor profile "${name}"?\n\nThis removes the profile only — vendor strings on inventory items are not affected.`)) return;
+    if (!(await SxDialog.confirm({ title: 'Delete vendor profile', message: `Delete vendor profile "${name}"?\n\nItems and receipts that referenced it lose the link and keep their vendor text.`, okLabel: 'Delete', danger: true }))) return;
     try {
         const resp = await fetch(`${BP}/api/vendors/${id}`, {method: 'DELETE'});
         const data = await resp.json();
@@ -355,7 +355,7 @@ async function deleteVendor(id, name) {
 }
 
 async function autoCreate() {
-    if (!confirm('Seed vendor profiles for all vendor strings in inventory that don\'t have a profile yet?\n\nProfiles will be created with just the name — you can fill in contact details afterwards.')) return;
+    if (!(await SxDialog.confirm({ title: 'Seed vendor profiles', message: 'Seed vendor profiles for all vendor strings in inventory that don\'t have a profile yet?\n\nProfiles will be created with just the name — you can fill in contact details afterwards.', okLabel: 'Seed profiles' }))) return;
     try {
         const resp = await fetch(`${BP}/api/vendors/auto-create`, {method: 'POST'});
         const data = await resp.json();

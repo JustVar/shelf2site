@@ -650,7 +650,7 @@ function scanVerifySerial(expectedSerial) {
 }
 
 async function advanceStage(id) {
-    if (!confirm('Advance to the next stage?')) return;
+    if (!(await SxDialog.confirm({ title: 'Advance stage', message: 'Advance to the next stage?', okLabel: 'Advance' }))) return;
     try {
         const resp = await fetch(`${BP}/api/provisioning/${id}/advance`, {method: 'POST'});
         const data = await resp.json();
@@ -660,7 +660,7 @@ async function advanceStage(id) {
 }
 
 async function revertStage(id) {
-    if (!confirm('Revert the last completed stage?')) return;
+    if (!(await SxDialog.confirm({ title: 'Revert stage', message: 'Revert the last completed stage?', okLabel: 'Revert' }))) return;
     try {
         const resp = await fetch(`${BP}/api/provisioning/${id}/revert`, {method: 'POST'});
         const data = await resp.json();
@@ -670,7 +670,7 @@ async function revertStage(id) {
 }
 
 async function deleteProvisioning(id) {
-    if (!confirm('Delete this provisioning record? This cannot be undone.')) return;
+    if (!(await SxDialog.confirm({ title: 'Delete provisioning record', message: 'Delete this provisioning record? This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
     try {
         const resp = await fetch(`${BP}/api/provisioning/${id}`, {method: 'DELETE'});
         const data = await resp.json();

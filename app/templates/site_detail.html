@@ -376,7 +376,7 @@ async function saveAssignment() {
 }
 
 async function returnDevice(assignmentId) {
-    if (!confirm('Mark this device as returned?')) return;
+    if (!(await SxDialog.confirm({ title: 'Return device', message: 'Mark this device as returned?', okLabel: 'Mark returned' }))) return;
     try {
         const resp = await fetch(`${BP}/api/assignments/${assignmentId}/return`, {
             method: 'POST',
@@ -392,7 +392,7 @@ async function returnDevice(assignmentId) {
 }
 
 async function deleteAssignment(assignmentId) {
-    if (!confirm('Delete this assignment record? This cannot be undone.')) return;
+    if (!(await SxDialog.confirm({ title: 'Delete assignment', message: 'Delete this assignment record? This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
     try {
         const resp = await fetch(`${BP}/api/assignments/${assignmentId}`, {method: 'DELETE'});
         if (resp.ok) location.reload();
