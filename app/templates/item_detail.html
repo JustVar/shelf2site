@@ -861,17 +861,17 @@ async function ctmPrimary() {
 </div>{# /item-detail-page.fl-restyle #}
 <script>
 /* var and function declarations only: hx-boost re-executes swapped blocks. */
-function decOpenModal() {
-  var reason = prompt('Reason for decommissioning this item:');
+async function decOpenModal() {
+  var reason = await SxDialog.prompt({ title: 'Decommission item', message: 'Reason for decommissioning this item:', label: 'Reason', required: true, okLabel: 'Continue', danger: true });
   if (reason === null) return;
   if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
   var dflt = new Date().toISOString().slice(0, 10);
-  var d = prompt('Decommission date (YYYY-MM-DD):', dflt);
+  var d = await SxDialog.prompt({ title: 'Decommission item', message: 'Decommission date (YYYY-MM-DD):', label: 'Date', value: dflt, okLabel: 'Decommission', danger: true });
   if (d === null) return;
   decPost('decommission', { reason: reason.trim(), decommission_date: (d || '').trim() });
 }
-function decOpenReactivate() {
-  var reason = prompt('Reason for reactivating this item:');
+async function decOpenReactivate() {
+  var reason = await SxDialog.prompt({ title: 'Reactivate item', message: 'Reason for reactivating this item:', label: 'Reason', required: true, okLabel: 'Reactivate' });
   if (reason === null) return;
   if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
   decPost('reactivate', { reason: reason.trim() });
