@@ -399,13 +399,16 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Try & Buy (all users)
     # ------------------------------------------------------------------
+    # /trials has no route in app/routes or app/main.py (READ 2026-09-21).
+    # enabled=False keeps the launcher from offering a Start that lands on a
+    # page that does not exist. Re-enable when the trials pages ship.
     {
         "id": "trials_tour",
         "name": "Try & Buy",
         "page_pattern": "/trials",
         "description": "Track vendor trials and evaluation workflows",
         "required_access": None,
-        "enabled": True,
+        "enabled": False,
         "group": "procurement",
         "steps": [
             {
@@ -658,13 +661,16 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     # Disposal & EOL (editor+ or can_access_disposal)
     # ------------------------------------------------------------------
+    # /disposal has no route in app/routes or app/main.py (READ 2026-09-21).
+    # enabled=False keeps the launcher from offering a Start that lands on a
+    # page that does not exist. Re-enable when the disposal pages ship.
     {
         "id": "disposal_tour",
         "name": "Disposal & EOL",
         "page_pattern": "/disposal",
         "description": "Track device dispositions, sanitization, and certificates",
         "required_access": "has_disposal_access",
-        "enabled": True,
+        "enabled": False,
         "group": "operations",
         "steps": [
             {
