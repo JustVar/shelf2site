@@ -217,6 +217,7 @@ async function pruneErrors() {
     if (!(await SxDialog.confirm({ title: 'Prune errors', message: 'Delete all errors older than 30 days?', okLabel: 'Delete', danger: true }))) return;
     try {
         var resp = await fetch(BP + '/api/errors/prune?days=30', { method: 'DELETE' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         var data = await resp.json();
         if (window.SxToast) window.SxToast.success('Pruned ' + data.deleted + ' old errors');
         setTimeout(function() { window.location.reload(); }, 1000);
