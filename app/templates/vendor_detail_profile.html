@@ -95,7 +95,7 @@
     <span class="badge badge-info">OEM Partner</span>
     {% endif %}
     {% if can_edit %}
-    <button class="btn btn-sm" onclick="openEditModal()" style="margin-left: auto;">Edit Profile</button>
+    <button class="fl-obtn" onclick="openEditModal()" style="margin-left: auto;">Edit Profile</button>
     {% endif %}
 </div>
 
@@ -344,8 +344,8 @@
                 <textarea id="edit-notes" rows="3">{{ profile.notes or '' }}</textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
-                <button type="button" class="btn" onclick="closeEditModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="fl-obtn" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="fl-cta">Save Changes</button>
             </div>
         </form>
     </div>

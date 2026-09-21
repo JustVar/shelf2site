@@ -51,7 +51,7 @@
                 <span style="color: var(--text-muted);">No address</span>
                 {% endif %}
                 {% if user.is_editor_or_above and (site.address or site.city) %}
-                <button type="button" onclick="retryGeocode()" class="btn btn-sm" style="margin-left:0.5rem;">Retry geocode</button>
+                <button type="button" onclick="retryGeocode()" class="fl-obtn" style="margin-left:0.5rem;">Retry geocode</button>
                 {% endif %}
             </div>
         </div>
@@ -91,8 +91,8 @@
 <div class="table-header">
     <div class="header-actions">
         {% if user.has_sites_admin %}
-        <button class="btn btn-primary btn-sm" onclick="openAssignModal()">+ Assign Device</button>
-        <button class="btn btn-sm" onclick="openEditSiteModal()">Edit Site</button>
+        <button class="fl-cta" onclick="openAssignModal()">+ Assign Device</button>
+        <button class="fl-obtn" onclick="openEditSiteModal()">Edit Site</button>
         {% endif %}
     </div>
 </div>
@@ -159,9 +159,9 @@
                     {% if user.has_sites_admin %}
                     <td>
                         {% if a.is_active %}
-                        <button class="btn btn-sm" onclick="returnDevice({{ a.id }})">Return</button>
+                        <button class="fl-obtn" onclick="returnDevice({{ a.id }})">Return</button>
                         {% endif %}
-                        <button class="btn btn-danger btn-sm" onclick="deleteAssignment({{ a.id }})">Delete</button>
+                        <button class="fl-obtn danger" onclick="deleteAssignment({{ a.id }})">Delete</button>
                     </td>
                     {% endif %}
                 </tr>
@@ -220,8 +220,8 @@
             <textarea id="assign-notes" rows="2" style="width:100%;"></textarea>
         </div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="closeAssignModal()">Cancel</button>
-            <button class="btn btn-success" onclick="saveAssignment()">Assign</button>
+            <button class="fl-obtn" onclick="closeAssignModal()">Cancel</button>
+            <button class="fl-obtn ready" onclick="saveAssignment()">Assign</button>
         </div>
         <div id="assign-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>
@@ -291,8 +291,8 @@
             </label>
         </div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="closeEditSiteModal()">Cancel</button>
-            <button class="btn btn-success" onclick="saveEditSite()">Save</button>
+            <button class="fl-obtn" onclick="closeEditSiteModal()">Cancel</button>
+            <button class="fl-obtn ready" onclick="saveEditSite()">Save</button>
         </div>
         <div id="edit-site-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>

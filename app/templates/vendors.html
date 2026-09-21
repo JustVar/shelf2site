@@ -11,10 +11,10 @@
     <h1>Vendor Profiles</h1>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         {% if user.has_financial_access or user.is_admin %}
-        <button class="btn btn-primary" onclick="openAddModal()">+ Add Vendor</button>
+        <button class="fl-cta" onclick="openAddModal()">+ Add Vendor</button>
         {% endif %}
         {% if user.is_admin %}
-        <button class="btn" onclick="autoCreate()" title="Seed profiles for all vendor strings in inventory that don't have one yet">Auto-Create All</button>
+        <button class="fl-obtn" onclick="autoCreate()" title="Seed profiles for all vendor strings in inventory that don't have one yet">Auto-Create All</button>
         {% endif %}
     </div>
 </div>
@@ -93,10 +93,10 @@
                     <td>
                         <div style="display: flex; gap: 0.25rem; flex-wrap: nowrap;">
                             {% if user.has_financial_access or user.is_admin %}
-                            <button class="btn btn-sm" onclick='openEditModal({{ p.id }}, {{ {"name": p.name, "display_name": p.display_name or "", "contact_name": p.contact_name or "", "contact_email": p.contact_email or "", "contact_phone": p.contact_phone or "", "website": p.website or "", "categories_supplied": p.categories_supplied or "", "is_oem": p.is_oem, "notes": p.notes or ""} | tojson }})'>Edit</button>
+                            <button class="fl-obtn" onclick='openEditModal({{ p.id }}, {{ {"name": p.name, "display_name": p.display_name or "", "contact_name": p.contact_name or "", "contact_email": p.contact_email or "", "contact_phone": p.contact_phone or "", "website": p.website or "", "categories_supplied": p.categories_supplied or "", "is_oem": p.is_oem, "notes": p.notes or ""} | tojson }})'>Edit</button>
                             {% endif %}
                             {% if user.is_admin %}
-                            <button class="btn btn-sm" onclick="deleteVendor({{ p.id }}, {{ p.name | tojson }})" style="color: var(--danger, #e74c3c);">Delete</button>
+                            <button class="fl-obtn danger" onclick="deleteVendor({{ p.id }}, {{ p.name | tojson }})">Delete</button>
                             {% endif %}
                         </div>
                     </td>
@@ -112,7 +112,7 @@
     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.4; margin-bottom: 1rem; display: block; margin-left: auto; margin-right: auto;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     <p style="margin-bottom: 1rem;">No vendor profiles yet.</p>
     {% if user.has_financial_access or user.is_admin %}
-    <button class="btn btn-primary" onclick="openAddModal()">Create First Profile</button>
+    <button class="fl-cta" onclick="openAddModal()">Create First Profile</button>
     {% endif %}
 </div>
 {% endif %}
@@ -188,8 +188,8 @@
                 <textarea id="add-notes" rows="3" placeholder="Internal notes, contract terms, support process, lead times..."></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
-                <button type="button" class="btn" onclick="closeAddModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create Profile</button>
+                <button type="button" class="fl-obtn" onclick="closeAddModal()">Cancel</button>
+                <button type="submit" class="fl-cta">Create Profile</button>
             </div>
         </form>
     </div>
@@ -243,8 +243,8 @@
                 <textarea id="edit-notes" rows="3"></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
-                <button type="button" class="btn" onclick="closeEditModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="fl-obtn" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="fl-cta">Save Changes</button>
             </div>
         </form>
     </div>

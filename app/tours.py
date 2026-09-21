@@ -369,7 +369,7 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "target": ".btn-primary",
+                "target": ".fl-cta",
                 "title": "Add a Site",
                 "description": (
                     "Click <strong>+ Add Site</strong> to register a new location. "

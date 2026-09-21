@@ -134,10 +134,10 @@ disabled rules (`fl-restyle.css:300-302`) apply everywhere.
 - **R9, tours.** `tours.py:245` (`review_queue_tour`, `/review`) targets
   `.btn-success`; it becomes `.fl-obtn.ready` in 3a. `tours.py:372`
   (`sites_tour`) targets `.btn-primary`; it becomes `.fl-cta` in 3b.
-  `tours.py:435` (`trials_tour`, `/trials`) and `:694` (`disposal_tour`,
+  `tours.py:438` (`trials_tour`, `/trials`) and `:700` (`disposal_tour`,
   `/disposal`) target pages with no route (READ, rc=1 on both strings in
-  `app/routes` and `app/main.py`); they are not touched here and go to
-  the board as an observation. Gate: open the tour on `/review` and
+  `app/routes` and `app/main.py`); both disabled at 893af71, targets
+  left as they are until the pages ship. Gate: open the tour on `/review` and
   `/sites` and reach the retargeted step.
 - **R10, CSS deletions in 3f.** `main.css:1126-1149` (the base and the
   four variants, `btn-sm` included) deleted whole. `fl-restyle.css:582-584`
@@ -176,7 +176,7 @@ Non-template sites that must follow, all READ:
   :391`; `fl-restyle.css:582-587, :621-631, :657`; `mobile.css:199, :261`;
   `provisioning_detail.html:149`.
 - JS selectors on a family class: `receive.html:1129, :1232, :1490` only.
-- Tour targets: `tours.py:245, :372` live; `:435, :694` dead pages.
+- Tour targets: `tours.py:245, :372` live; `:438, :700` disabled tours.
 - Tests: none (`test_order_cancel.py` asserts `id="cancel-order-btn"`).
 
 Site tables. `today` is the class attribute as it reads at 3ffe7c2, `after`
@@ -411,8 +411,8 @@ line. Six commits.
 
 ## Observations recorded on the board, not fixed here
 
-- `trials_tour` and `disposal_tour` in `tours.py` (`:403`, `:662`) are
-  enabled and target `/trials` and `/disposal`, which have no route.
+- `trials_tour` and `disposal_tour` in `tours.py` (`:406`, `:668`) were
+  enabled and target `/trials` and `/disposal` (no route); disabled at 893af71.
 - `#bulk-action-bar` and the assign modal in `provisioning.html` render
   outside the page's `.fl-restyle` wrapper today, so any kit class already
   used inside them is unstyled. R7 fixes the two roots; the pattern may
@@ -424,5 +424,5 @@ line. Six commits.
 ## Out of scope, left as it was
 
 The standalone `btn-*` classes (decision 5). `fl-btn` on `fulfillment.html`
-and `c2c.html` (board B1 note). `tours.py:2329`. The tour tooltip's
+and `c2c.html` (board B1 note). `tours.py:2335`. The tour tooltip's
 palette. `docs/mockups/` and `docs/specs/*.html` mock files.

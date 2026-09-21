@@ -44,7 +44,7 @@
 <div class="table-header">
     <div class="header-actions">
         {% if user.has_sites_admin %}
-        <button class="btn btn-primary btn-sm" onclick="openAddSiteModal()">+ Add Site</button>
+        <button class="fl-cta" onclick="openAddSiteModal()">+ Add Site</button>
         {% endif %}
     </div>
 </div>
@@ -112,8 +112,8 @@
                     </td>
                     {% if user.has_sites_admin %}
                     <td>
-                        <button class="btn btn-primary btn-sm" onclick="editSite({{ s.id }})">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteSite({{ s.id }}, '{{ s.name|e }}')">Delete</button>
+                        <button class="fl-obtn" onclick="editSite({{ s.id }})">Edit</button>
+                        <button class="fl-obtn danger" onclick="deleteSite({{ s.id }}, '{{ s.name|e }}')">Delete</button>
                     </td>
                     {% endif %}
                 </tr>
@@ -193,8 +193,8 @@
         </div>
 
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="closeSiteModal()">Cancel</button>
-            <button class="btn btn-success" onclick="saveSite()">Save</button>
+            <button class="fl-obtn" onclick="closeSiteModal()">Cancel</button>
+            <button class="fl-obtn ready" onclick="saveSite()">Save</button>
         </div>
         <div id="site-modal-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>
