@@ -579,11 +579,9 @@
 .fl-restyle .table-section table td, .fl-restyle .sx-table td, .fl-restyle .rcpt-table td, .fl-restyle .data-table td { border-bottom: 1px solid var(--border); color: var(--text); }
 .fl-restyle .table-section table tbody tr:hover, .fl-restyle .sx-table tbody tr:hover, .fl-restyle .rcpt-table tbody tr:hover, .fl-restyle .data-table tbody tr:hover { background: var(--card-bg-hover); }
 .fl-restyle .rcpt-table-wrap { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; }
-.fl-restyle .btn, .fl-restyle .rcpt-btn, .fl-restyle .btn-page { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); font-weight: 600; }
-[data-theme="light"] .fl-restyle .btn, [data-theme="light"] .fl-restyle .rcpt-btn, [data-theme="light"] .fl-restyle .btn-page { color: var(--accent-primary); }
-.fl-restyle .btn:hover, .fl-restyle .rcpt-btn:hover, .fl-restyle .btn-page:hover { background: var(--accent-border); color: var(--text); }
-.fl-restyle .btn-primary, .fl-restyle .btn.btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--on-accent); }
-.fl-restyle .btn-primary:hover { background: var(--accent-primary); filter: brightness(1.06); color: var(--on-accent); }
+.fl-restyle .rcpt-btn, .fl-restyle .btn-page { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); font-weight: 600; }
+[data-theme="light"] .fl-restyle .rcpt-btn, [data-theme="light"] .fl-restyle .btn-page { color: var(--accent-primary); }
+.fl-restyle .rcpt-btn:hover, .fl-restyle .btn-page:hover { background: var(--accent-border); color: var(--text); }
 .fl-restyle .btn-page.active { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--on-accent); }
 .fl-restyle .summary-card, .fl-restyle .card { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; }
 .fl-restyle .filter-group label, .fl-restyle .form-group label { color: var(--text-muted); }
@@ -618,17 +616,6 @@
    Scoped under .fl-restyle: unopted pages keep the legacy look. ── */
 .fl-restyle .modal { border-radius: 16px; border-top-color: var(--card-edge); }
 .fl-restyle .modal h3 { color: var(--text); }
-.fl-restyle .btn-secondary { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); color: var(--accent-primary-l); }
-[data-theme="light"] .fl-restyle .btn-secondary { color: var(--accent-primary); }
-.fl-restyle .btn-secondary:hover:not(:disabled) { background: var(--accent-border); color: var(--text); }
-.fl-restyle .btn-danger { background: var(--red-dim); border: 1px solid var(--fl-red); color: var(--fl-red); }
-.fl-restyle .btn-danger:hover:not(:disabled) { background: var(--red-dim); color: var(--fl-red); filter: brightness(1.12); }
-[data-theme="light"] .fl-restyle .btn-danger, [data-theme="light"] .fl-restyle .btn-danger:hover:not(:disabled) { color: var(--fl-red); }
-.fl-restyle .btn-warning { background: var(--amber-dim); border: 1px solid var(--fl-amber); color: var(--fl-amber); }
-[data-theme="light"] .fl-restyle .btn-warning { color: var(--fl-amber); }
-.fl-restyle .btn-success { background: var(--green-dim); border: 1px solid var(--fl-green); color: var(--fl-green); }
-.fl-restyle .btn-success:hover:not(:disabled) { background: var(--green-dim); color: var(--fl-green); filter: brightness(1.12); }
-[data-theme="light"] .fl-restyle .btn-success, [data-theme="light"] .fl-restyle .btn-success:hover:not(:disabled) { color: var(--fl-green); }
 .fl-restyle .alert { border-radius: 10px; }
 .fl-restyle .alert-info { background: var(--accent-primary-dim); border: 1px solid var(--accent-border); color: var(--text); }
 .fl-restyle .alert-success { background: var(--green-dim); border: 1px solid var(--fl-green); color: var(--fl-green); }
@@ -654,7 +641,6 @@
 [data-theme="light"] .receive-page.fl-restyle { --mode-on-fg: var(--accent-primary); }
 .fl-restyle .receive-step { border-top-color: var(--card-edge); border-radius: 12px; box-shadow: none; }
 .fl-restyle .receive-step h2 { color: var(--text-muted); }
-.fl-restyle .btn-primary:hover:not(:disabled) { background: var(--accent-primary); filter: brightness(1.06); }
 .fl-restyle .checkbox-label input[type="checkbox"] { accent-color: var(--accent-primary); }
 .fl-restyle .photo-upload-label { border-radius: 10px; }
 .fl-restyle .photo-upload-label:hover { border-color: var(--accent-primary); color: var(--text); }

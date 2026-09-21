@@ -385,7 +385,7 @@ class TourEngine {
             '<div class="tour-tooltip-body">' +
                 '<p style="margin:0 0 0.75rem;font-size:0.95rem;">' + prompt + '</p>' +
                 '<div style="display:flex;justify-content:flex-end;gap:0.5rem;">' +
-                    '<button class="btn btn-sm" id="tour-wait-skip">Skip</button>' +
+                    '<button class="tour-btn-skip" id="tour-wait-skip">Skip</button>' +
                 '</div>' +
             '</div>';
 
@@ -583,11 +583,11 @@ class TourEngine {
                     '<span class="tour-count">' + (stepIndex + 1) + ' of ' + total + '</span>' +
                 '</div>' +
                 '<div class="tour-nav">' +
-                    (!isFirst ? '<button class="btn btn-sm tour-btn-back">Back</button>' : '') +
+                    (!isFirst ? '<button class="tour-btn-back">Back</button>' : '') +
                     (isLast
-                        ? '<button class="btn btn-sm btn-primary tour-btn-next">Finish</button>'
-                        : '<button class="btn btn-sm btn-primary tour-btn-next">Next</button>') +
-                    '<button class="btn btn-sm tour-btn-skip">Skip</button>' +
+                        ? '<button class="tour-btn-next">Finish</button>'
+                        : '<button class="tour-btn-next">Next</button>') +
+                    '<button class="tour-btn-skip">Skip</button>' +
                 '</div>' +
             '</div>';
 

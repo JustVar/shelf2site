@@ -1123,31 +1123,6 @@ thead th:nth-child(1) {
 }
 
 /* ===== Buttons ===== */
-.btn {
-    padding: 10px 18px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-family: 'Inter', sans-serif;
-    font-weight: 500;
-    transition: all 0.2s;
-    background: var(--accent);
-    color: var(--text);
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-primary { background: var(--info); color: white; }
-.btn-primary:hover { background: #2980b9; }
-.btn-success { background: var(--success); color: white; }
-.btn-success:hover { background: #219a52; }
-.btn-danger { background: var(--danger); color: white; }
-.btn-danger:hover { background: #c0392b; }
-.btn-sm { padding: 8px 12px; font-size: 0.8rem; min-height: 36px; }
-
 .btn-creds {
     background: var(--accent);
     color: var(--text);
@@ -2127,8 +2102,22 @@ thead th:nth-child(1) {
     gap: 0.4rem;
 }
 
-/* Blush solid Next (the one solid); tint Back; quiet Skip. Overrides the
-   global .btn/.btn-primary the engine also applies. */
+/* Blush solid Next (the one solid); tint Back; quiet Skip. The base rule
+   below carries what the retired button family gave these buttons; its
+   :where() keeps it below the per-button rules in specificity. */
+.tour-tooltip :where(.tour-nav) button, .tour-tooltip :where(#tour-wait-skip) {
+    padding: 8px 12px;
+    min-height: 36px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
 .tour-tooltip .tour-btn-next {
     background: var(--flc-accent, #C29E9B);
     border: 1px solid var(--flc-accent, #C29E9B);

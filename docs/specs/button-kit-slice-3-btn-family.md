@@ -126,14 +126,17 @@ disabled rules (`fl-restyle.css:300-302`) apply everywhere.
   drops the family tokens from the five strings, gives `#tour-wait-skip`
   the `tour-btn-skip` class, and adds one rule in `main.css` next to
   `:2132` carrying the base properties the buttons lose:
-  `.tour-tooltip .tour-nav button, .tour-tooltip #tour-wait-skip {
+  `.tour-tooltip :where(.tour-nav) button, .tour-tooltip :where(#tour-wait-skip) {
   padding: 8px 12px; min-height: 36px; font-size: 0.8rem; font-family:
   inherit; font-weight: 500; cursor: pointer; display: inline-flex;
   align-items: center; justify-content: center; transition: all 0.2s; }`.
   The tooltip does not gain `fl-restyle`; that would swap its palette
   variables (`fl-restyle.css:29-45`) and is a different change.
   Re-read `.tour-nav` (`:2125`) and the button markup at build time to
-  confirm the selector reaches all four buttons.
+  confirm the selector reaches all four buttons. R55 (built at 3f): the
+  first form, `.tour-tooltip .tour-nav button`, is (0,2,1) and beat the
+  per-button rules at (0,2,0), so Next lost its 600 weight and Skip its
+  0.83rem; `:where()` drops it to (0,1,1) and (0,1,0). Read both ways.
 - **R9, tours.** `tours.py:245` (`review_queue_tour`, `/review`) targets
   `.btn-success`; it becomes `.fl-obtn.ready` in 3a. `tours.py:372`
   (`sites_tour`) targets `.btn-primary`; it becomes `.fl-cta` in 3b.
@@ -149,7 +152,8 @@ disabled rules (`fl-restyle.css:300-302`) apply everywhere.
   `:585-586`, `:621-631`, `:657` deleted. The comment at `main.css:2131`
   is rewritten to stop citing `.btn`. Before deleting, the habit 30
   census reruns on the expected tree and must return zero family class
-  sites outside `docs/`.
+  sites outside `docs/`. Ran at 726439c: five sites, all the `guide.js`
+  strings above, zero elsewhere (R54).
 - **R11, page-scoped CSS.** 3c deletes `provisioning_detail.html:149`
   (`.prov-detail-actions .btn`) after reading what it sets and moving
   anything still wanted onto a kit class. 3e edits `receive.css` (`:80-130`
