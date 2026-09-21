@@ -16,7 +16,7 @@
     <p style="margin-bottom: 1.5rem; line-height: 1.6;">Download the latest version from SharePoint, then upload it here.</p>
 
     <input type="file" id="file-input" accept=".xlsx,.xls" style="margin-bottom: 1.5rem;">
-    <button class="btn btn-primary" onclick="uploadFile()">Upload & Preview Changes</button>
+    <button class="fl-cta" onclick="uploadFile()">Upload & Preview Changes</button>
 
     <div id="upload-status" style="margin-top: 1.5rem;"></div>
 </div>
@@ -46,10 +46,10 @@
         <div id="tab-skips" class="tab-content" style="display: none;"></div>
 
         <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
-            <button class="btn btn-primary" onclick="applyChanges()" id="apply-btn" style="margin-right: 1rem;">
+            <button class="fl-cta" onclick="applyChanges()" id="apply-btn" style="margin-right: 1rem;">
                 Apply Changes to Database
             </button>
-            <button class="btn btn-secondary" onclick="resetSync()">Cancel</button>
+            <button class="fl-obtn" onclick="resetSync()">Cancel</button>
         </div>
     </div>
 </div>

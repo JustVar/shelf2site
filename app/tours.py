@@ -242,7 +242,7 @@ TOURS: list[dict] = [
                 "optional": True,
             },
             {
-                "target": ".btn-success",
+                "target": ".fl-obtn.ready",
                 "title": "Approve & Dismiss",
                 "description": (
                     "<b>Approve</b> adds the device to the selected inventory "

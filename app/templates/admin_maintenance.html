@@ -68,7 +68,7 @@
         <span id="safe-badge" style="display: none; font-size: 0.78rem; font-weight: 600; padding: 0.18rem 0.6rem; border-radius: 99px; background: rgba(39,174,96,0.12); color: var(--success, #27ae60); border: 1px solid rgba(39,174,96,0.3);">
             ✓ Safe to restart
         </span>
-        <button class="btn btn-sm" id="refresh-users-btn" onclick="loadActiveUsers()" style="margin-left: auto; font-size: 0.8rem; padding: 0.25rem 0.65rem;">Refresh</button>
+        <button class="fl-obtn" id="refresh-users-btn" onclick="loadActiveUsers()" style="margin-left: auto;">Refresh</button>
     </div>
     <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
         Users who made an authenticated request in the last 10 minutes. If only admin accounts are active (or nobody), it's safe to restart without sending an announcement.
@@ -95,10 +95,10 @@
         </div>
     </div>
     <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
-        <button class="btn btn-sm" onclick="clearAnnouncement()" style="border-color: var(--danger, #e74c3c); color: var(--danger, #e74c3c);">
+        <button class="fl-obtn danger" onclick="clearAnnouncement()">
             Clear Announcement
         </button>
-        <button class="btn btn-sm btn-primary" onclick="forceReload()">
+        <button class="fl-cta" onclick="forceReload()">
             Force All Browsers to Reload
         </button>
     </div>
@@ -136,9 +136,9 @@
             </div>
         </div>
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-            <button class="btn btn-primary" onclick="announce()">Announce Now</button>
+            <button class="fl-cta" onclick="announce()">Announce Now</button>
             {% if not announcement.active %}
-            <button class="btn" onclick="clearAnnouncement()" style="opacity: 0.5;" disabled>Clear</button>
+            <button class="fl-obtn" onclick="clearAnnouncement()" disabled>Clear</button>
             {% endif %}
         </div>
     </div>
@@ -152,7 +152,7 @@
         After deploying a code update, send a reload signal to all active browser sessions.
         Users will see their current page reload automatically — no need to tell everyone to refresh.
     </p>
-    <button class="btn" onclick="forceReload()">Force All Browsers to Reload Now</button>
+    <button class="fl-obtn" onclick="forceReload()">Force All Browsers to Reload Now</button>
     <div id="reload-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 </div>
 

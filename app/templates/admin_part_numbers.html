@@ -59,7 +59,7 @@
                 <input type="checkbox" id="pn-customer" name="is_customer_pn" style="width: auto;"> Customer PN
             </label>
         </div>
-        <button type="submit" class="btn btn-success">Add</button>
+        <button type="submit" class="fl-obtn ready">Add</button>
     </form>
     <div id="add-pn-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
 </div>
@@ -118,11 +118,11 @@
                     </td>
                     {% if user.has_system_admin %}
                     <td style="white-space: nowrap;">
-                        <button class="btn btn-primary btn-sm"
+                        <button class="fl-obtn"
                                 onclick="event.stopPropagation(); editPN({{ row.pn.id }}, {{ row.pn.sku_description|tojson|forceescape }}, {{ (row.pn.item_category or '')|tojson|forceescape }}, {{ row.pn.is_legacy|tojson }}, {{ row.pn.is_customer_pn|tojson }}, {{ row.pn.notes|tojson|forceescape }})">
                             Edit
                         </button>
-                        <button class="btn btn-danger btn-sm"
+                        <button class="fl-obtn danger"
                                 onclick="event.stopPropagation(); deletePN({{ row.pn.id }}, '{{ row.pn.brand_sku }}')">
                             Delete
                         </button>
@@ -177,8 +177,8 @@
             <textarea id="pn-edit-notes" style="width:100%; min-height:60px;"></textarea>
         </div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="closePNEditModal()">Cancel</button>
-            <button class="btn btn-success" onclick="savePNEdit()">Save</button>
+            <button class="fl-obtn" onclick="closePNEditModal()">Cancel</button>
+            <button class="fl-obtn ready" onclick="savePNEdit()">Save</button>
         </div>
         <div id="pn-edit-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>

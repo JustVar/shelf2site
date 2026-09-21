@@ -54,7 +54,7 @@
                 {% endfor %}
             </select>
         </div>
-        <button type="submit" class="btn btn-success" style="margin-top: 1.2rem;">Add</button>
+        <button type="submit" class="fl-obtn ready" style="margin-top: 1.2rem;">Add</button>
     </form>
     <div id="add-oui-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
 </div>
@@ -129,11 +129,11 @@
                     </td>
                     {% if user.has_system_admin %}
                     <td>
-                        <button class="btn btn-primary btn-sm"
+                        <button class="fl-obtn"
                                 onclick="event.stopPropagation(); editOUI({{ stat.entry.id }}, '{{ stat.entry.manufacturer|e }}', '{{ stat.entry.maps_to_table or '' }}')">
                             Edit
                         </button>
-                        <button class="btn btn-danger btn-sm"
+                        <button class="fl-obtn danger"
                                 onclick="event.stopPropagation(); deleteOUI({{ stat.entry.id }}, '{{ stat.entry.oui_prefix }}')">
                             Delete
                         </button>
@@ -172,8 +172,8 @@
             </select>
         </div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="closeEditModal()">Cancel</button>
-            <button class="btn btn-success" onclick="saveEdit()">Save</button>
+            <button class="fl-obtn" onclick="closeEditModal()">Cancel</button>
+            <button class="fl-obtn ready" onclick="saveEdit()">Save</button>
         </div>
         <div id="edit-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>

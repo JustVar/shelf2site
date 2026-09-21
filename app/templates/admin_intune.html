@@ -19,8 +19,8 @@
     </div>
     {% if configured %}
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <button class="btn" onclick="testConnection()">Test Connection</button>
-        <button class="btn btn-primary" onclick="runSync()">Sync Now</button>
+        <button class="fl-obtn" onclick="testConnection()">Test Connection</button>
+        <button class="fl-cta" onclick="runSync()">Sync Now</button>
     </div>
     {% endif %}
 </div>
@@ -113,7 +113,7 @@ INTUNE_AUTO_SYNC=true</div>
 <div class="table-section">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2>Sync History</h2>
-        <button class="btn btn-sm" onclick="refreshLog()">Refresh</button>
+        <button class="fl-obtn" onclick="refreshLog()">Refresh</button>
     </div>
     {% if recent_logs %}
     <div style="overflow-x: auto;">

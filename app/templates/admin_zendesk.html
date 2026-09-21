@@ -38,7 +38,7 @@
         </div>
     </div>
     {% if is_configured %}
-    <button class="btn btn-primary" onclick="testConnection()">Test Connection</button>
+    <button class="fl-cta" onclick="testConnection()">Test Connection</button>
     {% else %}
     <div style="border-left: 3px solid var(--warning); padding: 0.75rem 1rem; background: rgba(243,156,18,0.08); border-radius: 0 6px 6px 0; font-size: 0.88rem;">
         Set <code>ZENDESK_SUBDOMAIN</code>, <code>ZENDESK_EMAIL</code>, and
@@ -52,7 +52,7 @@
 <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="margin: 0;">Organizations</h3>
-        <button class="btn btn-sm" onclick="loadOrganizations()">Load</button>
+        <button class="fl-obtn" onclick="loadOrganizations()">Load</button>
     </div>
     <div id="orgs-container">
         <p style="color: var(--text-muted); font-size: 0.88rem;">Click "Load" to fetch organizations from Zendesk.</p>
@@ -63,7 +63,7 @@
 <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="margin: 0;">Recent Tickets</h3>
-        <button class="btn btn-sm" onclick="loadTickets()">Load</button>
+        <button class="fl-obtn" onclick="loadTickets()">Load</button>
     </div>
     <div id="tickets-container">
         <p style="color: var(--text-muted); font-size: 0.88rem;">Click "Load" to fetch recent tickets from Zendesk.</p>
@@ -74,7 +74,7 @@
 <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="margin: 0;">Ticket Fields</h3>
-        <button class="btn btn-sm" onclick="loadTicketFields()">Load</button>
+        <button class="fl-obtn" onclick="loadTicketFields()">Load</button>
     </div>
     <div id="fields-container">
         <p style="color: var(--text-muted); font-size: 0.88rem;">Click "Load" to see available ticket fields for integration mapping.</p>
