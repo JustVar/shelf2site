@@ -146,12 +146,6 @@
     gap: 0.5rem;
     margin-bottom: 1.5rem;
 }
-.prov-detail-actions .btn {
-    width: 100%;
-    text-align: center;
-    padding: 0.6rem 1rem;
-    font-size: 0.85rem;
-}
 
 /* Audit timeline */
 .audit-timeline {
@@ -408,7 +402,7 @@
         <div class="table-section" id="metadata-section">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Provisioning Details</h2>
-                {% if can_manage %}<button class="btn btn-sm" onclick="toggleEditMode()">Edit</button>{% endif %}
+                {% if can_manage %}<button class="fl-obtn" onclick="toggleEditMode()">Edit</button>{% endif %}
             </div>
 
             <!-- Display mode -->
@@ -500,8 +494,8 @@
                         <textarea id="detail-notes">{{ rec.notes or '' }}</textarea>
                     </div>
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                        <button type="button" class="btn btn-sm" onclick="toggleEditMode()">Cancel</button>
+                        <button type="submit" class="fl-cta">Save</button>
+                        <button type="button" class="fl-obtn" onclick="toggleEditMode()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -534,7 +528,7 @@
                 <span style="color: var(--text-muted); font-size: 0.85rem;">{{ rec.validation_date.strftime('%Y-%m-%d %H:%M') }}</span>
                 {% endif %}
                 {% if rec.validation_report_path %}
-                <a href="{{ base_path }}/api/provisioning/{{ rec.id }}/validation-report" class="btn btn-sm" style="text-decoration: none;">
+                <a href="{{ base_path }}/api/provisioning/{{ rec.id }}/validation-report" class="fl-obtn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px;">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
@@ -552,13 +546,13 @@
         <div class="prov-detail-actions">
             {% if not rec.is_complete %}
             {% if can_manage %}
-            <button class="btn btn-success" onclick="advanceStage({{ rec.id }})">
+            <button class="fl-obtn ready" onclick="advanceStage({{ rec.id }})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 0.3rem;">
                     <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
                 Advance to Next Stage
             </button>
-            <button class="btn" onclick="revertStage({{ rec.id }})" style="background: var(--card-bg); border: 1px solid var(--border);">
+            <button class="fl-obtn" onclick="revertStage({{ rec.id }})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 0.3rem;">
                     <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
                 </svg>
@@ -578,12 +572,12 @@
             </div>
             {% endif %}
             {% if can_manage %}
-            <button class="btn btn-sm" onclick="toggleEditMode()" style="margin-top: 0.5rem;">Edit Details</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteProvisioning({{ rec.id }})" style="margin-top: 0.25rem;">Delete Record</button>
+            <button class="fl-obtn" onclick="toggleEditMode()" style="margin-top: 0.5rem;">Edit Details</button>
+            <button class="fl-obtn danger" onclick="deleteProvisioning({{ rec.id }})" style="margin-top: 0.25rem;">Delete Record</button>
             {% endif %}
             <!-- Watch / Unwatch button -->
             <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
-                <button id="watch-btn" class="btn btn-sm" onclick="toggleWatch()" style="width: 100%;">
+                <button id="watch-btn" class="fl-obtn" onclick="toggleWatch()" style="width: 100%;">
                     <svg id="watch-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -1px; margin-right: 0.3rem;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                     <span id="watch-label">Watch this record</span>
                 </button>
@@ -736,7 +730,7 @@ async function loadZendeskTicket(ticketId) {
             }
             html += '</dl>';
             if (data.url) {
-                html += `<a href="${escHtml(data.url)}" target="_blank" rel="noopener" class="btn btn-sm" style="margin-top: 0.5rem; text-decoration: none;">Open in Zendesk</a>`;
+                html += `<a href="${escHtml(data.url)}" target="_blank" rel="noopener" class="fl-obtn" style="margin-top: 0.5rem;">Open in Zendesk</a>`;
             }
             container.innerHTML = html;
         } else {

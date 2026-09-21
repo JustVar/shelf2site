@@ -86,7 +86,7 @@
         <option value="due_soon">Due Soon (7d)</option>
         <option value="no_date">No Due Date</option>
     </select>
-    <button class="btn btn-sm" onclick="clearFilters()" title="Clear all filters" style="padding: 0.4rem 0.6rem;">
+    <button class="fl-obtn" onclick="clearFilters()" title="Clear all filters">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 </div>
@@ -108,11 +108,11 @@
         </button>
     </div>
     <div style="display: flex; gap: 0.5rem;">
-        <a href="{{ base_path }}/api/provisioning/export" class="btn" title="Export to Excel" style="display: flex; align-items: center; gap: 0.3rem; padding: 0.5rem 0.8rem;">
+        <a href="{{ base_path }}/api/provisioning/export" class="fl-obtn" title="Export to Excel" style="display: flex; align-items: center; gap: 0.3rem;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
         </a>
-        {% if can_manage %}<button class="btn btn-primary" onclick="openCreateModal()">+ New Provisioning</button>{% endif %}
+        {% if can_manage %}<button class="fl-cta" onclick="openCreateModal()">+ New Provisioning</button>{% endif %}
     </div>
 </div>
 
@@ -268,12 +268,12 @@
                     </td>
                     <td style="white-space: nowrap;">
                         {% if can_manage %}
-                        <button class="btn btn-sm" onclick="openEditModal({{ item.id }})" title="Edit" style="padding: 2px 6px;">
+                        <button class="fl-obtn" onclick="openEditModal({{ item.id }})" title="Edit">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
-                        <button class="btn btn-success btn-sm" onclick="advanceStage({{ item.id }})" title="Complete current stage">Advance</button>
-                        <button class="btn btn-warning btn-sm" onclick="revertStage({{ item.id }})" title="Revert last stage">Revert</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteProvisioning({{ item.id }})" title="Delete">Del</button>
+                        <button class="fl-obtn ready" onclick="advanceStage({{ item.id }})" title="Complete current stage">Advance</button>
+                        <button class="fl-obtn" onclick="revertStage({{ item.id }})" title="Revert last stage">Revert</button>
+                        <button class="fl-obtn danger" onclick="deleteProvisioning({{ item.id }})" title="Delete">Del</button>
                         {% endif %}
                     </td>
                 </tr>
@@ -627,7 +627,7 @@
                 <label>Zendesk Ticket ID <span style="font-weight: normal; color: var(--text-muted);">(optional)</span></label>
                 <div style="display: flex; gap: 0.5rem;">
                     <input type="number" id="zendesk-ticket-input" name="zendesk_ticket_id" placeholder="e.g., 524" style="flex: 1;">
-                    <button type="button" class="btn" onclick="fetchZendeskTicket()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Fetch</button>
+                    <button type="button" class="fl-obtn" onclick="fetchZendeskTicket()">Fetch</button>
                 </div>
                 <div id="zendesk-ticket-info" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); display: none;"></div>
             </div>
@@ -650,8 +650,8 @@
                 <textarea name="notes" rows="2" style="width: 100%;"></textarea>
             </div>
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
-                <button type="button" class="btn" onclick="document.getElementById('create-modal').style.display='none'">Cancel</button>
-                <button type="submit" class="btn btn-success">Create</button>
+                <button type="button" class="fl-obtn" onclick="document.getElementById('create-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="fl-obtn ready">Create</button>
             </div>
         </form>
         <div id="create-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -722,8 +722,8 @@
                 <textarea id="edit-notes" name="notes" rows="3" style="width: 100%;"></textarea>
             </div>
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
-                <button type="button" class="btn" onclick="closeEditModal()">Cancel</button>
-                <button type="submit" class="btn btn-success">Save Changes</button>
+                <button type="button" class="fl-obtn" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="fl-obtn ready">Save Changes</button>
             </div>
         </form>
         <div id="edit-msg" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -1352,7 +1352,7 @@
         let selectedOrderId = null;
 
         const modalHtml = `
-<div id="assign-order-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;">
+<div id="assign-order-modal" class="fl-restyle" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;">
   <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;width:min(520px,95vw);max-height:80vh;display:flex;flex-direction:column;">
     <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <h3 style="margin:0;font-size:1rem;">Assign ${n} Record${n !== 1 ? 's' : ''} to Order</h3>
@@ -1378,8 +1378,8 @@
           </div>`).join('')}
     </div>
     <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;justify-content:flex-end;">
-      <button class="btn btn-sm" style="color:var(--danger,#e74c3c);border-color:var(--danger,#e74c3c);" onclick="confirmAssign(null)">Unlink from Order</button>
-      <button id="assign-confirm-btn" class="btn btn-primary btn-sm" disabled onclick="confirmAssign(selectedOrderId_)">Assign</button>
+      <button class="fl-obtn danger" onclick="confirmAssign(null)">Unlink from Order</button>
+      <button id="assign-confirm-btn" class="fl-cta" disabled onclick="confirmAssign(selectedOrderId_)">Assign</button>
     </div>
   </div>
 </div>`;
@@ -1445,12 +1445,12 @@
 </script>
 
 <!-- Bulk Action Bar -->
-<div id="bulk-action-bar" style="display:none; position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
+<div id="bulk-action-bar" class="fl-restyle" style="display:none; position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
      background:var(--card-bg); border:1px solid var(--border); border-radius:8px;
      padding:0.6rem 1rem; gap:0.75rem; box-shadow:0 4px 20px rgba(0,0,0,0.25);
      z-index:200; align-items:center;">
     <span id="bulk-count" style="font-size:0.85rem; color:var(--text-muted);"></span>
-    <button class="btn btn-primary btn-sm" onclick="openAssignModal()">Assign to Order</button>
-    <button class="btn btn-sm" onclick="clearSelection()">Clear</button>
+    <button class="fl-cta" onclick="openAssignModal()">Assign to Order</button>
+    <button class="fl-obtn" onclick="clearSelection()">Clear</button>
 </div>
 {% endblock %}

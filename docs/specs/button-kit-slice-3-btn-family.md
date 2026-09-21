@@ -107,8 +107,8 @@ disabled rules (`fl-restyle.css:300-302`) apply everywhere.
   per page, `base.html:445` is only the mobile offer bar). Two elements
   in `provisioning.html` sit outside it at runtime: the assign modal is
   built as a string and appended to `document.body` (`:1354-1386`), and
-  `#bulk-action-bar` (`:1448`) is markup after the wrapper closes at
-  `:733`. Both gain the `fl-restyle` class on their root element
+  `#bulk-action-bar` (`:1448`) sits in `{% block scripts %}`, rendered by
+  `base.html:891` outside `<main>`. Both gain `fl-restyle` on their root
   (`#assign-order-modal` at `:1355`, `#bulk-action-bar` at `:1448`).
   Every other string-built site is inserted into an element inside the
   wrapper (`#avail-tbody`, `#zendesk-details`, `#event-status`,
@@ -379,9 +379,9 @@ Same shape as slice 2, plus the observables named in R4 to R9.
    on a converted button (`border-radius` 8px for `fl-obtn`, 10px for
    `fl-cta`; `.btn` gave 6px), and the disabled read from R5 where the
    page has one.
-3. Habit 14 census on the page: `class="[^"]*\bbtn\b` count 0 for the
-   page's template after the patch, and the bare-token grep for the file
-   showing only JS identifiers.
+3. Habit 30 census on the page: whole-token family count 0 for the
+   page's template after the patch (`\bbtn\b` over-matches `-btn` and
+   `btn-edit`), and the bare-token grep showing only JS identifiers.
 4. Adjacent-board regression: one page from the previous sub-slice
    re-rendered.
 5. 3a and 3b: the retargeted tour step reached (R9).
