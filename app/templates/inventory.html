@@ -49,9 +49,9 @@
   <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;color:var(--text-muted);white-space:nowrap;">
     <input type="checkbox" id="inv-include-dec" {% if include_decommissioned %}checked{% endif %} onchange="applyFilters()"> Include decommissioned
   </label>
-  <a href="{{ base_path }}/inventory/decommissioned" class="inv-btn">Decommissioned</a>
+  <a href="{{ base_path }}/inventory/decommissioned" class="fl-obtn">Decommissioned</a>
   {% if q or status or location %}
-  <a href="{{ base_path }}/inventory/?category={{ category }}" class="inv-btn">Clear filters</a>
+  <a href="{{ base_path }}/inventory/?category={{ category }}" class="fl-obtn">Clear filters</a>
   {% endif %}
 </div>
 
@@ -134,7 +134,7 @@
             {{ row.last_updated.strftime('%b %d, %Y') if row.last_updated else '—' }}
           </td>
           <td class="sx-stick-right sx-stick-right--actions" style="text-align:right">
-            <button class="inv-btn" style="padding:3px 8px;font-size:11px"
+            <button class="fl-obtn"
               onclick="event.stopPropagation();openQuickView({{ row.id }})">View</button>
           </td>
         </tr>

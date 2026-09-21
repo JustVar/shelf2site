@@ -197,9 +197,9 @@
   .receive-page .form-group textarea { font-size: 16px; }
 
   .receive-page .btn, .receive-page .fl-btn,
-  .checkout-page .inv-btn, .checkout-page .itk-submit, .checkout-page .fl-cta,
-  .checkin-page .inv-btn, .checkin-page .itk-submit,
-  .search-page .fl-btn, .search-page .inv-btn,
+  .checkout-page .fl-obtn, .checkout-page .fl-cta,
+  .checkin-page .fl-obtn, .checkin-page .fl-cta,
+  .search-page .fl-btn,
   .item-detail-page .fl-obtn, .item-detail-page .fl-cta {
     min-height: 44px;
     display: inline-flex;
@@ -226,10 +226,10 @@
     background: var(--bg);
     border-top: 1px solid var(--border);
   }
-  .checkout-page .itk-submit,
-  .checkin-page .itk-submit { flex: 1 1 auto; min-height: 50px; font-size: 16px; }
-  .checkout-page .itk-actions .inv-btn,
-  .checkin-page .itk-actions .inv-btn { min-height: 50px; }
+  .checkout-page .fl-cta,
+  .checkin-page .fl-cta { flex: 1 1 auto; min-height: 50px; font-size: 16px; }
+  .checkout-page .itk-actions .fl-obtn,
+  .checkin-page .itk-actions .fl-obtn { min-height: 50px; }
 
   /* ── Receive & Scan: camera is the hero ───────────────────────────────── */
   /* !important beats the inline align-items:center on .scanner-buttons */

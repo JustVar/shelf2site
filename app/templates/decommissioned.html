@@ -13,7 +13,7 @@
       trail all survive. Reactivating returns an item to Pending for re-triage.
     </div>
   </div>
-  <a href="{{ base_path }}/inventory/" class="inv-btn" style="white-space:nowrap">Back to Inventory</a>
+  <a href="{{ base_path }}/inventory/" class="fl-obtn" style="white-space:nowrap">Back to Inventory</a>
 </div>
 
 <div class="table-section fl-lift">
@@ -41,7 +41,7 @@
           <td>{{ row.who }}</td>
           <td>
             {% if user.is_editor_or_above %}
-            <button type="button" class="inv-btn dec-reactivate-btn"
+            <button type="button" class="fl-obtn ready dec-reactivate-btn"
                     onclick="decReactivate({{ row.id }}, {{ row.name | tojson | forceescape }})">
               Reactivate
             </button>

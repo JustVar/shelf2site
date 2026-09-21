@@ -3611,8 +3611,6 @@ html.sx-nav-pre-collapsed .sx-nav__footer-actions { display: none; }
 .inv-search input::placeholder{color:var(--sx-gray-dim)}
 .inv-select{background:var(--sx-surface);border:1px solid var(--sx-border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--sx-white);font-family:var(--sx-font-sans);cursor:pointer;outline:none}
 .inv-select:focus{border-color:var(--sx-blue)}
-.inv-btn{background:var(--sx-surface);border:1px solid var(--sx-border);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--sx-gray);cursor:pointer;font-family:var(--sx-font-sans);text-decoration:none;white-space:nowrap}
-.inv-btn:hover{color:var(--sx-white);border-color:var(--sx-blue)}
 .inv-table-wrap{background:var(--sx-surface);border:1px solid var(--sx-border);border-radius:10px;overflow-x:auto;overflow-y:hidden;margin-bottom:1rem;position:relative}
 .inv-table{width:100%;border-collapse:collapse;font-size:13px}
 .inv-table th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--sx-gray);border-bottom:1px solid var(--sx-border);background:var(--sx-surface);white-space:nowrap}
@@ -3688,8 +3686,6 @@ select.itk-input{cursor:pointer}
 .itk-receipt-toggle-icon{font-size:10px;width:14px;display:inline-block}
 .itk-receipt-body{padding:0 1.25rem 1.25rem}
 .itk-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:0.5rem;padding-bottom:2rem}
-.itk-submit{background:var(--sx-blue);border:none;border-radius:8px;padding:9px 24px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--sx-font-sans)}
-.itk-submit:hover{opacity:.9}
 @media(max-width:640px){.itk-grid{grid-template-columns:1fr}}
 
 /* ── Item Detail Page ── */
