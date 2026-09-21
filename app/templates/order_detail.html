@@ -35,10 +35,10 @@
            refused server side, so none of them is offered. See
            docs/specs/customer-order-cancel.md #}
         {% if order.status != 'cancelled' %}
-        <button class="btn btn-sm" onclick="openEditModal()">Edit Order</button>
-        <button class="btn btn-sm" onclick="updateStatus()">Update Status</button>
-        <button class="btn btn-sm btn-danger" id="cancel-order-btn" onclick="openCancelModal()">Cancel Order</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteOrder()">Delete</button>
+        <button class="fl-obtn" onclick="openEditModal()">Edit Order</button>
+        <button class="fl-obtn" onclick="updateStatus()">Update Status</button>
+        <button class="fl-obtn danger" id="cancel-order-btn" onclick="openCancelModal()">Cancel Order</button>
+        <button class="fl-obtn danger" onclick="deleteOrder()">Delete</button>
         {% endif %}
     </div>
     {% endif %}
@@ -105,9 +105,9 @@
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
         <h2 style="margin:0;">SKU Requirements</h2>
         {% if user.has_provisioning_manage %}
-        <button class="btn btn-sm" id="sku-add-btn" onclick="openSkuEditor(-1)" style="font-size:0.78rem; padding:0.2rem 0.55rem;">+ Add SKU</button>
+        <button class="fl-obtn" id="sku-add-btn" onclick="openSkuEditor(-1)">+ Add SKU</button>
         {% endif %}
-        <button class="btn btn-sm" onclick="refreshAvailability()" style="font-size:0.78rem; padding:0.2rem 0.55rem; margin-left:auto;">Refresh</button>
+        <button class="fl-obtn" onclick="refreshAvailability()" style="margin-left:auto;">Refresh</button>
     </div>
 
     {% if user.has_provisioning_manage %}
@@ -135,8 +135,8 @@
                     <option value="oem">OEM order</option>
                 </select>
             </div>
-            <button class="btn btn-sm" onclick="saveSkuLine()">Save</button>
-            <button class="btn btn-sm" onclick="closeSkuEditor()">Cancel</button>
+            <button class="fl-obtn" onclick="saveSkuLine()">Save</button>
+            <button class="fl-obtn" onclick="closeSkuEditor()">Cancel</button>
         </div>
         <div style="margin-top:0.4rem; min-height:1.1rem;">
             <span id="sku-editor-hint" class="badge badge-warning" style="display:none;">Not in catalog — saved as free text</span>
@@ -180,8 +180,8 @@
                 </td>
                 {% if user.has_provisioning_manage %}
                 <td style="white-space:nowrap;">
-                    <button class="btn btn-sm" onclick="openSkuEditor({{ loop.index0 }})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Edit</button>
-                    <button class="btn btn-sm" onclick="removeSkuLine({{ loop.index0 }})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Remove</button>
+                    <button class="fl-obtn" onclick="openSkuEditor({{ loop.index0 }})">Edit</button>
+                    <button class="fl-obtn" onclick="removeSkuLine({{ loop.index0 }})">Remove</button>
                 </td>
                 {% endif %}
             </tr>
@@ -198,8 +198,8 @@
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
         <h2 style="margin:0;">OEM Purchase Orders</h2>
         {% if user.has_provisioning_manage %}
-        <button class="btn btn-sm btn-primary" onclick="document.getElementById('add-po-modal').classList.add('open')"
-                style="font-size:0.78rem; padding:0.2rem 0.55rem; margin-left:auto;">+ Add PO</button>
+        <button class="fl-cta" onclick="document.getElementById('add-po-modal').classList.add('open')"
+                style="margin-left:auto;">+ Add PO</button>
         {% endif %}
     </div>
     {% if oem_pos %}
@@ -243,15 +243,15 @@
                 </td>
                 {% if user.has_provisioning_manage %}
                 <td>
-                    <button class="btn btn-sm" onclick='editPO({{ po.id }}, {{ {
+                    <button class="fl-obtn" onclick='editPO({{ po.id }}, {{ {
                         "vendor_name": po.vendor_name, "po_number": po.po_number or "",
                         "sku": po.sku, "qty_ordered": po.qty_ordered, "qty_received": po.qty_received,
                         "order_date": (po.order_date | string) if po.order_date else "",
                         "expected_delivery": (po.expected_delivery | string) if po.expected_delivery else "",
                         "status": po.status, "notes": po.notes or ""
-                    } | tojson }})' style="font-size:0.75rem; padding:0.15rem 0.45rem;">Edit</button>
-                    <button class="btn btn-sm" onclick="deletePO({{ po.id }})"
-                            style="font-size:0.75rem; padding:0.15rem 0.45rem; color:var(--danger,#e74c3c); border-color:var(--danger,#e74c3c);">✕</button>
+                    } | tojson }})'>Edit</button>
+                    <button class="fl-obtn danger" onclick="deletePO({{ po.id }})"
+                            >✕</button>
                 </td>
                 {% endif %}
             </tr>
@@ -300,8 +300,8 @@
                 </td>
                 {% if user.has_provisioning_manage %}
                 <td>
-                    <button class="btn btn-sm" onclick="unlinkProvisioning({{ p.id }})"
-                            style="font-size:0.75rem; padding:0.15rem 0.45rem; color:var(--text-muted);"
+                    <button class="fl-obtn" onclick="unlinkProvisioning({{ p.id }})"
+                            style="color:var(--text-muted);"
                             title="Unlink from this order">Unlink</button>
                 </td>
                 {% endif %}
@@ -320,8 +320,8 @@
 <div class="table-section" id="unit-photos-section" style="margin-bottom:1.5rem;">
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
         <h2 style="margin:0;">Unit Photos</h2>
-        <a class="btn btn-sm" href="{{ base_path }}/orders/{{ order.id }}/dossiers.zip"
-           style="font-size:0.78rem; padding:0.2rem 0.55rem; margin-left:auto;">Export All Unit Dossiers</a>
+        <a class="fl-obtn" href="{{ base_path }}/orders/{{ order.id }}/dossiers.zip"
+           style="margin-left:auto;">Export All Unit Dossiers</a>
     </div>
     {% for direction, plist in photos_by_direction.items() %}
     <div style="margin-bottom:0.6rem;">
@@ -355,7 +355,7 @@
         <div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No pre-site survey notes yet.</div>
         {% endif %}
         {% if user.has_provisioning_manage %}
-        <button class="btn btn-sm" onclick="editNotes('pre')" style="margin-top:0.75rem; font-size:0.8rem;">Edit</button>
+        <button class="fl-obtn" onclick="editNotes('pre')" style="margin-top:0.75rem;">Edit</button>
         {% endif %}
     </div>
     <div class="table-section">
@@ -369,7 +369,7 @@
         <div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No post-install notes yet.</div>
         {% endif %}
         {% if user.has_provisioning_manage %}
-        <button class="btn btn-sm" onclick="editNotes('post')" style="margin-top:0.75rem; font-size:0.8rem;">Edit</button>
+        <button class="fl-obtn" onclick="editNotes('post')" style="margin-top:0.75rem;">Edit</button>
         {% endif %}
     </div>
 </div>
@@ -416,7 +416,7 @@
             </select>
             <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
                 <input type="text" id="edit-oem-partner-new" class="form-control" placeholder="New partner name">
-                <button type="button" class="btn btn-sm" onclick="createOemPartner('edit')">Add Partner</button>
+                <button type="button" class="fl-obtn" onclick="createOemPartner('edit')">Add Partner</button>
             </div>
         </div>
         <div class="form-group" style="margin-top:0.75rem;">
@@ -512,8 +512,8 @@
             <label for="edit-sensitive" style="margin:0;">Mark as sensitive (hide from most users)</label>
         </div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="document.getElementById('edit-order-modal').classList.remove('open')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveEditOrder()">Save</button>
+            <button class="fl-obtn" onclick="document.getElementById('edit-order-modal').classList.remove('open')">Cancel</button>
+            <button class="fl-cta" onclick="saveEditOrder()">Save</button>
         </div>
         <div id="edit-order-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
     </div>
@@ -539,8 +539,8 @@
                       placeholder="Why is this order being cancelled?"></textarea>
         </div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="closeCancelModal()">Keep Order</button>
-            <button class="btn btn-danger" onclick="confirmCancelOrder()">Cancel Order</button>
+            <button class="fl-obtn" onclick="closeCancelModal()">Keep Order</button>
+            <button class="fl-obtn danger" onclick="confirmCancelOrder()">Cancel Order</button>
         </div>
         <div id="cancel-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
     </div>
@@ -567,8 +567,8 @@
             </select>
         </div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="document.getElementById('status-modal').classList.remove('open')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveStatus()">Save</button>
+            <button class="fl-obtn" onclick="document.getElementById('status-modal').classList.remove('open')">Cancel</button>
+            <button class="fl-cta" onclick="saveStatus()">Save</button>
         </div>
         <div id="status-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
     </div>
@@ -632,8 +632,8 @@
         </div>
         <div id="po-error" class="alert alert-danger" style="display:none;"></div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="document.getElementById('add-po-modal').classList.remove('open')">Cancel</button>
-            <button class="btn btn-primary" onclick="savePO()">Save</button>
+            <button class="fl-obtn" onclick="document.getElementById('add-po-modal').classList.remove('open')">Cancel</button>
+            <button class="fl-cta" onclick="savePO()">Save</button>
         </div>
     </div>
 </div>
@@ -651,8 +651,8 @@
         </div>
         <div id="notes-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
         <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="btn" onclick="document.getElementById('notes-modal').classList.remove('open')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveNotes()">Save</button>
+            <button class="fl-obtn" onclick="document.getElementById('notes-modal').classList.remove('open')">Cancel</button>
+            <button class="fl-cta" onclick="saveNotes()">Save</button>
         </div>
     </div>
 </div>
@@ -900,8 +900,8 @@ function availRowHtml(row, idx) {
         ? '' : ' <span class="badge badge-warning" title="This SKU is not in the part-numbers catalog">not in catalog</span>';
     const actions = CAN_MANAGE_SKUS
         ? `<td style="white-space:nowrap;">
-             <button class="btn btn-sm" onclick="openSkuEditor(${idx})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Edit</button>
-             <button class="btn btn-sm" onclick="removeSkuLine(${idx})" style="font-size:0.72rem; padding:0.15rem 0.45rem;">Remove</button>
+             <button class="fl-obtn" onclick="openSkuEditor(${idx})">Edit</button>
+             <button class="fl-obtn" onclick="removeSkuLine(${idx})">Remove</button>
            </td>` : '';
     return `<tr>
         <td style="font-weight:500; white-space:nowrap;">${escHtml(row.model)}${catalogChip}</td>

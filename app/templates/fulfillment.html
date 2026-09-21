@@ -1745,9 +1745,9 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         <input type="file" id="deploy-photo-input" accept="image/*" capture="environment"
                onchange="uploadOrderPhoto(this, 'deploy-photo-note', deployWizardOrderId())" style="display:none;">
         <span id="deploy-photo-note" style="font-size:11px; color:var(--text-muted);"></span>
-        <button class="btn" id="dm-back-btn" onclick="deployWizardBack()" style="display:none;">Back</button>
-        <button class="btn" onclick="closeDeployModal()">Cancel</button>
-        <button class="btn btn-primary" id="dm-next-btn" onclick="deployWizardNext()">Next</button>
+        <button class="fl-obtn" id="dm-back-btn" onclick="deployWizardBack()" style="display:none;">Back</button>
+        <button class="fl-obtn" onclick="closeDeployModal()">Cancel</button>
+        <button class="fl-cta" id="dm-next-btn" onclick="deployWizardNext()">Next</button>
     </div>
 </div>
 {% endif %}

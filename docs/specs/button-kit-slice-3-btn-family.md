@@ -315,11 +315,11 @@ is what the patch writes, other tokens on the same attribute are kept.
 | `order_detail.html:139` | `btn btn-sm` | `fl-obtn` |  |
 | `order_detail.html:183` | `btn btn-sm` | `fl-obtn` | drop inline size override |
 | `order_detail.html:184` | `btn btn-sm` | `fl-obtn` | drop inline size override |
-| `order_detail.html:201` | `btn btn-sm btn-primary` | `fl-cta` |  |
-| `order_detail.html:246` | `btn btn-sm` | `fl-obtn` |  |
-| `order_detail.html:253` | `btn btn-sm` | `fl-obtn` |  |
-| `order_detail.html:303` | `btn btn-sm` | `fl-obtn` |  |
-| `order_detail.html:323` | `btn btn-sm` | `fl-obtn` | anchor |
+| `order_detail.html:201` | `btn btn-sm btn-primary` | `fl-cta` | its style is on `:202`, drop the size override there, keep `margin-left:auto` |
+| `order_detail.html:246` | `btn btn-sm` | `fl-obtn` | its style is on `:252`, drop the size override |
+| `order_detail.html:253` | `btn btn-sm` | `fl-obtn danger` | its style is on `:254`: size override and inline danger colour, both dropped |
+| `order_detail.html:303` | `btn btn-sm` | `fl-obtn` | its style is on `:304`, drop the size override, keep `color:var(--text-muted)` (design call, Jus 2026-09-21) |
+| `order_detail.html:323` | `btn btn-sm` | `fl-obtn` | anchor; its style is on `:324`, drop the size override there, keep `margin-left:auto` |
 | `order_detail.html:358` | `btn btn-sm` | `fl-obtn` | drop inline size override |
 | `order_detail.html:372` | `btn btn-sm` | `fl-obtn` | drop inline size override |
 | `order_detail.html:419` | `btn btn-sm` | `fl-obtn` |  |
