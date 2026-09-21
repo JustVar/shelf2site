@@ -59,7 +59,7 @@ lives in the named templates.
 | **Card** | `.fl-card` (+`.fl-ocard` order cards, `.oem-card`) | `--card-bg`, 1px `--border`, **lit top edge** via `border-top-color: var(--card-edge)`, radius 10–12, hover raises with `--card-shadow-hover` |
 | **Chips** | `.fl-ochip` (primary id chip) · `.fl-mchip` (muted meta chip) | inline facts on cards: PO number, order number, qty `x/y`. `fulfillment.html` |
 | **Status badge** | `.fl-badge` + `.ok`/`.warn`/`.urg` | the status recipe; SHORT/OVER receiving badges reuse this language (`rcv-badge--full`/`--over`) |
-| **Buttons** | `.fl-btn` (solid accent) · `.fl-obtn` (tint; `+.ready` green, `+.danger` red) | solid = `--accent-primary` bg + `--on-accent` text; tint = `--accent-primary-dim` bg + `--accent-border` border |
+| **Buttons** | `.fl-cta` (solid accent, one per view) · `.fl-obtn` (tint; `+.ready` green, `+.danger` red) · `.fl-btn` (tint with icon slot; prefer `.fl-obtn` for new work) | solid = `--accent-primary` bg + `--on-accent` text; tint = `--accent-primary-dim` bg + `--accent-border` border |
 | **Tables** | `.data-table` + fl overrides (`.fl-restyle .table-override-*`) | dark surface rows, `--border` separators; overrides restyle legacy tables without rewriting them |
 | **Filter tiles** | `.fl-filter-tiles` (fl) · `.inv-tiles`/`.inv-tile` (inventory) | small clickable tiles with a static category hue; act as filters, not just stats |
 | **Banner** | `.fl-banner` + `.warn`/`.urg` | page-level notices (maintenance staleness, backup health) — status recipe at banner scale |

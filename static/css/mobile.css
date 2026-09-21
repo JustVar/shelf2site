@@ -200,7 +200,7 @@
   .checkout-page .inv-btn, .checkout-page .itk-submit, .checkout-page .fl-cta,
   .checkin-page .inv-btn, .checkin-page .itk-submit,
   .search-page .fl-btn, .search-page .inv-btn,
-  .item-detail-page .inv-btn, .item-detail-page .fl-cta, .item-detail-page .itk-submit {
+  .item-detail-page .fl-obtn, .item-detail-page .fl-cta {
     min-height: 44px;
     display: inline-flex;
     align-items: center;

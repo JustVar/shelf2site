@@ -29,12 +29,12 @@
   <div class="dtl-header-right">
     {% if user.is_editor_or_above %}
       {% if edit_mode %}
-      <a href="{{ base_path }}/items/{{ item.id }}" class="inv-btn">Cancel</a>
+      <a href="{{ base_path }}/items/{{ item.id }}" class="fl-obtn">Cancel</a>
       {% else %}
       {% if item.item_status|string == 'Decommissioned' %}
-      <button type="button" class="inv-btn" id="dec-reactivate-btn" onclick="decOpenReactivate()">Reactivate</button>
+      <button type="button" class="fl-obtn ready" id="dec-reactivate-btn" onclick="decOpenReactivate()">Reactivate</button>
       {% else %}
-      <button type="button" class="inv-btn" id="dec-decommission-btn" onclick="decOpenModal()">Decommission</button>
+      <button type="button" class="fl-obtn danger" id="dec-decommission-btn" onclick="decOpenModal()">Decommission</button>
       {% endif %}
       <a href="{{ base_path }}/items/{{ item.id }}?edit=1" class="fl-cta">Edit</a>
       {% endif %}
@@ -205,8 +205,8 @@
   </div>
 
   <div class="itk-actions">
-    <a href="{{ base_path }}/items/{{ item.id }}" class="inv-btn">Cancel</a>
-    <button type="submit" class="itk-submit">Save Changes</button>
+    <a href="{{ base_path }}/items/{{ item.id }}" class="fl-obtn">Cancel</a>
+    <button type="submit" class="fl-cta">Save Changes</button>
   </div>
 </form>
 
@@ -395,7 +395,7 @@
     <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
       <span>Receipts</span>
       {% if user.is_editor_or_above %}
-      <button type="button" class="inv-btn" style="font-size:11px;padding:4px 10px" onclick="toggleAddReceipt()">+ Add Receipt</button>
+      <button type="button" class="fl-obtn" onclick="toggleAddReceipt()">+ Add Receipt</button>
       {% endif %}
     </div>
 
@@ -427,8 +427,8 @@
         <textarea name="receipt_notes" id="receipt_notes" class="itk-input itk-textarea" rows="2" placeholder="Notes about this receipt..."></textarea>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" class="inv-btn" onclick="toggleAddReceipt()">Cancel</button>
-        <button type="submit" class="fl-btn" style="padding:6px 16px;font-size:12px">Upload Receipt</button>
+        <button type="button" class="fl-obtn" onclick="toggleAddReceipt()">Cancel</button>
+        <button type="submit" class="fl-obtn">Upload Receipt</button>
       </div>
     </form>
     {% endif %}
@@ -453,7 +453,7 @@
           </div>
         </div>
         {% if r.file_path %}
-        <a href="{{ base_path }}/api/receipts/{{ r.id }}/download" class="inv-btn" style="font-size:11px;padding:4px 10px" title="Download">Download</a>
+        <a href="{{ base_path }}/api/receipts/{{ r.id }}/download" class="fl-obtn" title="Download">Download</a>
         {% endif %}
       </div>
       {% endfor %}
@@ -474,13 +474,12 @@
       </select>
       <input type="text" id="item-photo-caption" placeholder="Caption (optional)"
              style="font-size:0.75rem; padding:2px 6px; width:180px;">
-      <button class="btn btn-sm" onclick="document.getElementById('item-photo-input').click()"
-              style="font-size:0.75rem; padding:0.15rem 0.5rem;">+ Add Photo</button>
+      <button class="fl-obtn" onclick="document.getElementById('item-photo-input').click()">+ Add Photo</button>
       <input type="file" id="item-photo-input" accept="image/*" capture="environment"
              onchange="uploadItemPhoto(this)" style="display:none;">
       {% endif %}
-      <a class="btn btn-sm" href="{{ base_path }}/items/{{ item.id }}/dossier.pdf" target="_blank"
-         style="margin-left:auto; font-size:0.75rem; padding:0.15rem 0.5rem;">Export Dossier</a>
+      <a class="fl-obtn" href="{{ base_path }}/items/{{ item.id }}/dossier.pdf" target="_blank"
+         style="margin-left:auto;">Export Dossier</a>
     </div>
     <span id="item-photo-note" style="font-size:0.8rem; color:var(--text-muted);"></span>
     {% if photos %}
@@ -510,7 +509,7 @@
     <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
       <span>Components ({{ containment.children|length }})</span>
       {% if user.is_editor_or_above %}
-      <button type="button" class="inv-btn" onclick="ctmOpen('install')">+ Install Component</button>
+      <button type="button" class="fl-obtn" onclick="ctmOpen('install')">+ Install Component</button>
       {% endif %}
     </div>
     {% if containment.children %}
@@ -536,8 +535,8 @@
             <td class="fl-cell-date">{{ ch.installed_date.strftime('%b %d, %Y') if ch.installed_date else '&mdash;' }}</td>
             {% if user.is_editor_or_above %}
             <td style="white-space:nowrap;">
-              <button type="button" class="inv-btn" onclick="ctmOpen('move', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Move</button>
-              <button type="button" class="inv-btn" onclick="ctmOpen('remove', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Remove</button>
+              <button type="button" class="fl-obtn" onclick="ctmOpen('move', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Move</button>
+              <button type="button" class="fl-obtn danger" onclick="ctmOpen('remove', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Remove</button>
             </td>
             {% endif %}
           </tr>
@@ -730,7 +729,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  var cancelLinks = document.querySelectorAll('a.inv-btn[href$="/items/{{ item.id }}"]');
+  var cancelLinks = document.querySelectorAll('a.fl-obtn[href$="/items/{{ item.id }}"]');
   for (var i = 0; i < cancelLinks.length; i++) {
     cancelLinks[i].addEventListener('click', function() {
       window._lockManager.release(resourceKey);
@@ -762,8 +761,8 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div id="ctm-error" style="color:var(--danger,#e74c3c);font-size:0.85rem;margin-top:0.5rem;"></div>
     <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
-      <button type="button" class="inv-btn" onclick="ctmClose()">Cancel</button>
-      <button type="button" class="inv-btn" id="ctm-primary" onclick="ctmPrimary()" disabled>Install</button>
+      <button type="button" class="fl-obtn" onclick="ctmClose()">Cancel</button>
+      <button type="button" class="fl-obtn" id="ctm-primary" onclick="ctmPrimary()" disabled>Install</button>
     </div>
   </div>
 </div>
