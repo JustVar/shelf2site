@@ -101,7 +101,10 @@ disabled rules (`fl-restyle.css:300-302`) apply everywhere.
   (`.receive-page .btn-submit`) then have no subject; `:261` becomes
   `.receive-page #submit-device-btn` if the 52px mobile height is to
   stay, else it is deleted. The gate at 596px decides: read the computed
-  `min-height` before and after.
+  `min-height` before and after. Built at 3e: `:126` became
+  `.receive-page #submit-device-btn { width: 100%; margin-top: 0.5rem; }`
+  (layout kept, padding and size to the kit; Jus 2026-09-21) and `:261`
+  kept its 52px on the id, read at 596px before and after.
 - **R7, elements outside the wrapper.** The kit rules are all scoped
   under `.fl-restyle`. Every slice 3 page carries the wrapper (READ, one
   per page, `base.html:445` is only the mobile offer bar). Two elements

@@ -77,56 +77,8 @@
 }
 
 /* Buttons */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.55rem 1rem;
-    border-radius: 6px;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: background 0.15s, opacity 0.15s;
-}
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.btn-primary {
-    background: var(--primary, #157ca4);
-    color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background: #1a8dba;
-}
-
-.btn-danger {
-    background: #e74c3c;
-    color: #fff;
-}
-
-.btn-danger:hover:not(:disabled) {
-    background: #c0392b;
-}
-
-.btn-success {
-    background: #27ae60;
-    color: #fff;
-}
-
-.btn-success:hover:not(:disabled) {
-    background: #219a52;
-}
-
-.btn-submit {
+.receive-page #submit-device-btn {
     width: 100%;
-    padding: 0.9rem;
-    font-size: 1rem;
     margin-top: 0.5rem;
 }
 
@@ -163,7 +115,7 @@
     border-top: 1px solid var(--border);
 }
 
-.manual-entry .btn {
+.manual-entry .fl-obtn {
     flex-shrink: 0;
     margin-bottom: 0.8rem;
 }
@@ -311,7 +263,7 @@
         align-items: stretch;
     }
 
-    .manual-entry .btn {
+    .manual-entry .fl-obtn {
         margin-bottom: 0;
     }
 
@@ -386,11 +338,6 @@
 
 .btn-ocr-fill:hover {
     opacity: 0.8;
-}
-
-.btn-sm {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
 }
 
 .ocr-loading {

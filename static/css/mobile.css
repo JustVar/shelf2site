@@ -196,7 +196,7 @@
   .receive-page .form-group select,
   .receive-page .form-group textarea { font-size: 16px; }
 
-  .receive-page .btn, .receive-page .fl-btn,
+  .receive-page .fl-obtn, .receive-page .fl-cta, .receive-page .fl-btn,
   .checkout-page .fl-obtn, .checkout-page .fl-cta,
   .checkin-page .fl-obtn, .checkin-page .fl-cta,
   .search-page .fl-btn,
@@ -258,7 +258,7 @@
     border-top: 1px solid var(--border);
     border-radius: 0;
   }
-  .receive-page .btn-submit { min-height: 52px; font-size: 16px; }
+  .receive-page #submit-device-btn { min-height: 52px; font-size: 16px; }
 
   /* ── Global Search: results table collapses to stacked row-cards ────────
      Same markup, CSS-only (.fl-table--cards modifier set in the partial).

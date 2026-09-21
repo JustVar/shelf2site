@@ -4,7 +4,7 @@
 {% block nav_receive %}active{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ base_path }}/static/css/receive.css">
+<link rel="stylesheet" href="{{ base_path }}/static/css/receive.css?v={{ request.state.js_v('css/receive.css') or '0' }}">
 <link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
 {# A script tag WITH src ignores inline content — the pre-selection IIFE that
    used to sit inside this tag was dead code (the working copy lives in the
@@ -65,7 +65,7 @@
             <label for="event-notes">Notes</label>
             <input type="text" id="event-notes" placeholder="Optional">
         </div>
-        <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
+        <button class="fl-cta" onclick="createEvent()">Create Event</button>
     </div>
     <div id="event-status" style="display: none;"></div>
     <input type="file" id="event-photo-input" accept="image/*" capture="environment"
@@ -77,7 +77,7 @@
     <h2>2. Scan Barcode</h2>
     <div id="scanner-container">
         <div class="scanner-buttons" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-            <button class="btn" id="start-scan-btn" onclick="startScanner()">
+            <button class="fl-obtn" id="start-scan-btn" onclick="startScanner()">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right:4px;vertical-align:middle;">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2"/>
                     <circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -108,7 +108,7 @@
                 </span>
             </div>
         </div>
-        <button class="btn" onclick="processManualSerial()">Look Up</button>
+        <button class="fl-obtn" onclick="processManualSerial()">Look Up</button>
     </div>
     <div id="scan-result" style="display: none;"></div>
 </div>
@@ -249,7 +249,7 @@
         <input type="checkbox" id="direct-to-inventory" checked>
         Add directly to inventory (skip review queue)
     </label>
-    <button class="btn btn-primary btn-submit" onclick="submitDevice()">
+    <button class="fl-cta" id="submit-device-btn" onclick="submitDevice()">
         Submit Device
     </button>
 </div>
@@ -259,9 +259,9 @@
     <!-- containment hook: shown only for component-category created items -->
     <div class="success-icon">&#10003;</div>
     <div class="success-text">Device added successfully!</div>
-    <button class="btn btn-primary" onclick="scanAnother()">Scan Another</button>
-        <button class="btn" id="assign-into-unit-btn" style="display:none;" onclick="ctmOpenAssign()">Assign into a unit&hellip;</button>
-        <button class="btn" id="add-photo-btn" style="display:none;" onclick="document.getElementById('unit-photo-input').click()">Add photo&hellip;</button>
+    <button class="fl-cta" onclick="scanAnother()">Scan Another</button>
+        <button class="fl-obtn" id="assign-into-unit-btn" style="display:none;" onclick="ctmOpenAssign()">Assign into a unit&hellip;</button>
+        <button class="fl-obtn" id="add-photo-btn" style="display:none;" onclick="document.getElementById('unit-photo-input').click()">Add photo&hellip;</button>
         <input type="file" id="unit-photo-input" accept="image/*" capture="environment"
                onchange="uploadIntakeUnitPhoto(this)" style="display:none;">
         <span id="unit-photo-note" style="font-size:0.85rem; color:var(--text-muted);"></span>
@@ -280,8 +280,8 @@
         </div>
         <div id="ctm-unit-error" style="color:var(--danger);font-size:0.85rem;"></div>
         <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-            <button class="btn btn-secondary" onclick="ctmCloseAssign()">Cancel</button>
-            <button class="btn btn-primary" id="ctm-unit-confirm" onclick="ctmConfirmAssign()" disabled>Install</button>
+            <button class="fl-obtn" onclick="ctmCloseAssign()">Cancel</button>
+            <button class="fl-cta" id="ctm-unit-confirm" onclick="ctmConfirmAssign()" disabled>Install</button>
         </div>
     </div>
 </div>
@@ -292,8 +292,8 @@
         <h3 style="color: var(--warning); margin-bottom: 1rem;">Duplicate Serial Number</h3>
         <div id="duplicate-details" style="margin-bottom: 1.5rem; line-height: 1.6;"></div>
         <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-            <button class="btn btn-secondary" onclick="closeDuplicateModal()">Cancel</button>
-            <button class="btn btn-danger" onclick="proceedWithDuplicate()">Add Anyway</button>
+            <button class="fl-obtn" onclick="closeDuplicateModal()">Cancel</button>
+            <button class="fl-obtn danger" onclick="proceedWithDuplicate()">Add Anyway</button>
         </div>
     </div>
 </div>
@@ -308,8 +308,8 @@
             against the PO on a new event when the rest of the shipment arrives.
         </p>
         <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-            <button class="btn btn-secondary" onclick="cancelCloseEvent()">Keep receiving</button>
-            <button class="btn btn-danger" onclick="doCloseEvent()">Close as partial</button>
+            <button class="fl-obtn" onclick="cancelCloseEvent()">Keep receiving</button>
+            <button class="fl-obtn danger" onclick="doCloseEvent()">Close as partial</button>
         </div>
     </div>
 </div>
@@ -375,10 +375,10 @@ async function refreshEventPanel() {
         ' · ' + esc(ev.received_quantity) + '/' + esc(ev.expected_quantity == null ? '?' : ev.expected_quantity) +
         ' · ' + esc(ev.status) + '</span>';
     if (ev.status === 'open') {
-        html += ' <button class="btn btn-sm" onclick="closeEvent()" style="font-size:0.75rem; padding:0.15rem 0.5rem;">Close event</button>';
+        html += ' <button class="fl-obtn" onclick="closeEvent()">Close event</button>';
     }
-    html += ' <button class="btn btn-sm" onclick="document.getElementById(\'event-photo-input\').click()"' +
-            ' style="font-size:0.75rem; padding:0.15rem 0.5rem;">Add photos&hellip;</button>' +
+    html += ' <button class="fl-obtn" onclick="document.getElementById(\'event-photo-input\').click()"' +
+            '>Add photos&hellip;</button>' +
             (ev.photo_count ? ' <span style="font-size:0.78rem; color:var(--text-muted);">' +
              esc(ev.photo_count) + ' photo' + (ev.photo_count !== 1 ? 's' : '') + '</span>' : '');
 
@@ -735,8 +735,8 @@ async function manualQuickLookup(serial) {
         manualQuickPending = { serial: data.serial, prefill: data.prefill };
         result.innerHTML = skippedNote + '<div class="alert alert-success"><strong>' + esc(data.serial) +
             '</strong> recognized as ' + esc(data.prefill.manufacturer || 'device') +
-            ' — <button class="btn btn-sm" onclick="manualQuickConfirm()">Add to inventory</button>' +
-            ' <button class="btn btn-sm" onclick="manualQuickSkip()">Skip</button></div>';
+            ' — <button class="fl-obtn" onclick="manualQuickConfirm()">Add to inventory</button>' +
+            ' <button class="fl-obtn" onclick="manualQuickSkip()">Skip</button></div>';
         return;
     }
 
@@ -1059,7 +1059,7 @@ function displayOcrResults(ocr) {
     }
 
     html += '</div>';
-    html += '<button class="btn btn-sm" onclick="fillAllOcrFields()" style="margin-top: 0.5rem;">Auto-Fill All Fields</button>';
+    html += '<button class="fl-obtn" onclick="fillAllOcrFields()" style="margin-top: 0.5rem;">Auto-Fill All Fields</button>';
 
     results.innerHTML = html;
 }
@@ -1126,7 +1126,7 @@ function closeDuplicateModal() {
     bypassDuplicateCheck = false;
 
     // Re-enable submit button
-    const submitBtn = document.querySelector('.btn-submit');
+    const submitBtn = document.getElementById('submit-device-btn');
     if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Device';
@@ -1229,7 +1229,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Submit ---
 async function submitDevice() {
-    const submitBtn = document.querySelector('.btn-submit');
+    const submitBtn = document.getElementById('submit-device-btn');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting...';
 
@@ -1487,7 +1487,7 @@ function scanAnother() {
     const _pb = document.getElementById('add-photo-btn');
     if (_pb) _pb.style.display = 'none';
     document.getElementById('unit-photo-note').textContent = '';
-    const submitBtn = document.querySelector('.btn-submit');
+    const submitBtn = document.getElementById('submit-device-btn');
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Device'; }
     document.getElementById('step-scan').scrollIntoView({ behavior: 'smooth' });
     // H10: re-arm the wedge loop — next trigger-pull lands in a clean input.
