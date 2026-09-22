@@ -1079,18 +1079,18 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                         <span class="o-owner">{{ fl_icon('user', 'mute', 14) }}<span>{{ po.customer_name or 'No Customer' }}</span></span>
                         {% if user and user.has_provisioning_manage %}
                         <span style="display:flex;gap:6px;">
-                        <button class="fl-obtn" onclick="openOemModal({{ (po.customer_order_id or '')|string|tojson|forceescape }}, {{ (po.customer_order_number or '')|tojson|forceescape }}, {
-                            id: {{ po.id }}, customer_order_id: {{ po.customer_order_id or 'null' }},
-                            vendor_name: {{ (po.vendor_name or '')|tojson|forceescape }}, sku: {{ (po.sku or '')|tojson|forceescape }},
-                            po_number: {{ ('\"' ~ po.po_number ~ '\"') if po.po_number else 'null' }},
-                            qty_ordered: {{ po.qty_ordered }}, qty_received: {{ po.qty_received }},
-                            order_date: {{ ('\"' ~ po.order_date ~ '\"') if po.order_date else 'null' }},
-                            expected_delivery: {{ ('\"' ~ po.expected_delivery ~ '\"') if po.expected_delivery else 'null' }},
-                            received_date: {{ ('\"' ~ po.received_date ~ '\"') if po.received_date else 'null' }},
-                            status: '{{ po.status }}', notes: {{ ('\"' ~ po.notes|e ~ '\"') if po.notes else 'null' }},
-                            customer_order_number: {{ ('\"' ~ po.customer_order_number ~ '\"') if po.customer_order_number else 'null' }},
-                            customer_name: {{ ('\"' ~ po.customer_name|e ~ '\"') if po.customer_name else 'null' }}
-                        })">Edit</button>
+                        <button class="fl-obtn" onclick="openOemModal({{ (po.customer_order_id or '')|string|tojson|forceescape }}, {{ (po.customer_order_number or '')|tojson|forceescape }}, {{ {
+                            'id': po.id, 'customer_order_id': po.customer_order_id,
+                            'vendor_name': po.vendor_name or '', 'sku': po.sku or '',
+                            'po_number': po.po_number or none,
+                            'qty_ordered': po.qty_ordered, 'qty_received': po.qty_received,
+                            'order_date': po.order_date|string if po.order_date else none,
+                            'expected_delivery': po.expected_delivery|string if po.expected_delivery else none,
+                            'received_date': po.received_date|string if po.received_date else none,
+                            'status': po.status, 'notes': po.notes or none,
+                            'customer_order_number': po.customer_order_number or none,
+                            'customer_name': po.customer_name or none
+                        }|tojson|forceescape }})">Edit</button>
                         <button class="fl-obtn danger" onclick="deleteOemPo({{ po.customer_order_id }}, {{ po.id }})">Delete</button>
                         </span>
                         {% endif %}
