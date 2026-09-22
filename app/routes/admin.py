@@ -451,7 +451,7 @@ def user_management_page(
             "must_change_password": u.must_change_password,
             "last_login": u.last_login.isoformat() if u.last_login else None,
             "created_at": u.created_at.isoformat() if u.created_at else None,
-            "can_view_financial": u.can_view_financial,
+            "can_view_receipts": u.can_view_receipts,
             "can_manage_warranty": u.can_manage_warranty,
             "can_manage_trials": u.can_manage_trials,
             "can_manage_procurement": u.can_manage_procurement,
@@ -476,7 +476,7 @@ def user_management_page(
     # of a 'inherit' user-level value. view_sensitive_customers is intentionally
     # absent — it has no department equivalent.
     _DEPT_PERM_COLS_FOR_JSON = (
-        "can_view_financial", "can_manage_warranty", "can_manage_trials",
+        "can_view_receipts", "can_manage_warranty", "can_manage_trials",
         "can_manage_procurement", "can_manage_sites", "can_manage_users",
         "can_manage_system", "can_view_audit_log", "can_access_receiving",
         "can_access_map", "can_access_disposal", "can_access_credentials",
@@ -620,44 +620,44 @@ def reset_user_password(
     })
 
 
-@router.post("/api/admin/toggle-financial/{user_id}")
-def toggle_financial_permission(
+@router.post("/api/admin/toggle-receipts/{user_id}")
+def toggle_receipts_permission(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_user_manager),
 ):
-    """Toggle financial data access permission for a user (admin only)."""
+    """Toggle the receipts permission for a user (admin only)."""
     target = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not target:
         return JSONResponse(status_code=404, content={"error": "User not found"})
 
-    # Admin-level + procurement_admin always have access, don't toggle
-    if target.role in ADMIN_LEVEL_ROLES + ("procurement_admin",):
+    # Admin-level roles always have access, do not toggle
+    if target.role in ADMIN_LEVEL_ROLES:
         return JSONResponse(
             status_code=400,
-            content={"error": f"{ROLE_DISPLAY.get(target.role, target.role)} users always have financial access"}
+            content={"error": f"{ROLE_DISPLAY.get(target.role, target.role)} users always have receipts access"}
         )
     if not can_manage_user(user, target):
         return JSONResponse(status_code=403, content={"error": "You cannot manage this user"})
 
-    target.can_view_financial = _cycle_perm(target.can_view_financial)
+    target.can_view_receipts = _cycle_perm(target.can_view_receipts)
     db.commit()
 
     log_event(
-        db, "financial_permission_toggled",
+        db, "receipts_permission_toggled",
         request=request,
         user_id=user.id,
         target_table="users",
         target_id=target.id,
         action="update",
-        details=f"{_perm_label(target.can_view_financial)} financial access for user '{target.username}'",
+        details=f"{_perm_label(target.can_view_receipts)} receipts access for user '{target.username}'",
     )
 
     return JSONResponse(content={
         "status": "toggled",
         "username": target.username,
-        "can_view_financial": target.can_view_financial,
+        "can_view_receipts": target.can_view_receipts,
     })
 
 
@@ -1393,7 +1393,7 @@ async def admin_update_user_permissions(
     the third state as a separate UI mode), but the endpoint accepts all three
     for completeness.
 
-    Role-tier guards (e.g. "admin always has financial access") are NOT enforced
+    Role-tier guards (e.g. "admin always has receipts access") are NOT enforced
     here — the @property layer in models.py OR-merges role grants on top of
     column overrides, so writing 'block' on an admin user is a no-op at the
     read site. That trade-off is documented in docs/U2_U3_RENAME_FOLLOWUPS.md.

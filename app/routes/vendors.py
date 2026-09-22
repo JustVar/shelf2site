@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
-from ..auth import get_current_user, require_admin, require_viewer, require_financial
+from ..auth import get_current_user, require_admin, require_viewer, require_receipts
 from ..config import settings
 from ..database import get_db
 from ..models import (
@@ -152,8 +152,8 @@ def vendor_profile_detail(
         "request": request,
         "user": user,
         "profile": profile,
-        "can_edit": user.has_financial_access or user.is_admin_tier,
-        "show_financials": user.has_financial_access,
+        "can_edit": user.has_receipts_access,
+        "show_financials": user.has_receipts_access,
         **analytics,
     })
 
@@ -166,7 +166,7 @@ def vendor_profile_detail(
 async def create_vendor(
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_financial),
+    user: User = Depends(require_receipts),
 ):
     """Create a new vendor profile."""
     body = await request.json()
@@ -205,7 +205,7 @@ async def update_vendor(
     vendor_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_financial),
+    user: User = Depends(require_receipts),
 ):
     """Update an existing vendor profile."""
     profile = db.query(VendorProfile).filter(VendorProfile.id == vendor_id).first()

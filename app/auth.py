@@ -293,19 +293,18 @@ def require_credentials_access(user: User = Depends(get_current_user)) -> User:
     )
 
 
-def require_financial(user: User = Depends(get_current_user)) -> User:
-    """Dependency that checks user has permission to view financial data.
+def require_receipts(user: User = Depends(get_current_user)) -> User:
+    """Dependency that checks user has the Receipts permission.
 
     Grants access if:
-    - User is an admin (full access)
-    - User is a procurement_admin
-    - User has can_view_financial or can_manage_procurement permission
+    - User is admin tier
+    - User has can_view_receipts (directly or inherited from the department)
     """
-    if user.has_financial_access:
+    if user.has_receipts_access:
         return user
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="This feature requires Financial Data Access permission. Only Administrators, Procurement Admins, and users with Financial Access can view procurement data, pricing, and vendor information. Please contact your administrator to request access.",
+        detail="This feature requires the Receipts permission. Administrators and users granted Receipts access can view uploaded receipts and manage vendor profiles. Please contact your administrator to request access.",
     )
 
 

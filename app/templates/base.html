@@ -211,10 +211,10 @@
         {% endif %}
 
 {# === ADMIN === #}
-{% set _admin_visible = user and (user.has_user_management or user.has_audit_access or user.has_system_admin or user.is_editor_or_above or user.has_financial_access) %}
+{% set _admin_visible = user and (user.has_user_management or user.has_audit_access or user.has_system_admin or user.is_editor_or_above or user.has_receipts_access) %}
 {% if _admin_visible %}
   {% set _people_visible = user.has_user_management %}
-  {% set _data_visible = user.has_audit_access or user.has_system_admin or user.is_editor_or_above or user.has_financial_access %}
+  {% set _data_visible = user.has_audit_access or user.has_system_admin or user.is_editor_or_above or user.has_receipts_access %}
   {% set _integ_visible = user.has_system_admin %}
   {% set _sys_visible = user.has_system_admin %}
 
@@ -288,7 +288,7 @@
             <span class="sx-nav__label">Part Numbers</span>
           </a>
           {% endif %}
-          {% if user.has_financial_access %}
+          {% if user.has_receipts_access %}
           <a href="{{ base_path }}/receipts"
              class="sx-nav__link {% if '/receipts' in request.url.path %}sx-nav__link--active{% endif %}"
              data-label="Receipts">

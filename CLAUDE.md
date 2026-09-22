@@ -66,7 +66,7 @@ Permission columns on `users` and `departments` use Postgres ENUM types instead 
 
 15 user permission columns: 14 use `user_permission_state DEFAULT 'inherit'`. The 15th (`view_sensitive_customers`) uses `DEFAULT 'block'` because it has no department equivalent — `'inherit'` would have nothing to fall back to.
 
-`User._resolve_perm()` reads the user column; if `'inherit'`, falls back to the matching department column. Returns bool. Property layer (`user.has_financial_access`, etc.) calls `_resolve_perm` and OR-merges the role check on top — admin-tier roles always have access regardless of column state.
+`User._resolve_perm()` reads the user column; if `'inherit'`, falls back to the matching department column. Returns bool. Property layer (`user.has_receipts_access`, etc.) calls `_resolve_perm` and OR-merges the role check on top — admin-tier roles always have access regardless of column state.
 
 Application code should never read raw `can_*` columns directly — always go through the property layer. Reading raw columns gives you a string ('grant'/'block'/'inherit'), not a bool.
 
@@ -255,7 +255,7 @@ The lockstep rule pairs the PAGE gate with the nav gate. Mutation gates on the s
 | Error log | /admin/errors | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | OUI reference | /admin/oui | require_editor | require_system_admin | user.is_editor_or_above | editor + sub-admins + admin tier |
 | Part Numbers | /admin/part-numbers | require_editor | require_system_admin | user.is_editor_or_above | editor + sub-admins + admin tier |
-| Receipts | /receipts | require_financial | require_financial | user.has_financial_access | admin tier + procurement_admin + can_view_financial + can_manage_procurement |
+| Receipts | /receipts | require_receipts | require_receipts | user.has_receipts_access | admin tier + can_view_receipts |
 | Storage | /admin/storage | require_system_admin | (read only) | user.has_system_admin | admin tier + can_manage_system |
 | Intune | /admin/intune | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | Notifications | /admin/notifications | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
@@ -295,7 +295,7 @@ When adding a new admin route, use these pairings:
 | require_user_manager | user.has_user_management | user/dept admin |
 | require_audit_viewer | user.has_audit_access | audit log visibility (admin tier, or an explicit user-level grant) |
 | require_system_admin | user.has_system_admin | system operations |
-| require_financial | user.has_financial_access | finance & procurement views |
+| require_receipts | user.has_receipts_access | receipts and vendor profile edits |
 | require_provisioning_viewer | user.has_provisioning_view | fulfillment reads |
 | require_provisioning_manager | user.has_provisioning_manage | fulfillment writes |
 

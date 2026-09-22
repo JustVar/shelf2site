@@ -19,12 +19,12 @@ Create test users for each role and permission combination:
 ### Core Roles
 - **Admin**: Full system access
 - **Viewer**: Read-only access to all features
-- **Editor**: Can edit devices, map access, no financial/delete access
+- **Editor**: Can edit devices, map access, no receipts/delete access
 
 ### Sub-Admin Roles (domain-specific)
 - **Warranty Admin**: Full warranty/RMA CRUD including delete
 - **Trials Admin**: Full trials CRUD including delete
-- **Procurement Admin**: Financial data access (receipts, vendor analytics)
+- **Procurement Admin**: Procurement records and vendor management (no receipts access by role)
 
 ### Permission Flags (toggleable per user)
 - **Editor + Warranty Perm**: Editor with `can_manage_warranty=True`
@@ -84,45 +84,42 @@ Create test users for each role and permission combination:
 
 ---
 
-### 2. Financial Data Access (Receipts & Vendors)
+### 2. Receipts Access (Receipts & Vendors)
 
-Financial access comes from `has_financial_access` (app/models.py): true for
-admin-level roles and `procurement_admin`, or for any user holding
-`can_view_financial` OR `can_manage_procurement`. The `require_financial`
-dependency (app/auth.py) is a thin wrapper over that property.
+Receipts access comes from `has_receipts_access` (app/models.py): true for
+admin-level roles, or for any user holding `can_view_receipts` (directly or
+inherited from the department). The `require_receipts` dependency
+(app/auth.py) is a thin wrapper over that property. `procurement_admin` and
+`can_manage_procurement` do not open receipts.
 
-The standalone `/admin/procurement` page no longer exists. Two surfaces consume
-financial access, and they gate differently: Receipts is all-or-nothing,
-Vendors is read-open with figures masked.
+Two surfaces consume the permission: Receipts is all-or-nothing, Vendors is
+read-open with create and edit gated.
 
-**Receipts - uniformly gated by `require_financial` (all 4 routes):**
+**Receipts - uniformly gated by `require_receipts` (all 4 routes):**
 
-**Test as Viewer / Editor (no financial flags):**
+**Test as Viewer / Editor (no receipts flag):**
 - [ ] "Receipts" link does NOT appear under Admin > Data & logs
-- [ ] Direct access to `/receipts` is refused with the financial-access message
+- [ ] Direct access to `/receipts` is refused with the receipts-access message
 - [ ] `/receipts/{id}` and `/receipts/{id}/file` also refused
 
-**Test as Procurement Admin:**
+**Test as Editor with can_view_receipts:**
 - [ ] "Receipts" link appears under Admin > Data & logs
 - [ ] Receipt list loads with server-side filters
 - [ ] Receipt detail and file download both work
 - [ ] Can replace a receipt file
 
-**Test as Editor with can_view_financial only:**
-- [ ] Full receipts access (this flag alone is sufficient)
+**Test as Procurement Admin (no receipts flag):**
+- [ ] No "Receipts" link; `/receipts` refused (the role alone does not grant it)
 
-**Test as Editor with can_manage_procurement only:**
-- [ ] Full receipts access (either flag independently grants access)
-
-**Vendors - three gate tiers, NOT uniformly financial:**
+**Vendors - three gate tiers:**
 
 **Test as Viewer:**
-- [ ] `/vendors/` list page loads (require_viewer, not financial)
+- [ ] `/vendors/` list page loads (require_viewer, not receipts)
 - [ ] `/vendors/{id}` detail page loads
 - [ ] Pricing and analytics figures are HIDDEN (show_financials false)
 - [ ] No edit controls (can_edit false)
 
-**Test as Procurement Admin:**
+**Test as Editor with can_view_receipts:**
 - [ ] Vendor detail shows full procurement analytics
 - [ ] Can create a vendor (POST /api/vendors/)
 - [ ] Can update a vendor (PUT /api/vendors/{id})
@@ -258,7 +255,7 @@ Vendors is read-open with figures masked.
   - [ ] "Warranty Management" column
   - [ ] "Trials Management" column
   - [ ] "Procurement Management" column
-  - [ ] "Financial Access" column (can_view_financial - live, an independent OR branch of has_financial_access)
+  - [ ] "Receipts" column (can_view_receipts - live, the only flag branch of has_receipts_access)
 - [ ] Sub-admin roles show "Role (Always)" - cannot toggle their own domain permission
   - [ ] Warranty admin shows "Role (Always)" for warranty permission
   - [ ] Trials admin shows "Role (Always)" for trials permission
@@ -290,8 +287,8 @@ Vendors is read-open with figures masked.
 **Procurement Permission:**
 - [ ] Find an editor or viewer user
 - [ ] Check "Grant Access" for procurement permission
-- [ ] User gains financial data access
-- [ ] Sidebar shows the "Receipts" link under Admin > Data & logs
+- [ ] User gains procurement management access
+- [ ] Sidebar does NOT gain the "Receipts" link (procurement does not open receipts)
 - [ ] Audit log records the change
 - [ ] Revoke and verify access removed
 
@@ -335,7 +332,7 @@ Vendors is read-open with figures masked.
 - [ ] Shows "Edge Box Map" link
 - [ ] Shows "Admin" section
 - [ ] "Admin" > "Data & logs" contains:
-  - [ ] "Receipts" link (has_financial_access)
+  - [ ] "Receipts" link (has_receipts_access)
   - [ ] "Audit log" link (has_audit_access includes procurement_admin)
 
 **Admin:**
@@ -379,7 +376,7 @@ Vendors is read-open with figures masked.
 - [ ] "Audit Log" link appears under "Management"
 - [ ] Sees only procurement related events:
   - [ ] procurement_permission_toggled
-  - [ ] financial_permission_toggled (legacy)
+  - [ ] receipts_permission_toggled (legacy)
 - [ ] Does NOT see warranty or trial events
 
 **Test as Admin:**
@@ -435,18 +432,18 @@ Vendors is read-open with figures masked.
 - [ ] Editor without permission gets 403
 - [ ] Warranty admin gets 403 (wrong domain)
 
-**Financial & Vendor Endpoints:**
-- [ ] `/receipts` - requires require_financial
-- [ ] `/receipts/{id}` - requires require_financial
-- [ ] `/receipts/{id}/file` - requires require_financial
-- [ ] `/receipts/{id}/replace-file` (POST) - requires require_financial
+**Receipts & Vendor Endpoints:**
+- [ ] `/receipts` - requires require_receipts
+- [ ] `/receipts/{id}` - requires require_receipts
+- [ ] `/receipts/{id}/file` - requires require_receipts
+- [ ] `/receipts/{id}/replace-file` (POST) - requires require_receipts
 - [ ] `/vendors/` - requires require_viewer only
-- [ ] `/vendors/{id}` - requires require_viewer; analytics shown only if has_financial_access
-- [ ] `/api/vendors/` (POST) - requires require_financial
-- [ ] `/api/vendors/{id}` (PUT) - requires require_financial
+- [ ] `/vendors/{id}` - requires require_viewer; analytics shown only if has_receipts_access
+- [ ] `/api/vendors/` (POST) - requires require_receipts
+- [ ] `/api/vendors/{id}` (PUT) - requires require_receipts
 - [ ] `/api/vendors/{id}` (DELETE) - requires require_admin
 - [ ] `/api/vendors/auto-create` (POST) - requires require_admin
-- [ ] Editor without financial flags gets 403 on all require_financial routes
+- [ ] Editor without the receipts flag gets 403 on all require_receipts routes
 
 **User Management Endpoints:**
 - [ ] `/api/admin/users/*` - requires admin only
@@ -510,7 +507,7 @@ Vendors is read-open with figures masked.
 ### 3. UI Leaks
 - [ ] No hidden admin controls visible in HTML for non-admins
 - [ ] No map data loaded for viewers (check network tab)
-- [ ] No financial data exposed in API responses for unauthorized users
+- [ ] No receipt data exposed in API responses for unauthorized users
 - [ ] Delete buttons only appear for authorized users
 - [ ] Permission checkboxes only appear for admins
 

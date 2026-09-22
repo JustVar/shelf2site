@@ -31,7 +31,7 @@ Privacy-first hardware inventory tracker with network auto-discovery, encrypted 
 1. **Route Protection**: Ensure routes use appropriate auth dependencies
    - `Depends(require_admin)` — Admin-only features
    - `Depends(require_editor)` — Editor+ features
-   - `Depends(require_financial)` — Financial data access
+   - `Depends(require_receipts)` — Receipts access
    - `Depends(require_viewer)` — All authenticated users
 
 2. **UI Conditionals**: Hide/show navigation and controls based on role
@@ -52,17 +52,17 @@ Privacy-first hardware inventory tracker with network auto-discovery, encrypted 
 Refer to [docs/RBAC_TEST_PLAN.md](docs/RBAC_TEST_PLAN.md) for comprehensive test scenarios.
 
 Test with three user types:
-- **Viewer**: Read-only access, no map, no financial data
-- **Editor**: Can edit devices and access map, no financial data (unless granted)
-- **Admin**: Full access including user management and financial data
+- **Viewer**: Read-only access, no map, no receipts access
+- **Editor**: Can edit devices and access map, no receipts access (unless granted)
+- **Admin**: Full access including user management and receipts
 
 ### Current RBAC Rules
-| Feature | Viewer | Editor | Editor+Financial | Admin |
+| Feature | Viewer | Editor | Editor+Receipts | Admin |
 |---------|--------|--------|------------------|-------|
 | Dashboard | ✅ | ✅ | ✅ | ✅ |
 | Device CRUD | View only | Edit | Edit | Full |
 | Edge Box Map | ❌ | ✅ | ✅ | ✅ |
-| Procurement Analytics | ❌ | ❌ | ✅ | ✅ |
+| Receipts | ❌ | ❌ | ✅ | ✅ |
 | User Management | ❌ | ❌ | ❌ | ✅ |
 | Storage Monitor | ❌ | ❌ | ❌ | ✅ |
 | Map Privacy Controls | ❌ | ❌ | ❌ | ✅ |
@@ -157,7 +157,6 @@ These read source files from `scripts/` (CSVs and XLSX) and write to the databas
 - `backfill_completeness.py` — backfill completeness scores
 - `recalculate_completeness.py` — recompute completeness scores (ORM-based)
 - `fix_camera_manufacturers.py` — fill camera manufacturers by MAC prefix
-- `add_financial_permission.py` — one-off migration: add the financial permission column
 - `add_show_on_map_field.py` — one-off migration: add the show-on-map field
 
 ### 🔴 Destructive

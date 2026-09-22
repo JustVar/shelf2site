@@ -504,7 +504,7 @@ department_permission_state = PG_ENUM(
 # future migrations. The user side adds one extra column (view_sensitive_customers)
 # that has no department equivalent.
 DEPARTMENT_PERMISSION_COLUMNS = (
-    "can_view_financial", "can_manage_warranty", "can_manage_trials",
+    "can_view_receipts", "can_manage_warranty", "can_manage_trials",
     "can_manage_procurement", "can_manage_sites", "can_manage_users",
     "can_manage_system", "can_view_audit_log", "can_access_receiving",
     "can_access_map", "can_access_disposal", "can_access_credentials",
@@ -521,7 +521,7 @@ class Department(Base):
     description = Column(Text, nullable=True)
     # Permission flags — department_permission_state ENUM: 'grant' | 'block'.
     # Defaults for department members. User-level 'inherit' falls back here.
-    can_view_financial = Column(department_permission_state, nullable=False, server_default='block')
+    can_view_receipts = Column(department_permission_state, nullable=False, server_default='block')
     can_manage_warranty = Column(department_permission_state, nullable=False, server_default='block')
     can_manage_trials = Column(department_permission_state, nullable=False, server_default='block')
     can_manage_procurement = Column(department_permission_state, nullable=False, server_default='block')
@@ -563,7 +563,7 @@ class User(Base):
     # view_sensitive_customers is the exception: no department equivalent, so its
     # default is 'block' and the application should never write 'inherit' to it
     # (the DB type permits it but the API rejects it).
-    can_view_financial = Column(user_permission_state, nullable=False, server_default='inherit')
+    can_view_receipts = Column(user_permission_state, nullable=False, server_default='inherit')
     can_manage_warranty = Column(user_permission_state, nullable=False, server_default='inherit')
     can_manage_trials = Column(user_permission_state, nullable=False, server_default='inherit')
     can_manage_procurement = Column(user_permission_state, nullable=False, server_default='inherit')
@@ -630,10 +630,9 @@ class User(Base):
         return self.role in self._ADMIN_LEVEL_ROLES or self._resolve_perm("can_manage_sites")
 
     @property
-    def has_financial_access(self):
-        return (self.role in self._ADMIN_LEVEL_ROLES + ("procurement_admin",)
-                or self._resolve_perm("can_view_financial")
-                or self._resolve_perm("can_manage_procurement"))
+    def has_receipts_access(self):
+        return (self.role in self._ADMIN_LEVEL_ROLES
+                or self._resolve_perm("can_view_receipts"))
 
     @property
     def is_admin_tier(self):
@@ -646,7 +645,7 @@ class User(Base):
     @property
     def has_any_admin(self):
         return (self.role in self._ADMIN_LEVEL_ROLES + ("warranty_admin", "trials_admin", "procurement_admin")
-                or self._resolve_perm("can_view_financial") or self._resolve_perm("can_manage_warranty")
+                or self._resolve_perm("can_view_receipts") or self._resolve_perm("can_manage_warranty")
                 or self._resolve_perm("can_manage_trials") or self._resolve_perm("can_manage_procurement")
                 or self._resolve_perm("can_manage_sites"))
 

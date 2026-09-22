@@ -818,7 +818,7 @@ Same structure as network_equipment (device, model_name, model_number, serial, l
 | team_id | int (FK) | YES | |
 | last_seen_at | timestamp | YES | |
 | view_sensitive_customers | bool | YES | |
-| can_view_financial | bool | YES | |
+| can_view_receipts | user_permission_state | NO | inherit |
 | can_manage_warranty | bool | YES | |
 | can_manage_trials | bool | YES | |
 | can_manage_procurement | bool | YES | |
@@ -841,7 +841,7 @@ Same structure as network_equipment (device, model_name, model_number, serial, l
 | name | varchar(64) | NO | |
 | description | text | YES | |
 | created_at | timestamp | YES | now() |
-| can_view_financial | bool | NO | |
+| can_view_receipts | department_permission_state | NO | block |
 | can_manage_warranty | bool | NO | |
 | can_manage_trials | bool | NO | |
 | can_manage_procurement | bool | NO | |

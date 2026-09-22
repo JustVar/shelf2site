@@ -1812,7 +1812,7 @@ TOURS: list[dict] = [
                     "Roles from most to least access: "
                     "<strong>Admin</strong> → <strong>Editor</strong> → <strong>Viewer</strong>. "
                     "Specialty roles like <em>Procurement Admin</em> or <em>Sites Manager</em> "
-                    "unlock specific sections (financial data, provisioning, site management) "
+                    "unlock specific sections (receipts, provisioning, site management) "
                     "on top of a base role. Your role is set by an admin in User Management."
                 ),
                 "position": "right",

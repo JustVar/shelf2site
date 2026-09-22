@@ -1189,7 +1189,7 @@ def export_fulfillment(
         "Due Date", "Deployment Type", "SKUs", "Prov. Count",
         "Created",
     ]
-    if user.has_financial_access:
+    if user.has_receipts_access:
         headers.extend(["Contract Value", "Hardware Cost"])
 
     header_font = Font(bold=True, color="FFFFFF")
@@ -1233,7 +1233,7 @@ def export_fulfillment(
             prov_counts.get(order.id, 0),
             order.created_at.strftime("%Y-%m-%d") if order.created_at else "",
         ]
-        if user.has_financial_access:
+        if user.has_receipts_access:
             row_data.extend([
                 float(order.contract_value) if order.contract_value else None,
                 float(order.hardware_cost) if order.hardware_cost else None,

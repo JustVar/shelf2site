@@ -1,8 +1,8 @@
-"""Finance receipts viewer (read-only).
+"""Receipts viewer (read-only).
 
 Browse the procurement receipts captured at intake, filter them, open a receipt to see its line
-items, and view or download the uploaded receipt file. Every route is gated to financial-access
-users (require_financial). Read-only: no create/edit/delete, no customer invoicing/pricing.
+items, and view or download the uploaded receipt file. Every route is gated to users with the
+Receipts permission (require_receipts). Read-only: no create/edit/delete, no customer invoicing/pricing.
 """
 
 import os
@@ -17,7 +17,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
-from ..auth import require_financial, User
+from ..auth import require_receipts, User
 from ..config import settings
 from ..toast_redirect import toast_redirect
 from ..csrf import require_csrf
@@ -53,7 +53,7 @@ def receipts_list(
     vendor: str = Query(default=""),
     record_type: str = Query(default=""),
     db: Session = Depends(get_db),
-    user: User = Depends(require_financial),
+    user: User = Depends(require_receipts),
 ):
     """List procurement receipts (newest first) with server-side filters."""
     vmap = _vendor_map(db)
@@ -126,7 +126,7 @@ def receipt_detail(
     receipt_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_financial),
+    user: User = Depends(require_receipts),
 ):
     """One receipt: header, line items, and the uploaded file inline."""
     rec = db.query(ItemReceipt).filter(ItemReceipt.id == receipt_id).first()
@@ -174,7 +174,7 @@ def receipt_file(
     receipt_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_financial),
+    user: User = Depends(require_receipts),
 ):
     """Serve the uploaded receipt file inline. Friendly 404 (never 500) when absent/missing."""
     rec = db.query(ItemReceipt).filter(ItemReceipt.id == receipt_id).first()
@@ -199,7 +199,7 @@ async def receipt_replace_file(
     request: Request,
     receipt_file: UploadFile = File(default=None),
     db: Session = Depends(get_db),
-    user: User = Depends(require_financial),
+    user: User = Depends(require_receipts),
     _csrf: str = Depends(require_csrf),
 ):
     """Replace a receipt's uploaded file (overwrite). Finance + CSRF gated. Mirrors intake's save

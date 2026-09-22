@@ -110,7 +110,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/admin/toggle-audit/{user_id}` | POST | user manager | OK |
 | `/api/admin/toggle-credentials/{user_id}` | POST | user manager | OK |
 | `/api/admin/toggle-disposal/{user_id}` | POST | user manager | OK |
-| `/api/admin/toggle-financial/{user_id}` | POST | user manager | OK |
+| `/api/admin/toggle-receipts/{user_id}` | POST | user manager | OK |
 | `/api/admin/toggle-map/{user_id}` | POST | user manager | OK |
 | `/api/admin/toggle-procurement/{user_id}` | POST | user manager | OK |
 | `/api/admin/toggle-provisioning-manage/{user_id}` | POST | user manager | OK |
@@ -418,10 +418,10 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/receipts` | GET | financial access | OK |
-| `/receipts/{receipt_id}` | GET | financial access | OK |
-| `/receipts/{receipt_id}/file` | GET | financial access | OK |
-| `/receipts/{receipt_id}/replace-file` | POST | financial access / +CSRF token | OK |
+| `/receipts` | GET | receipts access | OK |
+| `/receipts/{receipt_id}` | GET | receipts access | OK |
+| `/receipts/{receipt_id}/file` | GET | receipts access | OK |
+| `/receipts/{receipt_id}/replace-file` | POST | receipts access / +CSRF token | OK |
 
 ### receiving
 
@@ -534,9 +534,9 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/api/vendors/` | POST | financial access | OK |
+| `/api/vendors/` | POST | receipts access | OK |
 | `/api/vendors/auto-create` | POST | admin tier | OK |
-| `/api/vendors/{vendor_id}` | PUT | financial access | OK |
+| `/api/vendors/{vendor_id}` | PUT | receipts access | OK |
 | `/api/vendors/{vendor_id}` | DELETE | admin tier | OK |
 | `/vendors/` | GET | viewer+ (kiosk excluded) | OK |
 | `/vendors/{vendor_id}` | GET | viewer+ (kiosk excluded) | OK |

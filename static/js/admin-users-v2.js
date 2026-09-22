@@ -6,7 +6,7 @@
     {
       label: 'Domain admin',
       perms: [
-        { key: 'can_view_financial',     name: 'Finance',     helper: 'View prices, receipts, financial fields' },
+        { key: 'can_view_receipts',      name: 'Receipts',    helper: 'View uploaded receipts and manage vendor profiles' },
         { key: 'can_manage_warranty',    name: 'Warranty',    helper: 'Manage warranty claims and tracking' },
         { key: 'can_manage_trials',      name: 'Trials',      helper: 'Manage trial deployments' },
         { key: 'can_manage_procurement', name: 'Procurement', helper: 'Manage procurement records and vendors' },
