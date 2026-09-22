@@ -281,13 +281,6 @@ async def create_order(
             except ValueError:
                 return JSONResponse(status_code=400, content={"error": "Invalid loan due date, use YYYY-MM-DD"})
 
-    # Numeric fields — safe parse
-    def _to_dec(val):
-        try:
-            return float(val) if val not in (None, "", "0", 0) else None
-        except (TypeError, ValueError):
-            return None
-
     order = CustomerOrder(
         order_number=_next_order_number(db),
         salesforce_order_id=(body.get("salesforce_order_id") or "").strip() or None,
@@ -307,8 +300,6 @@ async def create_order(
         sku_requirements=body.get("sku_requirements") or [],
         notes=(body.get("notes") or "").strip() or None,
         is_sensitive=bool(body.get("is_sensitive", False)),
-        contract_value=_to_dec(body.get("contract_value")),
-        hardware_cost=_to_dec(body.get("hardware_cost")),
         po_number=po_number,
         default_fulfillment_type=(body.get("default_fulfillment_type") or "").strip() or None,
         order_type=order_type,
@@ -407,18 +398,6 @@ async def update_order(
         order.sku_requirements = cleaned
     if "is_sensitive" in body:
         order.is_sensitive = bool(body["is_sensitive"])
-    if "contract_value" in body:
-        try:
-            v = body["contract_value"]
-            order.contract_value = float(v) if v not in (None, "", 0, "0") else None
-        except (TypeError, ValueError):
-            pass
-    if "hardware_cost" in body:
-        try:
-            v = body["hardware_cost"]
-            order.hardware_cost = float(v) if v not in (None, "", 0, "0") else None
-        except (TypeError, ValueError):
-            pass
 
     # Order-type coupling, parity with create_order. Only when the full edit form submits
     # an order_type: whitelist it, and couple the PO / loan-due-date invariant. Loans carry

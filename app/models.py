@@ -1225,8 +1225,6 @@ class CustomerOrder(Base):
     post_install_notes = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     is_sensitive = Column(Boolean, default=False, nullable=False)
-    contract_value = Column(Numeric(12, 2), nullable=True)
-    hardware_cost = Column(Numeric(12, 2), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

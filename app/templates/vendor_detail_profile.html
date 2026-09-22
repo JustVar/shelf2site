@@ -187,12 +187,6 @@
                     <div class="stat-val">{{ device_count }}</div>
                     <div class="stat-label">Total Devices</div>
                 </div>
-                {% if show_financials %}
-                <div class="stat-box">
-                    <div class="stat-val" style="font-size: 1.1rem;">${{ '{:,.0f}'.format(total_cost) }}</div>
-                    <div class="stat-label">Total Spend</div>
-                </div>
-                {% endif %}
                 <div class="stat-box">
                     <div class="stat-val" style="color: var(--success, #27ae60);">{{ active_warranties }}</div>
                     <div class="stat-label">Active Warranties</div>
@@ -224,7 +218,6 @@
                             <th>Category</th>
                             <th>Serial</th>
                             <th>Status</th>
-                            {% if show_financials %}<th>Cost</th>{% endif %}
                             <th>Purchased</th>
                         </tr>
                     </thead>
@@ -241,9 +234,6 @@
                                 <span style="color: var(--text-muted);">—</span>
                                 {% endif %}
                             </td>
-                            {% if show_financials %}
-                            <td>${{ '{:,.0f}'.format(d.price) if d.price else '—' }}</td>
-                            {% endif %}
                             <td style="color: var(--text-muted); white-space: nowrap;">{{ d.purchase_date if d.purchase_date != '-' else '—' }}</td>
                         </tr>
                         {% endfor %}

@@ -288,8 +288,6 @@ def _build_order_card(order: CustomerOrder, prov_count: int) -> dict:
         "prov_count": prov_count,
         "total_sku_qty": total_sku_qty,
         "sku_requirements": order.sku_requirements or [],
-        "contract_value": order.contract_value,
-        "hardware_cost": order.hardware_cost,
         "is_sensitive": order.is_sensitive,
         "sales_engineer": order.sales_engineer,
         "deployment_type": order.deployment_type,
@@ -1189,8 +1187,6 @@ def export_fulfillment(
         "Due Date", "Deployment Type", "SKUs", "Prov. Count",
         "Created",
     ]
-    if user.has_receipts_access:
-        headers.extend(["Contract Value", "Hardware Cost"])
 
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="127CA3")
@@ -1233,11 +1229,6 @@ def export_fulfillment(
             prov_counts.get(order.id, 0),
             order.created_at.strftime("%Y-%m-%d") if order.created_at else "",
         ]
-        if user.has_receipts_access:
-            row_data.extend([
-                float(order.contract_value) if order.contract_value else None,
-                float(order.hardware_cost) if order.hardware_cost else None,
-            ])
         for col_idx, value in enumerate(row_data, 1):
             ws.cell(row=row_idx, column=col_idx, value=value)
 

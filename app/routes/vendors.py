@@ -1,7 +1,6 @@
 """Vendor Profiles routes — contact info, OEM flags, and per-vendor analytics."""
 
 from datetime import date
-from decimal import Decimal
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -32,17 +31,14 @@ templates.env.globals["base_path"] = BP
 # ---------------------------------------------------------------------------
 
 def _vendor_analytics(db: Session, vendor_name: str) -> dict:
-    """Gather device counts, costs, warranty, trial data for a vendor string."""
+    """Gather device counts, warranty, trial data for a vendor string."""
     devices = []
-    total_cost = Decimal("0")
     for table_name, model in TABLE_MODELS.items():
         if not hasattr(model, "vendor"):
             continue
         matches = db.query(model).filter(model.vendor.ilike(vendor_name)).all()
         display = TABLE_DISPLAY_NAMES.get(table_name, table_name)
         for d in matches:
-            price = Decimal(str(d.purchase_price or 0)) if hasattr(d, "purchase_price") else Decimal("0")
-            total_cost += price
             devices.append({
                 "id": d.id,
                 "table": table_name,
@@ -50,7 +46,6 @@ def _vendor_analytics(db: Session, vendor_name: str) -> dict:
                 "name": get_display_name(d),
                 "serial": get_serial(d),
                 "status": getattr(d, "status", "-"),
-                "price": float(price),
                 "purchase_date": (
                     d.purchase_date.strftime("%Y-%m-%d")
                     if hasattr(d, "purchase_date") and d.purchase_date else "-"
@@ -87,7 +82,6 @@ def _vendor_analytics(db: Session, vendor_name: str) -> dict:
     return {
         "devices": devices,
         "device_count": len(devices),
-        "total_cost": float(total_cost),
         "active_warranties": active_warranties,
         "warranty_count": len(warranties),
         "claim_count": len(claims),
@@ -153,7 +147,6 @@ def vendor_profile_detail(
         "user": user,
         "profile": profile,
         "can_edit": user.has_receipts_access,
-        "show_financials": user.has_receipts_access,
         **analytics,
     })
 
