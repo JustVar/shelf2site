@@ -90,7 +90,7 @@
                 {% if cat != ns.current %}
                     {% set ns.current = cat %}
                     {% set ns.gidx = ns.gidx + 1 %}
-                <tr class="vendor-group-header" onclick="toggleGroup('pngrp-{{ ns.gidx }}')" style="cursor: pointer; background: var(--card-bg);">
+                <tr class="vendor-group-header" onclick="toggleGroup({{ ('pngrp-' ~ ns.gidx)|tojson|forceescape }})" style="cursor: pointer; background: var(--card-bg);">
                     <td style="text-align: center;">
                         <span class="expand-arrow" id="arrow-pngrp-{{ ns.gidx }}" style="display: inline-block; transition: transform 0.2s; font-size: 0.7rem; color: var(--text-muted);">&#9654;</span>
                     </td>
@@ -123,7 +123,7 @@
                             Edit
                         </button>
                         <button class="fl-obtn danger"
-                                onclick="event.stopPropagation(); deletePN({{ row.pn.id }}, '{{ row.pn.brand_sku }}')">
+                                onclick="event.stopPropagation(); deletePN({{ row.pn.id }}, {{ (row.pn.brand_sku or '')|tojson|forceescape }})">
                             Delete
                         </button>
                     </td>

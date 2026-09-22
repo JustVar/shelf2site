@@ -61,7 +61,7 @@
       </thead>
       <tbody>
         {% for r in rows %}
-        <tr class="rcpt-row" onclick="rcptOpen('{{ r.id }}')">
+        <tr class="rcpt-row" onclick="rcptOpen({{ r.id|string|tojson|forceescape }})">
           <td>{{ r.transaction_date.strftime('%Y-%m-%d') if r.transaction_date else '-' }}</td>
           <td>{{ r.vendor_name or 'Unknown' }}</td>
           <td>{{ r.record_type|capitalize if r.record_type else '-' }}</td>

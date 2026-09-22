@@ -80,7 +80,7 @@
                 {% if vendor_groups %}
                 {% for group in vendor_groups %}
                 <!-- Manufacturer header row -->
-                <tr class="vendor-group-header" onclick="toggleGroup('grp-{{ loop.index }}')" style="cursor: pointer; background: var(--card-bg);">
+                <tr class="vendor-group-header" onclick="toggleGroup({{ ('grp-' ~ loop.index)|tojson|forceescape }})" style="cursor: pointer; background: var(--card-bg);">
                     <td style="text-align: center;">
                         <span class="expand-arrow" id="arrow-grp-{{ loop.index }}" style="display: inline-block; transition: transform 0.2s; font-size: 0.7rem; color: var(--text-muted);">&#9654;</span>
                     </td>
@@ -134,7 +134,7 @@
                             Edit
                         </button>
                         <button class="fl-obtn danger"
-                                onclick="event.stopPropagation(); deleteOUI({{ stat.entry.id }}, '{{ stat.entry.oui_prefix }}')">
+                                onclick="event.stopPropagation(); deleteOUI({{ stat.entry.id }}, {{ (stat.entry.oui_prefix or '')|tojson|forceescape }})">
                             Delete
                         </button>
                     </td>

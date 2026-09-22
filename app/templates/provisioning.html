@@ -121,7 +121,7 @@
     <div class="pipeline-board">
         {% for bucket_key, bucket_label in deployment_buckets.items() %}
         <div class="pipeline-column" data-bucket="{{ bucket_key }}"
-             ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '{{ bucket_key }}')">
+             ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, {{ bucket_key|tojson|forceescape }})">
             <div class="pipeline-column-header">
                 <span class="pipeline-column-title">{{ bucket_label }}</span>
                 <span class="pipeline-column-count" id="count-{{ bucket_key }}">0</span>
@@ -206,7 +206,7 @@
                     <td class="prov-checkbox-col" style="padding: 0.4rem 0.5rem;" onclick="event.stopPropagation()">
                         <input type="checkbox" class="prov-select" value="{{ item.id }}" style="cursor: pointer;">
                     </td>
-                    <td style="font-weight: 500; cursor: pointer;" onclick="window.location.href='{{ base_path }}/provisioning/{{ item.id }}'">{{ item.device_name }}</td>
+                    <td style="font-weight: 500; cursor: pointer;" onclick="window.location.href={{ (base_path ~ '/provisioning/' ~ item.id)|tojson|forceescape }}">{{ item.device_name }}</td>
                     <td>
                         {% if item.deployment_type == 'pilot' %}
                         <span style="background: #6c5ce7; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 500;">Pilot</span>

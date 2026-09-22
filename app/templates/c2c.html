@@ -67,7 +67,7 @@
       {% if o.order_complete %}<span class="fl-badge ok">Complete</span>{% endif %}
       {% if o.shortfall %}<span class="fl-badge urg">{{ o.shortfall }} Short</span>{% endif %}
       {% if o.over_acquired %}<span class="fl-badge warn">{{ o.over_acquired }} Over-Assigned</span>{% endif %}
-      {% if o.shortfall %}<button type="button" class="fl-btn" onclick="openC2cAcquire({{ o.order_id }}, '{{ o.order_number }}')">Assign</button>{% endif %}
+      {% if o.shortfall %}<button type="button" class="fl-btn" onclick="openC2cAcquire({{ o.order_id }}, {{ (o.order_number or '')|tojson|forceescape }})">Assign</button>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -90,7 +90,7 @@
         <div class="c2c-cam__meta">{{ cam.order_number or 'No Order' }}{% if cam.customer_name %} &middot; {{ cam.customer_name }}{% endif %}</div>
         <div class="fl-ofoot">
           <a class="c2c-cam__history" href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}">View History &rarr;</a>
-          <button type="button" class="fl-obtn ready" onclick="openC2cCertify('{{ cam.provisioning_id }}')">{% if cam.cert_status == 'cancelled' %}Re-Certify{% else %}Certify{% endif %}</button>
+          <button type="button" class="fl-obtn ready" onclick="openC2cCertify({{ cam.provisioning_id|string|tojson|forceescape }})">{% if cam.cert_status == 'cancelled' %}Re-Certify{% else %}Certify{% endif %}</button>
         </div>
       </div>
       {% else %}
@@ -116,7 +116,7 @@
         <div class="c2c-cam__meta">{{ cam.order_number or 'No Order' }}{% if cam.certified_by %} &middot; by {{ cam.certified_by }}{% endif %}</div>
         <div class="fl-ofoot">
           <a class="c2c-cam__history" href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}">View History &rarr;</a>
-          <button type="button" class="fl-obtn" onclick="openC2cCertify('{{ cam.provisioning_id }}')">View</button>
+          <button type="button" class="fl-obtn" onclick="openC2cCertify({{ cam.provisioning_id|string|tojson|forceescape }})">View</button>
         </div>
       </div>
       {% else %}

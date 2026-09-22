@@ -22,7 +22,7 @@
         <span class="pilots-status pilots-status--{{ o.status }}">{{ o.status.replace('-', ' ') | title }}</span>
         <span class="pilots-card__meta">Due {{ o.expected_return or '—' }} &middot; {{ o.returned }} of {{ o.acquired }} returned</span>
         {% if o.still_out %}
-        <button type="button" class="pilots-btn pilots-btn--all" onclick="pilotsMarkAll({{ o.order_id }}, '{{ o.order_number }}')">Mark all returned</button>
+        <button type="button" class="pilots-btn pilots-btn--all" onclick="pilotsMarkAll({{ o.order_id }}, {{ (o.order_number or '')|tojson|forceescape }})">Mark all returned</button>
         {% endif %}
       </div>
       <div class="pilots-cams">

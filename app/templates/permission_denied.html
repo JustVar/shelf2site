@@ -20,7 +20,7 @@
       <a href="{{ base_path }}/dashboard" class="error-page__btn error-page__btn--secondary">Back to dashboard</a>
       {% if show_contact_admin %}
       <button type="button" class="error-page__btn error-page__btn--primary"
-              onclick="openContactAdminModal('{{ request.url.path }}')">
+              onclick="openContactAdminModal({{ request.url.path|string|tojson|forceescape }})">
         Contact admin
       </button>
       {% endif %}

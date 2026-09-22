@@ -146,7 +146,7 @@
                   <tr data-field="{{ gap }}">
                     <td>{{ field_labels.get(gap, gap) }}</td>
                     <td style="text-align:right">
-                      <button type="button" class="trg-fix-btn" onclick="trgQvOpen({{ itm.id }}, '{{ gap }}')">Fix</button>
+                      <button type="button" class="trg-fix-btn" onclick="trgQvOpen({{ itm.id }}, {{ gap|tojson|forceescape }})">Fix</button>
                     </td>
                   </tr>
                   {% endfor %}

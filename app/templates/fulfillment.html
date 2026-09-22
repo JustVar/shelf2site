@@ -595,7 +595,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     {% for member in all_members %}
                     {% set is_you = member == current_user_name %}
                     {% set initials = (member.split()[0][0] ~ member.split()[-1][0]) | upper if member.split()|length > 1 else member[:2]|upper %}
-                    <div class="ccp-row" id="ccp-{{ loop.index }}" onclick="toggleCoverageSelect('{{ member | lower | replace(' ', '_') }}')" data-member-key="{{ member | lower | replace(' ', '_') }}">
+                    <div class="ccp-row" id="ccp-{{ loop.index }}" onclick="toggleCoverageSelect({{ (member | lower | replace(' ', '_'))|tojson|forceescape }})" data-member-key="{{ member | lower | replace(' ', '_') }}">
                         <div class="ccp-cb" id="ccb-{{ loop.index }}"></div>
                         <div class="ccp-avatar" style="background:var(--accent-blue-dim);">{{ initials }}</div>
                         <div class="ccp-info">
@@ -626,7 +626,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 <div class="bld-tabs" id="bld-tabs">
     {% for tkey, tlabel, tcolor in _btabs %}
     {% set tgroups = fulfillment_groups | selectattr("tab", "equalto", tkey) | list %}
-    <button class="bld-tab fl-tab" data-tab="{{ tkey }}" onclick="switchBldTab('{{ tkey }}')">
+    <button class="bld-tab fl-tab" data-tab="{{ tkey }}" onclick="switchBldTab({{ tkey|tojson|forceescape }})">
         <span class="bld-tab-lbl">{{ tlabel }}</span>
         <span class="bld-tab-count" data-tab-count="{{ tkey }}">({{ tgroups | length }})</span>
     </button>
@@ -711,7 +711,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
     {% set _deptabs = [('scheduled', 'Scheduled', deploy_columns['scheduled']|length), ('in_transit', 'In Transit', deploy_columns['in_transit']|length), ('onsite_installing', 'On-Site & Installing', _onsite_installing)] %}
     <div class="bld-tabs" id="dep-tabs">
         {% for tkey, tlabel, tcount in _deptabs %}
-        <button class="bld-tab fl-tab" data-dep-tab-btn="{{ tkey }}" onclick="switchDeployTab('{{ tkey }}')">
+        <button class="bld-tab fl-tab" data-dep-tab-btn="{{ tkey }}" onclick="switchDeployTab({{ tkey|tojson|forceescape }})">
             <span class="bld-tab-lbl">{{ tlabel }}</span>
             <span class="bld-tab-count" data-dep-tab-count="{{ tkey }}">({{ tcount }})</span>
         </button>
@@ -1015,7 +1015,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         <div class="pfb-stages">
             {% set visible_oem = oem_statuses | reject("equalto", "cancelled") | list %}
             {% for status in visible_oem %}
-            <div class="pfb-stage" id="pfb-oem-{{ status }}" onclick="filterOem('{{ status }}')">
+            <div class="pfb-stage" id="pfb-oem-{{ status }}" onclick="filterOem({{ status|tojson|forceescape }})">
                 <div class="pfb-dot" style="background:{{ oem_dot_colors[status] }};border-color:{{ oem_dot_colors[status] }};"></div>
                 <span class="pfb-lbl">{{ oem_status_labels[status] }}</span>
                 <span class="pfb-num">{{ oem_columns[status]|length }}</span>
@@ -1079,9 +1079,9 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                         <span class="o-owner">{{ fl_icon('user', 'mute', 14) }}<span>{{ po.customer_name or 'No Customer' }}</span></span>
                         {% if user and user.has_provisioning_manage %}
                         <span style="display:flex;gap:6px;">
-                        <button class="fl-obtn" onclick="openOemModal('{{ po.customer_order_id }}', '{{ po.customer_order_number }}', {
+                        <button class="fl-obtn" onclick="openOemModal({{ (po.customer_order_id or '')|string|tojson|forceescape }}, {{ (po.customer_order_number or '')|tojson|forceescape }}, {
                             id: {{ po.id }}, customer_order_id: {{ po.customer_order_id or 'null' }},
-                            vendor_name: '{{ po.vendor_name|e }}', sku: '{{ po.sku|e }}',
+                            vendor_name: {{ (po.vendor_name or '')|tojson|forceescape }}, sku: {{ (po.sku or '')|tojson|forceescape }},
                             po_number: {{ ('\"' ~ po.po_number ~ '\"') if po.po_number else 'null' }},
                             qty_ordered: {{ po.qty_ordered }}, qty_received: {{ po.qty_received }},
                             order_date: {{ ('\"' ~ po.order_date ~ '\"') if po.order_date else 'null' }},
@@ -1124,7 +1124,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         {% for status in active_statuses %}
         {% for card in columns[status] %}
         {% if card.urgency == 'overdue' %}
-        <div class="al-row" onclick="jumpToCard('col-{{ status }}')">
+        <div class="al-row" onclick="jumpToCard({{ ('col-' ~ status)|tojson|forceescape }})">
             <div class="al-accent" style="background:var(--fl-red);"></div>
             <div class="al-info">
                 <div class="al-id">{{ card.order_number }}</div>
@@ -1137,7 +1137,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     {% endif %}
                 </div>
             </div>
-            <button class="al-jump" onclick="event.stopPropagation();jumpToCard('col-{{ status }}')">Jump ›</button>
+            <button class="al-jump" onclick="event.stopPropagation();jumpToCard({{ ('col-' ~ status)|tojson|forceescape }})">Jump ›</button>
         </div>
         {% endif %}
         {% endfor %}
@@ -1160,7 +1160,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
         {% for status in active_statuses %}
         {% for card in columns[status] %}
         {% if card.urgency in ('critical', 'soon') %}
-        <div class="al-row" onclick="jumpToCard('col-{{ status }}')">
+        <div class="al-row" onclick="jumpToCard({{ ('col-' ~ status)|tojson|forceescape }})">
             <div class="al-accent" style="background:var(--fl-amber);"></div>
             <div class="al-info">
                 <div class="al-id">{{ card.order_number }}</div>
@@ -1173,7 +1173,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                     {% endif %}
                 </div>
             </div>
-            <button class="al-jump" onclick="event.stopPropagation();jumpToCard('col-{{ status }}')">Jump ›</button>
+            <button class="al-jump" onclick="event.stopPropagation();jumpToCard({{ ('col-' ~ status)|tojson|forceescape }})">Jump ›</button>
         </div>
         {% endif %}
         {% endfor %}

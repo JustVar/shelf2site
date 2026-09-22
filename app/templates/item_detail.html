@@ -535,8 +535,8 @@
             <td class="fl-cell-date">{{ ch.installed_date.strftime('%b %d, %Y') if ch.installed_date else '&mdash;' }}</td>
             {% if user.is_editor_or_above %}
             <td style="white-space:nowrap;">
-              <button type="button" class="fl-obtn" onclick="ctmOpen('move', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Move</button>
-              <button type="button" class="fl-obtn danger" onclick="ctmOpen('remove', {{ ch.item.id }}, '{{ (ch.item.item_name or ch.item.item_sn or '') | e }}')">Remove</button>
+              <button type="button" class="fl-obtn" onclick="ctmOpen('move', {{ ch.item.id }}, {{ (ch.item.item_name or ch.item.item_sn or '')|tojson|forceescape }})">Move</button>
+              <button type="button" class="fl-obtn danger" onclick="ctmOpen('remove', {{ ch.item.id }}, {{ (ch.item.item_name or ch.item.item_sn or '')|tojson|forceescape }})">Remove</button>
             </td>
             {% endif %}
           </tr>
