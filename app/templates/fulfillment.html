@@ -470,7 +470,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
 .pk-empty { padding: 14px 12px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-muted); font-size: 12px; text-align: center; }
 .pk-note { margin-top: 12px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
 </style>
-<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
+<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css?v={{ request.state.js_v('css/scanner.css') or '0' }}">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
 {% endblock %}
 

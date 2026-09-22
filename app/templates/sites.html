@@ -113,7 +113,7 @@
                     {% if user.has_sites_admin %}
                     <td>
                         <button class="fl-obtn" onclick="editSite({{ s.id }})">Edit</button>
-                        <button class="fl-obtn danger" onclick="deleteSite({{ s.id }}, '{{ s.name|e }}')">Delete</button>
+                        <button class="fl-obtn danger" onclick="deleteSite({{ s.id }}, {{ (s.name or '')|tojson|forceescape }})">Delete</button>
                     </td>
                     {% endif %}
                 </tr>

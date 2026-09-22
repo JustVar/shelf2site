@@ -130,7 +130,7 @@
                     {% if user.has_system_admin %}
                     <td>
                         <button class="fl-obtn"
-                                onclick="event.stopPropagation(); editOUI({{ stat.entry.id }}, '{{ stat.entry.manufacturer|e }}', '{{ stat.entry.maps_to_table or '' }}')">
+                                onclick="event.stopPropagation(); editOUI({{ stat.entry.id }}, {{ (stat.entry.manufacturer or '')|tojson|forceescape }}, {{ (stat.entry.maps_to_table or '')|tojson|forceescape }})">
                             Edit
                         </button>
                         <button class="fl-obtn danger"

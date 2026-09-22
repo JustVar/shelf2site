@@ -5,7 +5,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ base_path }}/static/css/receive.css?v={{ request.state.js_v('css/receive.css') or '0' }}">
-<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
+<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css?v={{ request.state.js_v('css/scanner.css') or '0' }}">
 {# A script tag WITH src ignores inline content — the pre-selection IIFE that
    used to sit inside this tag was dead code (the working copy lives in the
    bottom-of-page IIFE gated on preselect_category). #}

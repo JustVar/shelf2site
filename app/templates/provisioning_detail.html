@@ -228,7 +228,7 @@
     margin-bottom: 0.5rem;
 }
 </style>
-<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css">
+<link rel="stylesheet" href="{{ base_path }}/static/css/scanner.css?v={{ request.state.js_v('css/scanner.css') or '0' }}">
 <script src="{{ base_path }}/static/js/scanner.js"></script>
 {% endblock %}
 
