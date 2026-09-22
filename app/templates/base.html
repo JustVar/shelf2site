@@ -588,30 +588,6 @@
     {% endif %}
     {# END HIDDEN — notification panel #}
 
-    <!-- Activity Feed Panel -->
-    {% if user %}
-    <div id="activity-panel" class="notif-panel" style="display:none">
-        <div class="notif-panel-header">
-            <div>
-                <h3 style="margin:0">Activity Feed</h3>
-                <div id="activity-scope-label" style="font-size:0.72rem; color:var(--text-muted,#95a5a6); margin-top:2px;"></div>
-            </div>
-            <button onclick="toggleActivityPanel()" class="notif-mark-all" title="Close" style="font-size:1.1rem; line-height:1;">&#x2715;</button>
-        </div>
-        <div id="activity-list" class="notif-list">
-            <div class="notif-empty">Loading…</div>
-        </div>
-        <div class="notif-panel-footer">
-            {% if user.has_audit_access %}
-            <a href="{{ base_path }}/admin/audit" style="font-size:0.78rem; color:var(--info,#3498db); text-decoration:none;">View full audit log &rarr;</a>
-            {% else %}
-            <span style="font-size:0.75rem; color:var(--text-muted,#95a5a6);">Your recent actions only</span>
-            {% endif %}
-        </div>
-    </div>
-    <div id="activity-overlay" class="notif-overlay" style="display:none" onclick="toggleActivityPanel()"></div>
-    {% endif %}
-
     <style>
         .notif-badge {
             position: absolute;
@@ -831,59 +807,6 @@
         t.style.display = 'block';
         clearTimeout(t._hideTimer);
         t._hideTimer = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display = 'none', 300); }, 2500);
-    }
-    </script>
-
-    <script>
-    // ── Activity Feed ─────────────────────────────────────────────────────────
-    if (typeof _activityPanelOpen === 'undefined') var _activityPanelOpen = false;
-
-    function toggleActivityPanel() {
-        const panel = document.getElementById('activity-panel');
-        const overlay = document.getElementById('activity-overlay');
-        if (!panel) return;
-        // Close notification panel if open
-        if (_notifPanelOpen) toggleNotificationPanel();
-        _activityPanelOpen = !_activityPanelOpen;
-        panel.style.display = _activityPanelOpen ? 'flex' : 'none';
-        overlay.style.display = _activityPanelOpen ? 'block' : 'none';
-        if (_activityPanelOpen) loadActivity();
-    }
-
-    async function loadActivity() {
-        const list = document.getElementById('activity-list');
-        const scopeEl = document.getElementById('activity-scope-label');
-        if (!list) return;
-        list.innerHTML = '<div class="notif-empty">Loading…</div>';
-        try {
-            const resp = await fetch(`${_notifBP}/api/activity/recent`);
-            if (!resp.ok) { list.innerHTML = '<div class="notif-empty">Failed to load</div>'; return; }
-            const data = await resp.json();
-            if (scopeEl) scopeEl.textContent = data.is_admin ? 'All users' : 'Your actions';
-            renderActivity(data.entries);
-        } catch(e) { list.innerHTML = '<div class="notif-empty">Error loading activity</div>'; }
-    }
-
-    function renderActivity(entries) {
-        const list = document.getElementById('activity-list');
-        if (!entries || entries.length === 0) {
-            list.innerHTML = '<div class="notif-empty">No activity yet.</div>';
-            return;
-        }
-        list.innerHTML = entries.map(e => {
-            const namePart = e.device_name ? ` <span style="font-weight:500;">${escHtml(e.device_name)}</span>` : '';
-            const tablePart = e.display_table ? ` <span style="font-size:0.7rem; opacity:0.65; padding:1px 4px; border-radius:3px; background:rgba(255,255,255,0.07);">${escHtml(e.display_table)}</span>` : '';
-            return `<div style="padding:0.5rem 0.8rem; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.4rem;">
-                    <div style="min-width:0; flex:1;">
-                        <span style="font-weight:600;">${escHtml(e.username)}</span>
-                        <span style="color:var(--text-muted,#95a5a6); margin-left:0.25rem;">${escHtml(e.action)}</span>
-                        ${namePart}${tablePart}
-                    </div>
-                    <span style="color:var(--text-muted,#95a5a6); font-size:0.72rem; white-space:nowrap;">${escHtml(e.time_ago)}</span>
-                </div>
-            </div>`;
-        }).join('');
     }
     </script>
 
