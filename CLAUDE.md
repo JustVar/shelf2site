@@ -135,6 +135,7 @@ since a CRLF-smudged checkout reads as false drift.
 ### Static Files
 - Located at repo root `static/` (bind-mounted to `/app/static` in the container) — NOT `app/static/`.
 - CSS variables for dark/light theme in `static/css/main.css`.
+- Page-level `<link>` and `<script>` tags for files under `static/` carry `?v={{ request.state.js_v('css/NAME.css') or '0' }}` (shape: `login.html:8`, `base.html:65-87`). `js_v` is an mtime-keyed sha1 of the file (`_asset_version` in `main.py`), so an edited file is fetched fresh with no restart. An untagged link is served stale by any browser that has it cached, for days: `receive.css` (fixed 726439c) and `scanner.css` (fixed b0f2223) both shipped that way.
 
 ### Body zoom inflates 100vh — size fixed full-height elements with calc(100vh / 1.15)
 
