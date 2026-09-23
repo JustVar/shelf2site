@@ -194,3 +194,10 @@ at the N19 commit.
 - **N16 (fe3f118)** closed the first item under Out of scope: only user
   managers can set `display_name`, and `_showLockIndicator` and `showConflict`
   in `locks.js` now insert the name with `textContent`.
+- **Logout CSRF (board N10, rev 57)** added one warning caller outside
+  `app/routes/`. The 403 handler in `app/main.py` catches `CsrfError` from a
+  browser form post and redirects to the referring page inside the app (the
+  dashboard otherwise) with "This page was out of date, so nothing was
+  changed. Please try again." It covers `POST /logout` and
+  `POST /receipts/{receipt_id}/replace-file`. Tested by
+  `tests/test_csrf_stale.py`.

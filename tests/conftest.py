@@ -102,3 +102,15 @@ admin_client = _client_fixture("admin")
 editor_client = _client_fixture("editor")
 viewer_client = _client_fixture("viewer")
 kiosk_client = _client_fixture("kiosk")
+
+
+@pytest.fixture
+def fresh_viewer_client(users):
+    """A viewer session of its own, for a test that could end the session.
+
+    viewer_client is shared by the whole run; a test that logs it out by
+    mistake would fail every later viewer test with a misleading error.
+    """
+    c = _client(TEST_USERS["viewer"])
+    yield c
+    c.close()

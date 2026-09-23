@@ -16,6 +16,8 @@ from .sidebar_cache import get_sidebar_counts
 from .database import create_all_tables
 from datetime import datetime
 from app import csrf
+from app.toast_redirect import toast_redirect
+from urllib.parse import urlsplit
 from .routes import (
     admin, api, auth_routes, bulk,
     c2c, checkout, contact_admin, containment as containment_routes, creds,
@@ -406,6 +408,19 @@ app.add_middleware(
 app.add_middleware(SecureSessionCookieMiddleware, cookie_name="inventory_session")
 
 
+def _same_app_referer(request: Request) -> str:
+    """Path and query of the Referer when it points inside this app, else the dashboard.
+
+    Only the path is kept, so the redirect never leaves this host. A browser
+    sends a normalised Referer; a forged one only redirects the forger.
+    """
+    parts = urlsplit(request.headers.get("referer", ""))
+    path = parts.path
+    if path.startswith(BP + "/") and not path.startswith("//"):
+        return path + ("?" + parts.query if parts.query else "")
+    return f"{BP}/dashboard"
+
+
 # Exception handlers for better UX
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
@@ -431,6 +446,13 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
                 status_code=403,
                 content={"detail": exc.detail},
             )
+
+        # A stale CSRF token from a browser form: the page was loaded before a
+        # login elsewhere replaced the session token (board N10). Nothing ran.
+        # Send the user back with a warning; the reloaded page carries the
+        # current token, so the next try succeeds.
+        if isinstance(exc, csrf.CsrfError):
+            return toast_redirect(_same_app_referer(request), csrf.STALE_MESSAGE, "warning")
 
         # Get user from session for displaying current role
         from .auth import get_session_user_id
