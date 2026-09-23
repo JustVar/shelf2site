@@ -36,6 +36,13 @@
       {% else %}
       <button type="button" class="fl-obtn danger" id="dec-decommission-btn" onclick="decOpenModal()">Decommission</button>
       {% endif %}
+      {% if delete_request %}
+      <button type="button" class="fl-obtn" id="dr-pending-btn" disabled title="A delete request is pending">Delete requested</button>
+      {% elif delete_blockers %}
+      <button type="button" class="fl-obtn danger" id="dr-request-btn" disabled title="This item has history ({{ delete_blockers|join(', ') }}). Decommission it instead.">Request delete</button>
+      {% else %}
+      <button type="button" class="fl-obtn danger" id="dr-request-btn" onclick="drRequest()">Request delete</button>
+      {% endif %}
       <a href="{{ base_path }}/items/{{ item.id }}?edit=1" class="fl-cta">Edit</a>
       {% endif %}
     {% endif %}
@@ -220,6 +227,18 @@
   <div style="color:var(--text-muted);font-size:0.9rem;">
     {{ item.decommission_date or 'date unknown' }} by {{ item.decommissioned_by or 'unknown' }}
     &mdash; {{ item.decommission_reason or 'no reason recorded' }}
+  </div>
+</div>
+{% endif %}
+
+{% if delete_request %}
+<div class="dtl-section" id="dr-banner" style="border-left:3px solid var(--warning,#f39c12);">
+  <div class="dtl-section-title">Delete requested</div>
+  <div style="color:var(--text-muted);font-size:0.9rem;">
+    A delete request is pending for this item. An admin will review it.
+    {% if delete_request.requested_by == user.id %}
+    <button type="button" class="fl-obtn" id="dr-withdraw-btn" onclick="drWithdraw({{ delete_request.id }})">Withdraw request</button>
+    {% endif %}
   </div>
 </div>
 {% endif %}
@@ -888,6 +907,28 @@ function decPost(action, fields) {
       window.location.reload();
     })
     .catch(function () { SxToast.error('Action failed'); });
+}
+async function drRequest() {
+  var reason = await SxDialog.prompt({ title: 'Request delete', message: 'An admin will review this request.', label: 'Reason', required: true, okLabel: 'Request delete', danger: true });
+  if (reason === null) return;
+  if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
+  drSend('/api/delete-requests', { target_table: 'items', target_id: {{ item.id }}, reason: reason.trim() });
+}
+async function drWithdraw(id) {
+  if (!(await SxDialog.confirm({ title: 'Withdraw request', message: 'Withdraw your delete request for this item?', okLabel: 'Withdraw' }))) return;
+  drSend('/api/delete-requests/' + id + '/withdraw', {});
+}
+function drSend(path, body) {
+  fetch(BP + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok) { SxToast.error(res.d.error || 'Request failed', 0); return; }
+      window.location.reload();
+    })
+    .catch(function () { SxToast.error('Request failed'); });
 }
 </script>
 {% endblock %}

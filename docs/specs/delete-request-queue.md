@@ -223,3 +223,17 @@ no real item or vendor is touched.
 - Bulk requests.
 - Undo after approval. A deleted item is gone; the audit row and the
   `target_label` are what remain.
+
+## After ratification
+
+Recorded here instead of edited into the text above.
+
+- **Slice A (Jus, 2026-09-23).** The vendor Request delete control sits on
+  the vendor detail page (`/vendors/{id}`), not the list: the list's
+  Actions column shows only for receipts access (`vendors.html:35`, `:92`),
+  so most editors would never see it. The admin page link sits in the
+  Admin, Data and logs group, admin tier only, with `hx-boost="false"`.
+- **Correction.** Withdraw does not go in the census in-body list. That list
+  is for write routes with no `require_*` dependency
+  (`test_auth_census.py:176-189`); withdraw has `require_editor`, and the
+  requester-only rule is an extra check in the handler.

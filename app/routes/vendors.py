@@ -13,6 +13,7 @@ from ..audit import log_event
 from ..auth import get_current_user, require_admin, require_viewer, require_receipts
 from ..config import settings
 from ..database import get_db
+from ..delete_requests import pending_for
 from ..models import (
     VendorProfile, DeviceWarranty, WarrantyClaim, VendorTrial, User,
     TABLE_MODELS, TABLE_DISPLAY_NAMES, get_display_name, get_serial,
@@ -147,6 +148,7 @@ def vendor_profile_detail(
         "user": user,
         "profile": profile,
         "can_edit": user.has_receipts_access,
+        "delete_request": pending_for(db, "vendor_profiles", profile.id),
         **analytics,
     })
 

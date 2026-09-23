@@ -2279,3 +2279,32 @@ class MapVisibility(Base):
     hidden_by = Column(String(128), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
+
+# ----
+# Delete request queue (Migration 078, docs/specs/delete-request-queue.md)
+# ----
+class DeleteRequest(Base):
+    """A request to delete an item or a vendor profile.
+
+    Filed by editor tier and above, decided by admin tier. target_id has no
+    foreign key because the target is gone once a request is approved;
+    target_label keeps the history readable. At most one pending request per
+    target (partial unique index, migration 078). Read and written through
+    app/delete_requests.py and app/routes/delete_requests.py.
+    """
+    __tablename__ = "delete_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    target_table = Column(String(32), nullable=False)
+    target_id = Column(Integer, nullable=False)
+    target_label = Column(String(256), nullable=False)
+    reason = Column(Text, nullable=False)
+    status = Column(String(16), nullable=False, default="pending")
+    requested_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    requested_at = Column(DateTime(timezone=True), server_default=func.now())
+    decided_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+
+    requester = relationship("User", foreign_keys=[requested_by])
+    decider = relationship("User", foreign_keys=[decided_by])
+

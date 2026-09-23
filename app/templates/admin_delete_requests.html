@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Delete requests - Asset Tracker{% endblock %}
+
+{% block content %}
+<div class="delreq-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
+<h1>Delete requests</h1>
+<p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+    Editors ask for an item or a vendor profile to be deleted. Approve deletes the
+    record; reject leaves it and tells no one. An item is deleted only when it has
+    no history. See docs/specs/delete-request-queue.md.
+</p>
+
+<div class="table-section">
+    <h2>Pending <span class="badge" style="background: var(--card-bg); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.8rem; padding: 2px 8px;">{{ pending|length }}</span></h2>
+    {% if pending %}
+    <div style="overflow-x: auto;">
+        <table class="data-table" id="delreq-pending">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Record</th>
+                    <th>Requested by</th>
+                    <th>Reason</th>
+                    <th>Requested</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in pending %}
+                <tr>
+                    <td>{{ r.kind }}</td>
+                    <td>
+                        {% if r.path %}<a href="{{ r.path }}">{{ r.label }}</a>{% else %}{{ r.label }} <span style="color: var(--text-muted);">(no longer exists)</span>{% endif %}
+                    </td>
+                    <td>{{ r.requester }}</td>
+                    <td style="max-width: 320px; white-space: pre-line;">{{ r.reason }}</td>
+                    <td>{{ r.requested_at.strftime('%Y-%m-%d %H:%M') if r.requested_at else '' }}</td>
+                    <td>
+                        <div style="display: flex; gap: 0.25rem; flex-wrap: nowrap;">
+                            <button type="button" class="fl-obtn danger" data-label="{{ r.label }}" data-kind="{{ r.kind }}" onclick="delreqApprove({{ r.id }}, this)">Approve</button>
+                            <button type="button" class="fl-obtn" data-label="{{ r.label }}" onclick="delreqReject({{ r.id }}, this)">Reject</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted);">No pending requests.</p>
+    {% endif %}
+</div>
+
+<div class="table-section" style="margin-top: 2rem;">
+    <h2>Recently decided</h2>
+    {% if decided %}
+    <div style="overflow-x: auto;">
+        <table class="data-table" id="delreq-decided">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Record</th>
+                    <th>Outcome</th>
+                    <th>Requested by</th>
+                    <th>Decided by</th>
+                    <th>Decided</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in decided %}
+                <tr>
+                    <td>{{ r.kind }}</td>
+                    <td>{% if r.path %}<a href="{{ r.path }}">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}</td>
+                    <td>{{ r.status|capitalize }}</td>
+                    <td>{{ r.requester }}</td>
+                    <td>{{ r.decider }}</td>
+                    <td>{{ r.decided_at.strftime('%Y-%m-%d %H:%M') if r.decided_at else '' }}</td>
+                    <td style="max-width: 320px; white-space: pre-line; color: var(--text-muted);">{{ r.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted);">Nothing decided yet.</p>
+    {% endif %}
+</div>
+</div>
+</div>{# /delreq-page.fl-restyle #}
+<script>
+/* var and function declarations only: hx-boost re-executes swapped blocks. */
+async function delreqApprove(id, btn) {
+  var label = btn.dataset.label;
+  var msg = btn.dataset.kind === 'Item'
+    ? 'Delete item "' + label + '"?\n\nThe item is removed for good. Its import record is kept and marked, so a re-import does not bring it back.'
+    : 'Delete vendor profile "' + label + '"?\n\nItems and receipts that referenced it lose the link and keep their vendor text.';
+  if (!(await SxDialog.confirm({ title: 'Approve delete', message: msg, okLabel: 'Delete', danger: true }))) return;
+  delreqPost(id, 'approve');
+}
+async function delreqReject(id, btn) {
+  if (!(await SxDialog.confirm({ title: 'Reject request', message: 'Reject the delete request for "' + btn.dataset.label + '"?\n\nThe record stays. The requester is not told.', okLabel: 'Reject' }))) return;
+  delreqPost(id, 'reject');
+}
+function delreqPost(id, action) {
+  fetch(BP + '/api/delete-requests/' + id + '/' + action, { method: 'POST' })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok) { SxToast.error(res.d.error || 'Action failed', 0); return; }
+      window.location.reload();
+    })
+    .catch(function () { SxToast.error('Action failed'); });
+}
+</script>
+{% endblock %}

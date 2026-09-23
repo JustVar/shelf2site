@@ -264,6 +264,14 @@
             <span class="sx-nav__label">Audit log</span>
           </a>
           {% endif %}
+          {% if user.is_admin_tier %}
+          <a href="{{ base_path }}/admin/delete-requests" hx-boost="false"
+             class="sx-nav__link {% if '/admin/delete-requests' in request.url.path %}sx-nav__link--active{% endif %}"
+             data-label="Delete requests">
+            {{ fl_icon('audit', 'mute', 16) }}
+            <span class="sx-nav__label">Delete requests</span>
+          </a>
+          {% endif %}
           {% if user.has_system_admin %}
           <a href="{{ base_path }}/admin/errors" hx-boost="false"
              class="sx-nav__link {% if '/admin/errors' in request.url.path %}sx-nav__link--active{% endif %}"

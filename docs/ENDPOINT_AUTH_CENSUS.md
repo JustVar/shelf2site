@@ -213,6 +213,16 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 |---|---|---|---|
 | `/dashboard` | GET | any authenticated | OK |
 
+### delete_requests
+
+| Route | Methods | Required gate | Verdict / notes |
+|---|---|---|---|
+| `/admin/delete-requests` | GET | admin tier | OK |
+| `/api/delete-requests` | POST | editor+ | OK |
+| `/api/delete-requests/{request_id}/approve` | POST | admin tier | OK |
+| `/api/delete-requests/{request_id}/reject` | POST | admin tier | OK |
+| `/api/delete-requests/{request_id}/withdraw` | POST | editor+ | OK: requester only, checked in the handler |
+
 ### disposal
 
 | Route | Methods | Required gate | Verdict / notes |

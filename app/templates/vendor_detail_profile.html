@@ -97,6 +97,16 @@
     {% if can_edit %}
     <button class="fl-obtn" onclick="openEditModal()" style="margin-left: auto;">Edit Profile</button>
     {% endif %}
+    {% if user.is_editor_or_above %}
+    {% if delete_request %}
+    <span class="badge" id="dr-pending-badge" style="background: var(--warning, #f39c12); color: #fff;">Delete requested</span>
+    {% if delete_request.requested_by == user.id %}
+    <button class="fl-obtn" id="dr-withdraw-btn" onclick="drWithdraw({{ delete_request.id }})">Withdraw request</button>
+    {% endif %}
+    {% else %}
+    <button class="fl-obtn danger" id="dr-request-btn" onclick="drRequest()">Request delete</button>
+    {% endif %}
+    {% endif %}
 </div>
 
 <div class="vendor-grid">
@@ -389,5 +399,28 @@ document.getElementById('edit-modal').addEventListener('click', (e) => {
     if (e.target.id === 'edit-modal') closeEditModal();
 });
 {% endif %}
+
+async function drRequest() {
+    var reason = await SxDialog.prompt({ title: 'Request delete', message: 'An admin will review this request.', label: 'Reason', required: true, okLabel: 'Request delete', danger: true });
+    if (reason === null) return;
+    if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
+    drSend('/api/delete-requests', { target_table: 'vendor_profiles', target_id: VENDOR_ID, reason: reason.trim() });
+}
+async function drWithdraw(id) {
+    if (!(await SxDialog.confirm({ title: 'Withdraw request', message: 'Withdraw your delete request for this vendor profile?', okLabel: 'Withdraw' }))) return;
+    drSend('/api/delete-requests/' + id + '/withdraw', {});
+}
+function drSend(path, body) {
+    fetch(BP + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) { SxToast.error(res.d.error || 'Request failed', 0); return; }
+        window.location.reload();
+      })
+      .catch(function () { SxToast.error('Request failed'); });
+}
 </script>
 {% endblock %}

@@ -543,3 +543,5 @@ app.include_router(containment_routes.router)
 app.include_router(error_routes.router)
 app.include_router(sse.router, prefix="/events")
 app.include_router(contact_admin.router)
+from .routes import delete_requests as delete_requests_routes
+app.include_router(delete_requests_routes.router)

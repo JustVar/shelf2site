@@ -23,6 +23,7 @@ from ..models import (
     UnitPhoto, UnitPhotoItem, User as UserModel,
 )
 from ..locks import get_lock
+from ..delete_requests import item_blockers, pending_for
 from ..audit import log_event
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
@@ -218,6 +219,9 @@ def item_detail_page(
     photos = _get_item_photos(db, item_id, user)
     _parent_item = containment["parent"]["parent"] if containment["parent"] else None
     effective_location_id = _parent_item.location_id if _parent_item else item.location_id
+    delete_request = pending_for(db, "items", item_id)
+    delete_blockers = (item_blockers(db, item_id)
+                       if user.is_editor_or_above and not delete_request else [])
 
     return templates.TemplateResponse("item_detail.html", {
         "request": request,
@@ -241,6 +245,8 @@ def item_detail_page(
         "is_checked_out": item.item_status == "Checked Out",
         "edit_mode": edit == "1",
         "existing_lock": existing_lock,
+        "delete_request": delete_request,
+        "delete_blockers": delete_blockers,
     })
 
 
