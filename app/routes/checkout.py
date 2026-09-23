@@ -24,6 +24,7 @@ from ..audit import log_event
 from ..config import settings
 from ..toast_redirect import toast_redirect
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import Item, ItemCheckout, User as UserModel
 
 router = APIRouter(tags=["checkout"])
@@ -84,6 +85,8 @@ def do_checkout(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return toast_redirect(f"{BP}/checkout", "Item not found", "error")
+    if locked_ids(db, "items", [item.id]):
+        return toast_redirect(f"{BP}/items/{item.id}", LOCK_MESSAGE, "warning")
     if item.item_status == "Checked Out":
         return toast_redirect(f"{BP}/items/{item.id}", "Already checked out", "warning")
 
@@ -238,7 +241,12 @@ async def do_bulk_checkout(
     items = db.query(Item).filter(Item.id.in_(item_ids)).all()
     updated, skipped_ids = 0, []
     new_checkouts = []
+    locked = locked_ids(db, "items", [i.id for i in items])
     for item in items:
+        if item.id in locked:
+            # A pending delete request freezes the item.
+            skipped_ids.append(item.id)
+            continue
         if item.item_status in ("Checked Out", "Decommissioned"):
             skipped_ids.append(item.id)
             continue

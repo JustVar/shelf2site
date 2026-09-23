@@ -401,7 +401,7 @@ document.getElementById('edit-modal').addEventListener('click', (e) => {
 {% endif %}
 
 async function drRequest() {
-    var reason = await SxDialog.prompt({ title: 'Request delete', message: 'An admin will review this request.', label: 'Reason', required: true, okLabel: 'Request delete', danger: true });
+    var reason = await SxDialog.prompt({ title: 'Request delete', message: 'An admin will review this request. Until then the vendor cannot be changed.', label: 'Reason', required: true, okLabel: 'Request delete', danger: true });
     if (reason === null) return;
     if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
     drSend('/api/delete-requests', { target_table: 'vendor_profiles', target_id: VENDOR_ID, reason: reason.trim() });

@@ -24,6 +24,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import Item, ItemPartNumber, Site
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
@@ -405,6 +406,8 @@ async def triage_fix_save(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return JSONResponse({"success": False, "error": "Item not found"}, status_code=404)
+    if locked_ids(db, "items", [item_id]):
+        return JSONResponse({"success": False, "error": LOCK_MESSAGE}, status_code=409)
 
     # Lock enforcement — same pattern as item_detail POST
     lock = get_lock(f"items:{item_id}")
@@ -579,8 +582,14 @@ async def triage_bulk_update(
     updated = 0
     skipped = 0
     skipped_ids = []
+    locked = locked_ids(db, "items", [i.id for i in items])
 
     for item in items:
+        if item.id in locked:
+            # A pending delete request freezes the item, like an edit lock.
+            skipped += 1
+            skipped_ids.append(item.id)
+            continue
         # Lock check — skip items held by another user
         lock = get_lock(f"items:{item.id}")
         if lock and lock.get("user_id") != user.id:

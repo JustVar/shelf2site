@@ -237,3 +237,21 @@ Recorded here instead of edited into the text above.
   is for write routes with no `require_*` dependency
   (`test_auth_census.py:176-189`); withdraw has `require_editor`, and the
   requester-only rule is an extra check in the handler.
+- **Slice B (Jus, 2026-09-23).** Every candidate handler was read before
+  the list was fixed. `app/delete_requests.py` `locked_ids` is the one
+  helper. Rulings: routes that only add history to an item (a receipt, a
+  checkout, an install or move into it, an order unit, a C2C acquire, a
+  photo tag) are locked too, since each would also make the item unclean.
+  The three bulk routes skip a locked item and report it in `skipped_ids`,
+  the way they already skip an item another user is editing. A photo
+  upload naming a locked item is refused whole; a serial that resolves to
+  a locked item is reported in `tagged` with the lock message, the way an
+  unknown serial already is. Five handlers write an item only through a
+  link the clean check forbids (checkin single and bulk, uninstall, the
+  shipment update, the provisioning update), so they can never reach a
+  locked item; the structural test lists them as exempt with that reason
+  rather than guarding them. `bulk.py` resolves targets through
+  `TABLE_MODELS`, which has no items key, and is out of scope. Nothing in
+  `scripts/`, `scanner/`, `deploy/` or `db_init/` writes items or vendors.
+  The quick view now shows the server message for a 409, as it already did
+  for 403 and 404.

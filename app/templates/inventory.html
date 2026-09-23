@@ -242,7 +242,7 @@ function saveQvEdit(form) {
     return r.text().then(function(body) { return { ok: r.ok, status: r.status, body: body }; });
   }).then(function(res) {
     if (!res.ok) {
-      var msg = (res.status === 403 || res.status === 404) ? res.body : 'Save failed (HTTP ' + res.status + ')';
+      var msg = (res.status === 403 || res.status === 404 || res.status === 409) ? res.body : 'Save failed (HTTP ' + res.status + ')';
       SxToast.error(msg);
       return;
     }

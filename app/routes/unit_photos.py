@@ -18,6 +18,7 @@ from ..audit import log_event
 from ..auth import get_current_user, require_admin, require_editor
 from ..config import settings
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
     CustomerOrder, DeviceProvisioning, Item, ReceivingEvent,
     UnitPhoto, UnitPhotoItem, User,
@@ -55,6 +56,9 @@ def _tag_serials(db: Session, photo: UnitPhoto, serials: list[str]) -> list[dict
         item = db.query(Item).filter(func.lower(Item.item_sn) == s.lower()).first()
         if not item:
             results.append({"serial": s, "error": "not found in inventory"})
+            continue
+        if locked_ids(db, "items", [item.id]):
+            results.append({"serial": s, "error": LOCK_MESSAGE})
             continue
         if item.id not in existing:
             db.add(UnitPhotoItem(photo_id=photo.id, item_id=item.id))
@@ -108,6 +112,10 @@ async def upload_unit_photo(
             return JSONResponse(status_code=400, content={
                 "error": f"This event already has {n} photos "
                          f"(cap {settings.UNIT_PHOTO_MAX_PER_EVENT})."})
+
+    explicit_ids = [int(x) for x in item_ids.split(",") if x.strip().isdigit()]
+    if locked_ids(db, "items", explicit_ids):
+        return JSONResponse(status_code=409, content={"error": LOCK_MESSAGE})
 
     content = await file.read()
     try:

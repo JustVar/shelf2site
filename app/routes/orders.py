@@ -19,6 +19,7 @@ from ..audit import log_event
 from ..auth import get_current_user, require_editor, require_provisioning_viewer, require_provisioning_manager
 from ..config import settings
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
     CustomerOrder, DeploymentRecord, OEMPartner, OEMPurchaseOrder, DeviceProvisioning,
     Item, ItemPartNumber,
@@ -550,6 +551,9 @@ async def assign_items_to_order(
             db.rollback()
             return JSONResponse(status_code=404, content={"error": f"Item {raw_id} not found"})
         label = item.item_sn or item.item_name or f"item #{item.id}"
+        if locked_ids(db, "items", [item.id]):
+            db.rollback()
+            return JSONResponse(status_code=409, content={"error": f"{label}: {LOCK_MESSAGE}"})
         if item.item_status != "Ready to Deploy":
             db.rollback()
             return JSONResponse(

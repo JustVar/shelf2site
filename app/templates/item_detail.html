@@ -235,7 +235,7 @@
 <div class="dtl-section" id="dr-banner" style="border-left:3px solid var(--warning,#f39c12);">
   <div class="dtl-section-title">Delete requested</div>
   <div style="color:var(--text-muted);font-size:0.9rem;">
-    A delete request is pending for this item. An admin will review it.
+    A delete request is pending for this item. It cannot be changed until an admin decides.
     {% if delete_request.requested_by == user.id %}
     <button type="button" class="fl-obtn" id="dr-withdraw-btn" onclick="drWithdraw({{ delete_request.id }})">Withdraw request</button>
     {% endif %}
@@ -909,7 +909,7 @@ function decPost(action, fields) {
     .catch(function () { SxToast.error('Action failed'); });
 }
 async function drRequest() {
-  var reason = await SxDialog.prompt({ title: 'Request delete', message: 'An admin will review this request.', label: 'Reason', required: true, okLabel: 'Request delete', danger: true });
+  var reason = await SxDialog.prompt({ title: 'Request delete', message: 'An admin will review this request. Until then the item cannot be changed.', label: 'Reason', required: true, okLabel: 'Request delete', danger: true });
   if (reason === null) return;
   if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
   drSend('/api/delete-requests', { target_table: 'items', target_id: {{ item.id }}, reason: reason.trim() });

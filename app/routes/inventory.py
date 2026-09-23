@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..config import settings
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import Item, ItemLocation, Site, ITEM_STATUSES
 from .dashboard import CATEGORY_COLORS, FL_CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
 from .intake import _get_locations as _get_locations_active, _get_all_places, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
@@ -235,6 +236,8 @@ def quick_view_save(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return HTMLResponse("Item not found", status_code=404)
+    if locked_ids(db, "items", [item_id]):
+        return HTMLResponse(LOCK_MESSAGE, status_code=409)
 
     # Containment-managed items keep their status + frozen location
     # (see item_detail's identical guard; Option A).
@@ -342,8 +345,14 @@ async def inventory_bulk_update(
     updated = 0
     skipped = 0
     skipped_ids = []
+    locked = locked_ids(db, "items", [i.id for i in items])
 
     for item in items:
+        if item.id in locked:
+            # A pending delete request freezes the item, like an edit lock.
+            skipped += 1
+            skipped_ids.append(item.id)
+            continue
         lock = get_lock(f"items:{item.id}")
         if lock and lock.get("user_id") != user.id:
             skipped += 1

@@ -17,6 +17,7 @@ from ..containment import (
     UNIT_CATEGORIES, get_current_parent, installed_component_ids,
 )
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import Item, ItemComponentHistory, User
 from .intake import STATUSES as HAND_EDIT_STATUSES
 
@@ -64,6 +65,8 @@ async def install_component(
     parent_error = _guard_parent(db, parent)
     if parent_error:
         return parent_error
+    if locked_ids(db, "items", [component.id, parent.id]):
+        return _err(409, LOCK_MESSAGE)
     if component.id == parent.id:
         return _err(400, "An item cannot be installed into itself")
     if component.item_category in UNIT_CATEGORIES:
@@ -183,6 +186,8 @@ async def move_component(
     parent_error = _guard_parent(db, new_parent)
     if parent_error:
         return parent_error
+    if locked_ids(db, "items", [component.id, new_parent.id]):
+        return _err(409, LOCK_MESSAGE)
     if new_parent.id == component.id:
         return _err(400, "An item cannot be installed into itself")
     if new_parent.id == current["parent_item_id"]:

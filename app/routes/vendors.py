@@ -13,7 +13,7 @@ from ..audit import log_event
 from ..auth import get_current_user, require_admin, require_viewer, require_receipts
 from ..config import settings
 from ..database import get_db
-from ..delete_requests import pending_for
+from ..delete_requests import LOCK_MESSAGE, locked_ids, pending_for
 from ..models import (
     VendorProfile, DeviceWarranty, WarrantyClaim, VendorTrial, User,
     TABLE_MODELS, TABLE_DISPLAY_NAMES, get_display_name, get_serial,
@@ -206,6 +206,8 @@ async def update_vendor(
     profile = db.query(VendorProfile).filter(VendorProfile.id == vendor_id).first()
     if not profile:
         return JSONResponse(status_code=404, content={"error": "Vendor profile not found"})
+    if locked_ids(db, "vendor_profiles", [vendor_id]):
+        return JSONResponse(status_code=409, content={"error": LOCK_MESSAGE})
 
     body = await request.json()
     fields = ["display_name", "contact_name", "contact_email", "contact_phone",
@@ -245,6 +247,8 @@ def delete_vendor(
     profile = db.query(VendorProfile).filter(VendorProfile.id == vendor_id).first()
     if not profile:
         return JSONResponse(status_code=404, content={"error": "Vendor profile not found"})
+    if locked_ids(db, "vendor_profiles", [vendor_id]):
+        return JSONResponse(status_code=409, content={"error": LOCK_MESSAGE})
 
     name = profile.name
     db.delete(profile)

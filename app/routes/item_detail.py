@@ -23,7 +23,7 @@ from ..models import (
     UnitPhoto, UnitPhotoItem, User as UserModel,
 )
 from ..locks import get_lock
-from ..delete_requests import item_blockers, pending_for
+from ..delete_requests import LOCK_MESSAGE, item_blockers, locked_ids, pending_for
 from ..audit import log_event
 from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
 from .intake import (
@@ -290,6 +290,8 @@ async def item_update(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return toast_redirect(f"{BP}/inventory/", "Item not found", "error")
+    if locked_ids(db, "items", [item_id]):
+        return toast_redirect(f"{BP}/items/{item_id}", LOCK_MESSAGE, "warning")
 
     # Lock enforcement: reject the save if another user currently holds the lock.
     lock = get_lock(f"items:{item_id}")
@@ -417,6 +419,8 @@ async def add_receipt(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return toast_redirect(f"{BP}/inventory/", "Item not found", "error")
+    if locked_ids(db, "items", [item_id]):
+        return toast_redirect(f"{BP}/items/{item_id}", LOCK_MESSAGE, "warning")
 
     saved_path = None
     original_name = None
@@ -496,6 +500,8 @@ def item_decommission(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return JSONResponse({"error": "Item not found"}, status_code=404)
+    if locked_ids(db, "items", [item_id]):
+        return JSONResponse({"error": LOCK_MESSAGE}, status_code=409)
     if str(item.item_status) == "Decommissioned":
         return JSONResponse({"error": "Item is already decommissioned"}, status_code=409)
 
@@ -556,6 +562,8 @@ def item_reactivate(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         return JSONResponse({"error": "Item not found"}, status_code=404)
+    if locked_ids(db, "items", [item_id]):
+        return JSONResponse({"error": LOCK_MESSAGE}, status_code=409)
     if str(item.item_status) != "Decommissioned":
         return JSONResponse({"error": "Item is not decommissioned"}, status_code=409)
 

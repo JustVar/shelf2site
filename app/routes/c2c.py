@@ -38,6 +38,7 @@ from ..audit import log_event
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
     C2CCertification, C2CCertificationFile, CustomerOrder, DeviceProvisioning, Item, ItemPartNumber, Site, User,
 )
@@ -373,6 +374,9 @@ async def c2c_acquire(
             status_code=400,
             content={"error": f"Item {device_id} is category '{camera.item_category}', not a C2C camera (camera_c2c)"},
         )
+
+    if locked_ids(db, "items", [camera.id]):
+        return JSONResponse(status_code=409, content={"error": LOCK_MESSAGE})
 
     if str(camera.item_status) == "Decommissioned":
         # Code-mediated (docs/specs/item-decommission.md): reactivate first.

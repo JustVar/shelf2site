@@ -99,3 +99,32 @@ def delete_item(db, item_id):
 def delete_vendor(db, profile):
     """The same delete as DELETE /api/vendors/{id}. The caller commits."""
     db.delete(profile)
+
+
+# The lock (spec: The lock). A pending request freezes its target for every
+# role until an admin approves or rejects it.
+LOCK_MESSAGE = (
+    "A delete request is pending for this record. "
+    "It cannot be changed until an admin decides."
+)
+
+
+def locked_ids(db, target_table, ids):
+    """The ids among ids that have a pending delete request.
+
+    Every route that changes an existing item or vendor calls this before it
+    writes. tests/test_delete_request_lock.py lists those routes and fails if
+    one stops calling it."""
+    wanted = {int(i) for i in ids if i is not None}
+    if not wanted:
+        return set()
+    rows = (
+        db.query(DeleteRequest.target_id)
+        .filter(
+            DeleteRequest.target_table == target_table,
+            DeleteRequest.target_id.in_(sorted(wanted)),
+            DeleteRequest.status == "pending",
+        )
+        .all()
+    )
+    return {r[0] for r in rows}
