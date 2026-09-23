@@ -255,3 +255,10 @@ Recorded here instead of edited into the text above.
   `scripts/`, `scanner/`, `deploy/` or `db_init/` writes items or vendors.
   The quick view now shows the server message for a 409, as it already did
   for 403 and 404.
+- **Slice C (Jus, 2026-09-23).** Mocked in the browser first, then built.
+  The count shows on the Admin section header, the Data and logs subgroup
+  header and the Delete requests link, so it is visible while Admin is
+  collapsed. It is refreshed on page load and is NOT cached: the app runs
+  six workers (`Dockerfile:12`), the sidebar cache lives in each one, and
+  a request write clears only its own worker, so a cached count could lag
+  for up to 15 seconds after a decision. The count is admin tier only.

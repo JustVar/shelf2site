@@ -222,6 +222,7 @@
     <button type="button" class="sx-nav__section-header" data-label="Admin">
       {{ fl_icon('lock', 'mute', 16) }}
       <span class="sx-nav__label">Admin</span>
+      {% if user.is_admin_tier and request.state.delete_request_count %}<span class="sx-nav__badge" id="sx-nav-dr-admin-badge">{{ request.state.delete_request_count }}</span>{% endif %}
       <span class="sx-nav__chev">{{ fl_icon('chevrRight', 'mute', 10) }}</span>
     </button>
     <div class="sx-nav__section-content">
@@ -254,6 +255,7 @@
         <button type="button" class="sx-nav__subgroup-header">
           <span class="sx-nav__subgroup-chev">{{ fl_icon('chevrRight', 'mute', 9) }}</span>
           <span class="sx-nav__subgroup-label">Data &amp; logs</span>
+          {% if user.is_admin_tier and request.state.delete_request_count %}<span class="sx-nav__badge" id="sx-nav-dr-data-badge">{{ request.state.delete_request_count }}</span>{% endif %}
         </button>
         <div class="sx-nav__subgroup-content">
           {% if user.has_audit_access %}
@@ -270,6 +272,7 @@
              data-label="Delete requests">
             {{ fl_icon('audit', 'mute', 16) }}
             <span class="sx-nav__label">Delete requests</span>
+            {% if request.state.delete_request_count %}<span class="sx-nav__badge" id="sx-nav-dr-badge">{{ request.state.delete_request_count }}</span>{% endif %}
           </a>
           {% endif %}
           {% if user.has_system_admin %}

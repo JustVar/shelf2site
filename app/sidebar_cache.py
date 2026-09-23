@@ -6,7 +6,7 @@ Used by the Jinja2 context processor registered in main.py.
 
 import time
 from sqlalchemy.orm import Session
-from .models import TABLE_MODELS, PendingDevice, get_approvable_tables
+from .models import TABLE_MODELS, DeleteRequest, PendingDevice, get_approvable_tables
 
 _cache: dict = {}
 _TTL = 15  # seconds
@@ -92,7 +92,18 @@ def get_sidebar_counts(db: Session, user=None) -> dict:
             _cache[cache_key] = (count, now)
         pending_count = _cache[cache_key][0]
 
+    # Pending delete requests (item 41 slice C): admin tier only. Not cached:
+    # the cache lives in each of the six workers and only the worker that
+    # handled a request write would drop its copy, so an admin could see a
+    # stale count after approving the last request. One count on a small table.
+    delete_request_count = 0
+    if user is not None and user.is_admin_tier:
+        delete_request_count = (
+            db.query(DeleteRequest).filter(DeleteRequest.status == "pending").count()
+        )
+
     return {
         "triage_count": triage_count,
         "pending_count": pending_count,
+        "delete_request_count": delete_request_count,
     }

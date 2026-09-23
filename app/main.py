@@ -210,6 +210,7 @@ async def sidebar_counts_middleware(request: Request, call_next):
 
     request.state.triage_count = 0
     request.state.pending_count = 0
+    request.state.delete_request_count = 0
 
     from .auth import get_session_user_id
     user_id = get_session_user_id(request)
@@ -225,6 +226,7 @@ async def sidebar_counts_middleware(request: Request, call_next):
         counts = get_sidebar_counts(db, user)
         request.state.triage_count = counts.get("triage_count", 0)
         request.state.pending_count = counts.get("pending_count", 0)
+        request.state.delete_request_count = counts.get("delete_request_count", 0)
     except Exception as e:
         _app_logger.warning("sidebar_counts middleware failed: %s", e)
     finally:
