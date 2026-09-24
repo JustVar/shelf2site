@@ -133,7 +133,7 @@ INTUNE_AUTO_SYNC=true</div>
             <tbody>
                 {% for log in recent_logs %}
                 <tr>
-                    <td style="white-space: nowrap;">{{ log.synced_at.strftime('%Y-%m-%d %H:%M') if log.synced_at else '—' }}</td>
+                    <td style="white-space: nowrap;">{{ log.synced_at|localtime('%Y-%m-%d %H:%M %Z') if log.synced_at else '—' }}</td>
                     <td style="color: var(--text-muted);">{{ 'Auto' if not log.synced_by else log.synced_by }}</td>
                     <td>{{ log.devices_found }}</td>
                     <td style="color: {{ 'var(--success)' if log.devices_added > 0 else 'var(--text-muted)' }};">{{ log.devices_added }}</td>

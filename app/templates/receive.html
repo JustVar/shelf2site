@@ -31,7 +31,7 @@
             <option value="">-- No event (standalone scan) --</option>
             {% for event in events %}
             <option value="{{ event.id }}">
-                {{ event.received_date.strftime('%m/%d') if event.received_date else 'N/A' }}
+                {{ event.received_date|localtime('%m/%d') if event.received_date else 'N/A' }}
                 &mdash; {{ event.vendor or 'Unknown vendor' }}
                 (PO: {{ event.purchase_order or 'N/A' }})
                 [{{ event.received_quantity or 0 }}/{{ event.expected_quantity or '?' }}]

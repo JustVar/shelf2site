@@ -245,7 +245,7 @@
                         <div class="provision-progress" title="{{ item.completed_stages }}/{{ item.total_stages }} stages">
                             {% for stage in item.stages %}
                             <div class="provision-stage {{ 'completed' if stage.completed else ('current' if stage.name == item.current_stage else '') }}"
-                                 title="{{ stage.label }}{% if stage.completed %} ✓ {{ stage.completed_by }} ({{ stage.completed_at[:10] if stage.completed_at else '' }}){% endif %}">
+                                 title="{{ stage.label }}{% if stage.completed %} ✓ {{ stage.completed_by }} ({{ stage.completed_at|localstamp('%Y-%m-%d') }}){% endif %}">
                             </div>
                             {% endfor %}
                         </div>

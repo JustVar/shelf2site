@@ -58,8 +58,12 @@ spec covers time (docs grep, 2026-09-24).
   the format wherever a time is shown (ruling 4).
 - `local_now()`: aware datetime in `APP_TZ`.
 - `local_today()`: `local_now().date()`.
-- `register(env)`: adds the Jinja filter `localtime` (and nothing else) to
-  a template environment.
+- `parse_utc(text)`: ISO text to naive UTC; an offset converts, no
+  offset is UTC, a bare date or bad text is None. Added in slice B.
+- `fmt_stamp(text, fmt)`: `parse_utc` then `fmt_local`, for times stored
+  as text (provisioning stage stamps).
+- `register(env)`: adds the Jinja filters `localtime` and `localstamp`
+  (and nothing else) to a template environment.
 
 **29 separate `Jinja2Templates` instances** exist, one in `main.py` and
 one per route module (READ). A filter registered in one is invisible to
@@ -117,6 +121,19 @@ snapshots (stored data); `admin-maintenance.js:169`
 `toLocaleTimeString()` (already the browser's zone); JSON APIs that no
 page renders.
 
+## Slice B corrections (READ at 9d948f2)
+
+- `lifecycle.py:69-70` feed a JSON API no page or script fetches. Out of
+  the display path; left alone.
+- `maintenance_routes.py:105` (backup `ts_label`) is shown on a page. It
+  moved from Files into slice B.
+- `fulfillment.py:1656` and the close and cancel JSON (`:2234`, `:2254`)
+  are not shown anywhere. Left alone.
+- Stage stamps stay stored as UTC ISO text and show through `localstamp`.
+- The error detail modal reads a new `created_at_display` field; the
+  API keeps `created_at`.
+- The Zendesk org date converts in the browser to the Central date.
+
 ## Slices
 
 - **A. Helper and wiring.** `app/localtime.py`, `register` in all 29
@@ -135,7 +152,7 @@ carries a migration.
   and the evening case: 2026-03-08 07:59 UTC is 01:59 CST;
   08:00 UTC is 03:00 CDT; 2026-11-01 06:59 UTC is 01:59 CDT and
   07:00 UTC is 01:00 CST; 2026-09-25 00:30 UTC is 2026-09-24 19:30 CDT.
-  A UTC passthrough fails every case.
+  A UTC passthrough fails every conversion case.
 - **Structural tests.** No template calls `.strftime(` on a `DateTime`
   value outside the filter; no `date.today()` or naive `datetime.now()`
   under `app/`; every module that builds `Jinja2Templates` calls

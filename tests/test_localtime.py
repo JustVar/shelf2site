@@ -12,13 +12,14 @@ Render: the filter works through a real Jinja environment.
 """
 
 import ast
+import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import jinja2
 import pytest
 
-from app.localtime import fmt_local, register, to_local
+from app.localtime import fmt_local, parse_utc, register, to_local
 
 APP = Path(__file__).resolve().parents[1] / "app"
 FMT = "%Y-%m-%d %H:%M %Z"
@@ -67,6 +68,26 @@ def test_none_passes_through():
     assert fmt_local(None, FMT) == ""
 
 
+# ISO text in, naive UTC out: an offset converts, no offset is UTC already.
+PARSE_CASES = [
+    ("2026-09-25T00:30:00.123456", datetime(2026, 9, 25, 0, 30, 0, 123456)),
+    ("2026-09-25T00:30:00+00:00", datetime(2026, 9, 25, 0, 30)),
+    ("2026-09-24T19:30:00-05:00", datetime(2026, 9, 25, 0, 30)),
+    ("2026-09-25T00:30:00Z", datetime(2026, 9, 25, 0, 30)),
+    ("2026-09-24", None),
+    ("not a time", None),
+    ("", None),
+    (None, None),
+]
+PARSE_IDS = ["naive-micro", "utc-offset", "minus-five", "zulu",
+             "bare-date", "garbage", "empty", "none"]
+
+
+@pytest.mark.parametrize("text, want", PARSE_CASES, ids=PARSE_IDS)
+def test_parse_utc(text, want):
+    assert parse_utc(text) == want
+
+
 # -- Structural ------------------------------------------------------------------
 
 def _called_names(tree):
@@ -105,13 +126,66 @@ def test_every_template_module_registers_the_filter(module):
         "so its templates cannot use the localtime filter" % module)
 
 
+# -- Templates -------------------------------------------------------------------
+
+TEMPLATES = APP / "templates"
+STRFTIME = re.compile(r"([\w.]+)\.strftime\(")
+UTC_WORD = re.compile(r"\bUTC\b")
+
+# The Date sites: a calendar day is never converted, so .strftime( stays.
+DATE_SITES = {
+    "vendor_detail_profile.html": {"t.received_date", "t.return_deadline"},
+    "partials/item_quick_view.html": {"item.last_updated"},
+    "partials/lifecycle_panel.html": {
+        "w.warranty_end", "t.received_date", "t.return_deadline",
+        "a.returned_date", "a.assigned_date", "d.disposition_date"},
+    "fulfillment.html": {
+        "dr.scheduled_date", "dr.installed_date", "dr.cert_completion_date", "card.due_date"},
+    "site_detail.html": {"a.assigned_date", "a.expected_return", "a.returned_date"},
+    "item_detail.html": {
+        "containment.parent.installed_date", "item.date_purchased", "item.dispatched_date",
+        "r.transaction_date", "r.created_at", "ch.installed_date", "c.event.action_date",
+        "m.maintenance_date", "co.checkin_date", "co.checkout_date",
+        "item.created_at", "item.last_updated"},
+    "receipts_list.html": {"r.transaction_date"},
+    "provisioning_detail.html": {"rec.start_date", "rec.due_date"},
+    "inventory.html": {"row.last_updated"},
+    "receipt_detail.html": {"r.transaction_date", "r.created_at"},
+}
+ALLOWED = {(path, expr) for path, exprs in DATE_SITES.items() for expr in exprs}
+
+
+def _template_strftime_sites():
+    """Every (template path, expression) pair that calls .strftime( under app/templates."""
+    found = set()
+    for path in sorted(TEMPLATES.rglob("*.html")):
+        rel = path.relative_to(TEMPLATES).as_posix()
+        for expr in STRFTIME.findall(path.read_text(encoding="utf-8")):
+            found.add((rel, expr))
+    return found
+
+
+def test_template_strftime_only_on_date_columns():
+    extra = sorted(_template_strftime_sites() - ALLOWED)
+    assert not extra, (
+        "strftime on a value that is not a Date column, use |localtime: %s" % extra)
+
+
+def test_no_template_prints_a_utc_label():
+    hits = sorted(
+        path.relative_to(TEMPLATES).as_posix()
+        for path in TEMPLATES.rglob("*.html")
+        if UTC_WORD.search(path.read_text(encoding="utf-8")))
+    assert not hits, "a template still prints a UTC label: %s" % hits
+
+
 # -- Render ----------------------------------------------------------------------
 
-def test_register_adds_only_the_filter():
+def test_register_adds_only_the_filters():
     env = jinja2.Environment()
     filters_before, globals_before = set(env.filters), dict(env.globals)
     register(env)
-    assert set(env.filters) - filters_before == {"localtime"}
+    assert set(env.filters) - filters_before == {"localtime", "localstamp"}
     assert env.globals == globals_before
 
 
@@ -121,3 +195,11 @@ def test_filter_renders_through_jinja():
     out = env.from_string('{{ v|localtime("%Y-%m-%d %H:%M %Z") }}').render(
         v=datetime(2026, 9, 25, 0, 30))
     assert out == "2026-09-24 19:30 CDT"
+
+
+def test_localstamp_renders_through_jinja():
+    env = jinja2.Environment()
+    register(env)
+    template = env.from_string('{{ s|localstamp("%Y-%m-%d %H:%M %Z") }}')
+    assert template.render(s="2026-09-25T00:30:00") == "2026-09-24 19:30 CDT"
+    assert template.render(s=None) == ""

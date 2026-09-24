@@ -286,7 +286,7 @@
             <div class="pipeline-stage-meta">
                 {% if stage.completed and stage.completed_by %}
                 <span class="pipeline-stage-who">{{ stage.completed_by }}</span>
-                <span class="pipeline-stage-when">{{ stage.completed_at[:10] if stage.completed_at else '' }}</span>
+                <span class="pipeline-stage-when">{{ stage.completed_at|localstamp('%Y-%m-%d') }}</span>
                 {% elif stage.name == rec.current_stage and not rec.is_complete %}
                 <span class="pipeline-stage-who" style="color: var(--info, #3498db);">In Progress</span>
                 {% else %}
@@ -320,7 +320,7 @@
     <div class="summary-card">
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Days Active</div>
         <div style="font-size: 1.4rem; font-weight: 700;">{{ days_active }}</div>
-        <div style="font-size: 0.75rem; color: var(--text-muted);">since {{ rec.created_at.strftime('%m/%d/%Y') if rec.created_at else '—' }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">since {{ rec.created_at|localtime('%m/%d/%Y') if rec.created_at else '—' }}</div>
     </div>
     <div class="summary-card">
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">Completion</div>
@@ -428,10 +428,10 @@
                     <dt>Created By</dt>
                     <dd>{{ creator_name }}</dd>
                     <dt>Created</dt>
-                    <dd>{{ rec.created_at.strftime('%Y-%m-%d %H:%M') if rec.created_at else '—' }}</dd>
+                    <dd>{{ rec.created_at|localtime('%Y-%m-%d %H:%M %Z') if rec.created_at else '—' }}</dd>
                     {% if rec.completed_at %}
                     <dt>Completed</dt>
-                    <dd>{{ rec.completed_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                    <dd>{{ rec.completed_at|localtime('%Y-%m-%d %H:%M %Z') }}</dd>
                     {% endif %}
                 </dl>
             </div>
@@ -525,7 +525,7 @@
                     {{ rec.validation_result }}
                 </span>
                 {% if rec.validation_date %}
-                <span style="color: var(--text-muted); font-size: 0.85rem;">{{ rec.validation_date.strftime('%Y-%m-%d %H:%M') }}</span>
+                <span style="color: var(--text-muted); font-size: 0.85rem;">{{ rec.validation_date|localtime('%Y-%m-%d %H:%M %Z') }}</span>
                 {% endif %}
                 {% if rec.validation_report_path %}
                 <a href="{{ base_path }}/api/provisioning/{{ rec.id }}/validation-report" class="fl-obtn">
@@ -593,7 +593,7 @@
                 <div class="audit-entry {{ 'stage-completed' if 'stage_completed' in (entry.event_type or '') else 'reverted' if 'revert' in (entry.event_type or '') else 'created' if 'created' in (entry.event_type or '') else '' }}">
                     <div class="audit-entry-header">
                         <span class="audit-entry-action">{{ entry.event_type | replace('provisioning_', '') | replace('_', ' ') | title }}</span>
-                        <span class="audit-entry-time">{{ entry.timestamp.strftime('%m/%d %H:%M') if entry.timestamp else '' }}</span>
+                        <span class="audit-entry-time">{{ entry.timestamp|localtime('%m/%d %H:%M %Z') if entry.timestamp else '' }}</span>
                     </div>
                     <div class="audit-entry-user">{{ audit_users_map.get(entry.user_id, 'System') }}</div>
                     {% if entry.details %}

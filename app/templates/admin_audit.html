@@ -54,7 +54,7 @@
                 {% if entries %}
                 {% for e in entries %}
                 <tr>
-                    <td style="white-space: nowrap;">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') if e.timestamp else '-' }}</td>
+                    <td style="white-space: nowrap;">{{ e.timestamp|localtime('%Y-%m-%d %H:%M:%S %Z') if e.timestamp else '-' }}</td>
                     <td>{{ users_map.get(e.user_id, 'System') if e.user_id else 'System' }}</td>
                     <td><span class="badge badge-count{% if 'failed' in e.event_type or 'deleted' in e.event_type %} badge--danger{% endif %}">{{ e.event_type }}</span></td>
                     <td>{{ e.action or '-' }}</td>

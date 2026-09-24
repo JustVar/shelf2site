@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
-from ..localtime import register
+from ..localtime import fmt_local, register
 from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
@@ -1651,7 +1651,7 @@ def certification_detail(
         "hw_status": h.hw_status,
         "cert_status": h.cert_status,
         "certified_by": h.certified_by or "-",
-        "certified_at": (h.certified_at.isoformat(sep=" ", timespec="minutes") if h.certified_at else "-"),
+        "certified_at": (fmt_local(h.certified_at, "%Y-%m-%d %H:%M %Z") if h.certified_at else "-"),
         "co_certified_by": h.co_certified_by or "-",
         "co_certified_at": (h.co_certified_at.isoformat(sep=" ", timespec="minutes") if h.co_certified_at else "-"),
     } for h in history_rows]
@@ -1683,7 +1683,7 @@ def certification_detail(
                 "original_name": f.original_name,
                 "size_kb": round((f.size_bytes or 0) / 1024, 1),
                 "uploaded_by": f.uploaded_by or "-",
-                "uploaded_at": (f.uploaded_at.isoformat(sep=" ", timespec="minutes") if f.uploaded_at else "-"),
+                "uploaded_at": (fmt_local(f.uploaded_at, "%Y-%m-%d %H:%M %Z") if f.uploaded_at else "-"),
             })
     has_cert = bool(history_rows)
 
@@ -1721,7 +1721,7 @@ def certification_detail(
         "cert_files": cert_files,
         "has_cert": has_cert,
         "is_complete": bool(prov.is_complete),
-        "completed_at": (prov.completed_at.isoformat(sep=" ", timespec="minutes") if prov.completed_at else None),
+        "completed_at": (fmt_local(prov.completed_at, "%Y-%m-%d %H:%M %Z") if prov.completed_at else None),
     })
 
 

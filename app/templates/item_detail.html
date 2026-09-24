@@ -510,7 +510,7 @@
         <div style="font-size:0.7rem; margin-top:2px;">
           <span class="rcv-badge {{ 'rcv-badge--full' if p.direction == 'inbound' else 'rcv-badge--over' }}"
                 title="{{ p.direction }}">{{ 'IN' if p.direction == 'inbound' else 'OUT' }}</span>
-          {{ p.taken_at.strftime('%Y-%m-%d') if p.taken_at else '' }}
+          {{ p.taken_at|localtime('%Y-%m-%d') if p.taken_at else '' }}
           {% if p.uploaded_by %}&middot; {{ p.uploaded_by }}{% endif %}
         </div>
         {% if p.caption %}<div style="font-size:0.72rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ p.caption }}</div>{% endif %}

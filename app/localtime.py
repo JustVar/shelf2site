@@ -45,10 +45,39 @@ def local_today():
     return local_now().date()
 
 
+def parse_utc(text):
+    """An ISO timestamp string as naive UTC wall time, the way the database stores it.
+
+    An offset converts to UTC; no offset is taken as UTC already. None, an
+    empty string, a date with no time, or text that does not parse gives None.
+    """
+    if not text:
+        return None
+    text = str(text).strip()
+    try:
+        date.fromisoformat(text)
+        return None  # a bare date is a calendar day, not a moment
+    except ValueError:
+        pass
+    try:
+        value = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if value.tzinfo is not None and value.tzinfo.utcoffset(value) is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def fmt_stamp(text, fmt):
+    """parse_utc, then fmt_local. For times stored as ISO text (provisioning stage stamps)."""
+    return fmt_local(parse_utc(text), fmt)
+
+
 def register(env):
-    """Add the localtime filter to a Jinja environment, and nothing else.
+    """Add the localtime and localstamp filters to a Jinja environment, and nothing else.
 
     Every module that builds Jinja2Templates calls this once, next to its
     base_path global. tests/test_localtime.py checks that.
     """
     env.filters["localtime"] = fmt_local
+    env.filters["localstamp"] = fmt_stamp

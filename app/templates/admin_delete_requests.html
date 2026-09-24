@@ -37,7 +37,7 @@
                     </td>
                     <td>{{ r.requester }}</td>
                     <td style="max-width: 320px; white-space: pre-line;">{{ r.reason }}</td>
-                    <td>{{ r.requested_at.strftime('%Y-%m-%d %H:%M') if r.requested_at else '' }}</td>
+                    <td>{{ r.requested_at|localtime('%Y-%m-%d %H:%M %Z') if r.requested_at else '' }}</td>
                     <td>
                         <div style="display: flex; gap: 0.25rem; flex-wrap: nowrap;">
                             <button type="button" class="fl-obtn danger" data-label="{{ r.label }}" data-kind="{{ r.kind }}" onclick="delreqApprove({{ r.id }}, this)">Approve</button>
@@ -78,7 +78,7 @@
                     <td>{{ r.status|capitalize }}</td>
                     <td>{{ r.requester }}</td>
                     <td>{{ r.decider }}</td>
-                    <td>{{ r.decided_at.strftime('%Y-%m-%d %H:%M') if r.decided_at else '' }}</td>
+                    <td>{{ r.decided_at|localtime('%Y-%m-%d %H:%M %Z') if r.decided_at else '' }}</td>
                     <td style="max-width: 320px; white-space: pre-line; color: var(--text-muted);">{{ r.reason }}</td>
                 </tr>
                 {% endfor %}

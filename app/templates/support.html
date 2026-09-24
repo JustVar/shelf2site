@@ -83,8 +83,8 @@
                     </td>
                     <td>{{ d.scanner_id or '-' }}</td>
                     <td>{{ d.network_segment or '-' }}</td>
-                    <td>{{ d.first_seen.strftime('%Y-%m-%d %H:%M') if d.first_seen else '-' }}</td>
-                    <td>{{ d.last_seen.strftime('%Y-%m-%d %H:%M') if d.last_seen else '-' }}</td>
+                    <td>{{ d.first_seen|localtime('%Y-%m-%d %H:%M %Z') if d.first_seen else '-' }}</td>
+                    <td>{{ d.last_seen|localtime('%Y-%m-%d %H:%M %Z') if d.last_seen else '-' }}</td>
                     <td>
                         <span class="status-{{ d.status }}">{{ d.status.title() }}</span>
                     </td>

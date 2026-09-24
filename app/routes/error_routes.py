@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, require_system_admin, User
 from ..config import settings
-from ..localtime import register
+from ..localtime import fmt_local, register
 from ..database import SessionLocal
 
 from sqlalchemy import text
@@ -309,6 +309,7 @@ def get_error_detail(
         return JSONResponse(content={
             "id": row[0],
             "created_at": row[1].isoformat() if row[1] else None,
+            "created_at_display": fmt_local(row[1], "%Y-%m-%d %H:%M:%S %Z") if row[1] else None,
             "source": row[2],
             "level": row[3],
             "message": row[4],

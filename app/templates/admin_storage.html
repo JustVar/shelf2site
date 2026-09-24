@@ -79,11 +79,11 @@
         </tr>
         <tr>
             <td style="font-weight: 500;">Oldest photo:</td>
-            <td>{% if oldest_date %}{{ oldest_date.strftime('%Y-%m-%d %H:%M') }}{% else %}N/A{% endif %}</td>
+            <td>{% if oldest_date %}{{ oldest_date|localtime('%Y-%m-%d %H:%M %Z') }}{% else %}N/A{% endif %}</td>
         </tr>
         <tr>
             <td style="font-weight: 500;">Newest photo:</td>
-            <td>{% if newest_date %}{{ newest_date.strftime('%Y-%m-%d %H:%M') }}{% else %}N/A{% endif %}</td>
+            <td>{% if newest_date %}{{ newest_date|localtime('%Y-%m-%d %H:%M %Z') }}{% else %}N/A{% endif %}</td>
         </tr>
         <tr>
             <td style="font-weight: 500;">Growth rate:</td>

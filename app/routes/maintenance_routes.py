@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, require_system_admin
 from ..audit import log_event
 from ..config import settings
-from ..localtime import register
+from ..localtime import fmt_local, register
 from ..database import get_db
 from ..maintenance import get_announcement, set_announcement, clear_announcement
 from ..models import User
@@ -102,7 +102,7 @@ def _backup_status():
         "headline": headline,
         "detail": detail,
         "age_label": age_label,
-        "ts_label": ts.strftime("%Y-%m-%d %H:%M UTC"),
+        "ts_label": fmt_local(ts, "%Y-%m-%d %H:%M %Z"),
         "size_label": (
             f"dump {_human_size(raw.get('dump_bytes'))} · "
             f"files {_human_size(raw.get('files_bytes'))}"
@@ -120,6 +120,7 @@ def maintenance_page(
         "request": request,
         "user": user,
         "announcement": get_announcement().to_dict(),
+        "announced_label": fmt_local(get_announcement().announced_at, "%H:%M %Z"),
         "backup": _backup_status(),
     })
 

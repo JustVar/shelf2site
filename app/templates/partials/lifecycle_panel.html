@@ -28,7 +28,7 @@
                     {% endif %}
                 </span>
                 <span style="font-size: 0.8rem; color: var(--text-muted);">
-                    {% if p.completed_at %}Completed {{ p.completed_at.strftime('%Y-%m-%d') }}{% else %}Started {{ p.created_at.strftime('%Y-%m-%d') if p.created_at else '' }}{% endif %}
+                    {% if p.completed_at %}Completed {{ p.completed_at|localtime('%Y-%m-%d') }}{% else %}Started {{ p.created_at|localtime('%Y-%m-%d') if p.created_at else '' }}{% endif %}
                 </span>
             </div>
             <!-- Stage progress bar -->

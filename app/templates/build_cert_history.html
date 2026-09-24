@@ -71,11 +71,11 @@
         <div class="bch-head" onclick="bchToggle(this)">
           <span class="bch-badge bch-badge--{{ e.cert_status }}">{{ e.cert_status | capitalize }}</span>
           {% if e.cert_status == 'certified' %}
-            <span class="bch-when">{{ e.certified_at.strftime('%Y-%m-%d %H:%M UTC') if e.certified_at else '—' }}</span>
+            <span class="bch-when">{{ e.certified_at|localtime('%Y-%m-%d %H:%M %Z') if e.certified_at else '—' }}</span>
           {% elif e.cert_status == 'cancelled' %}
-            <span class="bch-when">{{ e.cancelled_at.strftime('%Y-%m-%d %H:%M UTC') if e.cancelled_at else '—' }}</span>
+            <span class="bch-when">{{ e.cancelled_at|localtime('%Y-%m-%d %H:%M %Z') if e.cancelled_at else '—' }}</span>
           {% else %}
-            <span class="bch-when">{{ e.created_at.strftime('%Y-%m-%d %H:%M UTC') if e.created_at else '—' }}</span>
+            <span class="bch-when">{{ e.created_at|localtime('%Y-%m-%d %H:%M %Z') if e.created_at else '—' }}</span>
           {% endif %}
           {% if e.reason %}<span class="bch-reason">{{ e.reason | capitalize }}</span>{% endif %}
           <span class="bch-chev" aria-hidden="true">&#9660;</span>

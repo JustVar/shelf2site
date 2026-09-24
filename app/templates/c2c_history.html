@@ -94,13 +94,13 @@
         <div class="c2ch-card__top">
           {% if e.status == 'certified' %}
             <span class="c2ch-badge c2ch-badge--certified">Certified</span>
-            <span class="c2ch-when">{{ e.certified_at.strftime('%Y-%m-%d %H:%M UTC') if e.certified_at else '—' }}</span>
+            <span class="c2ch-when">{{ e.certified_at|localtime('%Y-%m-%d %H:%M %Z') if e.certified_at else '—' }}</span>
           {% elif e.status == 'cancelled' %}
             <span class="c2ch-badge c2ch-badge--cancelled">Cancelled</span>
-            <span class="c2ch-when">{{ e.cancelled_at.strftime('%Y-%m-%d %H:%M UTC') if e.cancelled_at else '—' }}</span>
+            <span class="c2ch-when">{{ e.cancelled_at|localtime('%Y-%m-%d %H:%M %Z') if e.cancelled_at else '—' }}</span>
           {% else %}
             <span class="c2ch-badge c2ch-badge--pending">Pending draft</span>
-            <span class="c2ch-when">{{ e.created_at.strftime('%Y-%m-%d %H:%M UTC') if e.created_at else '—' }}</span>
+            <span class="c2ch-when">{{ e.created_at|localtime('%Y-%m-%d %H:%M %Z') if e.created_at else '—' }}</span>
           {% endif %}
           <span class="c2ch-evid">event #{{ e.id }}</span>
         </div>

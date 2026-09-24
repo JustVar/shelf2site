@@ -19,7 +19,7 @@ from pathlib import Path
 from ..audit import log_event
 from ..auth import require_sites_manager, require_provisioning_manager, require_provisioning_viewer, get_current_user, User
 from ..config import settings
-from ..localtime import register
+from ..localtime import fmt_local, parse_utc, register
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
@@ -156,7 +156,7 @@ def provisioning_page(
             "is_overdue_due_date": is_overdue_due_date,
             "due_soon": due_soon,
             "validation_result": rec.validation_result,
-            "validation_date": rec.validation_date.strftime("%Y-%m-%d %H:%M") if rec.validation_date else None,
+            "validation_date": fmt_local(rec.validation_date, "%Y-%m-%d %H:%M %Z") if rec.validation_date else None,
             "has_validation_report": bool(rec.validation_report_path),
             "zendesk_ticket_id": rec.zendesk_ticket_id,
         })
@@ -170,7 +170,7 @@ def provisioning_page(
             "display_table": TABLE_DISPLAY_NAMES.get(rec.device_table, rec.device_table),
             "deployment_type": _resolve_deployment_type(db, rec.device_id),
             "site_name": rec.site.name if rec.site else "—",
-            "completed_at": rec.completed_at.strftime("%Y-%m-%d") if rec.completed_at else "",
+            "completed_at": fmt_local(rec.completed_at, "%Y-%m-%d") if rec.completed_at else "",
             "deployment_bucket": rec.deployment_bucket,
             "location_note": rec.location_note,
             "validation_result": rec.validation_result,
@@ -1113,13 +1113,8 @@ async def upload_validation_report(
     # Update record
     rec.validation_report_path = str(file_path)
     rec.validation_result = overall_result
-    if validation_date_str:
-        try:
-            rec.validation_date = datetime.fromisoformat(validation_date_str)
-        except ValueError:
-            rec.validation_date = datetime.utcnow()
-    else:
-        rec.validation_date = datetime.utcnow()
+    parsed = parse_utc(validation_date_str)
+    rec.validation_date = parsed if parsed is not None else datetime.utcnow()
 
     db.commit()
 

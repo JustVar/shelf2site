@@ -35,7 +35,7 @@ async function loadOrganizations() {
         orgs.forEach(/** @param {any} o */ o => {
             h += '<tr><td>' + (o.name || '-') + '</td><td>' + o.id + '</td><td>' +
                 ((o.domain_names || []).join(', ') || '-') + '</td><td>' +
-                (o.created_at ? o.created_at.split('T')[0] : '-') + '</td></tr>';
+                (o.created_at ? new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }) : '-') + '</td></tr>';
         });
         h += '</tbody></table>';
         c.innerHTML = h;

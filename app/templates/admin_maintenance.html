@@ -37,7 +37,7 @@
         </div>
         <div id="status-sub" style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
             {% if announcement.active and announcement.announced_at %}
-                Since {{ announcement.announced_at[11:16] }} UTC
+                Since {{ announced_label }}
             {% else %}
                 No banner showing
             {% endif %}
