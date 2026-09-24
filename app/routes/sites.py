@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_sites_manager
 from ..config import settings
+from ..localtime import register
 from ..geocoding import geocode, compose_address
 from ..database import get_db
 from ..models import (
@@ -27,6 +28,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 # ---------------------------------------------------------------------------

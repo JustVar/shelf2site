@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_receiving_access, require_scan_access
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import (
     AccessControl, Camera, CustomerOrder, EdgeBox, IntakePhoto, Item,
@@ -40,6 +41,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def find_serial_anywhere(db: Session, serial: str) -> dict | None:

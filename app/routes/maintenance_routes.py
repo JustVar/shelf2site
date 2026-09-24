@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, require_system_admin
 from ..audit import log_event
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..maintenance import get_announcement, set_announcement, clear_announcement
 from ..models import User
@@ -32,6 +33,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 BACKUP_STATUS_FILE = Path(os.environ.get("BACKUP_STATUS_DIR", "/app/data/backups")) / "status.json"
 BACKUP_AMBER_HOURS = 36

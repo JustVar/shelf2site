@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, User
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import Item, ItemLocation, Site
 from .dashboard import FL_CATEGORY_COLORS, category_display
@@ -20,6 +21,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 @router.get("/search")

@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import Item, ItemLocation
 from .c2c import _pilots_due_back
@@ -16,6 +17,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 CATEGORY_COLORS = {
     "access_control":  "#AA6633",

@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
@@ -41,6 +42,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 # Full-word stage labels for the WIDE build-cert surfaces (list + detail). The shared
 # STAGE_LABELS map stays abbreviated for the narrow Kanban columns; this build-cert-only map is

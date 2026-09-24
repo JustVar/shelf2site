@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, require_editor, User
 from ..config import settings
+from ..localtime import register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import (
@@ -41,6 +42,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def _get_item_photos(db, item_id, user):

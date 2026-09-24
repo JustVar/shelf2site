@@ -12,6 +12,7 @@ from pathlib import Path
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
+from .localtime import register
 from .sidebar_cache import get_sidebar_counts
 from .database import create_all_tables
 from datetime import datetime
@@ -133,6 +134,7 @@ templates = Jinja2Templates(directory=str(_base_dir / "app" / "templates"))
 
 # Make base_path available in all templates automatically
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 # Error logging middleware — captures unhandled exceptions and logs to error_log table

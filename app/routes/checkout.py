@@ -22,6 +22,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..audit import log_event
 from ..config import settings
+from ..localtime import register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
@@ -33,6 +34,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def _active_users(db: Session):

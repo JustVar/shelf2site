@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ..auth import require_system_admin
 from ..audit import log_event
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import Computer, IntuneSyncLog, User
 
@@ -20,6 +21,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def _intune_configured() -> bool:

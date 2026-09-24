@@ -17,6 +17,7 @@ from ..auth import (
     ROLE_TIER, get_assignable_roles, can_manage_user, User, validate_password_strength,
 )
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import (
     AuditLog, OUIAllowlist, TABLE_DISPLAY_NAMES, Department, User as UserModel,
@@ -32,6 +33,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def _cycle_perm(current_val):

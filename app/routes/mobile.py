@@ -26,6 +26,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user
 from ..config import settings
+from ..localtime import register
 from ..models import User
 
 router = APIRouter()
@@ -34,6 +35,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 # BP-stripped path prefixes phones may open directly; anything else GET-HTML
 # redirects to the launcher. Field pages and their fragments only — static,

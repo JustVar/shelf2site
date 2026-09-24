@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import require_system_admin, User
 from ..config import settings
+from ..localtime import register
 from ..zendesk import get_zendesk_client, ZendeskError
 
 router = APIRouter()
@@ -16,6 +17,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 @router.get("/admin/zendesk", response_class=HTMLResponse)

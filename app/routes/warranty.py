@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_admin, require_warranty_manager
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import (
     DeviceWarranty, WarrantyClaim, User,
@@ -30,6 +31,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def _quarter_label(d: date) -> str:

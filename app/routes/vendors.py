@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import get_current_user, require_admin, require_viewer, require_receipts
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids, pending_for
 from ..models import (
@@ -25,6 +26,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ from .. import delete_requests as dr
 from ..audit import log_event, model_to_dict
 from ..auth import require_admin, require_editor, User
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import DeleteRequest
 
@@ -22,6 +23,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def _err(message, status, **extra):

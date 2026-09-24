@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_editor, User
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import (
     PendingDevice, TABLE_DISPLAY_NAMES,
@@ -21,6 +22,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 @router.get("/review", response_class=HTMLResponse)

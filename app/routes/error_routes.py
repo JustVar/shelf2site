@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, require_system_admin, User
 from ..config import settings
+from ..localtime import register
 from ..database import SessionLocal
 
 from sqlalchemy import text
@@ -27,6 +28,7 @@ router = APIRouter()
 _base_dir = Path(__file__).resolve().parent.parent.parent
 templates = Jinja2Templates(directory=str(_base_dir / "app" / "templates"))
 templates.env.globals["base_path"] = settings.ROOT_PATH.rstrip("/")
+register(templates.env)
 
 
 def _fingerprint(message: str, url: str = "", source: str = "frontend") -> str:

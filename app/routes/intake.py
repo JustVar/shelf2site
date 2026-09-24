@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
 from ..config import settings
+from ..localtime import register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site, VendorProfile, HAND_EDITABLE_ITEM_STATUSES
@@ -26,6 +27,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 # Derived from the item_statuses enum (docs/specs/item-decommission.md):
 # the hand-editable vocabulary, the enum minus code-managed statuses.

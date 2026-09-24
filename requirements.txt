@@ -22,3 +22,4 @@ gunicorn
 asyncpg>=0.29
 PyMuPDF>=1.27  # PDF generation + merge for composite build-certification reports (S6e)
 pytest>=8.0  # contract tests in tests/ — see docs/CONTRACT_TESTS.md
+tzdata>=2025.1  # zone data for app/localtime.py, docs/specs/local-time.md ruling 5

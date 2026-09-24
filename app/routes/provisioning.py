@@ -19,6 +19,7 @@ from pathlib import Path
 from ..audit import log_event
 from ..auth import require_sites_manager, require_provisioning_manager, require_provisioning_viewer, get_current_user, User
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
@@ -37,6 +38,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 VALIDATION_REPORT_DIR = Path("/data/validation-reports")
 

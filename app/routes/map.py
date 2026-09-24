@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import get_current_user, require_map_access, require_editor
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..map_visibility import load_hidden, norm_key, unit_visible
 from ..models import (
@@ -46,6 +47,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 # ── Single vocabulary for the three color modes ─────────────────────────────
 DEAL_CLASSES = {"sale": "purchased", "pilot": "pilot", "try_and_buy": "try_and_buy", "demo": "demo"}

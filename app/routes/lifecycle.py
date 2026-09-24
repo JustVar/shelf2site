@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, User
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES, get_display_name,
@@ -21,6 +22,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 @router.get("/api/device/{table_name}/{device_id}/lifecycle")

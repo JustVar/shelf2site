@@ -49,6 +49,7 @@ from ..auth import (
     hash_password, login_user, logout_user, verify_password, validate_password_strength,
 )
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..models import User
 from app import csrf
@@ -59,6 +60,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 @router.get("/login", response_class=HTMLResponse)

@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
+from ..localtime import register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
@@ -49,6 +50,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 # ---------------------------------------------------------------------------

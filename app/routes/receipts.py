@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_receipts, User
 from ..config import settings
+from ..localtime import register
 from ..toast_redirect import toast_redirect
 from ..csrf import require_csrf
 from ..database import get_db
@@ -31,6 +32,7 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+register(templates.env)
 
 
 def _vendor_map(db: Session) -> dict:
