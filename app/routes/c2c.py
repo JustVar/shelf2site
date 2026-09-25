@@ -37,7 +37,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
-from ..localtime import local_today, register
+from ..localtime import fmt_local, local_today, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
@@ -884,7 +884,7 @@ def _build_c2c_composite_pdf(db, cert, item, prov):
         y += dy
 
     serial = cert.camera_serial_snapshot or (item.item_sn if item else None) or "unknown"
-    when = cert.certified_at.strftime("%Y-%m-%d %H:%M UTC") if cert.certified_at else "-"
+    when = fmt_local(cert.certified_at, "%Y-%m-%d %H:%M %Z") or "-"
     line("C2C Camera Certification", size=18, dy=30, bold=True)
     line(f"Camera serial: {serial}", bold=True)
     line(f"Model / SKU: {(item.item_model if item else '') or ''}  {(item.brand_sku if item else '') or ''}")

@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_now, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import Item, ItemLocation, Site, ITEM_STATUSES
@@ -456,8 +456,7 @@ def inventory_export_csv(
         writer.writerow(row_for(item))
 
     from fastapi.responses import Response
-    from datetime import datetime
-    filename = f"inventory-export-{datetime.now().strftime('%Y%m%d-%H%M%S')}.csv"
+    filename = f"inventory-export-{local_now().strftime('%Y%m%d-%H%M%S')}.csv"
     return Response(
         content=buf.getvalue(),
         media_type="text/csv",

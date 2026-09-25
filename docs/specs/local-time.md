@@ -147,6 +147,16 @@ page renders.
 - The three browser date inputs use `toLocaleDateString('en-CA')`,
   the browser's own date as YYYY-MM-DD.
 
+## Slice D notes (READ at eba357f)
+
+- Export columns show the Central date of a timestamp, with no label.
+- PDF and certificate times carry CDT or CST.
+- Export filenames keep their format and use the Central clock.
+- The structural tests now also ban a naive `datetime.now()` under
+  `app/`, and a UTC label in any string under `app/`.
+- `lifecycle.py:69-70` and `fulfillment.py:1656` stay out: no page or
+  file shows them.
+
 ## Slices
 
 - **A. Helper and wiring.** `app/localtime.py`, `register` in all 29

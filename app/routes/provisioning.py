@@ -19,7 +19,7 @@ from pathlib import Path
 from ..audit import log_event
 from ..auth import require_sites_manager, require_provisioning_manager, require_provisioning_viewer, get_current_user, User
 from ..config import settings
-from ..localtime import fmt_local, local_today, parse_utc, register
+from ..localtime import fmt_local, local_now, local_today, parse_utc, register
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
@@ -1304,12 +1304,12 @@ def export_provisioning(
             "Location": rec.location_note or "",
             "Zendesk Ticket": str(rec.zendesk_ticket_id) if rec.zendesk_ticket_id else "",
             "Status": "Completed" if rec.is_complete else "In Progress",
-            "Completed At": rec.completed_at.strftime("%Y-%m-%d") if rec.completed_at else "",
+            "Completed At": fmt_local(rec.completed_at, "%Y-%m-%d"),
             "Validation": rec.validation_result or "",
             "Notes": rec.notes or "",
         })
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = local_now().strftime("%Y%m%d_%H%M%S")
 
     if format == "csv":
         output = io.StringIO()

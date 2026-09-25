@@ -296,3 +296,34 @@ def test_no_template_uses_a_utc_date_default():
         for path in TEMPLATES.rglob("*.html")
         if "toISOString(" in path.read_text(encoding="utf-8"))
     assert not hits, "%d templates default a date input to the UTC date: %s" % (len(hits), hits)
+
+
+# -- Files (slice D) -------------------------------------------------------------
+
+# A time printed with a literal UTC label: after %M, %H or %S, or opening the string.
+UTC_LABEL = re.compile(r"(%M|%H|%S) ?UTC|^ ?UTC\b")
+
+
+def test_no_naive_datetime_now_under_app():
+    hits = []
+    for path in sorted(APP.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "now" and not node.args and not node.keywords):
+                continue
+            # datetime.now() or datetime.datetime.now(); func.now() is SQL and stays.
+            receiver = node.func.value
+            if ((isinstance(receiver, ast.Name) and receiver.id == "datetime")
+                    or (isinstance(receiver, ast.Attribute) and receiver.attr == "datetime")):
+                hits.append("%s:%d" % (path.relative_to(APP.parent).as_posix(), node.lineno))
+    assert not hits, "%d naive datetime.now() calls, use local_now(): %s" % (len(hits), hits)
+
+
+def test_no_utc_label_in_app_python():
+    hits = []
+    for path in sorted(APP.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and UTC_LABEL.search(node.value)):
+                hits.append("%s:%d %r" % (path.relative_to(APP.parent).as_posix(), node.lineno, node.value))
+    assert not hits, "%d app strings print a UTC label, use %%Z: %s" % (len(hits), hits)

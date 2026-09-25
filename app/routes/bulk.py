@@ -2,7 +2,6 @@
 
 import csv
 import io
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -13,7 +12,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_sites_manager, User
 from ..config import settings
-from ..localtime import local_today
+from ..localtime import local_now, local_today
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
@@ -231,7 +230,7 @@ async def bulk_export_selected(
     if not rows:
         return JSONResponse(status_code=400, content={"error": "No exportable data"})
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = local_now().strftime("%Y%m%d_%H%M%S")
 
     if export_format == "csv":
         output = io.StringIO()

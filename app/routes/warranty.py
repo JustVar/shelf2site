@@ -3,7 +3,7 @@
 import csv
 import io
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_admin, require_warranty_manager
 from ..config import settings
-from ..localtime import local_today, register
+from ..localtime import local_now, local_today, register
 from ..database import get_db
 from ..models import (
     DeviceWarranty, WarrantyClaim, User,
@@ -385,7 +385,7 @@ def export_warranties(
             "Renewal Cost": str(w.renewal_cost) if w.renewal_cost else "",
         })
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = local_now().strftime("%Y%m%d_%H%M%S")
     if format == "csv":
         output = io.StringIO()
         if rows:

@@ -1229,7 +1229,7 @@ def export_fulfillment(
             order.deployment_type,
             sku_str,
             prov_counts.get(order.id, 0),
-            order.created_at.strftime("%Y-%m-%d") if order.created_at else "",
+            fmt_local(order.created_at, "%Y-%m-%d"),
         ]
         for col_idx, value in enumerate(row_data, 1):
             ws.cell(row=row_idx, column=col_idx, value=value)
@@ -2064,7 +2064,7 @@ def _build_cert_report_pdf(db, cert, eb):
         mark = "[x]" if checked else "[ ]"
         line(f"  {mark} {_QA_LABELS.get(k, k)}")
     line(f"QA status: {cert.qa_status or '-'}  by {cert.certified_by or '-'}"
-         f"  {cert.certified_at.isoformat(sep=' ', timespec='minutes') if cert.certified_at else '-'}")
+         f"  {fmt_local(cert.certified_at, '%Y-%m-%d %H:%M %Z') or '-'}")
     gap()
 
     # hardware half
@@ -2073,7 +2073,7 @@ def _build_cert_report_pdf(db, cert, eb):
     smart = (hv.get("smart_test") or {})
     line(f"SMART result: {smart.get('result', '-')}")
     line(f"HW status: {cert.hw_status or '-'}  by {cert.co_certified_by or '-'}"
-         f"  {cert.co_certified_at.isoformat(sep=' ', timespec='minutes') if cert.co_certified_at else '-'}")
+         f"  {fmt_local(cert.co_certified_at, '%Y-%m-%d %H:%M %Z') or '-'}")
     gap()
 
     # components

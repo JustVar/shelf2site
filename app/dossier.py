@@ -10,12 +10,12 @@ Sensitive-order composition: rows and photos tied to a sensitive order are
 omitted for users without sensitive-customer access — a dossier printed by
 a viewer must not say more than the pages they can open.
 """
-from datetime import datetime
 from pathlib import Path
 
 import fitz
 
 from .config import settings
+from .localtime import fmt_local, local_now
 from .models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, Site,
     UnitPhoto, UnitPhotoItem, User,
@@ -60,7 +60,7 @@ def build_item_dossier_pdf(db, item, user, helpers) -> bytes:
     # ── header ───────────────────────────────────────────────────────────
     line(f"Unit Dossier — {item.item_sn or item.item_name or f'item #{item.id}'}",
          size=18, dy=26, bold=True)
-    line(f"Generated {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC by {user.display_name or user.username}",
+    line(f"Generated {local_now().strftime('%Y-%m-%d %H:%M %Z')} by {user.display_name or user.username}",
          size=9, dy=14, color=(0.4, 0.4, 0.4))
     gap(6)
 
@@ -175,7 +175,7 @@ def build_item_dossier_pdf(db, item, user, helpers) -> bytes:
     for ph in visible:
         ipage = doc.new_page()
         head = (f"{ph.direction.upper()} — "
-                f"{ph.taken_at.strftime('%Y-%m-%d %H:%M') if ph.taken_at else '—'}"
+                f"{fmt_local(ph.taken_at, '%Y-%m-%d %H:%M %Z') or '—'}"
                 f" — by {uploader.get(ph.uploaded_by, '—')}")
         ipage.insert_text((MARGIN, MARGIN), head, fontsize=11, fontname="hebo")
         if ph.caption:
