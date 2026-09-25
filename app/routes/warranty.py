@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_admin, require_warranty_manager
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..database import get_db
 from ..models import (
     DeviceWarranty, WarrantyClaim, User,
@@ -94,7 +94,7 @@ def warranty_page(
     user: User = Depends(get_current_user),
 ):
     """Warranty & RMA management page."""
-    today = date.today()
+    today = local_today()
     threshold = today + timedelta(days=30)
 
     warranties = (
@@ -287,7 +287,7 @@ async def create_claim(
     claim = WarrantyClaim(
         warranty_id=warranty_id,
         claim_number=body.get("claim_number") or None,
-        claim_date=body.get("claim_date") or date.today().isoformat(),
+        claim_date=body.get("claim_date") or local_today().isoformat(),
         issue_description=body.get("issue_description"),
         claim_status=body.get("claim_status", "opened"),
         rma_number=body.get("rma_number") or None,
@@ -355,7 +355,7 @@ def export_warranties(
     user: User = Depends(get_current_user),
 ):
     """Export all warranty records to CSV or Excel."""
-    today = date.today()
+    today = local_today()
     warranties = db.query(DeviceWarranty).order_by(desc(DeviceWarranty.warranty_end)).all()
 
     rows = []

@@ -311,7 +311,7 @@ function openAssignModal() {
     document.getElementById('assign-table').selectedIndex = 0;
     document.getElementById('assign-device').innerHTML = '<option value="">-- Select a category first --</option>';
     document.getElementById('assign-ownership').selectedIndex = 0;
-    document.getElementById('assign-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('assign-date').value = new Date().toLocaleDateString('en-CA');
     document.getElementById('assign-return').value = '';
     document.getElementById('assign-notes').value = '';
     document.getElementById('assign-msg').innerHTML = '';

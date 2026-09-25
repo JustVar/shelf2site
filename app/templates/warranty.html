@@ -662,7 +662,7 @@
     function openAddClaimModal(warrantyId) {
         document.getElementById('add-claim-form').reset();
         document.getElementById('c-warranty-id').value = warrantyId;
-        document.getElementById('c-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('c-date').value = new Date().toLocaleDateString('en-CA');
         document.getElementById('c-error').style.display = 'none';
         document.getElementById('add-claim-modal').classList.add('open');
     }

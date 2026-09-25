@@ -46,7 +46,7 @@
 | `text` | text | Notes, descriptions, addresses, long-form content |
 | `boolean` | bool | Flags (is_active, dismissed, permission toggles) |
 | `timestamp without time zone` | timestamp | created_at, updated_at, last_seen, last_login |
-| `timestamp with time zone` | timestamptz | error_log.created_at (only instance) |
+| `timestamp with time zone` | timestamptz | error_log.created_at, delete_requests.requested_at, delete_requests.decided_at, item_schema.csv_import_map.imported_at |
 | `date` | date | Purchase dates, warranty dates, shipping dates |
 | `numeric` | numeric | Money fields (prices, costs, values) |
 | `double precision` | float8 | Data completeness scores, geo coordinates |
@@ -645,7 +645,7 @@ Same structure as network_equipment (device, model_name, model_number, serial, l
 | device_id | int | NO | |
 | site_id | int | NO | |
 | ownership | varchar(32) | NO | |
-| assigned_date | date | YES | now() |
+| assigned_date | date | YES | Central date (migration 079) |
 | expected_return | date | YES | |
 | returned_date | date | YES | |
 | assigned_by | int | YES | |

@@ -12,7 +12,6 @@ active user (FK) or a free-text name (external people / projects).
 """
 
 from pathlib import Path
-from datetime import date
 
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request, Form
@@ -22,7 +21,7 @@ from fastapi.templating import Jinja2Templates
 from ..auth import get_current_user, User
 from ..audit import log_event
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
@@ -179,7 +178,7 @@ def do_checkin(
         return toast_redirect(f"{BP}/checkin", "Checkout not found or already returned", "warning")
 
     item = db.query(Item).filter(Item.id == co.item_id).first()
-    co.checkin_date = date.today()
+    co.checkin_date = local_today()
     if notes.strip():
         co.notes = (co.notes + "\n" if co.notes else "") + notes.strip()
     if item:
@@ -317,7 +316,7 @@ async def do_bulk_checkin(
     seen = set()
     for co in open_rows:
         item = db.query(Item).filter(Item.id == co.item_id).first()
-        co.checkin_date = date.today()
+        co.checkin_date = local_today()
         if notes:
             co.notes = (co.notes + "\n" if co.notes else "") + notes
         if item:

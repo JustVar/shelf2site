@@ -18,7 +18,7 @@ Data model:
   add show_on_map conditions anywhere else in this file.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import get_current_user, require_map_access, require_editor
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..database import get_db
 from ..map_visibility import load_hidden, norm_key, unit_visible
 from ..models import (
@@ -147,7 +147,7 @@ def _due_back(link):
 
 def _feature(unit_key, kind, lng, lat, name, serial, category, status, deal, provenance,
              customer, site, city, deployed, due_back, view_url):
-    due_soon = bool(due_back and (due_back - date.today()).days <= 30)
+    due_soon = bool(due_back and (due_back - local_today()).days <= 30)
     # Item units on the customer map are at a customer site by construction;
     # a non-Deployed status there is the place/status smell triage surfaces.
     data_check = ""
@@ -347,7 +347,7 @@ def map_page(request: Request, db: Session = Depends(get_db),
 def map_data(request: Request, db: Session = Depends(get_db),
              user: User = Depends(require_map_access)):
     features, hidden, by_item, by_edge = _collect_units(db, user)
-    today = date.today()
+    today = local_today()
     props = [f["properties"] for f in features]
 
     deal_counts = {k: 0 for k in DEAL_COLORS}

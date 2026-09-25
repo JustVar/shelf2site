@@ -18,6 +18,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, LargeBinary,
     MetaData, Numeric, String, Table, Text, UniqueConstraint, func,
+    literal_column, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import MACADDR
@@ -25,6 +26,9 @@ from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 from sqlalchemy.orm import relationship
 
 from .database import Base
+
+# Today's date in Central, computed by the database. docs/specs/local-time.md slice C.
+LOCAL_TODAY_SQL = "(now() AT TIME ZONE 'America/Chicago')::date"
 
 
 # Admin-level roles (CEO included, has all admin access except credentials).
@@ -978,7 +982,7 @@ class DeviceAssignment(Base):
     device_id = Column(Integer, nullable=False)
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
     ownership = Column(String(32), nullable=False)  # owned | partner_loaner | customer_loaner | evaluation
-    assigned_date = Column(Date, server_default=func.now())
+    assigned_date = Column(Date, server_default=text(LOCAL_TODAY_SQL))
     expected_return = Column(Date, nullable=True)  # For loaners/evaluations
     returned_date = Column(Date, nullable=True)
     assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -1981,8 +1985,8 @@ class Item(Base):
     dispatched_date            = Column(Date, nullable=True)
     tracking_number            = Column(String(512), nullable=True)
     notes                      = Column(Text, nullable=True)
-    created_at                 = Column(Date, server_default=func.current_date())
-    last_updated               = Column(Date, server_default=func.current_date(), onupdate=func.current_date())
+    created_at                 = Column(Date, server_default=text(LOCAL_TODAY_SQL))
+    last_updated               = Column(Date, server_default=text(LOCAL_TODAY_SQL), onupdate=literal_column(LOCAL_TODAY_SQL, Date))
     attributes                 = Column(JSONB, nullable=True)
 
     # Decommission lifecycle (migration 073, docs/specs/item-decommission.md):
@@ -2031,8 +2035,8 @@ class ItemLocation(Base):
     customer         = Column(String(255), nullable=True)
     is_active        = Column(Boolean, default=True)
     notes            = Column(Text, nullable=True)
-    created_at       = Column(Date, server_default=func.current_date())
-    last_updated     = Column(Date, server_default=func.current_date())
+    created_at       = Column(Date, server_default=text(LOCAL_TODAY_SQL))
+    last_updated     = Column(Date, server_default=text(LOCAL_TODAY_SQL))
 
 
 class ItemPartNumber(Base):
@@ -2047,7 +2051,7 @@ class ItemPartNumber(Base):
     is_customer_pn  = Column(Boolean, default=False)
     location_id     = Column(Integer, ForeignKey('sites.id', ondelete='SET NULL'), nullable=True)  # Migration 063
     created_by      = Column(String(100), nullable=True)
-    created_at      = Column(Date, server_default=func.current_date())
+    created_at      = Column(Date, server_default=text(LOCAL_TODAY_SQL))
     notes           = Column(Text, nullable=True)
 
 
@@ -2065,7 +2069,7 @@ class ItemReceipt(Base):
     original_filename = Column(String(255), nullable=True)
     notes             = Column(Text, nullable=True)
     created_by        = Column(String(100), nullable=False)
-    created_at        = Column(Date, server_default=func.current_date())
+    created_at        = Column(Date, server_default=text(LOCAL_TODAY_SQL))
 
 
 class ReceiptItem(Base):
@@ -2091,10 +2095,10 @@ class ItemMaintenanceLog(Base):
     entry_type       = Column(String(50), nullable=False)
     description      = Column(Text, nullable=False)
     performed_by     = Column(String(100), nullable=True)
-    maintenance_date = Column(Date, server_default=func.current_date())
+    maintenance_date = Column(Date, server_default=text(LOCAL_TODAY_SQL))
     component_id     = Column(Integer, nullable=True)
     created_by       = Column(String(100), nullable=False)
-    created_at       = Column(Date, server_default=func.current_date())
+    created_at       = Column(Date, server_default=text(LOCAL_TODAY_SQL))
 
     item = relationship('Item', foreign_keys=[item_id])
 
@@ -2108,10 +2112,10 @@ class ItemComponentHistory(Base):
     parent_item_id = Column(Integer, ForeignKey('item_schema.items.id'), nullable=True)
     action         = Column(component_actions_enum, nullable=False)
     slot_label     = Column(String(100), nullable=True)
-    action_date    = Column(Date, server_default=func.current_date())
+    action_date    = Column(Date, server_default=text(LOCAL_TODAY_SQL))
     performed_by   = Column(String(100), nullable=True)
     notes          = Column(Text, nullable=True)
-    created_at     = Column(Date, server_default=func.current_date())
+    created_at     = Column(Date, server_default=text(LOCAL_TODAY_SQL))
 
     item        = relationship('Item', foreign_keys=[item_id])
     parent_item = relationship('Item', foreign_keys=[parent_item_id])
@@ -2125,12 +2129,12 @@ class ItemCheckout(Base):
     item_id                = Column(Integer, ForeignKey('item_schema.items.id'), nullable=False)
     checked_out_to_user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     checked_out_to_name    = Column(String(255), nullable=True)
-    checkout_date          = Column(Date, server_default=func.current_date(), nullable=False)
+    checkout_date          = Column(Date, server_default=text(LOCAL_TODAY_SQL), nullable=False)
     checkin_date           = Column(Date, nullable=True)
     prior_status           = Column(item_statuses_enum, nullable=True)
     checked_out_by         = Column(String(100), nullable=True)
     notes                  = Column(Text, nullable=True)
-    created_at             = Column(Date, server_default=func.current_date())
+    created_at             = Column(Date, server_default=text(LOCAL_TODAY_SQL))
 
     item                = relationship('Item', foreign_keys=[item_id])
     checked_out_to_user = relationship('User', foreign_keys=[checked_out_to_user_id])

@@ -1,6 +1,5 @@
 """Vendor Profiles routes — contact info, OEM flags, and per-vendor analytics."""
 
-from datetime import date
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -12,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import get_current_user, require_admin, require_viewer, require_receipts
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids, pending_for
 from ..models import (
@@ -56,7 +55,7 @@ def _vendor_analytics(db: Session, vendor_name: str) -> dict:
             })
 
     warranties = db.query(DeviceWarranty).filter(DeviceWarranty.vendor.ilike(vendor_name)).all()
-    active_warranties = sum(1 for w in warranties if w.warranty_end and w.warranty_end >= date.today())
+    active_warranties = sum(1 for w in warranties if w.warranty_end and w.warranty_end >= local_today())
     warranty_ids = [w.id for w in warranties]
     claims = (
         db.query(WarrantyClaim).filter(WarrantyClaim.warranty_id.in_(warranty_ids)).all()

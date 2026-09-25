@@ -134,6 +134,19 @@ page renders.
   API keeps `created_at`.
 - The Zendesk org date converts in the browser to the Central date.
 
+## Slice C notes (READ at 96e3e66)
+
+- The structural test bans `date.today()` under `app/`. Slice D adds
+  naive `datetime.now()` when it fixes the 5 export filenames.
+- The `Item.last_updated` onupdate uses the same SQL as the new
+  default, `(now() AT TIME ZONE 'America/Chicago')::date`.
+- `scripts/route_census.py` is converted. The two legacy import
+  scripts, `scripts/link_custom_builds.py` and
+  `scripts/import_all_categories.py`, write data and cannot be
+  verified; they are left alone and recorded on the board.
+- The three browser date inputs use `toLocaleDateString('en-CA')`,
+  the browser's own date as YYYY-MM-DD.
+
 ## Slices
 
 - **A. Helper and wiring.** `app/localtime.py`, `register` in all 29

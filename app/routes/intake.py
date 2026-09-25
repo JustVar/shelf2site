@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, User
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site, VendorProfile, HAND_EDITABLE_ITEM_STATUSES
@@ -211,7 +211,7 @@ def create_item(
             vendor_id=_safe_int(receipt.get("vendor_id")),
             purchase_order=_clean_str(receipt.get("purchase_order")),
             record_type=_clean_str(receipt.get("record_type")) or "receipt",
-            transaction_date=receipt.get("transaction_date") or date.today(),
+            transaction_date=receipt.get("transaction_date") or local_today(),
             file_path=receipt.get("file_path"),
             original_filename=receipt.get("original_filename"),
             notes=_clean_str(receipt.get("notes")),
@@ -310,7 +310,7 @@ async def intake_submit(
         if receipt_file and receipt_file.filename:
             ext = Path(receipt_file.filename).suffix.lower()
             if ext in ALLOWED_RECEIPT_EXTENSIONS:
-                unique_name = f"receipt_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
+                unique_name = f"receipt_{local_today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
                 saved_path = os.path.join(RECEIPT_STORAGE_PATH, unique_name)
                 os.makedirs(RECEIPT_STORAGE_PATH, exist_ok=True)
                 content = await receipt_file.read()
@@ -322,7 +322,7 @@ async def intake_submit(
             "vendor_id": vendor_value,
             "purchase_order": purchase_order,
             "record_type": record_type,
-            "transaction_date": _safe_date(date_purchased) or date.today(),
+            "transaction_date": _safe_date(date_purchased) or local_today(),
             "file_path": saved_path,
             "original_filename": original_name,
             "notes": receipt_notes,

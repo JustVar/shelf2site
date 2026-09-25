@@ -7,11 +7,11 @@ stays free text, unmatched text just gets a quiet hint, and receiving never
 blocks on a match. The same normalization is used everywhere (event create,
 event panel, intake sync, OEM card) so the surfaces cannot disagree.
 """
-from datetime import date
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from .localtime import local_today
 from .models import OEMPurchaseOrder
 
 
@@ -72,6 +72,6 @@ def sync_oem_receipt(db: Session, po_text: str | None, unit_sku: str | None) -> 
         if (row.qty_received or 0) >= (row.qty_ordered or 0) and row.status == "receiving":
             row.status = "verified"
             if not row.received_date:
-                row.received_date = date.today()
+                row.received_date = local_today()
         return row
     return None

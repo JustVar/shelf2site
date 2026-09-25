@@ -1,6 +1,6 @@
 """Sites & Ownership — manage physical locations and device-to-site assignments."""
 
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_sites_manager
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..geocoding import geocode, compose_address
 from ..database import get_db
 from ..models import (
@@ -53,7 +53,7 @@ def sites_page(
     )
 
     # Count overdue loaners (active assignments with expected_return in the past)
-    today = date.today()
+    today = local_today()
     overdue_count = (
         db.query(func.count(DeviceAssignment.id))
         .filter(
@@ -124,7 +124,7 @@ def site_detail_page(
         is_overdue = (
             a.is_active
             and a.expected_return
-            and a.expected_return < date.today()
+            and a.expected_return < local_today()
         )
 
         assignment_list.append({
@@ -402,7 +402,7 @@ async def assign_device(
         device_id=int(device_id),
         site_id=int(site_id),
         ownership=ownership,
-        assigned_date=body.get("assigned_date") or date.today(),
+        assigned_date=body.get("assigned_date") or local_today(),
         expected_return=body.get("expected_return") or None,
         assigned_by=user.id,
         notes=(body.get("notes") or "").strip() or None,
@@ -441,7 +441,7 @@ async def return_device(
     old_values = model_to_dict(assignment)
 
     body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
-    assignment.returned_date = body.get("returned_date") or date.today()
+    assignment.returned_date = body.get("returned_date") or local_today()
     assignment.is_active = False
     if body.get("notes"):
         assignment.notes = (assignment.notes or "") + f"\nReturn: {body['notes']}"

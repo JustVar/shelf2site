@@ -1,6 +1,5 @@
 """NAS Drive / Component tracking API routes."""
 
-from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -10,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_admin
 from ..config import settings
+from ..localtime import local_today
 from ..database import get_db
 from ..models import NASDrive, NASDevice, User
 
@@ -109,7 +109,7 @@ async def add_drive(
         interface=body.get("interface"),
         drive_status="active",
         health_status="good",
-        install_date=body.get("install_date") or date.today().isoformat(),
+        install_date=body.get("install_date") or local_today().isoformat(),
         warranty_end=body.get("warranty_end") or None,
     )
     db.add(drive)
@@ -153,7 +153,7 @@ async def update_drive(
 
     # Auto-set removal_date when marked as removed
     if body.get("drive_status") == "removed" and not drive.removal_date:
-        drive.removal_date = date.today()
+        drive.removal_date = local_today()
 
     db.commit()
     db.refresh(drive)

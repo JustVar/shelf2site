@@ -883,7 +883,7 @@ async function decOpenModal() {
   var reason = await SxDialog.prompt({ title: 'Decommission item', message: 'Reason for decommissioning this item:', label: 'Reason', required: true, okLabel: 'Continue', danger: true });
   if (reason === null) return;
   if (!reason.trim()) { SxToast.warning('A reason is required.'); return; }
-  var dflt = new Date().toISOString().slice(0, 10);
+  var dflt = new Date().toLocaleDateString('en-CA');
   var d = await SxDialog.prompt({ title: 'Decommission item', message: 'Decommission date (YYYY-MM-DD):', label: 'Date', value: dflt, okLabel: 'Decommission', danger: true });
   if (d === null) return;
   decPost('decommission', { reason: reason.trim(), decommission_date: (d || '').trim() });

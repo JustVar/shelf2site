@@ -2,7 +2,7 @@
 
 import csv
 import io
-from datetime import date, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, require_sites_manager, User
 from ..config import settings
+from ..localtime import local_today
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
@@ -162,7 +163,7 @@ async def bulk_assign_to_site(
                 continue
             # Return from current site first
             existing.is_active = False
-            existing.returned_date = date.today()
+            existing.returned_date = local_today()
             db.commit()
 
         assignment = DeviceAssignment(
@@ -170,7 +171,7 @@ async def bulk_assign_to_site(
             device_id=item["device_id"],
             site_id=int(site_id),
             ownership=ownership,
-            assigned_date=date.today(),
+            assigned_date=local_today(),
             assigned_by=user.id,
             notes=f"Bulk assignment to {site.name}",
         )

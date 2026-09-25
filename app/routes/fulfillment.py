@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
-from ..localtime import fmt_local, register
+from ..localtime import fmt_local, local_today, register
 from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
@@ -122,7 +122,7 @@ def _order_urgency(due_date) -> str:
     shared by the order cards and the Building-board groups."""
     if not due_date:
         return "normal"
-    days = (due_date - date.today()).days
+    days = (due_date - local_today()).days
     if days < 0:
         return "overdue"
     if days <= 3:
@@ -274,7 +274,7 @@ def build_fulfillment_groups(orders, order_devices, item_unit_counts=None):
 
 def _build_order_card(order: CustomerOrder, prov_count: int) -> dict:
     """Return a lightweight dict for rendering a Kanban card."""
-    days_until_due = (order.due_date - date.today()).days if order.due_date else None
+    days_until_due = (order.due_date - local_today()).days if order.due_date else None
     urgency = _order_urgency(order.due_date)
 
     total_sku_qty = sum(int(r.get("qty") or 0) for r in (order.sku_requirements or []))
@@ -677,7 +677,7 @@ def fulfillment_page(
             "verified": "var(--fl-green)",
             "cancelled": "var(--text-muted)",
         },
-        "today": date.today(),
+        "today": local_today(),
         "stage_groups": STAGE_GROUPS,
         "stage_labels": STAGE_LABELS,
         "deploy_columns": deploy_columns,
@@ -958,7 +958,7 @@ async def update_deployment_status(
 
     # Auto-set installed_date when completing
     if new_status == "complete" and not dr.installed_date:
-        dr.installed_date = date.today()
+        dr.installed_date = local_today()
 
     db.commit()
     return {"ok": True, "id": dr.id, "old_status": old_status, "status": new_status}
@@ -1243,7 +1243,7 @@ def export_fulfillment(
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"fulfillment_export_{date.today().isoformat()}.xlsx"
+    filename = f"fulfillment_export_{local_today().isoformat()}.xlsx"
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1971,7 +1971,7 @@ async def certify_installation(
 
     dr.status = "complete"
     if not dr.installed_date:
-        dr.installed_date = date.today()
+        dr.installed_date = local_today()
 
     db.commit()
     return {"ok": True, "deployment_id": dep_id, "cert_id": cert.id, "status": "certified"}

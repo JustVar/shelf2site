@@ -5,10 +5,10 @@ Handles FastAPI 0.138 lazy _IncludedRouter wrappers (recurses via include_contex
 Identity-maps dependency callables back to their app.auth / app.csrf names so
 closures like require_role(...)->dependency resolve to require_admin etc.
 """
-import datetime
 import json
 import sys
 
+from app.localtime import local_today
 from app.main import app
 import app.auth as auth_mod
 
@@ -92,7 +92,7 @@ _paths = sorted({e["path"] for e in _entries})
 _total = len(_entries)
 _http = _total - len(_mounts)
 _mword = "mount" if len(_mounts) == 1 else "mounts"
-_today = datetime.date.today().isoformat()
+_today = local_today().isoformat()
 
 print("**Reconciled " + _today + "** against live route introspection: " + str(_total)
       + " route entries", file=sys.stderr)

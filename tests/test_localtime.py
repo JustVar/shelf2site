@@ -203,3 +203,96 @@ def test_localstamp_renders_through_jinja():
     template = env.from_string('{{ s|localstamp("%Y-%m-%d %H:%M %Z") }}')
     assert template.render(s="2026-09-25T00:30:00") == "2026-09-24 19:30 CDT"
     assert template.render(s=None) == ""
+
+
+# -- Today (slice C) -------------------------------------------------------------
+
+# Every date column with a default in the live catalog. Migration 079 reads the same set.
+LIVE_DATE_DEFAULTS = (
+    "SELECT table_schema, table_name, column_name, column_default "
+    "FROM information_schema.columns "
+    "WHERE data_type = 'date' AND column_default IS NOT NULL "
+    "AND table_schema NOT IN ('pg_catalog', 'information_schema') "
+    "ORDER BY table_schema, table_name, column_name")
+
+
+def test_local_today_is_the_central_date(monkeypatch):
+    import app.localtime as lt
+
+    class FrozenClock(datetime):
+        instant = None
+
+        @classmethod
+        def now(cls, tz=None):
+            return cls.instant.astimezone(tz)
+
+    monkeypatch.setattr(lt, "datetime", FrozenClock)
+    # 00:30 UTC is 19:30 CDT the evening before; 05:30 UTC is 00:30 CDT.
+    FrozenClock.instant = datetime(2026, 9, 25, 0, 30, tzinfo=timezone.utc)
+    assert lt.local_today() == date(2026, 9, 24)
+    FrozenClock.instant = datetime(2026, 9, 25, 5, 30, tzinfo=timezone.utc)
+    assert lt.local_today() == date(2026, 9, 25)
+
+
+def test_no_date_today_under_app():
+    hits = []
+    for path in sorted(APP.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "today"):
+                hits.append("%s:%d" % (path.relative_to(APP.parent).as_posix(), node.lineno))
+    assert not hits, "%d calls read today on the UTC clock, use local_today(): %s" % (len(hits), hits)
+
+
+def _model_date_defaults():
+    """table.column -> default SQL, for every Date column in the models that has a default."""
+    from sqlalchemy import Date
+    from sqlalchemy.dialects import postgresql
+
+    import app.models  # noqa: F401  registers every table on Base.metadata
+    from app.database import Base
+
+    found = {}
+    for table in Base.metadata.tables.values():
+        for col in table.columns:
+            if isinstance(col.type, Date) and col.server_default is not None:
+                arg = col.server_default.arg
+                sql = arg if isinstance(arg, str) else str(arg.compile(dialect=postgresql.dialect()))
+                found["%s.%s" % (table.fullname, col.name)] = sql
+    return found
+
+
+def test_model_date_defaults_use_central():
+    found = _model_date_defaults()
+    utc = sorted("%s = %s" % (k, v) for k, v in found.items() if "America/Chicago" not in v)
+    assert not utc, "%d model date defaults use the UTC date: %s" % (len(utc), utc)
+    assert len(found) == 13, sorted(found)
+
+
+def test_item_last_updated_onupdate_uses_central():
+    from sqlalchemy.dialects import postgresql
+
+    from app.models import Item
+
+    sql = str(Item.__table__.c.last_updated.onupdate.arg.compile(dialect=postgresql.dialect()))
+    assert "America/Chicago" in sql, sql
+
+
+def test_live_date_defaults_use_central():
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    with engine.connect() as conn:
+        rows = conn.execute(text(LIVE_DATE_DEFAULTS)).fetchall()
+    utc = sorted("%s.%s.%s = %s" % tuple(r) for r in rows if "America/Chicago" not in r[3])
+    assert not utc, "%d live date defaults use the UTC date: %s" % (len(utc), utc)
+    assert len(rows) == 16, [tuple(r) for r in rows]
+
+
+def test_no_template_uses_a_utc_date_default():
+    hits = sorted(
+        path.relative_to(TEMPLATES).as_posix()
+        for path in TEMPLATES.rglob("*.html")
+        if "toISOString(" in path.read_text(encoding="utf-8"))
+    assert not hits, "%d templates default a date input to the UTC date: %s" % (len(hits), hits)

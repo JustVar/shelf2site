@@ -37,7 +37,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
@@ -234,7 +234,7 @@ def _pilots_due_back(db: Session) -> dict:
     fulfillment Assign panel — anything with item_id set). Legacy edge-box
     provisioning rows (item_id NULL, pre-items pipeline) never join here;
     that exclusion goes away with the legacy tables, not with a filter."""
-    today = date.today()
+    today = local_today()
     rows = (
         db.query(
             DeviceProvisioning.id.label("provisioning_id"),
@@ -635,7 +635,7 @@ async def c2c_mark_returned(
         except (ValueError, TypeError):
             return JSONResponse(status_code=400, content={"error": "returned_date must be YYYY-MM-DD"})
     else:
-        new_date = date.today()
+        new_date = local_today()
     prov.returned_date = new_date  # is_complete intentionally left untouched
     db.commit()
     log_event(
@@ -662,7 +662,7 @@ async def c2c_mark_all_returned(
         return JSONResponse(status_code=404, content={"error": "Customer order not found"})
     if order.order_type not in _LOAN_TYPES:
         return JSONResponse(status_code=400, content={"error": "Mark returned applies to loan orders only (pilot, try_and_buy, demo)"})
-    today = date.today()
+    today = local_today()
     still_out = (
         db.query(DeviceProvisioning)
         .filter(

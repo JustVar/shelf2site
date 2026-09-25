@@ -6,7 +6,7 @@ import io
 import json
 import logging
 import uuid
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, StreamingResponse
@@ -19,7 +19,7 @@ from pathlib import Path
 from ..audit import log_event
 from ..auth import require_sites_manager, require_provisioning_manager, require_provisioning_viewer, get_current_user, User
 from ..config import settings
-from ..localtime import fmt_local, parse_utc, register
+from ..localtime import fmt_local, local_today, parse_utc, register
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
@@ -96,11 +96,11 @@ def provisioning_page(
     # Date-based alerts
     overdue_due_date_count = sum(
         1 for r in active_records
-        if r.due_date and r.due_date < date.today()
+        if r.due_date and r.due_date < local_today()
     )
     due_soon_count = sum(
         1 for r in active_records
-        if r.due_date and 0 <= (r.due_date - date.today()).days <= 7
+        if r.due_date and 0 <= (r.due_date - local_today()).days <= 7
     )
 
     # Resolve device names, deployment types, and assignee names
@@ -125,7 +125,7 @@ def provisioning_page(
         due_soon = False
         is_overdue_due_date = False
         if rec.due_date:
-            days_until_due = (rec.due_date - date.today()).days
+            days_until_due = (rec.due_date - local_today()).days
             is_overdue_due_date = days_until_due < 0
             due_soon = 0 <= days_until_due <= 7
 
@@ -261,7 +261,7 @@ def provisioning_detail_page(
     is_overdue_due_date = False
     due_soon = False
     if rec.due_date:
-        days_until_due = (rec.due_date - date.today()).days
+        days_until_due = (rec.due_date - local_today()).days
         is_overdue_due_date = days_until_due < 0
         due_soon = 0 <= days_until_due <= 7
 
@@ -365,7 +365,7 @@ def get_provisioning_by_bucket(
         due_soon = False
         is_overdue_due_date = False
         if rec.due_date:
-            days_until_due = (rec.due_date - date.today()).days
+            days_until_due = (rec.due_date - local_today()).days
             is_overdue_due_date = days_until_due < 0
             due_soon = 0 <= days_until_due <= 7
 

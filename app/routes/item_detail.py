@@ -3,7 +3,6 @@ Item Detail page — view, edit, and manage a single inventory item.
 """
 
 from pathlib import Path
-from datetime import date
 import uuid
 import os
 import logging
@@ -15,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user, require_editor, User
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import (
@@ -429,7 +428,7 @@ async def add_receipt(
     if receipt_file and receipt_file.filename:
         ext = Path(receipt_file.filename).suffix.lower()
         if ext in ALLOWED_RECEIPT_EXTENSIONS:
-            unique_name = f"receipt_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
+            unique_name = f"receipt_{local_today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
             saved_path = os.path.join(RECEIPT_STORAGE_PATH, unique_name)
             os.makedirs(RECEIPT_STORAGE_PATH, exist_ok=True)
             content = await receipt_file.read()
@@ -441,7 +440,7 @@ async def add_receipt(
         vendor_id=item.vendor_id,
         purchase_order=_clean_str(purchase_order),
         record_type=_clean_str(record_type) or "receipt",
-        transaction_date=item.date_purchased or date.today(),
+        transaction_date=item.date_purchased or local_today(),
         file_path=saved_path,
         original_filename=original_name,
         notes=_clean_str(receipt_notes),

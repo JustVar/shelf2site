@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_receipts, User
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..csrf import require_csrf
 from ..database import get_db
@@ -219,7 +219,7 @@ async def receipt_replace_file(
         return toast_redirect(f"{BP}/receipts/{receipt_id}", "Unsupported file type", "warning")
 
     # save the new file with the intake naming scheme
-    unique_name = f"receipt_{_date.today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
+    unique_name = f"receipt_{local_today().isoformat()}_{uuid.uuid4().hex[:8]}{ext}"
     saved_path = os.path.join(RECEIPT_STORAGE_PATH, unique_name)
     os.makedirs(RECEIPT_STORAGE_PATH, exist_ok=True)
     content = await receipt_file.read()
