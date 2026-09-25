@@ -1,9 +1,6 @@
 ---
-name: asset-tracker-workflow
-description: >-
-  Discovery-first patching, verification gates, and four-location sync for the
-  Asset Tracker repo. Use when editing, patching, migrating, deploying,
-  committing, pushing, or syncing anything in asset_tracker.
+name: "asset-tracker-workflow"
+description: "Discovery-first patching, verification gates, and four-location sync for the Asset Tracker repo. Use when editing, patching, migrating, deploying, committing, pushing, or syncing anything in asset_tracker."
 ---
 
 # Asset Tracker Workflow
@@ -327,10 +324,11 @@ skipping it silently.
 4. **Restart app** (`docker compose restart app`), then confirm the worker came
    up (`docker compose ps` showing `Up <seconds>`, not a restart loop).
 5. **In-container import check**
-   (`docker compose exec -T app python -c "import app.main"`). Catches what
+   (`docker compose exec -T app python -c "import app.main" </dev/null`). Catches what
    `py_compile` cannot: a broken module graph.
 6. **Test suite**:
-   `docker compose exec -T app python -m pytest tests/ -q`. Roughly six seconds.
+   `docker compose exec -T app python -m pytest tests/ -q </dev/null`. Roughly
+   eleven seconds.
 7. **Chrome MCP browser gate**: render, interact, console clean after a tracked
    reload, no regression to adjacent boards.
 8. **`git diff` review**, then commit, then four-location sync.
@@ -462,6 +460,12 @@ in `CLAUDE.md`.
   `ssh host '... ; echo "rc=$?"'`. The same applies to any `$VAR`, `$(...)` or
   backtick meant to run remotely. This bites hardest with the rc markers
   section 1 recommends, since the entire point of those is to be trusted.
+- **`docker compose exec -T` inside `ssh ... 'bash -s'` swallows the rest of
+  the script.** The exec reads the remaining script lines as its own stdin, so
+  bash hits end of input and exits 0 with every later step unrun. It looks
+  exactly like success. Give every `docker compose exec` a `</dev/null`, end
+  every step with an `== END step N` line, and make the runner check for that
+  line, not only the exit code.
 - **New top-level JS function names must be asserted free** (`count == 0`)
   before adding one; duplicates silently clobber.
 - **Root-owned `__pycache__`.** A root `docker exec` importing from a
