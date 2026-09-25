@@ -492,7 +492,7 @@ async def triage_fix_save(
         _log.error("Triage fix save failed: %s", e, exc_info=True)
         return JSONResponse({"success": False, "error": "Save failed"}, status_code=500)
 
-    # Recompute gaps for this item across all three roles
+    # Recompute gaps for this item per role (one role today, hw)
     gaps_remaining = {
         k: len(_compute_gaps(item, TRIAGE_ROLES[k]["fields"], _installed_ids(db)))
         for k in TRIAGE_ROLES.keys()

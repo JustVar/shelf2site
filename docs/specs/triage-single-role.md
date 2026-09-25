@@ -1,6 +1,6 @@
 # Triage single role: collapse to hardware, fold in the deploy checks
 
-Status: DECIDED 2026-09-09 (Jus). Not started. Baseline HEAD 9c235f1.
+Status: SHIPPED 2026-09-09 in 3d8a9bd, with the dead role_counts plumbing dropped in 0018523. Decided 2026-09-09 (Jus). Baseline HEAD 9c235f1.
 
 ## Why
 

@@ -186,9 +186,8 @@ sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
 
 ### Triage system (`app/routes/triage.py`)
 
-- Three roles defined in `TRIAGE_ROLES` dict: `hw` (hardware inventory), `acct` (accounting/auditing), `deploy` (deployment tracking). Each lists the fields required for that role.
-- **Per-tab badge** = items with ≥1 gap *for that role*.
-- **Sidenav badge** = items with ≥1 gap across *any* role (UNION across roles, NOT a sum).
+- One role, `hw`, in the `TRIAGE_ROLES` dict. Its field list is `Item.REQUIRED_FIELDS_HARDWARE` in models.py, and it also carries the two data checks (place mismatch, containment divergence). Owner spec: `docs/specs/triage-single-role.md`.
+- **Sidenav badge** = `get_triage_total_count`: items with >=1 required-field gap or a data-check finding, decommissioned items excluded.
 - Live updates via SSE event `triage_gap_changed` published from any save (single-field fix or bulk action) on either Triage or Inventory pages.
 
 ### SSE fan-out (`app/routes/sse.py`)
