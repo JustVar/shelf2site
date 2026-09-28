@@ -324,41 +324,29 @@ TOURS: list[dict] = [
     # ------------------------------------------------------------------
     {
         "id": "sites_tour",
-        "name": "Sites & Ownership",
+        "name": "Sites",
         "page_pattern": "/sites",
-        "description": "Manage physical locations and device assignments",
+        "description": "Manage physical places and see the items at each one",
         "required_access": None,
         "enabled": True,
         "group": "operations",
         "steps": [
             {
                 "target": "h1",
-                "title": "Sites & Ownership",
+                "title": "Sites",
                 "description": (
-                    "This page manages physical locations (offices, data centers, "
-                    "customer sites) and tracks which devices are assigned where. "
-                    "Use it to maintain a clear picture of your deployment footprint."
+                    "This page lists the physical places items can be located: "
+                    "offices, labs, warehouses and customer sites. An item's place "
+                    "is set on its detail page."
                 ),
                 "position": "bottom",
                 "highlight_padding": 8,
             },
             {
-                "target": ".alert-banner",
-                "title": "Overdue Loaners",
-                "description": (
-                    "When loaner devices are past their expected return date, "
-                    "an alert appears here. Click the link to see which devices "
-                    "need to be recalled."
-                ),
-                "position": "bottom",
-                "highlight_padding": 4,
-                "optional": True,
-            },
-            {
                 "target": ".fl-cta",
                 "title": "Add a Site",
                 "description": (
-                    "Click <strong>+ Add Site</strong> to register a new location. "
+                    "Click <strong>+ Add Site</strong> to register a new place. "
                     "You'll specify the site name, type (office, customer, warehouse, "
                     "etc.), address, and contact information."
                 ),
@@ -370,10 +358,9 @@ TOURS: list[dict] = [
                 "target": ".table-section",
                 "title": "Sites Table",
                 "description": (
-                    "Each row shows a site with its type, location, device count, "
-                    "and status. Click a site to view its assigned devices and "
-                    "manage assignments. Use <strong>Assign Device</strong> to "
-                    "link devices to a site."
+                    "Each row shows a site with its type, location, the number of "
+                    "items placed there, and status. Click a site to see its details "
+                    "and the items placed at it."
                 ),
                 "position": "top",
                 "highlight_padding": 4,

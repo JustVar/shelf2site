@@ -1,9 +1,10 @@
 # Endpoint Auth Census
 
-**Reconciled 2026-09-28** against live route introspection on apphost: 263 route entries
-(262 HTTP routes plus 1 static mount) across 237 unique paths, after item 30 S3 retired
+**Reconciled 2026-09-28** against live route introspection on apphost: 257 route entries
+(256 HTTP routes plus 1 static mount) across 231 unique paths, after item 30 S3 retired
 Intune sync, spreadsheet sync, the lifecycle page, three legacy JSON APIs and the NAS drive
-API, and item 30 S4 retired the two RMA claim routes and added the warranty item search.
+API, and item 30 S4 retired the two RMA claim routes, added the warranty item search, and
+retired the three site assignment routes and the three bulk routes.
 No commit pin, since any commit that updates this file changes the count it would name.
 Regenerate with the command below.
 This is the authoritative map of every route and its auth gate. **When you add an endpoint, add
@@ -145,14 +146,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/login` | POST | — | public by design: the login form itself; per-IP rate limiting in handler |
 | `/logout` | POST | +CSRF token | OK |
 | `/logout` | GET | — | public by design (clears session only) |
-
-### bulk
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/api/bulk/assign` | POST | sites manager | OK |
-| `/api/bulk/export` | POST | any authenticated | read-only export, all authenticated by design |
-| `/api/bulk/status` | POST | editor+ (incl. sub-admins) | OK |
 
 ### c2c
 
@@ -423,9 +416,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/api/assignments` | POST | sites manager | OK |
-| `/api/assignments/{assignment_id}` | DELETE | sites manager | OK |
-| `/api/assignments/{assignment_id}/return` | POST | sites manager | OK |
 | `/api/sites` | POST | sites manager | OK |
 | `/api/sites/list` | GET | any authenticated | OK |
 | `/api/sites/{site_id}` | PUT | sites manager | OK |

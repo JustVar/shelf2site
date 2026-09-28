@@ -1,24 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Sites & Ownership - Asset Tracker{% endblock %}
+{% block title %}Sites - Asset Tracker{% endblock %}
 {% block nav_sites %}active{% endblock %}
 
 {% block content %}
 <div class="sites-page fl-restyle">
 {% include "_fl_bg.html" %}
 <div class="fl-lift">
-<h1>Sites & Ownership</h1>
-
-<!-- Overdue Loaners Alert -->
-{% if overdue_count > 0 %}
-<div class="alert-banner" style="border-left-color: #FF4444;">
-    <span class="icon">!</span>
-    <span>
-        <strong>{{ overdue_count }} device{{ 's' if overdue_count != 1 else '' }}</strong>
-        overdue for return. Review loaner assignments below.
-    </span>
-</div>
-{% endif %}
+<h1>Sites</h1>
+<p style="color: var(--text-muted); margin-top: -0.4rem;">Places items can be located. Each site lists the items placed there; set an item's place from its detail page.</p>
 
 <!-- Summary Cards -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
@@ -31,12 +21,8 @@
         <div style="color: var(--text-muted); font-size: 0.85rem;">Active Sites</div>
     </div>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 700; color: var(--info, #3b82f6);">{{ total_assignments }}</div>
-        <div style="color: var(--text-muted); font-size: 0.85rem;">Assigned Devices</div>
-    </div>
-    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 700; color: {{ '#FF4444' if overdue_count > 0 else 'var(--text-muted)' }};">{{ overdue_count }}</div>
-        <div style="color: var(--text-muted); font-size: 0.85rem;">Overdue Returns</div>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--info, #3b82f6);">{{ placed_items }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Placed Items</div>
     </div>
 </div>
 
@@ -61,7 +47,7 @@
                     <th>Customer</th>
                     <th>Location</th>
                     <th>Contact</th>
-                    <th>Devices</th>
+                    <th>Items</th>
                     <th>Status</th>
                     {% if user.has_sites_admin %}
                     <th>Actions</th>
@@ -97,8 +83,8 @@
                     </td>
                     <td>{{ s.contact_name or '-' }}</td>
                     <td>
-                        {% if item.device_count > 0 %}
-                        <strong>{{ item.device_count }}</strong>
+                        {% if item.item_count > 0 %}
+                        <strong>{{ item.item_count }}</strong>
                         {% else %}
                         <span style="color: var(--text-muted);">0</span>
                         {% endif %}

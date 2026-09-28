@@ -170,7 +170,7 @@ pattern. After the data moves, `device_table` and `device_id` are dropped.
 |---|---|
 | `device_credentials` | `item_id` FK |
 | `device_warranties` | `item_id` FK (0 rows; the feature must work on items) |
-| `device_assignments` | `item_id` FK (0 rows; keeps Sites assign and return) |
+| `device_assignments` | `item_id` FK (0 rows; keeps Sites assign and return). **Superseded 2026-09-28 (Jus):** assignments retired in S4, the table drops in S5 |
 | `device_provisioning` | `item_id` FK (exists); `device_table`, `device_id` dropped |
 | `pending_devices` | `suggested_table` replaced by a suggested item category |
 | `device_components` | dropped after R4 |
@@ -356,11 +356,25 @@ data, data before readers, readers before drops.
    sidenav gains a Warranties link (nothing linked the page before, READ).
    The vendor profile still counts warranties and claims; that moves with
    the vendors area.
+   **Sites built 2026-09-28, scope cut by Jus:** device-to-site
+   assignments are retired, superseding the section 6 decision to keep
+   assign and return. The assign form had been dead since S3 (it loaded
+   devices from the retired legacy JSON APIs) and `device_assignments`
+   never held a row; an item's place is already `items.location_id`, and
+   checkouts cover custody. A site page now lists the items placed there
+   (name, category, serial, status) and the sites list counts them. The
+   three assignment routes and the provisioning completion hook that
+   auto-created an assignment are gone. `bulk.py` (status, assign, export)
+   had no caller anywhere (READ on apphost) and is retired with its
+   allowlist entry. The sidenav gains a Sites link (nothing linked the
+   page before, READ on apphost).
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,
    `vendor_trials`, `device_dispositions` and the three empty `public`
-   copies. From the S4 warranty cut: `warranty_claims`, and the
+   copies. From the S4 sites cut: `device_assignments`, the
+   `Site.assignments` relationship and `DeviceAssignment.OWNERSHIP_TYPES`.
+   From the S4 warranty cut: `warranty_claims`, and the
    `device_warranties` columns the basic form no longer writes (scope,
    tier, type, holder, registration, coverage, renewal, purchase date and
    the four loaner columns). `DeviceWarranty` inherits `InventoryMixin`, so

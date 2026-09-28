@@ -23,7 +23,7 @@ from ..localtime import fmt_local, local_now, local_today, parse_utc, register
 from ..database import get_db
 from ..models import (
     TABLE_MODELS, TABLE_DISPLAY_NAMES,
-    AuditLog, CustomerOrder, DeviceProvisioning, DeviceAssignment, DEFAULT_PROVISIONING_STAGES,
+    AuditLog, CustomerOrder, DeviceProvisioning, DEFAULT_PROVISIONING_STAGES,
     EdgeBox, Item, Site, get_display_name, get_serial,
 )
 from ..notifications import notify
@@ -769,27 +769,8 @@ async def advance_provisioning(
         rec.is_complete = True
         rec.completed_at = datetime.utcnow()
 
-        # Auto-create DeviceAssignment if site_id is set
-        if rec.site_id:
-            existing_assignment = (
-                db.query(DeviceAssignment)
-                .filter(
-                    DeviceAssignment.device_table == rec.device_table,
-                    DeviceAssignment.device_id == rec.device_id,
-                    DeviceAssignment.is_active.is_(True),
-                )
-                .first()
-            )
-            if not existing_assignment:
-                assignment = DeviceAssignment(
-                    device_table=rec.device_table,
-                    device_id=rec.device_id,
-                    site_id=rec.site_id,
-                    ownership="owned",
-                    assigned_by=user.id,
-                    notes=f"Auto-assigned on provisioning completion",
-                )
-                db.add(assignment)
+        # Device-to-site assignments were retired in item 30 S4 (sites area);
+        # completion no longer writes one. The item's place is its location_id.
 
         # Auto-update EdgeBox status to Deployed
         edge_box = db.query(EdgeBox).filter(EdgeBox.id == rec.device_id).first()

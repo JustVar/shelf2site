@@ -65,7 +65,6 @@ IN_BODY_EDITOR_ROUTES = {
 SELF_SCOPED_WRITE_ROUTES = {
     ("POST", "/change-password"),                                  # own password
     ("PATCH", "/api/users/{user_id}"),                             # 403 unless self
-    ("POST", "/api/bulk/export"),                                  # read-only export
     ("POST", "/api/errors/report"),                                # own client errors
     ("POST", "/api/contact-admin"),                                # own message
     ("POST", "/api/tours/progress"),                               # own tour state

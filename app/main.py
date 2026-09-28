@@ -20,7 +20,7 @@ from app import csrf
 from app.toast_redirect import toast_redirect
 from urllib.parse import urlsplit
 from .routes import (
-    admin, api, auth_routes, bulk,
+    admin, api, auth_routes,
     c2c, checkout, contact_admin, containment as containment_routes, creds,
     dashboard, error_routes, fulfillment,
     intake, inventory, item_detail,
@@ -531,7 +531,6 @@ app.include_router(provisioning.router)
 app.include_router(orders.router)
 app.include_router(sites.router)
 app.include_router(search.router)
-app.include_router(bulk.router)
 app.include_router(locks.router, prefix="/api")
 app.include_router(tours.router)
 app.include_router(zendesk_routes.router)

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ site.name }} - Sites & Ownership{% endblock %}
+{% block title %}{{ site.name }} - Sites{% endblock %}
 {% block nav_sites %}active{% endblock %}
 
 {% block content %}
@@ -78,12 +78,12 @@
 <!-- Summary -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center;">
-        <div style="font-size: 1.8rem; font-weight: 700; color: var(--primary);">{{ active_count }}</div>
-        <div style="color: var(--text-muted); font-size: 0.85rem;">Active Devices</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--primary);">{{ item_count }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Items Placed Here</div>
     </div>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: center;">
-        <div style="font-size: 1.8rem; font-weight: 700; color: var(--text-muted);">{{ returned_count }}</div>
-        <div style="color: var(--text-muted); font-size: 0.85rem;">Returned</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--text-muted);">{{ checked_out_count }}</div>
+        <div style="color: var(--text-muted); font-size: 0.85rem;">Checked Out</div>
     </div>
 </div>
 
@@ -91,139 +91,41 @@
 <div class="table-header">
     <div class="header-actions">
         {% if user.has_sites_admin %}
-        <button class="fl-cta" onclick="openAssignModal()">+ Assign Device</button>
         <button class="fl-obtn" onclick="openEditSiteModal()">Edit Site</button>
         {% endif %}
     </div>
 </div>
 
-<!-- Assignments Table -->
+<!-- Placed Items Table (item 30 S4): items whose place is this site -->
 <div class="table-section">
-    <h2>Device Assignments</h2>
+    <h2>Items Placed Here</h2>
     <div style="overflow-x: auto;">
-        <table>
+        <table id="site-items-table">
             <thead>
                 <tr>
-                    <th>Device</th>
+                    <th>Item</th>
                     <th>Category</th>
                     <th>Serial</th>
-                    <th>Ownership</th>
-                    <th>Assigned</th>
-                    <th>Return By</th>
                     <th>Status</th>
-                    {% if user.has_sites_admin %}
-                    <th>Actions</th>
-                    {% endif %}
                 </tr>
             </thead>
             <tbody>
-                {% if assignments %}
-                {% for item in assignments %}
-                {% set a = item.assignment %}
-                <tr style="{{ 'opacity: 0.6;' if not a.is_active else '' }}">
-                    <td style="font-weight: 600;">{{ item.device_label }}</td>
-                    <td>{{ item.device_table_display }}</td>
-                    <td style="font-family: monospace; font-size: 0.85rem;">{{ item.device_serial }}</td>
-                    <td>
-                        <span class="badge" style="background: {{ {
-                            'owned': 'var(--success)',
-                            'partner_loaner': '#8b5cf6',
-                            'customer_loaner': 'var(--info, #3b82f6)',
-                            'evaluation': '#f59e0b'
-                        }.get(a.ownership, 'var(--border)') }}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
-                            {{ ownership_types.get(a.ownership, a.ownership) }}
-                        </span>
-                    </td>
-                    <td>{{ a.assigned_date.strftime('%m/%d/%Y') if a.assigned_date else '-' }}</td>
-                    <td>
-                        {% if a.expected_return %}
-                            <span style="{{ 'color: #FF4444; font-weight: 600;' if item.is_overdue else '' }}">
-                                {{ a.expected_return.strftime('%m/%d/%Y') }}
-                                {% if item.is_overdue %} (OVERDUE){% endif %}
-                            </span>
-                        {% else %}
-                            <span style="color: var(--text-muted);">-</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if a.is_active %}
-                            {% if item.is_overdue %}
-                            <span style="color: #FF4444; font-weight: 600;">Overdue</span>
-                            {% else %}
-                            <span style="color: var(--success);">Active</span>
-                            {% endif %}
-                        {% else %}
-                            <span style="color: var(--text-muted);">Returned {{ a.returned_date.strftime('%m/%d/%Y') if a.returned_date else '' }}</span>
-                        {% endif %}
-                    </td>
-                    {% if user.has_sites_admin %}
-                    <td>
-                        {% if a.is_active %}
-                        <button class="fl-obtn" onclick="returnDevice({{ a.id }})">Return</button>
-                        {% endif %}
-                        <button class="fl-obtn danger" onclick="deleteAssignment({{ a.id }})">Delete</button>
-                    </td>
-                    {% endif %}
+                {% for row in items %}
+                <tr>
+                    <td style="font-weight: 600;"><a href="{{ base_path }}/items/{{ row.item.id }}">{{ row.item.item_name or '(unnamed)' }}</a></td>
+                    <td>{{ row.category }}</td>
+                    <td style="font-family: monospace; font-size: 0.85rem;">{{ row.item.item_sn or '-' }}</td>
+                    <td>{{ row.item.item_status or '-' }}</td>
                 </tr>
-                {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="{% if user.has_sites_admin %}8{% else %}7{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                        No devices assigned to this site yet.
+                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No items are placed at this site. Set an item's place from its detail page.
                     </td>
                 </tr>
-                {% endif %}
+                {% endfor %}
             </tbody>
         </table>
-    </div>
-</div>
-
-<!-- Assign Device Modal -->
-<div id="assign-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-    <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:1.5rem; width:480px; max-width:90vw;">
-        <h3 style="margin-bottom:1rem;">Assign Device to {{ site.name }}</h3>
-        <div class="form-group">
-            <label>Device Category *</label>
-            <select id="assign-table" style="width:100%;" onchange="loadDeviceOptions()">
-                <option value="">-- Select Category --</option>
-                {% for key, label in table_names.items() %}
-                <option value="{{ key }}">{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Device *</label>
-            <select id="assign-device" style="width:100%;">
-                <option value="">-- Select a category first --</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Ownership Type *</label>
-            <select id="assign-ownership" style="width:100%;">
-                {% for key, label in ownership_types.items() %}
-                <option value="{{ key }}">{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-            <div class="form-group">
-                <label>Assigned Date</label>
-                <input type="date" id="assign-date" style="width:100%;">
-            </div>
-            <div class="form-group">
-                <label>Expected Return</label>
-                <input type="date" id="assign-return" style="width:100%;">
-            </div>
-        </div>
-        <div class="form-group">
-            <label>Notes</label>
-            <textarea id="assign-notes" rows="2" style="width:100%;"></textarea>
-        </div>
-        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="fl-obtn" onclick="closeAssignModal()">Cancel</button>
-            <button class="fl-obtn ready" onclick="saveAssignment()">Assign</button>
-        </div>
-        <div id="assign-msg" style="margin-top:0.5rem; font-size:0.85rem;"></div>
     </div>
 </div>
 
@@ -306,103 +208,6 @@
 // BP available globally from base.html
 const SITE_ID = {{ site.id }};
 
-// -- Assign Device Modal --
-function openAssignModal() {
-    document.getElementById('assign-table').selectedIndex = 0;
-    document.getElementById('assign-device').innerHTML = '<option value="">-- Select a category first --</option>';
-    document.getElementById('assign-ownership').selectedIndex = 0;
-    document.getElementById('assign-date').value = new Date().toLocaleDateString('en-CA');
-    document.getElementById('assign-return').value = '';
-    document.getElementById('assign-notes').value = '';
-    document.getElementById('assign-msg').innerHTML = '';
-    document.getElementById('assign-modal').style.display = 'flex';
-}
-function closeAssignModal() { document.getElementById('assign-modal').style.display = 'none'; }
-
-async function loadDeviceOptions() {
-    const table = document.getElementById('assign-table').value;
-    const sel = document.getElementById('assign-device');
-    sel.innerHTML = '<option value="">Loading...</option>';
-    if (!table) {
-        sel.innerHTML = '<option value="">-- Select a category first --</option>';
-        return;
-    }
-    try {
-        const resp = await fetch(`${BP}/api/${table}`);
-        const data = await resp.json();
-        const devices = data.items || data || [];
-        sel.innerHTML = '<option value="">-- Select Device --</option>';
-        devices.forEach(d => {
-            const label = d.display_name || d.device || d.device_name || d.model || d.serial || `#${d.id}`;
-            const serial = d.serial || d.gpu_serial || d.part_number || '';
-            sel.innerHTML += `<option value="${d.id}">${label}${serial ? ' ('+serial+')' : ''}</option>`;
-        });
-    } catch (err) {
-        sel.innerHTML = '<option value="">Error loading devices</option>';
-    }
-}
-
-async function saveAssignment() {
-    const msg = document.getElementById('assign-msg');
-    const body = {
-        device_table: document.getElementById('assign-table').value,
-        device_id: parseInt(document.getElementById('assign-device').value),
-        site_id: SITE_ID,
-        ownership: document.getElementById('assign-ownership').value,
-        assigned_date: document.getElementById('assign-date').value || null,
-        expected_return: document.getElementById('assign-return').value || null,
-        notes: document.getElementById('assign-notes').value,
-    };
-    if (!body.device_table || !body.device_id) {
-        msg.innerHTML = '<span style="color: var(--danger);">Please select a device category and device.</span>';
-        return;
-    }
-    try {
-        const resp = await fetch(`${BP}/api/assignments`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(body),
-        });
-        const data = await resp.json();
-        if (resp.ok) {
-            msg.innerHTML = '<span style="color: var(--success);">Assigned successfully.</span>';
-            setTimeout(() => location.reload(), 500);
-        } else {
-            msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
-        }
-    } catch (err) {
-        msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
-    }
-}
-
-async function returnDevice(assignmentId) {
-    if (!(await SxDialog.confirm({ title: 'Return device', message: 'Mark this device as returned?', okLabel: 'Mark returned' }))) return;
-    try {
-        const resp = await fetch(`${BP}/api/assignments/${assignmentId}/return`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: '{}',
-        });
-        if (resp.ok) location.reload();
-        else {
-            const data = await resp.json();
-            SxToast.error(data.error || 'Failed to return device', 0);
-        }
-    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
-}
-
-async function deleteAssignment(assignmentId) {
-    if (!(await SxDialog.confirm({ title: 'Delete assignment', message: 'Delete this assignment record? This cannot be undone.', okLabel: 'Delete', danger: true }))) return;
-    try {
-        const resp = await fetch(`${BP}/api/assignments/${assignmentId}`, {method: 'DELETE'});
-        if (resp.ok) location.reload();
-        else {
-            const data = await resp.json();
-            SxToast.error(data.error || 'Failed to delete', 0);
-        }
-    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
-}
-
 // -- Edit Site Modal --
 async function openEditSiteModal() {
     document.getElementById('edit-site-msg').innerHTML = '';
@@ -483,7 +288,7 @@ document.getElementById('edit-site-modal').addEventListener('input', () => {
 });
 
 // Close modals on backdrop click
-['assign-modal', 'edit-site-modal'].forEach(id => {
+['edit-site-modal'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) {
         if (e.target === this) { this.style.display = 'none'; if (window._currentLockKey) { window._lockManager.release(window._currentLockKey); window._currentLockKey = null; } }
     });
