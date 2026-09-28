@@ -315,7 +315,17 @@ data, data before readers, readers before drops.
    Intune sync, spreadsheet sync, the lifecycle page and its JSON twin, the
    three legacy JSON APIs and `nas_drives.py` (routes, templates, JS, tours,
    admin nav). Suite total drops by the retired routes through the endpoint
-   auth census; predict it from the census before running.
+   auth census; predict it from the census before running. **Built
+   2026-09-28:** approve creates an `Unassigned` item through the shared
+   `create_item` path and links the receiving unit row to it; the pending
+   path also stores `suggested_category`. 16 routes retired (Intune 4,
+   spreadsheet sync 3, lifecycle 2, legacy JSON 3, NAS drives 4), with
+   their templates, JS, nav links, the dashboard import action and two
+   tours. Suite 1074 to 1038 passed, 39 skipped (34 census cases, 2
+   template-module cases). `docs/ENDPOINT_AUTH_CENSUS.md` reconciled in the
+   same commit. Left for S5: the `IntuneSyncLog` model and table, the
+   `INTUNE_*` and `SPREADSHEET_PATH` settings, and receiving's NAS drive
+   serial lookup.
 4. **S4 readers, one area per commit:** credentials (item detail section,
    dead modal removed); warranty; sites and bulk assign; receiving and
    review queue; provisioning; build certification; fulfillment and

@@ -1489,81 +1489,6 @@ TOURS: list[dict] = [
     },
 
     # ------------------------------------------------------------------
-    # Intune Sync (system admin)
-    # ------------------------------------------------------------------
-    # NOTE: admin_intune_tour is intentionally left disabled here.
-    # Three issues, all needing resolution before enabling:
-    # (1) The Intune integration is not configured (Tenant/Client/Secret
-    #     creds are all Missing), so the "Test Connection" and "Sync Now"
-    #     buttons that step 3 describes do not render on the page at all -
-    #     the tour would walk users to controls that do not exist yet.
-    # (2) Selector mis-targeting: step 2 ("Sync History") uses a bare
-    #     .table-section and resolves to the FIRST such div ("Credentials
-    #     Not Configured"), not Sync History; step 3 ("Test & Sync") uses a
-    #     bare "button" and grabs the first <button> on the page (a nav/icon
-    #     button), not the intended action buttons. Both need id-based
-    #     targets like the procurement_tour fix.
-    # (3) The tour step-1 text was corrected ("on the server"), but
-    #     admin_intune.html ITSELF still carries stale "NUC"/"Chris"
-    #     wording - a separate template-content fix tracked separately.
-    # Re-enable once Intune is configured and the tour is rewritten/retargeted
-    # against the live, connected page.
-    # enabled=False protects users from launching the broken tour.
-    {
-        "id": "admin_intune_tour",
-        "name": "Intune Device Sync",
-        "page_pattern": "/admin/intune",
-        "template": "admin_intune.html",
-        "description": "Configure Microsoft Intune sync to automatically import managed Windows devices",
-        "required_access": "has_system_admin",
-        "enabled": False,
-        "group": "admin",
-        "steps": [
-            {
-                "target": ".summary-cards",
-                "title": "Connection Status",
-                "description": (
-                    "Four cards show whether the required Azure credentials are "
-                    "configured: Tenant ID, Client ID, Client Secret, and Auto-Sync "
-                    "mode. All four must be green before syncing. "
-                    "Add credentials to the <code>.env</code> file on the server."
-                ),
-                "position": "bottom",
-                "highlight_padding": 6,
-                "optional": True,
-            },
-            {
-                "target": ".table-section",
-                "title": "Sync History",
-                "description": (
-                    "Every sync run is logged here: when it ran, who triggered it, "
-                    "how many devices were found / added / updated / skipped, "
-                    "and whether it succeeded or errored. "
-                    "New devices are added to the <strong>Computers</strong> "
-                    "category with <code>discovered_by=intune_import</code>."
-                ),
-                "position": "top",
-                "highlight_padding": 4,
-                "optional": True,
-            },
-            {
-                "target": "button",
-                "title": "Test & Sync",
-                "description": (
-                    "<strong>Test Connection</strong> verifies the Azure credentials "
-                    "without importing any data. "
-                    "<strong>Sync Now</strong> runs a full import immediately. "
-                    "Set <code>INTUNE_AUTO_SYNC=true</code> in <code>.env</code> "
-                    "to enable nightly automatic syncs at 2 AM."
-                ),
-                "position": "bottom",
-                "highlight_padding": 6,
-                "optional": True,
-            },
-        ],
-    },
-
-    # ------------------------------------------------------------------
     # Zendesk Integration (system admin)
     # ------------------------------------------------------------------
     {
@@ -1610,74 +1535,6 @@ TOURS: list[dict] = [
                     "pulling live data. On provisioning detail pages, admins can "
                     "link a specific Zendesk ticket ID — stage advances then "
                     "auto-comment on that ticket."
-                ),
-                "position": "top",
-                "highlight_padding": 6,
-                "optional": True,
-            },
-        ],
-    },
-
-    # ------------------------------------------------------------------
-    # Spreadsheet Sync (system admin)
-    # ------------------------------------------------------------------
-    {
-        "id": "admin_spreadsheet_tour",
-        "name": "Spreadsheet Sync",
-        "page_pattern": "/admin/spreadsheet-sync",
-        "template": "admin_spreadsheet_sync.html",
-        "description": "Upload the Excel master inventory file to preview and apply bulk device updates",
-        "required_access": "has_system_admin",
-        "enabled": True,
-        "group": "admin",
-        "steps": [
-            {
-                "target": "#file-input",
-                "title": "Upload Excel File",
-                "description": (
-                    "Choose the master inventory Excel file (.xlsx). "
-                    "The file is parsed across every sheet in the workbook — no changes are "
-                    "made to the database yet. A preview of what would change "
-                    "is generated first."
-                ),
-                "position": "bottom",
-                "highlight_padding": 8,
-                "optional": True,
-            },
-            {
-                "target": "#stats-summary",
-                "title": "Change Summary",
-                "description": (
-                    "After uploading, a summary bar shows how many records will "
-                    "be <strong style='color:#27ae60'>Added</strong> (new devices), "
-                    "<strong style='color:#f39c12'>Updated</strong> (existing devices with changes), "
-                    "or <strong style='color:#95a5a6'>Skipped</strong> (no changes detected)."
-                ),
-                "position": "bottom",
-                "highlight_padding": 6,
-                "optional": True,
-            },
-            {
-                "target": ".tabs",
-                "title": "Review Changes by Type",
-                "description": (
-                    "Switch between <strong>Adds</strong>, <strong>Updates</strong>, "
-                    "and <strong>Skips</strong> tabs to review every record before "
-                    "committing. The Updates tab shows old → new field changes. "
-                    "Review carefully — this modifies live inventory data."
-                ),
-                "position": "bottom",
-                "highlight_padding": 6,
-                "optional": True,
-            },
-            {
-                "target": "#apply-btn",
-                "title": "Apply to Database",
-                "description": (
-                    "Once you've reviewed the preview, click "
-                    "<strong>Apply Changes to Database</strong> to commit all "
-                    "adds and updates. This action is logged in the audit trail. "
-                    "There is no undo — verify the preview first."
                 ),
                 "position": "top",
                 "highlight_padding": 6,
@@ -1783,9 +1640,9 @@ TOURS: list[dict] = [
                 "center": True,
                 "title": "How Does Data Get In?",
                 "description": (
-                    "Data enters the system two ways: "
-                    "<strong>(1) Manually</strong> — team members add or edit devices directly in the app. "
-                    "<strong>(2) Spreadsheet Import</strong> — an Excel master inventory file can be uploaded under Admin → Spreadsheet Sync to bulk-load or update records."
+                    "Data enters the system in the app: team members add devices on "
+                    "<strong>Intake</strong>, scan shipments in on <strong>Receive</strong>, "
+                    "and edit records directly."
                 ),
                 "optional": True,
             },

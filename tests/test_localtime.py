@@ -115,8 +115,9 @@ TEMPLATE_MODULES = _template_modules()
 
 
 def test_template_modules_are_all_found():
-    # 29 at slice A. More is fine; fewer means one was lost or renamed.
-    assert len(TEMPLATE_MODULES) >= 29, sorted(TEMPLATE_MODULES)
+    # 29 at slice A; 27 since item 30 S3 retired intune_routes and lifecycle.
+    # More is fine; fewer means one was lost or renamed.
+    assert len(TEMPLATE_MODULES) >= 27, sorted(TEMPLATE_MODULES)
 
 
 @pytest.mark.parametrize("module", sorted(TEMPLATE_MODULES))
@@ -136,9 +137,6 @@ UTC_WORD = re.compile(r"\bUTC\b")
 DATE_SITES = {
     "vendor_detail_profile.html": {"t.received_date", "t.return_deadline"},
     "partials/item_quick_view.html": {"item.last_updated"},
-    "partials/lifecycle_panel.html": {
-        "w.warranty_end", "t.received_date", "t.return_deadline",
-        "a.returned_date", "a.assigned_date", "d.disposition_date"},
     "fulfillment.html": {
         "dr.scheduled_date", "dr.installed_date", "dr.cert_completion_date", "card.due_date"},
     "site_detail.html": {"a.assigned_date", "a.expected_return", "a.returned_date"},

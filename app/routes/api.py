@@ -1,70 +1,17 @@
-"""JSON API routes for device data (used by HTMX and external consumers)."""
+"""JSON API routes. The legacy device, stats and vendor reads retired in item 30 S3;
+the global audit log remains."""
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor, require_viewer, User
+from ..auth import get_current_user, require_editor, User
 from ..database import get_db
-from ..models import TABLE_MODELS, compute_completeness, AuditLog, ADMIN_LEVEL_ROLES
+from ..models import compute_completeness, AuditLog, ADMIN_LEVEL_ROLES
 from ..validation import validate_mac_address, validate_serial_number
 
 router = APIRouter()
-
-
-@router.get("/devices/{table_name}")
-def list_devices(
-    table_name: str,
-    q: str = Query("", description="Search filter"),
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_viewer),
-):
-    """List devices from a specific inventory table."""
-    model = TABLE_MODELS.get(table_name)
-    if not model:
-        return JSONResponse(
-            status_code=404,
-            content={"error": f"Unknown table: {table_name}"},
-        )
-
-    query = db.query(model)
-
-    if q:
-        from sqlalchemy import or_, String
-        string_cols = [
-            c for c in model.__table__.columns
-            if isinstance(c.type, String)
-        ]
-        filters = [c.ilike(f"%{q}%") for c in string_cols]
-        if filters:
-            query = query.filter(or_(*filters))
-
-    total = query.count()
-    items = query.order_by(model.id).offset(offset).limit(limit).all()
-
-    # Serialize
-    exclude = {"_sa_instance_state"}
-    results = []
-    for item in items:
-        row = {}
-        for key, val in item.__dict__.items():
-            if key in exclude:
-                continue
-            if hasattr(val, "isoformat"):
-                val = val.isoformat()
-            row[key] = val
-        results.append(row)
-
-    return JSONResponse(content={
-        "table": table_name,
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-        "items": results,
-    })
 
 
 @router.get("/audit-log")
@@ -177,51 +124,4 @@ def get_global_audit_log(
         "offset": offset,
         "limit": limit,
         "logs": history,
-    })
-
-
-@router.get("/stats")
-def inventory_stats(db: Session = Depends(get_db), user: User = Depends(require_viewer)):
-    """Overall inventory statistics."""
-    stats = {}
-    total = 0
-    total_incomplete = 0
-
-    for name, model in TABLE_MODELS.items():
-        count = db.query(model).count()
-        incomplete = (
-            db.query(model)
-            .filter(model.data_completeness < 80.0)
-            .count()
-        )
-        stats[name] = {"total": count, "incomplete": incomplete}
-        total += count
-        total_incomplete += incomplete
-
-    return JSONResponse(content={
-        "total_devices": total,
-        "total_incomplete": total_incomplete,
-        "tables": stats,
-    })
-
-
-@router.get("/vendors")
-def get_vendors(db: Session = Depends(get_db), user: User = Depends(require_viewer)):
-    """Get list of unique vendors from all inventory tables."""
-    from sqlalchemy import distinct
-
-    vendors = set()
-
-    # Collect distinct vendors from all tables that have the vendor field
-    for name, model in TABLE_MODELS.items():
-        if hasattr(model, 'vendor'):
-            results = db.query(distinct(model.vendor)).filter(model.vendor.isnot(None), model.vendor != '').all()
-            vendors.update([v[0] for v in results])
-
-    # Sort alphabetically
-    sorted_vendors = sorted(list(vendors))
-
-    return JSONResponse(content={
-        "vendors": sorted_vendors,
-        "count": len(sorted_vendors)
     })

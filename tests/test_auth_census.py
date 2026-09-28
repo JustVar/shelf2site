@@ -204,7 +204,7 @@ def test_allowlists_have_no_stale_entries():
 # ── Behavioral: the gates actually reject ──────────────────────────────────
 
 def test_unauthenticated_api_is_rejected(anon):
-    for path in ["/api/maintenance/status", "/api/stats", "/api/errors"]:
+    for path in ["/api/maintenance/status", "/api/audit-log", "/api/errors"]:
         r = anon.get(path)
         assert r.status_code == 401, f"{path} answered {r.status_code} to an anonymous caller"
 

@@ -23,9 +23,9 @@ from .routes import (
     admin, api, auth_routes, bulk,
     c2c, checkout, contact_admin, containment as containment_routes, creds,
     dashboard, error_routes, fulfillment,
-    intake, intune_routes, inventory, item_detail,
-    lifecycle, locks, maintenance_routes, map as map_route,
-    mobile, nas_drives, notification_routes, orders, pending,
+    intake, inventory, item_detail,
+    locks, maintenance_routes, map as map_route,
+    mobile, notification_routes, orders, pending,
     provisioning, receipts, receiving, search,
     sites, slack_bot_routes, sse, support,
     tours, unit_photos, vendors, warranty,
@@ -524,7 +524,6 @@ app.include_router(admin.router)
 app.include_router(receiving.router)
 app.include_router(unit_photos.router)
 app.include_router(warranty.router)
-app.include_router(nas_drives.router)
 app.include_router(receipts.router)
 app.include_router(fulfillment.router)
 app.include_router(c2c.router)
@@ -536,11 +535,9 @@ app.include_router(bulk.router)
 app.include_router(locks.router, prefix="/api")
 app.include_router(tours.router)
 app.include_router(zendesk_routes.router)
-app.include_router(lifecycle.router)
 app.include_router(notification_routes.router)
 app.include_router(vendors.router)
 app.include_router(slack_bot_routes.router)
-app.include_router(intune_routes.router)
 app.include_router(maintenance_routes.router)
 app.include_router(mobile.router)
 app.include_router(containment_routes.router)

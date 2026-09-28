@@ -6,13 +6,14 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from sqlalchemy.exc import IntegrityError
+
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor
 from ..database import get_db
-from ..models import (
-    PendingDevice, TABLE_MODELS, User, compute_completeness,
-    user_can_approve_table,
-)
+from ..models import PendingDevice, ReceivedDevice, User, user_can_approve_table
+from .intake import create_item
+from .receiving import TARGET_TABLE_TO_CATEGORY
 
 router = APIRouter()
 
@@ -24,7 +25,14 @@ async def approve_device(
     db: Session = Depends(get_db),
     user: User = Depends(require_editor),
 ):
-    """Approve a pending device: move it to the chosen inventory table."""
+    """Approve a pending device: create it as an item in item_schema.items.
+
+    Item 30 S3 (docs/specs/retire-legacy-inventory.md): approval no longer
+    writes a legacy public.* row. The review queue still sends a legacy table
+    name as target_table; it maps to an item category through the same
+    TARGET_TABLE_TO_CATEGORY that scan intake uses, and the item is built by
+    the shared create_item path.
+    """
     pending = db.query(PendingDevice).filter(PendingDevice.id == device_id).first()
     if not pending:
         return JSONResponse(status_code=404, content={"error": "Not found"})
@@ -37,13 +45,11 @@ async def approve_device(
     if content_type.startswith("application/json"):
         body = await request.json()
         override = (body.get("target_table") or "").strip()
-        if override and override in TABLE_MODELS:
+        if override and override in TARGET_TABLE_TO_CATEGORY:
             target_table = override
-
-    model_class = TABLE_MODELS.get(target_table)
-    if model_class is None:
-        model_class = TABLE_MODELS["network_equipment"]
+    if target_table not in TARGET_TABLE_TO_CATEGORY:
         target_table = "network_equipment"
+    item_category = TARGET_TABLE_TO_CATEGORY[target_table]
 
     # RBAC: check user has permission for this target table
     if not user_can_approve_table(user, target_table):
@@ -52,83 +58,92 @@ async def approve_device(
             content={"error": f"You don't have permission to approve devices into {target_table.replace('_', ' ').title()}. Sites Manager access required."},
         )
 
-    # Build the new inventory device
-    new_device_kwargs = {
-        "discovered_by": f"scanner:{pending.scanner_id or 'unknown'}",
-        "network_segment": pending.network_segment,
-        "last_seen": pending.last_seen,
+    # the intake-<serial> placeholder is a NOT NULL hack, not a real MAC
+    mac = pending.mac_address
+    if not mac or mac.startswith("intake-"):
+        mac = None
+
+    manufacturer = (pending.manufacturer or "").strip()
+    model = (pending.model or "").strip()
+    notes = [pending.notes] if pending.notes else []
+    notes.append(f"Approved from the review queue (pending #{pending.id}, {pending.scanner_id or 'unknown source'})")
+    if pending.ip_address:
+        notes.append(f"IP at discovery: {pending.ip_address}")
+    attributes = {"approved_from_pending": pending.id}
+    if pending.network_segment:
+        attributes["network_segment"] = pending.network_segment
+
+    fields = {
+        "item_name": pending.hostname or f"{manufacturer} {model}".strip() or pending.serial or "Auto-discovered",
+        "item_manufacturer": manufacturer,
+        "item_model": model,
+        "item_sn": pending.serial,
+        "item_category": item_category,
+        "item_status": "Unassigned",
+        "item_mac_address_1": mac,
+        "notes": "\n".join(notes),
     }
-    if (hasattr(model_class, "mac_address") and pending.mac_address
-            and not pending.mac_address.startswith("intake-")):
-        # the intake-<serial> placeholder is a NOT NULL hack, not a real MAC
-        new_device_kwargs["mac_address"] = pending.mac_address
-    if hasattr(model_class, "ip_address"):
-        new_device_kwargs["ip_address"] = pending.ip_address
-    if hasattr(model_class, "manufacturer"):
-        new_device_kwargs["manufacturer"] = pending.manufacturer
-    if hasattr(model_class, "device"):
-        new_device_kwargs["device"] = pending.manufacturer or "Auto-discovered"
-    if hasattr(model_class, "device_name"):
-        new_device_kwargs["device_name"] = pending.hostname
-    if hasattr(model_class, "model_name"):
-        new_device_kwargs["model_name"] = pending.hostname
+    created_by = user.display_name or user.username
+    try:
+        try:
+            item = create_item(db, fields=fields, created_by=created_by, attributes=attributes)
+        except ValueError:
+            # A MAC that does not normalise stays in notes, not the column.
+            fields["item_mac_address_1"] = None
+            fields["notes"] += f"\nMAC at discovery: {mac}"
+            item = create_item(db, fields=fields, created_by=created_by, attributes=attributes)
 
-    # H3: scan-intake fields preserved on the pending row (migration 064)
-    if pending.serial and hasattr(model_class, "serial"):
-        new_device_kwargs["serial"] = pending.serial
-    if pending.serial and hasattr(model_class, "gpu_serial"):
-        new_device_kwargs["gpu_serial"] = pending.serial
-    if pending.model and hasattr(model_class, "model"):
-        new_device_kwargs["model"] = pending.model
-    if pending.model and hasattr(model_class, "model_name"):
-        new_device_kwargs["model_name"] = pending.model
-    if pending.notes and hasattr(model_class, "notes"):
-        new_device_kwargs["notes"] = pending.notes
+        # The receiving event's unit link (H16) gains the new item.
+        rd = db.query(ReceivedDevice).filter(ReceivedDevice.pending_device_id == pending.id).first()
+        if rd and rd.item_id is None:
+            rd.item_id = item.id
 
-    new_device = model_class(**new_device_kwargs)
-    new_device.data_completeness = compute_completeness(new_device)
-    db.add(new_device)
+        # Auto-add OUI to allowlist if not present. The intake-<serial>
+        # placeholder is a NOT NULL hack, not a MAC — feeding it to the OUI
+        # lookup raised InvalidMacError and 500'd the approval of every
+        # scan-intake pending row (pre-existing, surfaced by the H15 tests).
+        if mac:
+            from app.oui_utils import auto_add_oui
+            auto_add_oui(db, mac_address=mac, manufacturer=pending.manufacturer, table_name=target_table)
 
-    # Auto-add OUI to allowlist if not present. The intake-<serial>
-    # placeholder is a NOT NULL hack, not a MAC — feeding it to the OUI
-    # lookup raised InvalidMacError and 500'd the approval of every
-    # scan-intake pending row (pre-existing, surfaced by the H15 tests).
-    if pending.mac_address and not pending.mac_address.startswith("intake-"):
-        from app.oui_utils import auto_add_oui
-        auto_add_oui(
-            db,
-            mac_address=pending.mac_address,
-            manufacturer=pending.manufacturer,
-            table_name=target_table,
-        )
+        # Update pending record
+        pending.status = "approved"
+        pending.reviewed_by = user.id
+        pending.reviewed_at = datetime.utcnow()
 
-    # Update pending record
-    pending.status = "approved"
-    pending.reviewed_by = user.id
-    pending.reviewed_at = datetime.utcnow()
+        # H15 (supersedes the H3 approve-time count): receiving counts at SUBMIT
+        # time — the unit physically arrived when it was scanned, not when a
+        # reviewer clicked approve. Incrementing here again would double-count.
 
-    # H15 (supersedes the H3 approve-time count): receiving counts at SUBMIT
-    # time — the unit physically arrived when it was scanned, not when a
-    # reviewer clicked approve. Incrementing here again would double-count.
-
-    db.commit()
-    db.refresh(new_device)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return JSONResponse(status_code=409, content={
+            "error": "Database rejected this device: a uniqueness constraint matched "
+                     "an existing item (duplicate serial or MAC).",
+        })
+    db.refresh(item)
 
     log_event(
         db, "device_approved",
         request=request,
         user_id=user.id,
-        target_table=target_table,
-        target_id=new_device.id,
+        target_table="items",
+        target_id=item.id,
         action="approve",
-        new_values={"mac": pending.mac_address, "manufacturer": pending.manufacturer},
-        details=f"Approved pending device {pending.mac_address} -> {target_table}",
+        new_values=model_to_dict(item),
+        details=f"Approved pending device {pending.serial or pending.mac_address} -> item {item.id} ({item_category})",
     )
+
+    from ..sidebar_cache import invalidate_category_stats, invalidate_triage_cache
+    invalidate_category_stats()
+    invalidate_triage_cache()
 
     return JSONResponse(content={
         "status": "approved",
-        "target_table": target_table,
-        "device_id": new_device.id,
+        "target_table": "items",
+        "item_category": item_category,
+        "device_id": item.id,
     })
 
 

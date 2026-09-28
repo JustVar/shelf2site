@@ -133,7 +133,7 @@
                 {% else %}
                 <tr>
                     <td colspan="{% if user.has_system_admin %}7{% else %}6{% endif %}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                        No part numbers yet. {% if user.has_system_admin %}Add one above, or import via the spreadsheet sync.{% else %}They are managed by system admins.{% endif %}
+                        No part numbers yet. {% if user.has_system_admin %}Add one above.{% else %}They are managed by system admins.{% endif %}
                     </td>
                 </tr>
                 {% endif %}

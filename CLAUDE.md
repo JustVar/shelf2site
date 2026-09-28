@@ -173,7 +173,7 @@ so they cannot terminate the attribute early. Either filter alone is not
 sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
 
 ### Tours (app/tours.py)
-- 33 tour definitions, 29 currently enabled (see app/tours.py; lint via lint_tour_selectors).
+- 31 tour definitions, 26 currently enabled (see app/tours.py; lint via lint_tour_selectors).
 - Each tour: id, name, page_pattern, steps (target selector + title + description). Engine in `static/js/guide.js`.
 - See `docs/tour-dev-guide.md` for patterns and gotchas.
 
@@ -255,12 +255,12 @@ filtered. A new enum value therefore also needs an entry in:
   should create it.
 
 Migration 080 added `phone`, `webcam`, `printer` and `nas` (board item 30
-S1). Scan intake still maps phones, webcams, printers and NAS to older
-categories until item 30 S3.
+S1); scan intake maps phones, webcams, printers and NAS to them since
+item 30 S3.
 
 ## RBAC / Admin pages (post U4, 2026-05-18)
 
-The asset tracker has 13 gated admin pages plus the Slack-bot path, which is a public 301 redirect. The matching sidenav link in `base.html` is gated by the same property on the User model. Route gate and nav gate stay in lockstep - change one, change the other.
+The asset tracker has 11 gated admin pages plus the Slack-bot path, which is a public 301 redirect. The matching sidenav link in `base.html` is gated by the same property on the User model. Route gate and nav gate stay in lockstep - change one, change the other.
 
 The lockstep rule pairs the PAGE gate with the nav gate. Mutation gates on the same page may be stricter, so a visible link does not imply the buttons on that page will work - OUI reference and Part Numbers are both editor-readable but system-admin-writable.
 
@@ -276,9 +276,7 @@ The lockstep rule pairs the PAGE gate with the nav gate. Mutation gates on the s
 | Part Numbers | /admin/part-numbers | require_editor | require_system_admin | user.is_editor_or_above | editor + sub-admins + admin tier |
 | Receipts | /receipts | require_receipts | require_receipts | user.has_receipts_access | admin tier + can_view_receipts |
 | Storage | /admin/storage | require_system_admin | (read only) | user.has_system_admin | admin tier + can_manage_system |
-| Intune | /admin/intune | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | Notifications | /admin/notifications | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
-| Spreadsheet sync | /admin/spreadsheet-sync | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | Zendesk | /admin/zendesk | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | Maintenance | /admin/maintenance | require_system_admin | require_system_admin | user.has_system_admin | admin tier + can_manage_system |
 | Slack-bot redirect | /admin/slack-bot | (none, public 301) | (none) | (no link) | redirects to /admin/notifications |
@@ -299,7 +297,7 @@ The Admin section is a collapsible nested menu (`.sx-nav__section[data-section="
 
 - **People** — Users, Departments
 - **Data & logs** — Audit log, Error log, OUI reference, Part Numbers, Receipts
-- **Integrations** — Intune, Notifications, Spreadsheet sync, Zendesk
+- **Integrations** — Notifications, Zendesk (Intune and Spreadsheet sync retired in item 30 S3)
 - **System** — Maintenance, Storage
 
 Each subgroup auto-hides if no children inside it are visible to the current user. On page load the JS finds `.sx-nav__link--active` and walks up with `closest()` to expand that link's subgroup and section; it does NOT test the URL. Consequence: `/receipts` expands the Admin section even though its URL is not under `/admin/`.

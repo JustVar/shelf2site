@@ -1,7 +1,6 @@
 """Admin routes: OUI Reference, user management, audit log viewer."""
 
-import tempfile
-from fastapi import APIRouter, Depends, Request, UploadFile, File
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -25,7 +24,6 @@ from ..models import (
     ItemPartNumber, Item, ADMIN_LEVEL_ROLES,
 )
 from .dashboard import ALL_CATEGORIES, category_display
-from ..spreadsheet_sync import parse_excel, compare_with_database, apply_changes
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -1737,152 +1735,6 @@ def audit_log_page(
         "current_user_filter": user_filter,
         "user": user,
     })
-
-
-# ---------------------------------------------------------------------------
-# Spreadsheet Sync (Excel Upload + Diff Viewer)
-# ---------------------------------------------------------------------------
-
-@router.get("/admin/spreadsheet-sync", response_class=HTMLResponse)
-def spreadsheet_sync_page(
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_system_admin),
-):
-    """Render the spreadsheet sync page for uploading Excel files."""
-    return templates.TemplateResponse("admin_spreadsheet_sync.html", {
-        "request": request,
-        "user": user,
-    })
-
-
-@router.post("/admin/spreadsheet-sync/upload")
-async def upload_spreadsheet(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_system_admin),
-):
-    """Upload Excel file, parse it, and generate diff preview."""
-    if not file.filename.endswith(('.xlsx', '.xls')):
-        return JSONResponse(status_code=400, content={
-            "error": "Only Excel files (.xlsx, .xls) are supported"
-        })
-
-    # Save uploaded file to temp location
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = Path(tmp.name)
-
-    try:
-        # Parse Excel file
-        tables_data = parse_excel(tmp_path)
-
-        # Compare with database
-        changes = compare_with_database(tables_data, db)
-
-        # Organize changes by action type
-        adds = [c for c in changes if c.action == "add"]
-        updates = [c for c in changes if c.action == "update"]
-        skips = [c for c in changes if c.action == "skip"]
-
-        # Serialize changes for JSON response
-        changes_json = []
-        for change in changes:
-            change_dict = {
-                "table": change.table,
-                "table_display": TABLE_DISPLAY_NAMES.get(change.table, change.table),
-                "action": change.action,
-                "serial": change.serial,
-                "row_data": change.row_data,
-            }
-            if change.existing_data:
-                change_dict["existing_data"] = change.existing_data
-            if change.changes:
-                # Convert changes dict to list for easier rendering
-                change_dict["field_changes"] = [
-                    {"field": k, "old": v[0], "new": v[1]}
-                    for k, v in change.changes.items()
-                ]
-            changes_json.append(change_dict)
-
-        return JSONResponse(content={
-            "status": "success",
-            "stats": {
-                "total": len(changes),
-                "adds": len(adds),
-                "updates": len(updates),
-                "skips": len(skips),
-            },
-            "changes": changes_json,
-        })
-
-    except Exception as e:
-        logger.error(f"Spreadsheet sync error: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={
-            "error": f"Failed to process spreadsheet: {str(e)}"
-        })
-    finally:
-        # Clean up temp file
-        tmp_path.unlink(missing_ok=True)
-
-
-@router.post("/admin/spreadsheet-sync/apply")
-async def apply_spreadsheet_changes(
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_system_admin),
-):
-    """Apply approved changes from spreadsheet to database."""
-    body = await request.json()
-    changes_data = body.get("changes", [])
-
-    if not changes_data:
-        return JSONResponse(status_code=400, content={
-            "error": "No changes provided"
-        })
-
-    # Reconstruct DeviceChange objects from JSON
-    from ..spreadsheet_sync import DeviceChange
-
-    changes = []
-    for c in changes_data:
-        change = DeviceChange(
-            table=c["table"],
-            action=c["action"],
-            serial=c["serial"],
-            row_data=c["row_data"],
-            existing_data=c.get("existing_data"),
-            changes=None,  # Not needed for apply
-        )
-        changes.append(change)
-
-    try:
-        # Apply changes to database
-        stats = apply_changes(changes, db, user.id)
-
-        log_event(
-            db, "spreadsheet_sync",
-            request=request,
-            user_id=user.id,
-            action="update",
-            details=(
-                f"Spreadsheet sync completed: "
-                f"{stats['added']} added, {stats['updated']} updated, {stats['skipped']} skipped"
-            ),
-            new_values=stats,
-        )
-
-        return JSONResponse(content={
-            "status": "success",
-            "stats": stats,
-        })
-
-    except Exception as e:
-        logger.error(f"Failed to apply spreadsheet changes: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={
-            "error": f"Failed to apply changes: {str(e)}"
-        })
 
 
 # ---------------------------------------------------------------------------

@@ -127,16 +127,16 @@ TARGET_TABLE_TO_CATEGORY = {
     "computers": "computer",
     "nucs": "computer",
     "mobile_devices": "mobile_device",
-    "phones": "mobile_device",
+    "phones": "phone",
     "cameras": "camera",
-    "webcams": "camera",
+    "webcams": "webcam",
     "network_equipment": "network",
-    # Provisional: item_categories has no NAS value — QNAP NAS units land as
-    # network appliances until the taxonomy decision (SCANNER_AUDIT H2 note).
-    "nas_devices": "network",
+    # item 30 S3: phones, webcams, printers and NAS have their own categories
+    # (migration 080); a NAS is a unit that holds its drives.
+    "nas_devices": "nas",
     "access_control": "access_control",
     "office_equipment": "office_equipment",
-    "printers": "office_equipment",
+    "printers": "printer",
     "ups": "ups",
     "ram_modules": "ram",
     "cpus": "cpu",
@@ -965,6 +965,7 @@ async def submit_device(
         hostname=None,  # Hostname is for network-discovered devices only
         manufacturer=body.get("manufacturer", ""),
         suggested_table=target_table or "network_equipment",
+        suggested_category=TARGET_TABLE_TO_CATEGORY.get(target_table or "network_equipment"),
         scanner_id=f"intake:{user.username}",
         status="pending",
         serial=serial,

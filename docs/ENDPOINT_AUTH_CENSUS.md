@@ -1,8 +1,10 @@
 # Endpoint Auth Census
 
-**Reconciled 2026-09-17** against live route introspection on apphost: 275 route entries
-(274 HTTP routes plus 1 static mount) across 248 unique paths. No commit pin, since any commit
-that updates this file changes the count it would name. Regenerate with the command below.
+**Reconciled 2026-09-28** against live route introspection on apphost: 264 route entries
+(263 HTTP routes plus 1 static mount) across 238 unique paths, after item 30 S3 retired
+Intune sync, spreadsheet sync, the lifecycle page, three legacy JSON APIs and the NAS drive
+API. No commit pin, since any commit that updates this file changes the count it would name.
+Regenerate with the command below.
 This is the authoritative map of every route and its auth gate. **When you add an endpoint, add
 its row here** and make sure it fits one of the gate classes below.
 
@@ -92,9 +94,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/admin/part-numbers/add` | POST | system admin | OK |
 | `/admin/part-numbers/{pn_id}` | DELETE | system admin | OK |
 | `/admin/part-numbers/{pn_id}/edit` | POST | system admin | OK |
-| `/admin/spreadsheet-sync` | GET | system admin | OK |
-| `/admin/spreadsheet-sync/apply` | POST | system admin | OK |
-| `/admin/spreadsheet-sync/upload` | POST | system admin | OK |
 | `/admin/storage` | GET | system admin | OK |
 | `/admin/users` | GET | user manager | OK |
 | `/admin/users/add` | POST | user manager | OK |
@@ -134,9 +133,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
 | `/api/audit-log` | GET | any authenticated | OK |
-| `/api/devices/{table_name}` | GET | viewer+ (kiosk excluded) | OK |
-| `/api/stats` | GET | viewer+ (kiosk excluded) | OK |
-| `/api/vendors` | GET | viewer+ (kiosk excluded) | OK |
 
 ### auth_routes
 
@@ -223,19 +219,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/delete-requests/{request_id}/reject` | POST | admin tier | OK |
 | `/api/delete-requests/{request_id}/withdraw` | POST | editor+ | OK: requester only, checked in the handler |
 
-### disposal
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/api/disposition` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/disposition/export` | GET | any authenticated | OK |
-| `/api/disposition/{disposition_id}` | PUT | editor+ (incl. sub-admins) | OK |
-| `/api/disposition/{disposition_id}` | DELETE | admin tier | OK |
-| `/api/disposition/{disposition_id}/certificate` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/disposition/{disposition_id}/certificate` | GET | any authenticated | OK |
-| `/api/disposition/{disposition_id}/data` | GET | any authenticated | OK |
-| `/disposal/` | GET | disposal access | OK |
-
 ### error_routes
 
 | Route | Methods | Required gate | Verdict / notes |
@@ -268,6 +251,8 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/fulfillment/deployments` | POST | provisioning manager | OK |
 | `/fulfillment/deployments/{dep_id}/install/certify` | POST | provisioning manager | OK |
 | `/fulfillment/deployments/{dep_id}/status` | POST | provisioning manager | OK |
+| `/fulfillment/deployments/{dep_id}/units` | GET | provisioning manager | OK |
+| `/fulfillment/deployments/{dep_id}/units` | POST | provisioning manager | OK |
 | `/fulfillment/install-cert/{cert_id}/pdf` | GET | provisioning viewer | OK |
 | `/fulfillment/{order_id}/ship` | POST | provisioning manager | OK |
 
@@ -278,21 +263,13 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/intake` | GET | any authenticated / editor+ (in-body check) | OK |
 | `/intake` | POST | any authenticated / editor+ (in-body check) | OK |
 
-### intune_routes
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/admin/intune` | GET | system admin | OK |
-| `/api/intune/sync` | POST | system admin | OK |
-| `/api/intune/sync-log` | GET | system admin | OK |
-| `/api/intune/test` | POST | system admin | OK |
-
 ### inventory
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
 | `/inventory/` | GET | any authenticated | OK |
 | `/inventory/bulk` | POST | any authenticated / editor+ (in-body check) | OK |
+| `/inventory/decommissioned` | GET | any authenticated | OK |
 | `/inventory/export` | GET | any authenticated | OK |
 | `/inventory/quick-view/{item_id}` | GET | any authenticated | OK |
 | `/inventory/quick-view/{item_id}` | POST | any authenticated / editor+ (in-body check) | OK |
@@ -305,14 +282,9 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/items/{item_id}` | GET | any authenticated | OK |
 | `/items/{item_id}` | POST | any authenticated / editor+ (in-body check) | OK |
 | `/items/{item_id}/edit` | GET | — | 303 redirect; target page enforces edit gating |
+| `/items/{item_id}/decommission` | POST | editor+ (incl. sub-admins) | OK |
 | `/items/{item_id}/receipt` | POST | any authenticated / editor+ (in-body check) | OK |
-
-### lifecycle
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/api/device/{table_name}/{device_id}/lifecycle` | GET | any authenticated | OK |
-| `/device/{table_name}/{device_id}/lifecycle` | GET | any authenticated | OK |
+| `/items/{item_id}/reactivate` | POST | editor+ (incl. sub-admins) | OK |
 
 ### locks
 
@@ -352,15 +324,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/mobile` | GET | any authenticated | OK |
 | `/mobile/desktop` | GET | any authenticated | OK |
 
-### nas_drives
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/api/nas-drives/` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/nas-drives/{drive_id}` | PUT | editor+ (incl. sub-admins) | OK |
-| `/api/nas-drives/{drive_id}` | DELETE | admin tier | OK |
-| `/api/nas-drives/{drive_id}` | GET | any authenticated | OK |
-
 ### notification_routes
 
 | Route | Methods | Required gate | Verdict / notes |
@@ -388,6 +351,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/api/orders/{order_id}` | DELETE | provisioning manager | OK |
 | `/api/orders/{order_id}/assign-items` | POST | provisioning manager | OK |
 | `/api/orders/{order_id}/availability` | GET | provisioning viewer | OK |
+| `/api/orders/{order_id}/cancel` | POST | provisioning manager | OK |
 | `/api/orders/{order_id}/oem-pos` | POST | provisioning manager | OK |
 | `/api/orders/{order_id}/oem-pos/{po_id}` | PUT | provisioning manager | OK |
 | `/api/orders/{order_id}/oem-pos/{po_id}` | DELETE | provisioning manager | OK |
@@ -512,19 +476,6 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `/triage/export` | GET | any authenticated | OK |
 | `/triage/fix/{item_id}/{field_name}` | GET | any authenticated | OK |
 | `/triage/fix/{item_id}/{field_name}` | POST | any authenticated / editor+ (in-body check) | OK |
-
-### trials
-
-| Route | Methods | Required gate | Verdict / notes |
-|---|---|---|---|
-| `/api/trial` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/trial/export` | GET | any authenticated | OK |
-| `/api/trial/{trial_id}` | GET | any authenticated | OK |
-| `/api/trial/{trial_id}` | PUT | editor+ (incl. sub-admins) | OK |
-| `/api/trial/{trial_id}` | DELETE | trials manager | OK |
-| `/api/trial/{trial_id}/decision` | PUT | editor+ (incl. sub-admins) | OK |
-| `/api/trial/{trial_id}/return` | PUT | editor+ (incl. sub-admins) | OK |
-| `/trials/` | GET | any authenticated | OK |
 
 ### unit photos (shipment-photos slice)
 
