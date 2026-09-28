@@ -9,9 +9,19 @@
 <div class="fl-lift">
 <h1>Storage Monitor</h1>
 <p class="subtitle">Photo storage usage and disk space monitoring</p>
+<!-- .cards and .card are shared with the Review Queue, so this page's
+     spacing lives on the stg- classes below, never on the shared rules. -->
+<style>
+.stg-panel { padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+.stg-panel h3 { margin: 0 0 0.5rem; }
+.stg-cards { margin: 0 0 1rem; }
+.stg-card { padding: 0.9rem 1rem; text-align: center; }
+.stg-card .number { font-size: 1.8rem; font-weight: 700; line-height: 1.2; }
+.stg-card .label { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem; }
+</style>
 
 <!-- Disk Usage Overview -->
-<div class="card">
+<div class="card stg-panel">
     <h3>Disk Usage - Photo Storage Drive</h3>
     <div style="margin: 1.5rem 0;">
         <!-- Progress Bar -->
@@ -42,30 +52,30 @@
 </div>
 
 <!-- Photo Statistics -->
-<div class="cards">
-    <div class="card">
+<div class="cards stg-cards">
+    <div class="card stg-card">
         <div class="number">{{ photo_count }}</div>
         <div class="label">Total Photos</div>
     </div>
 
-    <div class="card">
+    <div class="card stg-card">
         <div class="number">{{ photo_size_gb }}GB</div>
         <div class="label">Storage Used</div>
     </div>
 
-    <div class="card">
+    <div class="card stg-card">
         <div class="number">{{ event_photos }}</div>
         <div class="label">Event Photos</div>
     </div>
 
-    <div class="card">
+    <div class="card stg-card">
         <div class="number">{{ unlinked_photos }}</div>
         <div class="label">Unlinked Photos</div>
     </div>
 </div>
 
 <!-- Details -->
-<div class="card">
+<div class="card stg-panel">
     <h3>Photo Storage Details</h3>
 
     <table style="margin-top: 1rem;">
@@ -107,7 +117,7 @@
 </div>
 
 <!-- Cleanup Plan (Info Card) -->
-<div class="card" style="background: var(--primary); border-left: 3px solid var(--accent);">
+<div class="card stg-panel" style="background: var(--primary); border-left: 3px solid var(--accent);">
     <h3>Cleanup Policy (Future)</h3>
     <p style="color: var(--text-muted); margin-top: 0.5rem;">
         Photo cleanup features are planned for implementation when retention policies are defined.
