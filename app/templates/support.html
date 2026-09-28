@@ -9,24 +9,35 @@
 <div class="fl-lift">
 <h1>Review Queue</h1>
 
-<!-- Summary Cards -->
-<div class="cards">
-    <div class="card pending">
+<!-- Summary Cards. .cards and .card are shared with Admin Storage, so the
+     review look lives on the rvq- classes below, never on the shared rules. -->
+<style>
+.rvq-cards { margin: 0 0 1.25rem; }
+.rvq-card { padding: 0.9rem 1rem; text-align: center; }
+.rvq-card .number { font-size: 1.8rem; font-weight: 700; line-height: 1.2; }
+.rvq-card .label { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem; }
+.rvq-card.rvq-pending .number { color: var(--warning, #f39c12); }
+.rvq-card.rvq-approved .number { color: var(--success, #27ae60); }
+.rvq-card.rvq-dismissed .number { color: var(--text-muted); }
+.rvq-tabs .badge { margin-left: 6px; }
+</style>
+<div class="cards rvq-cards">
+    <div class="card pending rvq-card rvq-pending">
         <div class="number">{{ request.state.pending_count }}</div>
         <div class="label">Pending</div>
     </div>
-    <div class="card" style="border-color: var(--success);">
-        <div class="number" style="color: var(--success);">{{ approved_count }}</div>
+    <div class="card rvq-card rvq-approved">
+        <div class="number">{{ approved_count }}</div>
         <div class="label">Approved</div>
     </div>
-    <div class="card">
+    <div class="card rvq-card rvq-dismissed">
         <div class="number">{{ dismissed_count }}</div>
         <div class="label">Dismissed</div>
     </div>
 </div>
 
 <!-- Status Filter Tabs -->
-<div class="tabs" id="review-tabs">
+<div class="tabs rvq-tabs" id="review-tabs">
     <a class="tab {% if status_filter == 'pending' %}active{% endif %}"
        href="{{ base_path }}/review?status_filter=pending">
         Pending <span class="badge badge-pending">{{ request.state.pending_count }}</span>
