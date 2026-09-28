@@ -43,6 +43,10 @@ CATEGORY_COLORS = {
     "pc_accessories":  "#D2691E",
     "camera_c2c":      "#1D9E75",
     "cloud_box":       "#7B68EE",
+    "phone":           "#B39DDB",
+    "webcam":          "#008080",
+    "printer":         "#808000",
+    "nas":             "#C0392B",
 }
 
 # fl-restyle palette for opted-in pages (dashboard today; propagation pages
@@ -87,6 +91,10 @@ CATEGORY_DISPLAY_NAMES = {
     "office_equipment":"Office Equipment",
     "product_cabling": "Product Cabling",
     "consumables":     "Consumables",
+    "phone":           "Phone",
+    "webcam":          "Webcam",
+    "printer":         "Printer",
+    "nas":             "NAS",
 }
 
 def category_display(cat: str) -> str:

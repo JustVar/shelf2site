@@ -15,7 +15,8 @@ BP = settings.ROOT_PATH.rstrip("/")
 
 TARGETS = ("items", "vendor_profiles")
 
-# Every reference to item_schema.items.id in the live catalog (2026-09-23).
+# Every reference to item_schema.items.id in the live catalog (2026-09-23,
+# plus the three links migration 080 added).
 # (table, column, what the user is told)
 ITEM_LINKS = (
     ("item_schema.checkouts", "item_id", "checkouts"),
@@ -27,6 +28,9 @@ ITEM_LINKS = (
     ("public.device_provisioning", "item_id", "order units"),
     ("public.received_devices", "item_id", "receiving records"),
     ("public.unit_photo_items", "item_id", "unit photos"),
+    ("public.device_credentials", "item_id", "credentials"),
+    ("public.device_warranties", "item_id", "warranties"),
+    ("public.device_assignments", "item_id", "site assignments"),
 )
 
 IMPORT_MAP_ACTION = "deleted_by_request"

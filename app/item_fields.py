@@ -8,7 +8,7 @@ This module defines only the CATEGORY-SPECIFIC fields, stored in the
 items.attributes JSONB column. Each entry is (json_key, label).
 
 IMPORTANT: dict keys MUST match the item_schema.item_categories ENUM
-values exactly (e.g. 'storage_drive', not 'hard_drive'). All 23 enum
+values exactly (e.g. 'storage_drive', not 'hard_drive'). All 27 enum
 values are present below; categories with no extra fields map to [].
 
 Excluded by design:
@@ -91,6 +91,12 @@ CATEGORY_ATTRIBUTES = {
     "mobile_device": [],
     "monitor": [],
     "office_equipment": [],
+
+    # --- added by item 30 (migration 080) ---
+    "phone": [],
+    "webcam": [],
+    "printer": [],
+    "nas": [],
 }
 
 

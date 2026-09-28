@@ -1353,8 +1353,9 @@ async function submitDevice() {
         banner.querySelector('.success-text').innerHTML = msg;
 
         // Containment hook: component categories get an assign-into-unit
-        // offer (units are edge_box / cloud_box / camera_c2c / computer).
-        const CTM_UNIT_CATS = ['edge_box', 'cloud_box', 'camera_c2c', 'computer'];
+        // offer (units are edge_box / cloud_box / camera_c2c / computer / nas;
+        // a copy of UNIT_CATEGORIES in app/containment.py, change both together).
+        const CTM_UNIT_CATS = ['edge_box', 'cloud_box', 'camera_c2c', 'computer', 'nas'];
         const assignBtn = document.getElementById('assign-into-unit-btn');
         if (assignBtn) {
             const offer = data.status === 'created' && data.item_category

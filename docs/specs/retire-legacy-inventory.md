@@ -28,8 +28,8 @@ Two inventory models live side by side.
 
 Registering `Item` in `TABLE_MODELS` was probed and rejected
 (`c2c-catalog-and-accessories.md:252`, option B1: it pollutes about 15
-legacy consumers). `CLAUDE.md:235` records retirement as the end state,
-blocked on warranty and components.
+legacy consumers). `CLAUDE.md` recorded retirement as the end state,
+blocked on warranty and components; since item 30 S1 it points here.
 
 ## 2. Decision (Jus, 2026-09-25)
 
@@ -262,15 +262,26 @@ data, data before readers, readers before drops.
 1. **S1 schema, additive.** Nullable `item_id` FKs on `device_credentials`,
    `device_warranties`, `device_assignments`; suggested category on
    `pending_devices`; the four new `item_categories` values (section 6a).
-   No behaviour change. Suite total unchanged.
+   Migration 080. Suite total unchanged. **Amended at build (Jus,
+   2026-09-28):** the app's hand-kept category lists gain the four values
+   in the same commit (`CATEGORY_COLORS`, `CATEGORY_DISPLAY_NAMES`,
+   `CATEGORY_ATTRIBUTES`; `nas` joins `UNIT_CATEGORIES` and receive's
+   `CTM_UNIT_CATS`), so the new values appear in category dropdowns. The
+   three new links join `ITEM_LINKS` in `app/delete_requests.py`, so an
+   item they point at cannot be deleted. Receiving's
+   `TARGET_TABLE_TO_CATEGORY` (phones, webcams, printers, NAS) is a
+   writer and moves in S3.
 2. **S2 data.** First the 6a pre-read (phone, webcam, printer twins and
    their categories), confirmed by Jus. Then one re-runnable, rule-driven
    migration script: R2 carry-ins, R1 and R2 re-points, R4 and R6
-   containment events, R5, and the confirmed recategorisations. Dry run
+   containment events, R5, the confirmed recategorisations, and
+   `pending_devices.suggested_category` from `suggested_table`. Dry run
    prints the section 4 counts and the `nas_drives` count and must match
    before the write. R3 deletes are handed to Jus as statements, run before
    the write.
-3. **S3 writers and dead routes.** Pending approve creates items. Retire
+3. **S3 writers and dead routes.** Pending approve creates items; scan
+   intake maps phones, webcams, printers and NAS to their new categories
+   (`TARGET_TABLE_TO_CATEGORY`). Retire
    Intune sync, spreadsheet sync, the lifecycle page and its JSON twin, the
    three legacy JSON APIs and `nas_drives.py` (routes, templates, JS, tours,
    admin nav). Suite total drops by the retired routes through the endpoint

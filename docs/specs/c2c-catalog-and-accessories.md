@@ -290,8 +290,10 @@ reused as-is.
 
 - **OEM procurement wiring for cams** (section 4 open read) — how a `source=oem`
   cam line becomes an `OEMPurchaseOrder`. Ground before building acquisition.
-- **Cameras -> `item_schema.items` migration trajectory** — the fact that flips
-  section 7. Currently unsure.
+- **Cameras -> `item_schema.items` migration trajectory:** settled 2026-09-25.
+  Every legacy table, cameras included, retires into items (board item 30,
+  `docs/specs/retire-legacy-inventory.md`). Option D stands; provisioning
+  already links by `item_id`.
 - **Accessory fulfillment surface** — brackets/cards as order lines is decided,
   but their fulfillment/tracking UI is unscoped.
 - **QR / virtual-site verification mechanics** — parked in the original C2C spec;

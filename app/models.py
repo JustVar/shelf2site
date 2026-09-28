@@ -36,6 +36,23 @@ LOCAL_TODAY_SQL = "(now() AT TIME ZONE 'America/Chicago')::date"
 ADMIN_LEVEL_ROLES = ("justin_admin", "system_admin", "admin", "ceo")
 
 
+# item_categories ENUM (public schema). Defined here, ahead of the models,
+# because PendingDevice (suggested_category, migration 080) uses it as well
+# as Item and ItemPartNumber. DDL is owned by the migrations; 080 added the
+# last four values (board item 30). The app category lists are hand-kept:
+# see CLAUDE.md, "The item category vocabulary is hand-maintained".
+item_categories_enum = SAEnum(
+    'access_control', 'camera', 'computer', 'cpu', 'motherboard',
+    'gpu', 'ram', 'storage_drive', 'psu', 'cpu_cooler', 'case_fan',
+    'pci', 'product_cabling', 'consumables', 'edge_box', 'ups',
+    'mobile_device', 'monitor', 'network', 'office_equipment', 'pc_accessories',
+    'camera_c2c', 'cloud_box',
+    'phone', 'webcam', 'printer', 'nas',
+    name='item_categories',
+    schema='public'
+)
+
+
 # ---------------------------------------------------------------------------
 # Mixin for common columns shared by all inventory tables
 # ---------------------------------------------------------------------------
@@ -455,6 +472,7 @@ class DeviceCredential(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     device_table = Column(String(64), nullable=False)  # e.g., "cameras", "printers"
     device_id = Column(Integer, nullable=False)
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
     credential_type = Column(String(32), nullable=False)  # "login", "pin", "api_key"
     username = Column(LargeBinary, nullable=True)  # Fernet-encrypted
     password = Column(LargeBinary, nullable=True)  # Fernet-encrypted
@@ -753,6 +771,7 @@ class PendingDevice(Base):
     hostname = Column(String(128), nullable=True)
     manufacturer = Column(String(128), nullable=True)
     suggested_table = Column(String(64), nullable=True)
+    suggested_category = Column(item_categories_enum, nullable=True)  # migration 080 (item 30)
     scanner_id = Column(String(64), nullable=True)
     network_segment = Column(String(32), nullable=True)
     first_seen = Column(DateTime, server_default=func.now())
@@ -781,6 +800,7 @@ class DeviceWarranty(InventoryMixin, Base):
 
     device_table = Column(String(64), nullable=False)
     device_id = Column(Integer, nullable=False)
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
 
     warranty_scope = Column(String(16), nullable=False, default="external")  # external | internal
     warranty_tier = Column(String(32))  # standard | extended | premium
@@ -980,6 +1000,7 @@ class DeviceAssignment(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     device_table = Column(String(64), nullable=False)
     device_id = Column(Integer, nullable=False)
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
     ownership = Column(String(32), nullable=False)  # owned | partner_loaner | customer_loaner | evaluation
     assigned_date = Column(Date, server_default=text(LOCAL_TODAY_SQL))
@@ -1898,15 +1919,7 @@ def get_mac(instance) -> str:
 # ---------------------------------------------------------------------------
 # item_schema enums
 # ---------------------------------------------------------------------------
-item_categories_enum = SAEnum(
-    'access_control', 'camera', 'computer', 'cpu', 'motherboard',
-    'gpu', 'ram', 'storage_drive', 'psu', 'cpu_cooler', 'case_fan',
-    'pci', 'product_cabling', 'consumables', 'edge_box', 'ups',
-    'mobile_device', 'monitor', 'network', 'office_equipment', 'pc_accessories',
-    'camera_c2c', 'cloud_box',
-    name='item_categories',
-    schema='public'
-)
+# item_categories_enum is defined near the top of this module.
 
 item_statuses_enum = SAEnum(
     'Deployed', 'Ready to Deploy', 'Pending', 'Un-deployable',

@@ -58,6 +58,9 @@ rows in every one of these:
 | public.device_provisioning | item_id | set null | order history would lose its unit silently |
 | public.received_devices | item_id | set null | receiving history would lose its unit silently |
 | public.unit_photo_items | item_id | cascade | photo links would vanish silently |
+| public.device_credentials | item_id | set null | a credential would lose its device silently (migration 080) |
+| public.device_warranties | item_id | set null | a warranty would lose its device silently (migration 080) |
+| public.device_assignments | item_id | set null | a site assignment would lose its device silently (migration 080) |
 
 `item_schema.csv_import_map.item_id` has no foreign key and is handled by
 ruling 9, not by the clean check.
