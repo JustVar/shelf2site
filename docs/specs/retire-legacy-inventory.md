@@ -109,21 +109,39 @@ their links re-point through:
 |---|---|---|
 | `computers` 28, 29 | `computer` | internal PCs with component history |
 | `hard_drives` 7 to 14 | `storage_drive` | components of computers 29; carried without a serial |
-| `cameras` 45, 73 | `camera` | real-looking, unlinked |
 | `edge_boxes` 41 (`4NVWQ54`) | `edge_box` | real-looking, unlinked |
 | `hard_drives` 19 (`BC0DD8DJ`) | `storage_drive` | real-looking, unlinked |
 | `nucs` 12 to 15 | `computer` | real-looking, unlinked; NUCs are PCs |
 
-18 new items. Each carries a note naming its legacy origin
-(`migrated from legacy <table>:<id>`). Field mapping per category is a
-build-time read (the legacy column sets differ per table).
+16 new items (migration 081). Each carries a note naming its legacy
+origin (`migrated from legacy <table>:<id>`) and attributes
+`import_source` `legacy-item30`, `legacy_table`, `legacy_id`.
+`public.legacy_item_map` records every legacy row a link needed, rule
+R1 or R2; it has no FK to items, like `csv_import_map`. **Amended at
+build (Jus, 2026-09-28):** `cameras` 45 and 73 were dropped from the
+carry-in list. Camera 45 (`9147404`) is item 700 (`09147404`) and camera
+73 carries the MAC of item 613 (READ), so both are already items. Field
+mapping (READ and ratified 2026-09-28): computers take `device_name`,
+`device`, `assigned_to`, `purpose`; drives take maker and model, 10000
+GB, `drive_type`; edge box 41 takes SKU `PVA-16-30NR`, `uuid`, form
+factor; NUCs are named `NUC` with MAC and purpose. Location resolves to
+a non-customer site by name, else stays in notes. Status: computers,
+`In Use` and `Customer Lab` to Deployed; `Company Inventory` and `In
+Packaging` to Unassigned; the Dell drives to Installed through R4.
 
 **R3. Drop.** Deleted, by statements handed to Jus, never run by Chat or
 Code:
 
 - provisioning rows 238 to 242 (the SEED fixtures);
 - the 9 camera credentials in section 4. Camera logins are shared per
-  vendor; any needed are re-entered by hand after the re-upload.
+  vendor; any needed are re-entered by hand after the re-upload;
+- **added at build (Jus, 2026-09-28):** customer orders 72 (`AT-9003`)
+  and 73 (`AT-9004`), the fixture orders of provisioning 240 to 242.
+
+Committed 2026-09-28 after a preview and a backup
+(`asset_tracker_2026-09-28_1646.dump`). The cascades removed every
+`build_certification` row (5) and file row (7) and 2
+`deployment_records`. The certificate files on disk are now orphaned.
 
 Legacy rows with no links and no carry-in (`edge_boxes` 22 serial `777`,
 the SEED edge boxes, the duplicate rows) go with their tables.
@@ -132,7 +150,11 @@ the SEED edge boxes, the duplicate rows) go with their tables.
 becomes `item_schema.component_history` events on the re-pointed ids:
 `installed` with `slot_label`, `installed_date` as `action_date`,
 `installed_by` as `performed_by`, `notes`; plus `uninstalled` on
-`removed_date` when set. Whether any row has `removed_date` set is UNREAD.
+`removed_date` when set. No row has `removed_date` set (READ
+2026-09-28). Migration 066 already applied R4 to rows 1 to 7 (edge box
+to GPU) and records them in `component_migration_map`; migration 081
+does rows 8 to 31 in the 066 event format and map, so either one skips
+the other's rows on a re-run.
 `DeviceComponent` has no references in `app/` outside `models.py` (READ),
 so the legacy table has no live reader.
 
@@ -171,13 +193,20 @@ by `ALTER TYPE ... ADD VALUE`: **`phone`, `webcam`, `printer`, `nas`.**
   `installed` event on its NAS item, with `bay_number` as `slot_label`.
   `nas_devices` has 0 rows (READ), and `nas_drives.nas_device_id` is a NOT
   NULL FK to it (READ in the model), so `nas_drives` should be empty too.
-  That is an inference from the model; the S2 dry run counts it.
-- **Pre-read for S2 (UNREAD).** No phone, webcam or printer serial is
+  That is an inference from the model; the S2 dry run counts it. READ
+  2026-09-28: 0 rows, so R6 has nothing to move.
+- **Pre-read for S2 (done 2026-09-28).** No phone, webcam or printer serial is
   among the 16 legacy-only serials (READ 2026-09-21), so every serialled
   row in those tables has an item twin under some existing category.
-  Whether any of those legacy rows lack a serial is UNREAD. List the twins
+  Five legacy webcams lack a serial (READ 2026-09-28). List the twins
   and their current category, and the unserialled rows; S2 recategorises
   the twins to the new values after Jus confirms the list.
+- **Confirmed list (Jus, 2026-09-28), moved by migration 081:** phones,
+  items 882 to 888 (from `office_equipment`); printers, items 924 and
+  925 plus 926 (HP MFP 3301fdw); webcams, items 916 to 923 (from
+  `pc_accessories`; the five unserialled legacy webcams matched by model
+  and owner) plus 929 (Owl); NAS, the four QNAP TS-264 items 773, 774,
+  775 and 946 (from `computer`).
 
 ## 7. Writers (decisions, Jus, 2026-09-25)
 
@@ -278,7 +307,8 @@ data, data before readers, readers before drops.
    `pending_devices.suggested_category` from `suggested_table`. Dry run
    prints the section 4 counts and the `nas_drives` count and must match
    before the write. R3 deletes are handed to Jus as statements, run before
-   the write.
+   the write. Built as migration 081 (dry run by default, `--apply` to
+   commit, one transaction).
 3. **S3 writers and dead routes.** Pending approve creates items; scan
    intake maps phones, webcams, printers and NAS to their new categories
    (`TARGET_TABLE_TO_CATEGORY`). Retire
@@ -314,9 +344,8 @@ data, data before readers, readers before drops.
    has no customer site with coordinates. Those units would drop off the
    map, and the read decides whether their sites need coordinates first.
 
-**Still open, for build time:** the per-category field mapping for R2
-carry-ins, and whether any `device_components` row has `removed_date` set
-(R4). Both are reads, not decisions.
+**Build-time reads, closed 2026-09-28:** the R2 field mapping (section
+5, R2) and `removed_date` (none set, R4).
 
 ## 11. Out of scope
 
