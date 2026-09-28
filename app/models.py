@@ -1816,6 +1816,23 @@ def get_approvable_tables(user) -> list[str]:
     return sorted(t for t in TABLE_MODELS if user_can_approve_table(user, t))
 
 
+# Item 30 S4: the review queue and sidebar count work on item categories.
+# edge_box carries the same sites-admin gate as the edge_boxes table did.
+CATEGORIES_REQUIRING_SITES_ADMIN = frozenset({"edge_box"})
+
+
+def user_can_approve_category(user, category: str | None) -> bool:
+    """Check if a user may approve or dismiss a pending device of this category."""
+    if category in CATEGORIES_REQUIRING_SITES_ADMIN:
+        return user.has_sites_admin
+    return user.is_editor_or_above
+
+
+def get_approvable_categories(user) -> list[str]:
+    """Item categories the user can approve pending devices into, sorted."""
+    return sorted(c for c in item_categories_enum.enums if user_can_approve_category(user, c))
+
+
 # ---------------------------------------------------------------------------
 # Helpers for unified multi-table view
 # ---------------------------------------------------------------------------

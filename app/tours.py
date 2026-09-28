@@ -233,8 +233,8 @@ TOURS: list[dict] = [
                 "target": ".table-override-select",
                 "title": "Target Category Override",
                 "description": (
-                    "Before approving, you can change which inventory table "
-                    "the device will be added to. The dropdown only shows "
+                    "Before approving, you can change which item category "
+                    "the device will be added as. The dropdown only shows "
                     "categories you have permission to approve into."
                 ),
                 "position": "top",

@@ -11,11 +11,26 @@ from sqlalchemy.exc import IntegrityError
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor
 from ..database import get_db
-from ..models import PendingDevice, ReceivedDevice, User, user_can_approve_table
+from ..models import PendingDevice, ReceivedDevice, User, item_categories_enum, user_can_approve_category
 from .intake import create_item
 from .receiving import TARGET_TABLE_TO_CATEGORY
 
 router = APIRouter()
+
+_CATEGORIES = frozenset(item_categories_enum.enums)
+
+
+def _pending_category(pending: PendingDevice, body: dict) -> str:
+    """The item category for a pending device, from an override or the suggestion."""
+    override = str(body.get("item_category") or "").strip()
+    if override in _CATEGORIES:
+        return override
+    legacy = str(body.get("target_table") or "").strip()
+    if legacy in TARGET_TABLE_TO_CATEGORY:
+        return TARGET_TABLE_TO_CATEGORY[legacy]
+    if pending.suggested_category and str(pending.suggested_category) in _CATEGORIES:
+        return str(pending.suggested_category)
+    return TARGET_TABLE_TO_CATEGORY.get(pending.suggested_table or "", "network")
 
 
 @router.post("/pending/{device_id}/approve")
@@ -28,10 +43,9 @@ async def approve_device(
     """Approve a pending device: create it as an item in item_schema.items.
 
     Item 30 S3 (docs/specs/retire-legacy-inventory.md): approval no longer
-    writes a legacy public.* row. The review queue still sends a legacy table
-    name as target_table; it maps to an item category through the same
-    TARGET_TABLE_TO_CATEGORY that scan intake uses, and the item is built by
-    the shared create_item path.
+    writes a legacy public.* row; the item is built by the shared create_item
+    path. Item 30 S4: the review queue sends item_category. A legacy
+    target_table is still accepted and mapped through TARGET_TABLE_TO_CATEGORY.
     """
     pending = db.query(PendingDevice).filter(PendingDevice.id == device_id).first()
     if not pending:
@@ -39,23 +53,18 @@ async def approve_device(
     if pending.status != "pending":
         return JSONResponse(status_code=400, content={"error": f"Already {pending.status}"})
 
-    # Accept optional target_table override from JSON body
-    target_table = pending.suggested_table or "network_equipment"
-    content_type = request.headers.get("content-type", "")
-    if content_type.startswith("application/json"):
+    # Category: a JSON override (item_category, or a legacy target_table),
+    # else what intake suggested, else network.
+    body = {}
+    if request.headers.get("content-type", "").startswith("application/json"):
         body = await request.json()
-        override = (body.get("target_table") or "").strip()
-        if override and override in TARGET_TABLE_TO_CATEGORY:
-            target_table = override
-    if target_table not in TARGET_TABLE_TO_CATEGORY:
-        target_table = "network_equipment"
-    item_category = TARGET_TABLE_TO_CATEGORY[target_table]
+    item_category = _pending_category(pending, body)
 
-    # RBAC: check user has permission for this target table
-    if not user_can_approve_table(user, target_table):
+    # RBAC: edge boxes need sites admin, everything else editor
+    if not user_can_approve_category(user, item_category):
         return JSONResponse(
             status_code=403,
-            content={"error": f"You don't have permission to approve devices into {target_table.replace('_', ' ').title()}. Sites Manager access required."},
+            content={"error": f"You do not have permission to approve {item_category.replace('_', ' ')} devices. Sites Manager access required."},
         )
 
     # the intake-<serial> placeholder is a NOT NULL hack, not a real MAC
@@ -104,7 +113,9 @@ async def approve_device(
         # scan-intake pending row (pre-existing, surfaced by the H15 tests).
         if mac:
             from app.oui_utils import auto_add_oui
-            auto_add_oui(db, mac_address=mac, manufacturer=pending.manufacturer, table_name=target_table)
+            # the OUI allowlist still keys on scan-intake table names
+            oui_table = next((t for t, c in TARGET_TABLE_TO_CATEGORY.items() if c == item_category), None)
+            auto_add_oui(db, mac_address=mac, manufacturer=pending.manufacturer, table_name=oui_table)
 
         # Update pending record
         pending.status = "approved"
@@ -161,12 +172,12 @@ async def dismiss_device(
     if pending.status != "pending":
         return JSONResponse(status_code=400, content={"error": f"Already {pending.status}"})
 
-    # RBAC: check user has permission for this device's target table
-    device_table = pending.suggested_table or "network_equipment"
-    if not user_can_approve_table(user, device_table):
+    # RBAC: same category gate as approve
+    item_category = _pending_category(pending, {})
+    if not user_can_approve_category(user, item_category):
         return JSONResponse(
             status_code=403,
-            content={"error": f"You don't have permission to dismiss {device_table.replace('_', ' ').title()} devices. Sites Manager access required."},
+            content={"error": f"You do not have permission to dismiss {item_category.replace('_', ' ')} devices. Sites Manager access required."},
         )
 
     form = await request.form() if request.headers.get("content-type", "").startswith("application/x-www-form") else None

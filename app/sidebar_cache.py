@@ -6,7 +6,7 @@ Used by the Jinja2 context processor registered in main.py.
 
 import time
 from sqlalchemy.orm import Session
-from .models import TABLE_MODELS, DeleteRequest, PendingDevice, get_approvable_tables
+from .models import DeleteRequest, PendingDevice, get_approvable_categories
 
 _cache: dict = {}
 _TTL = 15  # seconds
@@ -77,14 +77,14 @@ def get_sidebar_counts(db: Session, user=None) -> dict:
         cache_key = f"pending_{user.id}"
         if cache_key not in _cache or now - _cache[cache_key][1] > _TTL:
             from sqlalchemy import or_
-            approvable = get_approvable_tables(user)
+            approvable = get_approvable_categories(user)
             count = (
                 db.query(PendingDevice)
                 .filter(
                     PendingDevice.status == "pending",
                     or_(
-                        PendingDevice.suggested_table.in_(approvable),
-                        PendingDevice.suggested_table.is_(None),
+                        PendingDevice.suggested_category.in_(approvable),
+                        PendingDevice.suggested_category.is_(None),
                     ),
                 )
                 .count()

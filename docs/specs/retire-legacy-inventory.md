@@ -381,6 +381,16 @@ data, data before readers, readers before drops.
    and the audit-log label lookup in `api.py` still use
    `TABLE_DISPLAY_NAMES` as a vocabulary, and need a replacement before it
    drops.
+   **Receiving, review half, built 2026-09-28:** the review queue and the
+   sidebar pending count filter on `suggested_category` through new
+   `get_approvable_categories` / `user_can_approve_category` (edge_box keeps
+   the sites-admin gate the edge_boxes table had). The queue offers item
+   categories; approve takes `item_category` and still maps a legacy
+   `target_table`, and dismiss uses the same category gate. The scan-lookup
+   half waits on the Lab_Network.xlsx reconcile: 8 legacy serials (the two
+   skipped cameras, test edge box 22 and SEED fixtures 117 to 121), 2 MACs
+   (items 910, 634) and 1 UUID (item 570) that items lack, 3 duplicate MACs
+   among items, and 5 uncatalogued edge box part numbers (let go, Jus).
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,

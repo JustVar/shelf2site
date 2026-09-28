@@ -60,7 +60,7 @@
                     <th>Last Seen</th>
                     <th>Status</th>
                     {% if status_filter == 'pending' %}
-                    <th>Target Table</th>
+                    <th>Category</th>
                     <th>Actions</th>
                     {% endif %}
                 </tr>
@@ -76,8 +76,8 @@
                     <td>{{ d.manufacturer or 'Unknown' }}</td>
                     <td>{{ d.model or '-' }}</td>
                     <td>
-                        {{ table_display_names.get(d.suggested_table or 'network_equipment', (d.suggested_table or 'network_equipment').replace('_', ' ').title()) }}
-                        {% if d.suggested_table in ('edge_boxes', 'trade_show_boxes') %}
+                        {{ category_display(d.suggested_category or 'network') }}
+                        {% if (d.suggested_category or 'network') == 'edge_box' %}
                         <span class="badge" style="background: var(--warning); color: #000; font-size: 0.7rem; margin-left: 4px;">Sites Admin</span>
                         {% endif %}
                     </td>
@@ -92,9 +92,9 @@
                     <td>
                         <select id="table-override-{{ d.id }}" class="table-override-select"
                                 style="font-size: 0.85rem; padding: 2px 4px; max-width: 160px;">
-                            {% for t in available_tables %}
-                            <option value="{{ t }}" {% if t == (d.suggested_table or 'network_equipment') %}selected{% endif %}>
-                                {{ table_display_names.get(t, t.replace('_', ' ').title()) }}
+                            {% for c, label in available_categories %}
+                            <option value="{{ c }}" {% if c == (d.suggested_category or 'network') %}selected{% endif %}>
+                                {{ label }}
                             </option>
                             {% endfor %}
                         </select>
@@ -129,12 +129,12 @@
 
     async function approveDevice(deviceId) {
         if (!(await SxDialog.confirm({ title: 'Approve device', message: 'Approve this device and add it to inventory?', okLabel: 'Approve' }))) return;
-        const targetTable = document.getElementById(`table-override-${deviceId}`).value;
+        const itemCategory = document.getElementById(`table-override-${deviceId}`).value;
         try {
             const resp = await fetch(`${BP}/api/pending/${deviceId}/approve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target_table: targetTable }),
+                body: JSON.stringify({ item_category: itemCategory }),
             });
             if (resp.ok) {
                 document.getElementById(`pending-row-${deviceId}`).remove();
