@@ -368,6 +368,19 @@ data, data before readers, readers before drops.
    had no caller anywhere (READ on apphost) and is retired with its
    allowlist entry. The sidenav gains a Sites link (nothing linked the
    page before, READ on apphost).
+   **Vendors and admin OUI built 2026-09-28 (Jus):** the legacy half is
+   removed as decided, and a profile now lists the items whose `vendor_id`
+   points at it (0 today: no item carries a vendor, READ). The quality
+   score, RMA and trial stats are dropped with it: they were computed only
+   from claims and trials, both retired features, and with no legacy
+   devices the score read a constant 100. Vendor auto-create (seeded from
+   legacy vendor strings) is retired with its route and button. The OUI
+   reference counts items by either item MAC column instead of six legacy
+   MAC tables. N2 still owns any richer vendor analytics.
+   Left for S5, not legacy data readers: the OUI `maps_to_table` dropdown
+   and the audit-log label lookup in `api.py` still use
+   `TABLE_DISPLAY_NAMES` as a vocabulary, and need a replacement before it
+   drops.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,

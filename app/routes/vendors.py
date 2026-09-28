@@ -1,4 +1,12 @@
-"""Vendor Profiles routes — contact info, OEM flags, and per-vendor analytics."""
+"""Vendor Profiles routes: contact info, OEM flags, and the items linked to each vendor.
+
+Item 30 S4 (docs/specs/retire-legacy-inventory.md): the legacy per-category
+device lists, the unlinked-vendor strings and the auto-create seeding read
+the legacy tables and are retired. A profile now lists the items whose
+vendor_id points at it. The quality score, RMA and trial stats went with
+them (RMA claims and trials are retired features); N2 owns any richer
+vendor analytics.
+"""
 
 from pathlib import Path
 from urllib.parse import unquote
@@ -14,10 +22,8 @@ from ..config import settings
 from ..localtime import local_today, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids, pending_for
-from ..models import (
-    VendorProfile, DeviceWarranty, WarrantyClaim, VendorTrial, User,
-    TABLE_MODELS, TABLE_DISPLAY_NAMES, get_display_name, get_serial,
-)
+from ..models import DeviceWarranty, Item, User, VendorProfile
+from .dashboard import category_display
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -29,71 +35,28 @@ register(templates.env)
 
 
 # ---------------------------------------------------------------------------
-# Helper: collect vendor analytics (reused from procurement.py logic)
+# Helper: items and warranties linked to a vendor
 # ---------------------------------------------------------------------------
 
-def _vendor_analytics(db: Session, vendor_name: str) -> dict:
-    """Gather device counts, warranty, trial data for a vendor string."""
-    devices = []
-    for table_name, model in TABLE_MODELS.items():
-        if not hasattr(model, "vendor"):
-            continue
-        matches = db.query(model).filter(model.vendor.ilike(vendor_name)).all()
-        display = TABLE_DISPLAY_NAMES.get(table_name, table_name)
-        for d in matches:
-            devices.append({
-                "id": d.id,
-                "table": table_name,
-                "category": display,
-                "name": get_display_name(d),
-                "serial": get_serial(d),
-                "status": getattr(d, "status", "-"),
-                "purchase_date": (
-                    d.purchase_date.strftime("%Y-%m-%d")
-                    if hasattr(d, "purchase_date") and d.purchase_date else "-"
-                ),
-            })
-
-    warranties = db.query(DeviceWarranty).filter(DeviceWarranty.vendor.ilike(vendor_name)).all()
-    active_warranties = sum(1 for w in warranties if w.warranty_end and w.warranty_end >= local_today())
-    warranty_ids = [w.id for w in warranties]
-    claims = (
-        db.query(WarrantyClaim).filter(WarrantyClaim.warranty_id.in_(warranty_ids)).all()
-        if warranty_ids else []
+def _vendor_items(db: Session, profile: VendorProfile) -> dict:
+    """Items whose vendor_id is this profile, and warranties naming the vendor."""
+    items = (
+        db.query(Item)
+        .filter(Item.vendor_id == profile.id)
+        .order_by(Item.item_category, Item.item_name, Item.id)
+        .all()
     )
-    claim_rate = (len(claims) / len(devices) * 100) if devices else 0
-
-    trials = db.query(VendorTrial).filter(VendorTrial.vendor.ilike(vendor_name)).all()
-    trial_purchased = sum(1 for t in trials if t.trial_status == "approved_purchase")
-    trial_returned = sum(1 for t in trials if t.trial_status == "returned")
-    trial_active = sum(1 for t in trials if t.trial_status == "active")
-
-    quality_score = 100
-    quality_score -= min(claim_rate * 1.5, 30)
-    if trial_purchased + trial_returned > 0:
-        quality_score += (trial_purchased / (trial_purchased + trial_returned)) * 10
-    quality_score = max(0, min(100, int(quality_score)))
-
-    quality_rating = (
-        "Excellent" if quality_score >= 90
-        else "Good" if quality_score >= 75
-        else "Fair" if quality_score >= 60
-        else "Poor"
-    )
-
+    rows = [
+        {"item": i, "category": category_display(i.item_category) if i.item_category else "-"}
+        for i in items
+    ]
+    warranties = db.query(DeviceWarranty).filter(DeviceWarranty.vendor.ilike(profile.name)).all()
+    today = local_today()
     return {
-        "devices": devices,
-        "device_count": len(devices),
-        "active_warranties": active_warranties,
+        "items": rows,
+        "item_count": len(rows),
         "warranty_count": len(warranties),
-        "claim_count": len(claims),
-        "claim_rate": round(claim_rate, 1),
-        "trials": trials,
-        "trial_purchased": trial_purchased,
-        "trial_returned": trial_returned,
-        "trial_active": trial_active,
-        "quality_score": quality_score,
-        "quality_rating": quality_rating,
+        "active_warranties": sum(1 for w in warranties if w.warranty_end and w.warranty_end >= today),
     }
 
 
@@ -107,25 +70,12 @@ def vendors_list(
     db: Session = Depends(get_db),
     user: User = Depends(require_viewer),
 ):
-    """Vendor list page — profiles + vendors from inventory without profiles."""
+    """Vendor list page."""
     profiles = db.query(VendorProfile).order_by(VendorProfile.name).all()
-    profiled_names = {p.name.lower() for p in profiles}
-
-    # Collect all vendor strings from inventory that don't have a profile yet
-    unlinked_names: set[str] = set()
-    for model in TABLE_MODELS.values():
-        if not hasattr(model, "vendor"):
-            continue
-        rows = db.query(model.vendor).filter(model.vendor.isnot(None)).distinct().all()
-        for (v,) in rows:
-            if v and v.strip() and v.strip().lower() not in profiled_names:
-                unlinked_names.add(v.strip())
-
     return templates.TemplateResponse("vendors.html", {
         "request": request,
         "user": user,
         "profiles": profiles,
-        "unlinked_vendors": sorted(unlinked_names),
     })
 
 
@@ -136,13 +86,13 @@ def vendor_profile_detail(
     db: Session = Depends(get_db),
     user: User = Depends(require_viewer),
 ):
-    """Vendor detail: contact profile card + procurement analytics (if permitted)."""
+    """Vendor detail: contact card plus the items linked to this vendor."""
     profile = db.query(VendorProfile).filter(VendorProfile.id == vendor_id).first()
     if not profile:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(f"{BP}/vendors/", status_code=303)
 
-    analytics = _vendor_analytics(db, profile.name)
+    linked = _vendor_items(db, profile)
 
     return templates.TemplateResponse("vendor_detail_profile.html", {
         "request": request,
@@ -150,7 +100,7 @@ def vendor_profile_detail(
         "profile": profile,
         "can_edit": user.has_receipts_access,
         "delete_request": pending_for(db, "vendor_profiles", profile.id),
-        **analytics,
+        **linked,
     })
 
 
@@ -260,32 +210,3 @@ def delete_vendor(
               details=f"Deleted vendor profile: {name}")
 
     return JSONResponse(content={"status": "ok"})
-
-
-@router.post("/api/vendors/auto-create")
-def auto_create_vendors(
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_admin),
-):
-    """Seed vendor profiles for all known vendor strings in inventory that don't have one yet."""
-    profiled_names = {p.name.lower() for p in db.query(VendorProfile).all()}
-    created = []
-    for model in TABLE_MODELS.values():
-        if not hasattr(model, "vendor"):
-            continue
-        rows = db.query(model.vendor).filter(model.vendor.isnot(None)).distinct().all()
-        for (v,) in rows:
-            if v and v.strip() and v.strip().lower() not in profiled_names:
-                name = v.strip()
-                profile = VendorProfile(name=name)
-                db.add(profile)
-                profiled_names.add(name.lower())
-                created.append(name)
-
-    db.commit()
-    log_event(db, "vendors_auto_created", request=request, user_id=user.id,
-              target_table="vendor_profiles", action="create",
-              details=f"Auto-created {len(created)} vendor profiles: {', '.join(created[:10])}")
-
-    return JSONResponse(content={"status": "ok", "created": created, "count": len(created)})

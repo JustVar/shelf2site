@@ -67,7 +67,6 @@ NOT_A_TARGET = {
     ("map.py", "map_set_location"): "writes the place coordinates, not the item",
     ("sites.py", "delete_site"): "refuses while items are placed there",
     ("vendors.py", "create_vendor"): "creates a new vendor",
-    ("vendors.py", "auto_create_vendors"): "creates new vendors",
 }
 
 # A write route whose body uses any of these can touch an existing item or vendor.

@@ -908,9 +908,9 @@ TOURS: list[dict] = [
                 "target": "h1",
                 "title": "Vendor Profiles",
                 "description": (
-                    "This page lists all vendors from your inventory. "
-                    "Profiles with contact info appear at the top. "
-                    "Vendors without profiles are shown below so you can add them."
+                    "This page lists your vendor profiles with their contact "
+                    "details. Items are linked to a vendor through their "
+                    "Vendor field on intake or on the item's detail page."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -920,8 +920,8 @@ TOURS: list[dict] = [
                 "title": "Click a Vendor to See Details",
                 "description": (
                     "Click any vendor name to open its detail page. "
-                    "There you'll find the full contact card, procurement analytics "
-                    "(devices purchased, warranties, RMA claims), and Try & Buy history."
+                    "There you'll find the full contact card, the items linked "
+                    "to the vendor, and its warranty counts."
                 ),
                 "position": "right",
                 "highlight_padding": 4,
@@ -930,10 +930,8 @@ TOURS: list[dict] = [
                 "target": "[onclick='openAddModal()']",
                 "title": "Add a Vendor Profile",
                 "description": (
-                    "Click '+ Add Vendor' to create a profile. "
-                    "The vendor name must match exactly what's in the inventory "
-                    "'Vendor' field — the match is case-insensitive. "
-                    "Use 'Auto-Create All' to seed profiles for every known vendor at once."
+                    "Click '+ Add Vendor' to create a profile. Once it exists, "
+                    "pick it in an item's Vendor field to link the item."
                 ),
                 "position": "bottom",
                 "highlight_padding": 8,
@@ -1337,7 +1335,7 @@ TOURS: list[dict] = [
         "name": "Vendor Detail",
         "page_pattern": "/vendors/*",
         "template": "vendor_detail_profile.html",
-        "description": "Contact card, quality score, procurement analytics, and device history for a single vendor",
+        "description": "Contact card, linked items and warranty counts for a single vendor",
         "required_access": "is_editor_or_above",
         "enabled": True,
         "group": "procurement",
@@ -1346,35 +1344,19 @@ TOURS: list[dict] = [
                 "target": ".vendor-grid",
                 "title": "Vendor Overview",
                 "description": (
-                    "Left column shows contact information (name, email, phone, website) "
-                    "and the vendor's quality score. Right column shows procurement "
-                    "analytics pulled from your inventory data."
+                    "Left column shows contact information (name, email, phone, website). "
+                    "Right column shows the items linked to this vendor."
                 ),
                 "position": "bottom",
                 "highlight_padding": 8,
                 "optional": True,
             },
             {
-                "target": ".quality-ring",
-                "title": "Quality Score",
-                "description": (
-                    "The quality score (0–100) is auto-calculated from warranty "
-                    "claim rates and trial success rates. Green = Excellent (80+), "
-                    "Blue = Good (60+), Yellow = Needs Review (below 60). "
-                    "No manual entry required — it updates automatically."
-                ),
-                "position": "right",
-                "highlight_padding": 6,
-                "optional": True,
-            },
-            {
                 "target": ".stat-grid",
-                "title": "Procurement Analytics",
+                "title": "Summary",
                 "description": (
-                    "Key metrics for this vendor: total devices purchased, "
-                    "total spend, active warranties, RMA claim count, "
-                    "and active Try & Buy trials — all drawn from your "
-                    "existing inventory records."
+                    "How many items are linked to this vendor, and how many "
+                    "warranties name it (active and total)."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -1382,12 +1364,11 @@ TOURS: list[dict] = [
             },
             {
                 "target": ".table-section",
-                "title": "Device & Trial History",
+                "title": "Linked Items",
                 "description": (
-                    "Full list of devices sourced from this vendor across all "
-                    "categories, plus any active or past Try & Buy trials. "
-                    "Use the <strong>Edit</strong> button in the contact card "
-                    "to update vendor profile details."
+                    "Every item whose Vendor field is this profile. Click an "
+                    "item to open it. Use the <strong>Edit</strong> button in "
+                    "the contact card to update vendor profile details."
                 ),
                 "position": "top",
                 "highlight_padding": 4,

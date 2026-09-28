@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-from sqlalchemy import desc, func
+from sqlalchemy import String, cast, desc, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -63,28 +63,19 @@ def oui_reference(
     user: User = Depends(require_editor),
 ):
     """Render the OUI Reference page (viewable by editors+, editable by admins)."""
-    from ..models import (
-        EdgeBox, Camera, AccessControl, Phone,
-        MobileDevice, NetworkEquipment, TABLE_MODELS
-    )
+    from ..models import Item
 
     entries = db.query(OUIAllowlist).order_by(OUIAllowlist.manufacturer, OUIAllowlist.oui_prefix).all()
 
-    # Count devices per OUI across all tables with MAC addresses
-    tables_with_macs = [
-        EdgeBox, Camera, AccessControl,
-        Phone, MobileDevice, NetworkEquipment
-    ]
-
+    # Count items per OUI from either item MAC column (item 30 S4; the six
+    # legacy MAC tables are retired). macaddr renders as lowercase aa:bb:cc.
     oui_stats = []
     for entry in entries:
-        device_count = 0
-        oui_pattern = f"{entry.oui_prefix}:%"
-        for model in tables_with_macs:
-            if hasattr(model, "mac_address"):
-                device_count += db.query(model).filter(
-                    model.mac_address.ilike(oui_pattern)
-                ).count()
+        oui_pattern = f"{(entry.oui_prefix or '').lower()}:%"
+        device_count = db.query(Item).filter(or_(
+            cast(Item.item_mac_address_1, String).ilike(oui_pattern),
+            cast(Item.item_mac_address_2, String).ilike(oui_pattern),
+        )).count()
         oui_stats.append({"entry": entry, "device_count": device_count})
 
     # Group by manufacturer for the grouped view

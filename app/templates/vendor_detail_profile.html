@@ -15,25 +15,6 @@
     .vendor-grid { grid-template-columns: 1fr; }
 }
 
-/* Quality score ring */
-.quality-ring {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    font-weight: 700;
-    font-size: 1.3rem;
-    border: 4px solid;
-    flex-shrink: 0;
-}
-.quality-ring.excellent { border-color: var(--success, #27ae60); color: var(--success, #27ae60); }
-.quality-ring.good      { border-color: var(--info, #3498db); color: var(--info, #3498db); }
-.quality-ring.fair      { border-color: var(--warning, #f39c12); color: var(--warning, #f39c12); }
-.quality-ring.poor      { border-color: var(--danger, #e74c3c); color: var(--danger, #e74c3c); }
-
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -110,7 +91,7 @@
 </div>
 
 <div class="vendor-grid">
-    <!-- LEFT: Contact card + quality -->
+    <!-- LEFT: Contact card -->
     <div>
         <!-- Contact Information -->
         <div class="table-section">
@@ -167,35 +148,16 @@
             {% endif %}
         </div>
 
-        <!-- Quality Score -->
-        <div class="table-section">
-            <h2>Vendor Quality</h2>
-            <div style="display: flex; align-items: center; gap: 1.5rem;">
-                <div class="quality-ring {{ 'excellent' if quality_rating == 'Excellent' else 'good' if quality_rating == 'Good' else 'fair' if quality_rating == 'Fair' else 'poor' }}">
-                    {{ quality_score }}
-                    <div style="font-size: 0.6rem; font-weight: 400; color: var(--text-muted);">/100</div>
-                </div>
-                <div>
-                    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.15rem;">{{ quality_rating }}</div>
-                    <div style="font-size: 0.82rem; color: var(--text-muted);">Based on claim rate and trial outcomes</div>
-                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">
-                        Claim rate: <strong>{{ claim_rate }}%</strong>
-                        &nbsp;·&nbsp; Trials: <strong>{{ trial_purchased }}</strong> purchased, <strong>{{ trial_returned }}</strong> returned
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <!-- RIGHT: Analytics -->
+    <!-- RIGHT: Items linked to this vendor (item 30 S4) -->
     <div>
-        <!-- Summary stats -->
         <div class="table-section">
-            <h2>Procurement Summary</h2>
+            <h2>Summary</h2>
             <div class="stat-grid">
                 <div class="stat-box">
-                    <div class="stat-val">{{ device_count }}</div>
-                    <div class="stat-label">Total Devices</div>
+                    <div class="stat-val">{{ item_count }}</div>
+                    <div class="stat-label">Linked Items</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-val" style="color: var(--success, #27ae60);">{{ active_warranties }}</div>
@@ -205,46 +167,29 @@
                     <div class="stat-val">{{ warranty_count }}</div>
                     <div class="stat-label">Total Warranties</div>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-val" style="color: {{ 'var(--warning)' if claim_count > 0 else 'var(--text-muted)' }};">{{ claim_count }}</div>
-                    <div class="stat-label">RMA Claims</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-val">{{ trial_active }}</div>
-                    <div class="stat-label">Active Trials</div>
-                </div>
             </div>
         </div>
 
-        <!-- Device list -->
-        {% if devices %}
+        {% if items %}
         <div class="table-section">
-            <h2>Devices Purchased ({{ device_count }})</h2>
+            <h2>Linked Items ({{ item_count }})</h2>
             <div style="overflow-x: auto;">
-                <table class="data-table" style="font-size: 0.85rem;">
+                <table class="data-table" id="vendor-items-table" style="font-size: 0.85rem;">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Item</th>
                             <th>Category</th>
                             <th>Serial</th>
                             <th>Status</th>
-                            <th>Purchased</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for d in devices %}
+                        {% for row in items %}
                         <tr>
-                            <td style="font-weight: 500;">{{ d.name }}</td>
-                            <td style="color: var(--text-muted); font-size: 0.8rem;">{{ d.category }}</td>
-                            <td style="font-family: monospace; font-size: 0.8rem;">{{ d.serial or '—' }}</td>
-                            <td>
-                                {% if d.status and d.status != '-' %}
-                                <span class="badge" style="font-size: 0.75rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--text);">{{ d.status }}</span>
-                                {% else %}
-                                <span style="color: var(--text-muted);">—</span>
-                                {% endif %}
-                            </td>
-                            <td style="color: var(--text-muted); white-space: nowrap;">{{ d.purchase_date if d.purchase_date != '-' else '—' }}</td>
+                            <td style="font-weight: 500;"><a href="{{ base_path }}/items/{{ row.item.id }}">{{ row.item.item_name or '(unnamed)' }}</a></td>
+                            <td style="color: var(--text-muted); font-size: 0.8rem;">{{ row.category }}</td>
+                            <td style="font-family: monospace; font-size: 0.8rem;">{{ row.item.item_sn or '-' }}</td>
+                            <td>{{ row.item.item_status or '-' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -253,44 +198,8 @@
         </div>
         {% else %}
         <div class="table-section" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-            <p>No inventory items linked to this vendor yet.</p>
-            <p style="font-size: 0.82rem;">Items are linked automatically when the <strong>vendor</strong> field matches "{{ profile.name }}" (case-insensitive).</p>
-        </div>
-        {% endif %}
-
-        <!-- Try & Buy trials -->
-        {% if trials %}
-        <div class="table-section">
-            <h2>Try & Buy History ({{ trials | length }})</h2>
-            <div style="overflow-x: auto;">
-                <table class="data-table" style="font-size: 0.85rem;">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Type</th>
-                            <th>Received</th>
-                            <th>Return By</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for t in trials %}
-                        <tr>
-                            <td style="font-weight: 500;">{{ t.item_name or '—' }}</td>
-                            <td style="color: var(--text-muted); font-size: 0.8rem;">{{ t.trial_type or '—' }}</td>
-                            <td style="color: var(--text-muted);">{{ t.received_date.strftime('%Y-%m-%d') if t.received_date else '—' }}</td>
-                            <td style="color: var(--text-muted);">{{ t.return_deadline.strftime('%Y-%m-%d') if t.return_deadline else '—' }}</td>
-                            <td>
-                                {% set s = t.trial_status or 'unknown' %}
-                                <span class="badge {{ 'badge-success' if s == 'approved_purchase' else 'badge-danger' if s == 'returned' else 'badge-warning' if s == 'active' else '' }}" style="font-size: 0.75rem;">
-                                    {{ s | replace('_', ' ') | title }}
-                                </span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            <p>No items are linked to this vendor yet.</p>
+            <p style="font-size: 0.82rem;">An item is linked when its <strong>Vendor</strong> field is set to this profile on intake or on the item's detail page.</p>
         </div>
         {% endif %}
     </div>

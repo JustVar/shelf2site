@@ -13,9 +13,6 @@
         {% if user.has_receipts_access %}
         <button class="fl-cta" onclick="openAddModal()">+ Add Vendor</button>
         {% endif %}
-        {% if user.is_admin_tier %}
-        <button class="fl-obtn" onclick="autoCreate()" title="Seed profiles for all vendor strings in inventory that don't have one yet">Auto-Create All</button>
-        {% endif %}
     </div>
 </div>
 
@@ -114,29 +111,6 @@
     {% if user.has_receipts_access %}
     <button class="fl-cta" onclick="openAddModal()">Create First Profile</button>
     {% endif %}
-</div>
-{% endif %}
-
-{% if unlinked_vendors %}
-<div class="table-section" style="margin-top: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div>
-            <h2 style="margin-bottom: 0.25rem;">Vendors Without Profiles
-                <span class="badge badge-warning" style="font-size: 0.75rem; margin-left: 0.25rem;">{{ unlinked_vendors | length }}</span>
-            </h2>
-            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">These vendor strings appear in your inventory but have no profile yet. Click "+ Profile" to create one.</p>
-        </div>
-    </div>
-    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-        {% for v in unlinked_vendors %}
-        <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.85rem;">
-            <span>{{ v }}</span>
-            {% if user.has_receipts_access %}
-            <button onclick="openAddModal({{ (v or '')|tojson|forceescape }})" style="background: none; border: none; color: var(--accent, #3498db); cursor: pointer; font-size: 0.8rem; padding: 0; line-height: 1; white-space: nowrap;">+ Profile</button>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
 </div>
 {% endif %}
 
@@ -351,24 +325,6 @@ async function deleteVendor(id, name) {
         const data = await resp.json();
         if (resp.ok) { location.reload(); }
         else { SxToast.error(data.error || 'Failed to delete vendor profile', 0); }
-    } catch (err) { SxToast.error('Error: ' + err.message, 0); }
-}
-
-async function autoCreate() {
-    if (!(await SxDialog.confirm({ title: 'Seed vendor profiles', message: 'Seed vendor profiles for all vendor strings in inventory that don\'t have a profile yet?\n\nProfiles will be created with just the name — you can fill in contact details afterwards.', okLabel: 'Seed profiles' }))) return;
-    try {
-        const resp = await fetch(`${BP}/api/vendors/auto-create`, {method: 'POST'});
-        const data = await resp.json();
-        if (resp.ok) {
-            const count = data.count || 0;
-            if (count === 0) {
-                SxToast.info('All vendors already have profiles.');
-            } else {
-                const params = new URLSearchParams(window.location.search);
-                params.set('toast', `Created ${count} new profile${count !== 1 ? 's' : ''}.`);
-                window.location.search = params.toString();
-            }
-        } else { SxToast.error(data.error || 'Failed to auto-create profiles', 0); }
     } catch (err) { SxToast.error('Error: ' + err.message, 0); }
 }
 
