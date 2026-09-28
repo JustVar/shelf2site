@@ -813,101 +813,6 @@
     {% block scripts %}{% endblock %}
 <script>
 // ---------------------------------------------------------------------------
-// Credentials modal — available on all pages
-// ---------------------------------------------------------------------------
-async function showCredentials(tableName, deviceId) {
-    const modal = document.getElementById('creds-modal');
-    const container = document.getElementById('creds-content');
-    container.innerHTML = 'Loading...';
-    modal.classList.add('open');
-    try {
-        const resp = await fetch(`${window.BASE_PATH}/api/credentials/${tableName}/${deviceId}`);
-        if (resp.status === 401 || resp.status === 403) {
-            container.innerHTML = '<p style="color:var(--sx-red)">You do not have permission to view credentials.</p>';
-            return;
-        }
-        const data = await resp.json();
-        renderCreds(data, container);
-    } catch (e) {
-        container.innerHTML = '<p style="color:var(--sx-red)">Failed to load credentials.</p>';
-    }
-}
-
-function renderCreds(data, container) {
-    if (!data.credentials || data.credentials.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted);">No credentials stored.</p>';
-        return;
-    }
-    let html = '';
-    let credIdx = 0;
-    for (const cred of data.credentials) {
-        const pwId = `cred-pw-${credIdx}`;
-        const toggleId = `cred-toggle-${credIdx}`;
-        const maskedPw = cred.password ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : null;
-        html += `<div style="margin-bottom:1rem;padding:0.8rem;background:var(--primary);border-radius:4px;">`;
-        if (cred.credential_type === 'rtsp_stream') {
-            html += `<div class="field-label" style="margin-bottom:0.4rem;">Type: RTSP Stream</div>`;
-            if (cred.notes) html += `<div class="field"><span class="field-label">Stream URL:</span> <span class="field-value eb-mono">${cred.notes}</span></div>`;
-            if (cred.username) html += `<div class="field"><span class="field-label">Username:</span> <span class="field-value">${cred.username}</span></div>`;
-            if (maskedPw) html += `
-                <div class="field" style="display:flex;align-items:center;gap:8px;">
-                    <span class="field-label">Password:</span>
-                    <span class="field-value" id="${pwId}" data-pw="${cred.password}" data-visible="false" style="letter-spacing:0.1em;">${maskedPw}</span>
-                    <button id="${toggleId}" onclick="toggleCredPw('${pwId}','${toggleId}')"
-                        style="background:none;border:1px solid var(--sx-border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--sx-gray-dim);cursor:pointer;">Show</button>
-                </div>`;
-        } else {
-            html += `<div class="field-label" style="margin-bottom:0.4rem;">Type: ${cred.credential_type}</div>`;
-            if (cred.username) html += `<div class="field"><span class="field-label">Username:</span> <span class="field-value">${cred.username}</span></div>`;
-            if (maskedPw) html += `
-                <div class="field" style="display:flex;align-items:center;gap:8px;">
-                    <span class="field-label">Password:</span>
-                    <span class="field-value" id="${pwId}" data-pw="${cred.password}" data-visible="false" style="letter-spacing:0.1em;">${maskedPw}</span>
-                    <button id="${toggleId}" onclick="toggleCredPw('${pwId}','${toggleId}')"
-                        style="background:none;border:1px solid var(--sx-border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--sx-gray-dim);cursor:pointer;">Show</button>
-                </div>`;
-            if (cred.notes) html += `<div class="field"><span class="field-label">Notes:</span> <span class="field-value">${cred.notes}</span></div>`;
-        }
-        html += `</div>`;
-        credIdx++;
-    }
-    container.innerHTML = html;
-}
-
-function toggleCredPw(pwId, toggleId) {
-    const span = document.getElementById(pwId);
-    const btn = document.getElementById(toggleId);
-    if (!span) return;
-    const visible = span.dataset.visible === 'true';
-    if (visible) {
-        span.textContent = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-        span.style.letterSpacing = '0.1em';
-        span.dataset.visible = 'false';
-        btn.textContent = 'Show';
-    } else {
-        span.textContent = span.dataset.pw;
-        span.style.letterSpacing = 'normal';
-        span.dataset.visible = 'true';
-        btn.textContent = 'Hide';
-    }
-}
-
-function closeCredsModal() {
-    document.getElementById('creds-modal').classList.remove('open');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const credsOverlay = document.getElementById('creds-modal');
-    if (credsOverlay) {
-        credsOverlay.addEventListener('click', (e) => {
-            if (e.target === credsOverlay) closeCredsModal();
-        });
-        const closeBtn = document.getElementById('creds-close');
-        if (closeBtn) closeBtn.addEventListener('click', closeCredsModal);
-    }
-});
-
-// ---------------------------------------------------------------------------
 // Contact Admin modal
 // ---------------------------------------------------------------------------
 function openContactAdminModal(page) {
@@ -968,7 +873,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
-    {% include "partials/creds_modal.html" %}
     {% include "partials/contact_admin_modal.html" %}
     <script>
     (function () {

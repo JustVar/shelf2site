@@ -201,7 +201,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/api/credentials/{table_name}/{device_id}` | GET | credentials access | OK |
+| `/api/credentials/items/{item_id}` | GET | credentials access | OK (audit-logged; item 30 S4) |
 
 ### dashboard
 

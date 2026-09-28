@@ -1,4 +1,10 @@
-"""Credentials vault route — session auth protected + audit logged."""
+"""Credentials vault route: item-native, session auth protected, audit logged.
+
+Item 30 S4 (docs/specs/retire-legacy-inventory.md): credentials hang off
+item_schema.items through device_credentials.item_id (migration 080, filled
+by migration 081). The item detail page reads this route; the old
+per-legacy-table route and its dead modal are retired.
+"""
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -8,63 +14,47 @@ from ..audit import log_event
 from ..auth import require_credentials_access, User
 from ..credentials import decrypt
 from ..database import get_db
-from ..models import DeviceCredential, TABLE_MODELS
+from ..models import DeviceCredential, Item
 
 router = APIRouter()
 
 
-@router.get("/{table_name}/{device_id}")
-def get_credentials(
-    table_name: str,
-    device_id: int,
+@router.get("/items/{item_id}")
+def get_item_credentials(
+    item_id: int,
     request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_credentials_access),
 ):
-    """Get decrypted credentials for a specific device.
-
-    Requires editor or admin role. Every access is audit-logged.
-    """
-    if table_name not in TABLE_MODELS:
-        return JSONResponse(
-            status_code=404,
-            content={"error": f"Unknown table: {table_name}"},
-        )
+    """Decrypted credentials for one item. Every access is audit-logged."""
+    if not db.query(Item.id).filter(Item.id == item_id).first():
+        return JSONResponse(status_code=404, content={"error": "Item not found"})
 
     creds = (
         db.query(DeviceCredential)
-        .filter(
-            DeviceCredential.device_table == table_name,
-            DeviceCredential.device_id == device_id,
-        )
+        .filter(DeviceCredential.item_id == item_id)
+        .order_by(DeviceCredential.id)
         .all()
     )
 
-    # Audit log: credential view (even if no creds found)
+    # Audit log: credential view (even if none are stored)
     log_event(
         db, "credential_viewed",
         request=request,
         user_id=user.id,
-        target_table=table_name,
-        target_id=device_id,
+        target_table="items",
+        target_id=item_id,
         action="view",
-        details=f"{user.display_name} viewed credentials for {table_name}/{device_id}",
+        details=f"{user.display_name} viewed {len(creds)} credential(s) for item {item_id}",
     )
 
-    if not creds:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "No credentials found for this device"},
-        )
-
-    results = []
-    for cred in creds:
-        results.append({
+    return JSONResponse(content={"credentials": [
+        {
             "id": cred.id,
             "credential_type": cred.credential_type,
             "username": decrypt(cred.username),
             "password": decrypt(cred.password),
             "notes": decrypt(cred.notes),
-        })
-
-    return JSONResponse(content={"credentials": results})
+        }
+        for cred in creds
+    ]})

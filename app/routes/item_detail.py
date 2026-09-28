@@ -18,7 +18,7 @@ from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import (
-    CustomerOrder, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
+    CustomerOrder, DeviceCredential, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
     DeviceProvisioning, ItemComponentHistory, ItemMaintenanceLog,
     UnitPhoto, UnitPhotoItem, User as UserModel,
 )
@@ -223,6 +223,12 @@ def item_detail_page(
     delete_request = pending_for(db, "items", item_id)
     delete_blockers = (item_blockers(db, item_id)
                        if user.is_editor_or_above and not delete_request else [])
+    # Credentials section (item 30 S4): counted only for users who may open them,
+    # so the page does not reveal that an item has stored logins to anyone else.
+    credential_count = (
+        db.query(DeviceCredential).filter(DeviceCredential.item_id == item_id).count()
+        if user.has_credentials_access else 0
+    )
 
     return templates.TemplateResponse("item_detail.html", {
         "request": request,
@@ -248,6 +254,7 @@ def item_detail_page(
         "existing_lock": existing_lock,
         "delete_request": delete_request,
         "delete_blockers": delete_blockers,
+        "credential_count": credential_count,
     })
 
 

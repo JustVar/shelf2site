@@ -409,6 +409,18 @@
   </div>
   {% endif %}
 
+  <!-- Credentials (item 30 S4): only for users with credentials access -->
+  {% if credential_count %}
+  <div class="dtl-section" id="creds-section">
+    <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Credentials ({{ credential_count }})</span>
+      <button type="button" class="fl-obtn" id="creds-show-btn" onclick="itemCredsShow({{ item.id|tojson|forceescape }})">Show</button>
+    </div>
+    <div class="dtl-grid" id="creds-list" style="display:none"></div>
+    <div class="itk-hint" style="margin-top:6px">Opening credentials is recorded in the audit log.</div>
+  </div>
+  {% endif %}
+
   <!-- Receipts -->
   <div class="dtl-section">
     <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -686,6 +698,69 @@
 {% endif %}
 
 <script>
+// Credentials section (item 30 S4). Values are written with textContent only;
+// they are user-entered secrets and must never be parsed as HTML.
+function itemCredsShow(itemId) {
+    var btn = document.getElementById('creds-show-btn');
+    var list = document.getElementById('creds-list');
+    if (list.dataset.loaded === '1') {
+        var open = list.style.display !== 'none';
+        list.style.display = open ? 'none' : '';
+        btn.textContent = open ? 'Show' : 'Hide';
+        return;
+    }
+    btn.disabled = true;
+    fetch(BP + '/api/credentials/items/' + itemId).then(function (r) {
+        if (!r.ok) throw new Error(r.status === 403 ? 'You do not have credentials access.' : 'Could not load credentials.');
+        return r.json();
+    }).then(function (data) {
+        list.textContent = '';
+        (data.credentials || []).forEach(function (c) { list.appendChild(itemCredRow(c)); });
+        list.dataset.loaded = '1';
+        list.style.display = '';
+        btn.textContent = 'Hide';
+    }).catch(function (e) {
+        SxToast.error(e.message, 0);
+    }).finally(function () {
+        btn.disabled = false;
+    });
+}
+
+function itemCredRow(c) {
+    var field = document.createElement('div');
+    field.className = 'dtl-field';
+    var label = document.createElement('div');
+    label.className = 'dtl-label';
+    label.textContent = c.credential_type || 'credential';
+    field.appendChild(label);
+    [['Username', c.username, false], ['Password', c.password, true], ['Notes', c.notes, false]].forEach(function (f) {
+        if (!f[1]) return;
+        var line = document.createElement('div');
+        line.className = 'dtl-value';
+        var name = document.createElement('span');
+        name.textContent = f[0] + ': ';
+        line.appendChild(name);
+        var val = document.createElement('span');
+        val.textContent = f[2] ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : f[1];
+        line.appendChild(val);
+        if (f[2]) {
+            var toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'fl-obtn';
+            toggle.style.marginLeft = '8px';
+            toggle.textContent = 'Reveal';
+            toggle.addEventListener('click', function () {
+                var shown = toggle.textContent === 'Hide';
+                val.textContent = shown ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : f[1];
+                toggle.textContent = shown ? 'Reveal' : 'Hide';
+            });
+            line.appendChild(toggle);
+        }
+        field.appendChild(line);
+    });
+    return field;
+}
+
 async function uploadItemPhoto(input) {
     if (!input.files || !input.files[0]) return;
     const note = document.getElementById('item-photo-note');

@@ -330,7 +330,13 @@ data, data before readers, readers before drops.
    dead modal removed); warranty; sites and bulk assign; receiving and
    review queue; provisioning; build certification; fulfillment and
    orders; map (pre-read first, then drop the legacy branch); vendors
-   (legacy half removed) and admin OUI.
+   (legacy half removed) and admin OUI. **Credentials built 2026-09-28:**
+   `GET /api/credentials/items/{item_id}` replaces the per-table route;
+   item detail shows a Credentials section to users with credentials
+   access, only when the item has any, and loads them on demand (each load
+   audit-logged). Values render as text, never HTML; the retired modal
+   injected them unescaped. The dead modal and `showCredentials` are gone.
+   The vault stays read-only in the app: there is no create or edit route.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,
