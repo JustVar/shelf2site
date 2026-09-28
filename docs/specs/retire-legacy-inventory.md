@@ -337,11 +337,34 @@ data, data before readers, readers before drops.
    audit-logged). Values render as text, never HTML; the retired modal
    injected them unescaped. The dead modal and `showCredentials` are gone.
    The vault stays read-only in the app: there is no create or edit route.
+   **Warranty built 2026-09-28, scope cut by Jus:** warranty is basic
+   tracking for internal inventory items (item, vendor, start, end,
+   notes). Customer warranties on shipped hardware are tracked by the OEM,
+   not in the tracker, so the Fulfillment warranty design is dropped. RMA
+   claims and internal loaners are retired, superseding the 2026-06-15
+   note that loaners kept warranty alive (all their tables held 0 rows,
+   READ 2026-09-28). Migration 082 drops NOT NULL on `device_table` and
+   `device_id` for `device_warranties` and `device_assignments` (0 rows
+   each; sites is the next area and needs the same) and adds
+   `device_warranties.notes`. `POST /api/warranty` takes `item_id` and
+   requires start and end; the form fills end from a term in months, and
+   end stays editable. A warranty is a delete blocker, so create refuses an
+   item with a pending delete request (`locked_ids`, listed in
+   `tests/test_delete_request_lock.py`). A new `GET /api/warranty/item-search` (editor)
+   feeds the item picker; `POST /api/claim` and `PUT /api/claim/{id}` are
+   retired. Item detail lists an item's warranties read-only, and the
+   sidenav gains a Warranties link (nothing linked the page before, READ).
+   The vendor profile still counts warranties and claims; that moves with
+   the vendors area.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,
    `vendor_trials`, `device_dispositions` and the three empty `public`
-   copies. `purchase_price` on legacy models goes with them
+   copies. From the S4 warranty cut: `warranty_claims`, and the
+   `device_warranties` columns the basic form no longer writes (scope,
+   tier, type, holder, registration, coverage, renewal, purchase date and
+   the four loaner columns). `DeviceWarranty` inherits `InventoryMixin`, so
+   dropping the mixin needs its columns resolved on that model too. `purchase_price` on legacy models goes with them
    (`receipts-permission-and-financial-drop.md:195`). A backup is taken
    first (`scripts/at-backup.sh`); the legacy `hardware_inventory` DB on the
    host stays as the older reference (`CLAUDE.md:32`).

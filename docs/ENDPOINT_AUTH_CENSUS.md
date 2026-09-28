@@ -1,9 +1,10 @@
 # Endpoint Auth Census
 
-**Reconciled 2026-09-28** against live route introspection on apphost: 264 route entries
-(263 HTTP routes plus 1 static mount) across 238 unique paths, after item 30 S3 retired
+**Reconciled 2026-09-28** against live route introspection on apphost: 263 route entries
+(262 HTTP routes plus 1 static mount) across 237 unique paths, after item 30 S3 retired
 Intune sync, spreadsheet sync, the lifecycle page, three legacy JSON APIs and the NAS drive
-API. No commit pin, since any commit that updates this file changes the count it would name.
+API, and item 30 S4 retired the two RMA claim routes and added the warranty item search.
+No commit pin, since any commit that updates this file changes the count it would name.
 Regenerate with the command below.
 This is the authoritative map of every route and its auth gate. **When you add an endpoint, add
 its row here** and make sure it fits one of the gate classes below.
@@ -506,10 +507,9 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/api/claim` | POST | editor+ (incl. sub-admins) | OK |
-| `/api/claim/{claim_id}` | PUT | editor+ (incl. sub-admins) | OK |
 | `/api/warranty` | POST | editor+ (incl. sub-admins) | OK |
 | `/api/warranty/export` | GET | any authenticated | OK |
+| `/api/warranty/item-search` | GET | editor+ (incl. sub-admins) | OK (add-warranty picker; item 30 S4) |
 | `/api/warranty/{warranty_id}` | PUT | editor+ (incl. sub-admins) | OK |
 | `/api/warranty/{warranty_id}` | GET | any authenticated | OK |
 | `/api/warranty/{warranty_id}` | DELETE | warranty manager | OK |

@@ -421,6 +421,32 @@
   </div>
   {% endif %}
 
+  <!-- Warranties (item 30 S4): read-only here; added and edited on the Warranty page -->
+  <div class="dtl-section" id="warranty-section">
+    <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Warranties ({{ warranties|length }})</span>
+      <a class="fl-obtn" href="{{ base_path }}/warranty/">Warranty page</a>
+    </div>
+    {% if warranties %}
+    <div class="dtl-grid">
+      {% for row in warranties %}
+      <div class="dtl-field">
+        <div class="dtl-label">{{ row.warranty.vendor or 'Warranty' }}</div>
+        <div class="dtl-value">
+          {{ row.warranty.warranty_start or '-' }} to {{ row.warranty.warranty_end or '-' }}
+          {% if row.badge == 'expired' %}<span class="badge badge-danger">Expired</span>
+          {% elif row.badge == 'expiring' %}<span class="badge badge-warning">{{ row.days_left }}d left</span>
+          {% else %}<span class="badge badge-success">Active</span>{% endif %}
+        </div>
+        {% if row.warranty.notes %}<div class="dtl-value" style="color:var(--text-muted)">{{ row.warranty.notes }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="itk-hint">No warranty recorded.</div>
+    {% endif %}
+  </div>
+
   <!-- Receipts -->
   <div class="dtl-section">
     <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">

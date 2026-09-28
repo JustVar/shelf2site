@@ -45,6 +45,7 @@ GUARDED = {
     ("unit_photos.py", "retag_unit_photo"): "_tag_serials",
     ("vendors.py", "update_vendor"): "locked_ids",
     ("vendors.py", "delete_vendor"): "locked_ids",
+    ("warranty.py", "create_warranty"): "locked_ids",
 }
 
 # Write an item only through a link the clean check forbids, so a locked

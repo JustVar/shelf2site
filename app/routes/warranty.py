@@ -1,9 +1,15 @@
-"""Warranty & RMA tracking routes."""
+"""Warranty tracking routes: basic warranties on internal inventory items.
+
+Item 30 S4 (docs/specs/retire-legacy-inventory.md): a warranty hangs off
+item_schema.items through device_warranties.item_id and records vendor,
+start, end and notes. Customer warranties on shipped hardware are tracked by
+the OEM, not here. RMA claims and internal loaners were retired in the same
+change; their columns and the warranty_claims table drop in item 30 S5.
+"""
 
 import csv
 import io
-from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -11,19 +17,16 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
 from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor, require_admin, require_warranty_manager
+from ..auth import get_current_user, require_editor, require_warranty_manager
 from ..config import settings
 from ..localtime import local_now, local_today, register
 from ..database import get_db
-from ..models import (
-    DeviceWarranty, WarrantyClaim, User,
-    TABLE_MODELS, TABLE_DISPLAY_NAMES,
-    get_display_name, get_serial,
-)
+from ..delete_requests import LOCK_MESSAGE, locked_ids
+from ..models import DeviceWarranty, Item, User
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -32,6 +35,9 @@ templates = Jinja2Templates(
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
 register(templates.env)
+
+EXPIRING_DAYS = 30
+VENDOR_MAX = 128
 
 
 def _quarter_label(d: date) -> str:
@@ -69,18 +75,58 @@ def _build_quarterly_forecast(warranties, today: date) -> list[dict]:
     return [{"label": q["label"], "count": q["count"]} for q in quarters]
 
 
-def _resolve_device_label(db: Session, device_table: str, device_id: int) -> str:
-    """Look up a device and return a human-readable label."""
-    model = TABLE_MODELS.get(device_table)
-    if not model:
-        return f"{device_table}#{device_id}"
-    device = db.query(model).filter(model.id == device_id).first()
-    if not device:
-        return f"{device_table}#{device_id}"
-    display = TABLE_DISPLAY_NAMES.get(device_table, device_table)
-    name = get_display_name(device)
-    serial = get_serial(device)
-    return f"{display}: {name} ({serial})"
+def warranty_status(w, today: date) -> tuple[str, int | None]:
+    """(badge, days_left) for one warranty: expired, expiring or active."""
+    days_left = (w.warranty_end - today).days if w.warranty_end else None
+    if days_left is not None and days_left < 0:
+        return "expired", days_left
+    if days_left is not None and days_left <= EXPIRING_DAYS:
+        return "expiring", days_left
+    return "active", days_left
+
+
+def _items_by_id(db: Session, warranties) -> dict:
+    ids = {w.item_id for w in warranties if w.item_id}
+    if not ids:
+        return {}
+    return {i.id: i for i in db.query(Item).filter(Item.id.in_(ids)).all()}
+
+
+def _parse_date(value, field: str):
+    """ISO date string to date. Returns (date or None, error or None)."""
+    if value in (None, ""):
+        return None, None
+    try:
+        return date.fromisoformat(str(value)), None
+    except ValueError:
+        return None, f"{field} must be a date (YYYY-MM-DD)"
+
+
+def _clean_fields(body: dict, require_all: bool):
+    """Validate vendor, start, end and notes. Returns (fields, error)."""
+    fields = {}
+    start, err = _parse_date(body.get("warranty_start"), "Start date")
+    if err:
+        return None, err
+    end, err = _parse_date(body.get("warranty_end"), "End date")
+    if err:
+        return None, err
+    if require_all or "warranty_start" in body:
+        if not start:
+            return None, "Start date is required"
+        fields["warranty_start"] = start
+    if require_all or "warranty_end" in body:
+        if not end:
+            return None, "End date is required"
+        fields["warranty_end"] = end
+    if "vendor" in body or require_all:
+        vendor = (body.get("vendor") or "").strip()
+        if len(vendor) > VENDOR_MAX:
+            return None, f"Vendor is longer than {VENDOR_MAX} characters"
+        fields["vendor"] = vendor or None
+    if "notes" in body or require_all:
+        fields["notes"] = (body.get("notes") or "").strip() or None
+    return fields, None
 
 
 # ---------------------------------------------------------------------------
@@ -93,68 +139,26 @@ def warranty_page(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Warranty & RMA management page."""
+    """Warranty tracking page."""
     today = local_today()
-    threshold = today + timedelta(days=30)
-
     warranties = (
         db.query(DeviceWarranty)
-        .order_by(desc(DeviceWarranty.warranty_end))
+        .order_by(desc(DeviceWarranty.warranty_end), DeviceWarranty.id)
         .all()
     )
+    items = _items_by_id(db, warranties)
 
-    # Enrich with device labels and status
-    def _enrich(w):
-        label = _resolve_device_label(db, w.device_table, w.device_id)
-        days_left = (w.warranty_end - today).days if w.warranty_end else None
-        if days_left is not None and days_left < 0:
-            badge = "expired"
-        elif days_left is not None and days_left <= 30:
-            badge = "expiring"
-        else:
-            badge = "active"
-        return {"warranty": w, "device_label": label, "days_left": days_left, "badge": badge}
-
-    enriched = [_enrich(w) for w in warranties]
-
-    # Split by scope
-    external_warranties = [e for e in enriched if (e["warranty"].warranty_scope or "external") == "external"]
-    internal_warranties = [e for e in enriched if e["warranty"].warranty_scope == "internal"]
-
-    # Active claims
-    active_claims = (
-        db.query(WarrantyClaim)
-        .filter(WarrantyClaim.claim_status.in_(["opened", "approved", "shipped"]))
-        .order_by(desc(WarrantyClaim.claim_date))
-        .all()
-    )
-    claims_enriched = []
-    for c in active_claims:
-        w = db.query(DeviceWarranty).filter(DeviceWarranty.id == c.warranty_id).first()
-        device_label = _resolve_device_label(db, w.device_table, w.device_id) if w else "Unknown"
-        claims_enriched.append({"claim": c, "device_label": device_label})
-
-    expiring_count = sum(1 for e in external_warranties if e["badge"] == "expiring")
-    internal_overdue = sum(
-        1 for e in internal_warranties
-        if e["warranty"].warranty_end and e["warranty"].warranty_end < today
-    )
-
-    # Quarterly expiration forecast (external only)
-    external_only = [w for w in warranties if (w.warranty_scope or "external") == "external"]
-    quarterly = _build_quarterly_forecast(external_only, today)
+    rows = []
+    for w in warranties:
+        badge, days_left = warranty_status(w, today)
+        rows.append({"warranty": w, "item": items.get(w.item_id), "badge": badge, "days_left": days_left})
 
     return templates.TemplateResponse("warranty.html", {
         "request": request,
         "user": user,
-        "warranties": enriched,
-        "external_warranties": external_warranties,
-        "internal_warranties": internal_warranties,
-        "active_claims": claims_enriched,
-        "expiring_count": expiring_count,
-        "internal_overdue": internal_overdue,
-        "quarterly_forecast": quarterly,
-        "table_choices": TABLE_DISPLAY_NAMES,
+        "rows": rows,
+        "expiring_count": sum(1 for r in rows if r["badge"] == "expiring"),
+        "quarterly_forecast": _build_quarterly_forecast(warranties, today),
     })
 
 
@@ -168,46 +172,28 @@ async def create_warranty(
     db: Session = Depends(get_db),
     user: User = Depends(require_editor),
 ):
-    """Create a new warranty record."""
+    """Create a warranty on one item."""
     body = await request.json()
 
-    required = ["device_table", "device_id", "warranty_end", "vendor"]
-    for field in required:
-        if not body.get(field):
-            return JSONResponse(status_code=400, content={"error": f"Missing required field: {field}"})
+    try:
+        item_id = int(body.get("item_id"))
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"error": "Pick an item"})
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return JSONResponse(status_code=404, content={"error": "Item not found"})
+    # A warranty is a delete blocker (ITEM_LINKS), so an item frozen by a
+    # pending delete request must not gain one.
+    if locked_ids(db, "items", [item.id]):
+        return JSONResponse(status_code=409, content={"error": LOCK_MESSAGE})
 
-    # Validate device_table against known tables
-    if body["device_table"] not in TABLE_MODELS:
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"Invalid device category: {body['device_table']}"},
-        )
+    fields, err = _clean_fields(body, require_all=True)
+    if err:
+        return JSONResponse(status_code=400, content={"error": err})
+    if fields["warranty_end"] < fields["warranty_start"]:
+        return JSONResponse(status_code=400, content={"error": "End date is before the start date"})
 
-    scope = body.get("warranty_scope", "external")
-    if scope not in ("external", "internal"):
-        scope = "external"
-
-    warranty = DeviceWarranty(
-        device_table=body["device_table"],
-        device_id=int(body["device_id"]),
-        warranty_scope=scope,
-        warranty_tier=body.get("warranty_tier"),
-        vendor=body["vendor"],
-        purchase_date=body.get("purchase_date") or None,
-        warranty_start=body.get("warranty_start") or None,
-        warranty_end=body["warranty_end"],
-        warranty_type=body.get("warranty_type"),
-        warranty_holder=body.get("warranty_holder") or "brand",
-        registration_number=body.get("registration_number") or None,
-        coverage_details=body.get("coverage_details"),
-        auto_renew=body.get("auto_renew", False),
-        renewal_cost=body.get("renewal_cost") or None,
-        registration_status=body.get("registration_status") or None,
-        loaner_from_team=body.get("loaner_from_team") or None,
-        loaner_to_team=body.get("loaner_to_team") or None,
-        loaner_contact=body.get("loaner_contact") or None,
-        loaner_agreement=body.get("loaner_agreement") or None,
-    )
+    warranty = DeviceWarranty(item_id=item.id, warranty_scope="external", **fields)
     db.add(warranty)
     db.commit()
     db.refresh(warranty)
@@ -218,7 +204,7 @@ async def create_warranty(
         target_table="device_warranties", target_id=warranty.id,
         action="create",
         new_values=model_to_dict(warranty),
-        details=f"Warranty for {body['device_table']}#{body['device_id']}, vendor={body['vendor']}",
+        details=f"Warranty for item {item.id}, ends {warranty.warranty_end}",
     )
 
     return JSONResponse(content={"status": "created", "warranty_id": warranty.id})
@@ -231,24 +217,23 @@ async def update_warranty(
     db: Session = Depends(get_db),
     user: User = Depends(require_editor),
 ):
-    """Update a warranty record."""
+    """Update vendor, dates or notes. The item does not change."""
     warranty = db.query(DeviceWarranty).filter(DeviceWarranty.id == warranty_id).first()
     if not warranty:
         return JSONResponse(status_code=404, content={"error": "Warranty not found"})
 
     body = await request.json()
+    fields, err = _clean_fields(body, require_all=False)
+    if err:
+        return JSONResponse(status_code=400, content={"error": err})
+    start = fields.get("warranty_start", warranty.warranty_start)
+    end = fields.get("warranty_end", warranty.warranty_end)
+    if start and end and end < start:
+        return JSONResponse(status_code=400, content={"error": "End date is before the start date"})
+
     old_values = model_to_dict(warranty)
-
-    updatable = [
-        "warranty_scope", "warranty_tier", "vendor", "purchase_date", "warranty_start",
-        "warranty_end", "warranty_type", "warranty_holder", "registration_number", "coverage_details",
-        "auto_renew", "renewal_cost", "registration_status",
-        "loaner_from_team", "loaner_to_team", "loaner_contact", "loaner_agreement",
-    ]
-    for field in updatable:
-        if field in body:
-            setattr(warranty, field, body[field] if body[field] != "" else None)
-
+    for key, val in fields.items():
+        setattr(warranty, key, val)
     db.commit()
     db.refresh(warranty)
 
@@ -264,89 +249,39 @@ async def update_warranty(
 
 
 # ---------------------------------------------------------------------------
-# Claims / RMA API
+# Item picker and export: both must be before the /{warranty_id} routes
 # ---------------------------------------------------------------------------
 
-@router.post("/api/claim")
-async def create_claim(
-    request: Request,
+@router.get("/api/warranty/item-search")
+def warranty_item_search(
+    q: str = "",
     db: Session = Depends(get_db),
     user: User = Depends(require_editor),
 ):
-    """Open a new warranty claim / RMA."""
-    body = await request.json()
-
-    warranty_id = body.get("warranty_id")
-    if not warranty_id:
-        return JSONResponse(status_code=400, content={"error": "warranty_id is required"})
-
-    warranty = db.query(DeviceWarranty).filter(DeviceWarranty.id == warranty_id).first()
-    if not warranty:
-        return JSONResponse(status_code=404, content={"error": "Warranty not found"})
-
-    claim = WarrantyClaim(
-        warranty_id=warranty_id,
-        claim_number=body.get("claim_number") or None,
-        claim_date=body.get("claim_date") or local_today().isoformat(),
-        issue_description=body.get("issue_description"),
-        claim_status=body.get("claim_status", "opened"),
-        rma_number=body.get("rma_number") or None,
+    """Add-warranty picker: items whose name or serial contains q."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return JSONResponse(content={"results": []})
+    # escape ilike wildcards, since scanned serials can contain % or _
+    esc = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    like = f"%{esc}%"
+    rows = (
+        db.query(Item)
+        .filter(or_(Item.item_name.ilike(like), Item.item_sn.ilike(like)))
+        .order_by(Item.item_name, Item.id)
+        .limit(20)
+        .all()
     )
-    db.add(claim)
-    db.commit()
-    db.refresh(claim)
+    return JSONResponse(content={"results": [
+        {
+            "id": r.id,
+            "name": r.item_name or "(unnamed)",
+            "serial": r.item_sn,
+            "category": r.item_category,
+        }
+        for r in rows
+    ]})
 
-    log_event(
-        db, "claim_created",
-        request=request, user_id=user.id,
-        target_table="warranty_claims", target_id=claim.id,
-        action="create",
-        details=f"RMA claim for warranty#{warranty_id}: {body.get('issue_description', '')[:100]}",
-    )
-
-    return JSONResponse(content={"status": "created", "claim_id": claim.id})
-
-
-@router.put("/api/claim/{claim_id}")
-async def update_claim(
-    claim_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_editor),
-):
-    """Update an RMA claim status."""
-    claim = db.query(WarrantyClaim).filter(WarrantyClaim.id == claim_id).first()
-    if not claim:
-        return JSONResponse(status_code=404, content={"error": "Claim not found"})
-
-    body = await request.json()
-    old_status = claim.claim_status
-
-    updatable = [
-        "claim_status", "rma_number", "tracking_number", "shipped_date",
-        "expected_return", "received_date", "replacement_device_sn", "resolution_notes",
-    ]
-    for field in updatable:
-        if field in body:
-            setattr(claim, field, body[field] if body[field] != "" else None)
-
-    db.commit()
-    db.refresh(claim)
-
-    log_event(
-        db, "claim_updated",
-        request=request, user_id=user.id,
-        target_table="warranty_claims", target_id=claim.id,
-        action="update",
-        details=f"Claim#{claim_id} status: {old_status} -> {claim.claim_status}",
-    )
-
-    return JSONResponse(content={"status": "updated"})
-
-
-# ---------------------------------------------------------------------------
-# Export (CSV / Excel) — must be before /{warranty_id} routes
-# ---------------------------------------------------------------------------
 
 @router.get("/api/warranty/export")
 def export_warranties(
@@ -356,33 +291,27 @@ def export_warranties(
 ):
     """Export all warranty records to CSV or Excel."""
     today = local_today()
-    warranties = db.query(DeviceWarranty).order_by(desc(DeviceWarranty.warranty_end)).all()
+    warranties = (
+        db.query(DeviceWarranty)
+        .order_by(desc(DeviceWarranty.warranty_end), DeviceWarranty.id)
+        .all()
+    )
+    items = _items_by_id(db, warranties)
+    labels = {"expired": "Expired", "expiring": "Expiring Soon", "active": "Active"}
 
     rows = []
     for w in warranties:
-        label = _resolve_device_label(db, w.device_table, w.device_id)
-        days_left = (w.warranty_end - today).days if w.warranty_end else None
-        if days_left is not None and days_left < 0:
-            status = "Expired"
-        elif days_left is not None and days_left <= 30:
-            status = "Expiring Soon"
-        else:
-            status = "Active"
+        item = items.get(w.item_id)
+        badge, days_left = warranty_status(w, today)
         rows.append({
-            "Device": label,
+            "Item": (item.item_name or "(unnamed)") if item else "",
+            "Serial": (item.item_sn or "") if item else "",
             "Vendor": w.vendor or "",
-            "Tier": w.warranty_tier or "",
-            "Type": w.warranty_type or "",
-            "Purchase Date": str(w.purchase_date) if w.purchase_date else "",
             "Start": str(w.warranty_start) if w.warranty_start else "",
             "End": str(w.warranty_end) if w.warranty_end else "",
-            "Status": status,
+            "Status": labels[badge],
             "Days Left": days_left if days_left is not None else "",
-            "Registration #": w.registration_number or "",
-            "Registration Status": w.registration_status or "",
-            "Coverage": w.coverage_details or "",
-            "Auto-Renew": "Yes" if w.auto_renew else "No",
-            "Renewal Cost": str(w.renewal_cost) if w.renewal_cost else "",
+            "Notes": w.notes or "",
         })
 
     timestamp = local_now().strftime("%Y%m%d_%H%M%S")
@@ -427,7 +356,7 @@ def export_warranties(
 
 
 # ---------------------------------------------------------------------------
-# Single warranty fetch (for edit modal) + Delete (admin only)
+# Single warranty fetch (for edit modal) + Delete (warranty managers only)
 # ---------------------------------------------------------------------------
 
 @router.get("/api/warranty/{warranty_id}")
@@ -436,19 +365,22 @@ def get_warranty(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Get a single warranty record by ID."""
+    """One warranty, with its item's name and serial, for the edit form."""
     warranty = db.query(DeviceWarranty).filter(DeviceWarranty.id == warranty_id).first()
     if not warranty:
         return JSONResponse(status_code=404, content={"error": "Warranty not found"})
+    item = db.query(Item).filter(Item.id == warranty.item_id).first() if warranty.item_id else None
 
-    data = {}
-    for key, val in warranty.__dict__.items():
-        if key.startswith("_"):
-            continue
-        if hasattr(val, "isoformat"):
-            val = val.isoformat()
-        data[key] = val
-    return JSONResponse(content=data)
+    return JSONResponse(content={
+        "id": warranty.id,
+        "item_id": warranty.item_id,
+        "item_name": (item.item_name or "(unnamed)") if item else None,
+        "item_serial": item.item_sn if item else None,
+        "vendor": warranty.vendor,
+        "warranty_start": warranty.warranty_start.isoformat() if warranty.warranty_start else None,
+        "warranty_end": warranty.warranty_end.isoformat() if warranty.warranty_end else None,
+        "notes": warranty.notes,
+    })
 
 
 @router.delete("/api/warranty/{warranty_id}")
@@ -473,7 +405,7 @@ def delete_warranty(
         target_table="device_warranties", target_id=warranty_id,
         action="delete",
         old_values=old_values,
-        details=f"Warranty#{warranty_id} deleted (vendor={old_values.get('vendor')})",
+        details=f"Warranty#{warranty_id} deleted (item {old_values.get('item_id')})",
     )
 
     return JSONResponse(content={"status": "deleted"})

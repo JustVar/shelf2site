@@ -18,7 +18,7 @@ from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import (
-    CustomerOrder, DeviceCredential, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
+    CustomerOrder, DeviceCredential, DeviceWarranty, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
     DeviceProvisioning, ItemComponentHistory, ItemMaintenanceLog,
     UnitPhoto, UnitPhotoItem, User as UserModel,
 )
@@ -32,6 +32,7 @@ from .intake import (
     _clean_str, _safe_float, _safe_int, _safe_date, _get_vendors, _vendor_id_or_error,
 )
 from ..item_fields import attributes_for
+from .warranty import warranty_status
 
 _log = logging.getLogger(__name__)
 
@@ -229,6 +230,15 @@ def item_detail_page(
         db.query(DeviceCredential).filter(DeviceCredential.item_id == item_id).count()
         if user.has_credentials_access else 0
     )
+    # Warranties section (item 30 S4): read-only; the Warranty page edits them.
+    today = local_today()
+    warranties = []
+    for w in (db.query(DeviceWarranty)
+              .filter(DeviceWarranty.item_id == item_id)
+              .order_by(DeviceWarranty.warranty_end.desc(), DeviceWarranty.id)
+              .all()):
+        badge, days_left = warranty_status(w, today)
+        warranties.append({"warranty": w, "badge": badge, "days_left": days_left})
 
     return templates.TemplateResponse("item_detail.html", {
         "request": request,
@@ -255,6 +265,7 @@ def item_detail_page(
         "delete_request": delete_request,
         "delete_blockers": delete_blockers,
         "credential_count": credential_count,
+        "warranties": warranties,
     })
 
 

@@ -140,6 +140,15 @@
           <span class="sx-nav__label">Inventory</span>
         </a>
 
+        {# Warranty page (item 30 S4). hx-boost="false" because its scripts
+           render outside main, so a boosted swap would leave it inert. #}
+        <a href="{{ base_path }}/warranty/" hx-boost="false"
+           class="sx-nav__link {% if '/warranty' in request.url.path %}sx-nav__link--active{% endif %}"
+           data-label="Warranties">
+          {{ fl_icon('clipboard-check', 'mute', 16) }}
+          <span class="sx-nav__label">Warranties</span>
+        </a>
+
         <a href="{{ base_path }}/triage/"
            class="sx-nav__link {% if '/triage' in request.url.path %}sx-nav__link--active{% endif %}"
            data-label="Asset Triage">

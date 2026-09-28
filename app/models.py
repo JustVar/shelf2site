@@ -798,8 +798,10 @@ class PendingDevice(Base):
 class DeviceWarranty(InventoryMixin, Base):
     __tablename__ = "device_warranties"
 
-    device_table = Column(String(64), nullable=False)
-    device_id = Column(Integer, nullable=False)
+    # Legacy link, nullable since migration 082; new rows use item_id only.
+    # Drops in item 30 S5.
+    device_table = Column(String(64), nullable=True)
+    device_id = Column(Integer, nullable=True)
     item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
 
     warranty_scope = Column(String(16), nullable=False, default="external")  # external | internal
@@ -822,9 +824,11 @@ class DeviceWarranty(InventoryMixin, Base):
     loaner_contact = Column(String(128))
     loaner_agreement = Column(String(128))
 
+    notes = Column(Text, nullable=True)  # migration 082 (item 30 S4)
+
     claims = relationship("WarrantyClaim", back_populates="warranty", cascade="all, delete-orphan")
 
-    REQUIRED_FIELDS = ["device_table", "device_id", "warranty_end", "vendor"]
+    REQUIRED_FIELDS = ["item_id", "warranty_start", "warranty_end"]
 
 
 # ---------------------------------------------------------------------------
@@ -998,8 +1002,9 @@ class DeviceAssignment(Base):
     __tablename__ = "device_assignments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    device_table = Column(String(64), nullable=False)
-    device_id = Column(Integer, nullable=False)
+    # Legacy link, nullable since migration 082; drops in item 30 S5.
+    device_table = Column(String(64), nullable=True)
+    device_id = Column(Integer, nullable=True)
     item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
     site_id = Column(Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False)
     ownership = Column(String(32), nullable=False)  # owned | partner_loaner | customer_loaner | evaluation

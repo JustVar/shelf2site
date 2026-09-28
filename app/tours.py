@@ -258,49 +258,34 @@ TOURS: list[dict] = [
     },
 
     # ------------------------------------------------------------------
-    # Warranty & RMA (all users)
+    # Warranties (all users)
     # ------------------------------------------------------------------
     {
         "id": "warranty_tour",
-        "name": "Warranty & RMA",
+        "name": "Warranties",
         "page_pattern": "/warranty",
-        "description": "Understand warranty tracking, internal loaners, and RMA workflows",
+        "description": "Track warranty start and end dates on inventory items",
         "enabled": True,
         "group": "operations",
         "required_access": None,
         "steps": [
             {
                 "target": "h1",
-                "title": "Warranty & RMA Tracking",
+                "title": "Warranty Tracking",
                 "description": (
-                    "This page manages device warranties and Return "
-                    "Merchandise Authorization (RMA) claims. Use the "
-                    "<strong>External</strong> and <strong>Internal</strong> "
-                    "tabs to switch between manufacturer warranties and "
-                    "cross-team equipment loaners."
+                    "This page tracks warranties on internal inventory items: "
+                    "the vendor, when coverage starts and when it ends. Customer "
+                    "warranties on shipped hardware are tracked by the OEM, not here."
                 ),
                 "position": "bottom",
                 "highlight_padding": 8,
             },
             {
-                "target": ".warranty-tabs",
-                "title": "External vs Internal",
-                "description": (
-                    "<strong>External Warranties</strong> track manufacturer and "
-                    "third-party coverage with expiration dates, tiers, and registration. "
-                    "<strong>Internal Loaners</strong> track equipment shared between "
-                    "teams — who has it, who owns it, and when it's due back."
-                ),
-                "position": "bottom",
-                "highlight_padding": 6,
-            },
-            {
                 "target": "#warranty-forecast",
                 "title": "Quarterly Forecast",
                 "description": (
-                    "These cards show how many external warranties expire each "
-                    "quarter over the next year. Plan ahead for renewals "
-                    "and budget allocation."
+                    "These cards show how many warranties end in each quarter "
+                    "over the next year, so renewals can be planned ahead."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
@@ -310,22 +295,23 @@ TOURS: list[dict] = [
                 "target": ".header-actions",
                 "title": "Action Bar",
                 "description": (
-                    "Use <strong>+ Add Warranty</strong> or <strong>+ Add Internal "
-                    "Loaner</strong> to register new records. Export buttons generate "
-                    "Excel or CSV files for reporting."
+                    "Use <strong>+ Add Warranty</strong> to record one: search for "
+                    "the item by name or serial, set the start date, then enter "
+                    "the end date or a term in months. Export buttons generate "
+                    "Excel or CSV files."
                 ),
                 "position": "bottom",
                 "highlight_padding": 6,
                 "optional": True,
             },
             {
-                "target": "table",
+                "target": "#warranty-table",
                 "title": "Warranty Table",
                 "description": (
-                    "Each row shows a device warranty with vendor, tier, type, "
-                    "date range, and registration status. Look for "
-                    "<strong>Expired</strong> and <strong>Expiring</strong> "
-                    "badges to identify items needing attention."
+                    "Each row is one warranty. The item name opens its detail "
+                    "page, which also lists its warranties. Look for "
+                    "<strong>Expired</strong> and <strong>d left</strong> badges "
+                    "to find warranties that need attention."
                 ),
                 "position": "top",
                 "highlight_padding": 4,
