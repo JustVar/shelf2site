@@ -12,6 +12,7 @@ import uuid
 import fitz
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
@@ -1302,32 +1303,29 @@ def certifications_index(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_viewer),
 ):
-    """Read-only certification index: every edge-box device with an order link,
+    """Read-only certification index: every edge-box item with an order link,
     organized by date / customer / SKU, decorated with latest cert status.
 
     build_certification is append-only and may hold multiple rows per device;
     the status shown reflects the latest cert row (max created_at) per device.
     No writes occur here.
     """
-    # All edge-box devices with an order link, joined to their order.
+    # All edge-box items with an order link, joined to their order
+    # (item 30 S4: the legacy edge_boxes join is gone).
     rows = (
         db.query(
             DeviceProvisioning.id.label("prov_id"),
             DeviceProvisioning.current_stage,
             DeviceProvisioning.is_complete,
-            EdgeBox.serial,
-            EdgeBox.part_number,
+            Item.item_sn.label("serial"),
+            sqlfunc.coalesce(Item.brand_sku, Item.brand_pn).label("part_number"),
             CustomerOrder.order_number,
             CustomerOrder.customer_name,
             CustomerOrder.due_date,
         )
-        .join(
-            EdgeBox,
-            (DeviceProvisioning.device_id == EdgeBox.id)
-            & (DeviceProvisioning.device_table == "edge_boxes"),
-        )
+        .join(Item, DeviceProvisioning.item_id == Item.id)
         .join(CustomerOrder, DeviceProvisioning.customer_order_id == CustomerOrder.id)
-        .filter(DeviceProvisioning.device_table == "edge_boxes")
+        .filter(Item.item_category == "edge_box")
         .all()
     )
 
@@ -1415,6 +1413,23 @@ _COMP_TYPES = {'cpu', 'gpu', 'ram', 'hdd', 'ssd'}
 # ---------------------------------------------------------------------------
 # Build Certification - shared half-apply + all-pass gate (F3/S6c)
 # ---------------------------------------------------------------------------
+
+def _cert_edge_box(db, prov):
+    """The edge box fields a build certification reads (serial, uuid,
+    part_number), off the provisioning row's item. None unless the row links
+    an edge_box item. Item 30 S4: certification no longer reads edge_boxes."""
+    if prov is None or prov.item_id is None:
+        return None
+    item = db.query(Item).filter(Item.id == prov.item_id).first()
+    if item is None or str(item.item_category or "") != "edge_box":
+        return None
+    return SimpleNamespace(
+        id=item.id,
+        serial=item.item_sn,
+        uuid=item.appliance_uuid,
+        part_number=item.brand_sku or item.brand_pn,
+    )
+
 
 def _compute_cert_gate(cert):
     """All-pass gate: returns 'certified' or 'failed' (both halves complete).
@@ -1542,12 +1557,9 @@ async def submit_cert_qa(
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
-    if prov.device_table != "edge_boxes":
+    eb = _cert_edge_box(db, prov)
+    if eb is None:
         return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
-
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
-    if not eb:
-        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
 
     co = None
     if prov.customer_order_id:
@@ -1613,11 +1625,8 @@ def certification_detail(
     history is shown by oem_serial (display lens, append-only trail).
     """
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov or prov.device_table != "edge_boxes":
-        return RedirectResponse(url=f"{BP}/fulfillment/certifications", status_code=302)
-
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
-    if not eb:
+    eb = _cert_edge_box(db, prov)
+    if eb is None:
         return RedirectResponse(url=f"{BP}/fulfillment/certifications", status_code=302)
 
     co = None
@@ -1745,12 +1754,9 @@ async def submit_cert_hw(
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
-    if prov.device_table != "edge_boxes":
+    eb = _cert_edge_box(db, prov)
+    if eb is None:
         return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
-
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
-    if not eb:
-        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
 
     co = None
     if prov.customer_order_id:
@@ -1807,8 +1813,8 @@ async def upload_cert_file(
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
-    if not eb:
+    eb = _cert_edge_box(db, prov)
+    if eb is None:
         return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
 
     # latest cert row for this serial (the attempt files attach to)
@@ -2181,7 +2187,7 @@ def cert_report(
     if not cert:
         return JSONResponse(status_code=404, content={"detail": "Certification not found"})
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == cert.device_provisioning_id).first()
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first() if prov else None
+    eb = _cert_edge_box(db, prov)
     if eb is None:
         # fall back to a minimal eb-less render using the cert snapshot
         class _EB:
@@ -2221,12 +2227,9 @@ async def close_cert_device(
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
-    if prov.device_table != "edge_boxes":
+    eb = _cert_edge_box(db, prov)
+    if eb is None:
         return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
-
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
-    if not eb:
-        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
 
     # idempotent: already closed -> no-op success
     if prov.is_complete:
@@ -2270,12 +2273,9 @@ async def cancel_cert_device(
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
-    if prov.device_table != "edge_boxes":
+    eb = _cert_edge_box(db, prov)
+    if eb is None:
         return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
-
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
-    if not eb:
-        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
 
     body = await request.json()
     reason = (body.get("reason") or "").strip()
@@ -2331,12 +2331,9 @@ async def recertify_device(
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not prov:
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
-    if prov.device_table != "edge_boxes":
+    eb = _cert_edge_box(db, prov)
+    if eb is None:
         return JSONResponse(status_code=400, content={"detail": "Certification is edge-box only"})
-
-    eb = db.query(EdgeBox).filter(EdgeBox.id == prov.device_id).first()
-    if not eb:
-        return JSONResponse(status_code=404, content={"detail": "Edge box not found"})
 
     latest = (
         db.query(BuildCertification)

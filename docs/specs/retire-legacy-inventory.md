@@ -425,6 +425,13 @@ data, data before readers, readers before drops.
    instead of every row with an `item_id`. Nothing in `provisioning.py`
    reads `device_table` or `device_id` any more; the sentinel writes in
    `provisioning.py`, `c2c.py` and `orders.py` go in S5 with the columns.
+   **Build certification built 2026-09-29:** the index, detail page,
+   report and the QA, hardware, files, close, cancel and recertify routes
+   resolve the unit through `device_provisioning.item_id` to an
+   `edge_box` item (`_cert_edge_box`: serial, `appliance_uuid`, SKU), never
+   `edge_boxes`. The index lists every order-linked edge box item, so
+   stock edge boxes assigned to an order appear there too. Certification
+   rows still key on `oem_serial` and the provisioning id, unchanged.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,
