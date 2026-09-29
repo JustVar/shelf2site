@@ -92,9 +92,6 @@ docker compose up -d
 # 4. First-time setup (run inside the app container)
 docker compose exec app python scripts/create_admin_user.py
 docker compose exec app python scripts/seed_oui_allowlist.py
-
-# 5. (Optional) Seed initial inventory from an Excel spreadsheet
-docker compose exec app python scripts/import_spreadsheet.py
 ```
 
 Open the app at `https://<host>:8443/assettracker/`.
@@ -107,7 +104,7 @@ asset-tracker/
     main.py                Entry point
     config.py              Settings from .env
     database.py            SQLAlchemy + PostgreSQL
-    models.py              19 ORM tables (14 inventory + 5 system)
+    models.py              ORM models (inventory is item_schema.items)
     auth.py                Authentication + role checks
     credentials.py         Fernet encryption for vault
     audit.py               Audit log events
@@ -120,7 +117,6 @@ asset-tracker/
   scripts/                 Setup and initialization
     create_admin_user.py   Create initial users
     seed_oui_allowlist.py  Seed known OUI prefixes
-    import_spreadsheet.py  Import Excel data
   static/                  CSS, JavaScript
   data/                    Spreadsheet import data
 ```
@@ -139,31 +135,16 @@ docker compose exec app python scripts/<name>.py
 
 - `create_admin_user.py` — create the initial admin account
 - `seed_oui_allowlist.py` — seed the OUI allowlist
-- `seed_nas_devices.py` — seed the four QNAP NAS devices
 
 ### Imports
 
-These read source files from `scripts/` (CSVs and XLSX) and write to the database. They are **not destructive in the schema sense**, but most of them **delete and re-create rows in their target tables on every run**, so an interrupted import can leave the DB in a partial state. Always run with `--dry-run` first if the script supports it.
-
 - `import_part_numbers.py` — upsert part numbers from XLSX
-- `import_edge_boxes.py` — ⚠️ deletes existing edge-box rows before importing
-- `import_all_categories.py` — ⚠️ deletes rows across multiple categories before importing
-- `import_spreadsheet.py` — legacy full import
-- `import_spreadsheet_v2.py` — current full import (supports `--dry-run` and `--validate`)
-- `link_custom_builds.py` — creates custom-build Computer records
 
-### Maintenance
+The legacy inventory importers wrote the per-category tables that item 30
+retired (`docs/specs/retire-legacy-inventory.md`) and were removed with
+them. Nothing bulk-loads rows into `item_schema.items` yet: the items
+importer is board item N22, spec first.
 
-- `backfill_completeness.py` — backfill completeness scores
-- `recalculate_completeness.py` — recompute completeness scores (ORM-based)
-- `fix_camera_manufacturers.py` — fill camera manufacturers by MAC prefix
-- `add_show_on_map_field.py` — one-off migration: add the show-on-map field
-
-### 🔴 Destructive
-
-These can cause data loss. Read the script source before running. Do **not** run against the production database without a fresh DB backup.
-
-- `reset_inventory_safe.py` — drops inventory tables (preserves users, audit log, and credentials)
 
 ## Scanner Modes
 

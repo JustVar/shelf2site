@@ -460,6 +460,25 @@ data, data before readers, readers before drops.
    (`receipts-permission-and-financial-drop.md:195`). A backup is taken
    first (`scripts/at-backup.sh`); the legacy `hardware_inventory` DB on the
    host stays as the older reference (`CLAUDE.md:32`).
+   **Built 2026-09-29 in two commits, after apphost was retired (Jus).**
+   There is no live host, so both were built and tested against a restore
+   of the 2026-09-29 02:15 UTC dump; the drop runs on the new host after
+   that dump is restored. **S5a, code:** the legacy models,
+   `InventoryMixin`, `TABLE_MODELS`, `TABLE_DISPLAY_NAMES`, the site-admin
+   table set and the legacy helpers (`compute_completeness`,
+   `get_serial`, `get_display_name`, `get_status`, `get_mac`,
+   `user_can_approve_table`, `get_approvable_tables`) are gone, with
+   `IntuneSyncLog`, `DeviceComponent`, `DeviceAssignment`,
+   `WarrantyClaim`, `VendorTrial`, `DeviceDisposition` and `NASDrive`.
+   `DeviceWarranty` maps its id and timestamps itself. The legacy table
+   names survive only as a label vocabulary in `app/table_labels.py`
+   (audit history and the OUI `maps_to_table` hint). The `INTUNE_*` and
+   `SPREADSHEET_PATH` settings and eleven scripts that wrote or read the
+   legacy tables are removed (the importers, completeness backfills,
+   custom-build linker, NAS seed, camera manufacturer fix, show-on-map
+   add, inventory reset), with `tests/test_model_accessors.py`.
+   `migrations/001_add_procurement_fields.py` still imports
+   `TABLE_MODELS`; it is applied history and is not re-run.
 
 ## 10. Review record (v1 questions, answered by Jus 2026-09-25)
 

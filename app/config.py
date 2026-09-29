@@ -71,12 +71,6 @@ class Settings:
     SLACK_BOT_TOKEN: str = os.getenv("SLACK_BOT_TOKEN", "")
     SLACK_ADMIN_WEBHOOK_URL: str = os.getenv("SLACK_ADMIN_WEBHOOK_URL", "")
 
-    # Intune (Microsoft Graph API)
-    INTUNE_TENANT_ID: str = os.getenv("INTUNE_TENANT_ID", "")
-    INTUNE_CLIENT_ID: str = os.getenv("INTUNE_CLIENT_ID", "")
-    INTUNE_CLIENT_SECRET: str = os.getenv("INTUNE_CLIENT_SECRET", "")
-    INTUNE_AUTO_SYNC: bool = os.getenv("INTUNE_AUTO_SYNC", "false").lower() == "true"
-
     # Photo uploads (intake label photos)
     PHOTO_UPLOAD_DIR: str = os.getenv("PHOTO_UPLOAD_DIR", "data/photos")
     # Unit photos (shipment-photos slice): per-file size cap and per-event
@@ -110,13 +104,6 @@ class Settings:
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM: str = os.getenv("SMTP_FROM", "Asset Tracker <noreply@example.com>")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() == "true"
-
-    # Spreadsheet import
-    SPREADSHEET_PATH: str = os.getenv(
-        "SPREADSHEET_PATH",
-        str(Path(__file__).resolve().parent.parent
-            / "data" / "Inventory_Tracker_Export.xlsx"),
-    )
 
 
 settings = Settings()

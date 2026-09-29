@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from ..audit import log_event, model_to_dict
 from ..auth import get_current_user, require_editor, User
 from ..database import get_db
-from ..models import compute_completeness, AuditLog, ADMIN_LEVEL_ROLES
+from ..models import AuditLog, ADMIN_LEVEL_ROLES
+from ..table_labels import LEGACY_TABLE_LABELS
 from ..validation import validate_mac_address, validate_serial_number
 
 router = APIRouter()
@@ -113,9 +114,8 @@ def get_global_audit_log(
         else:
             entry["username"] = "System"
 
-        # Get display table name
-        from ..models import TABLE_DISPLAY_NAMES
-        entry["display_table"] = TABLE_DISPLAY_NAMES.get(log.target_table, log.target_table)
+        # Display name for the target table (legacy names are history strings)
+        entry["display_table"] = LEGACY_TABLE_LABELS.get(log.target_table, log.target_table)
 
         history.append(entry)
 

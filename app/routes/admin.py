@@ -19,10 +19,11 @@ from ..config import settings
 from ..localtime import register
 from ..database import get_db
 from ..models import (
-    AuditLog, OUIAllowlist, TABLE_DISPLAY_NAMES, Department, User as UserModel,
+    AuditLog, OUIAllowlist, Department, User as UserModel,
     USER_PERMISSION_COLUMNS, DEPARTMENT_PERMISSION_COLUMNS,
     ItemPartNumber, Item, ADMIN_LEVEL_ROLES,
 )
+from ..table_labels import LEGACY_TABLE_LABELS
 from .dashboard import ALL_CATEGORIES, category_display
 
 router = APIRouter()
@@ -112,7 +113,7 @@ def oui_reference(
         "total_devices": total_devices,
         "unique_manufacturers": unique_manufacturers,
         "user": user,
-        "table_names": TABLE_DISPLAY_NAMES,
+        "table_names": LEGACY_TABLE_LABELS,
     })
 
 

@@ -262,7 +262,8 @@ def test_model_date_defaults_use_central():
     found = _model_date_defaults()
     utc = sorted("%s = %s" % (k, v) for k, v in found.items() if "America/Chicago" not in v)
     assert not utc, "%d model date defaults use the UTC date: %s" % (len(utc), utc)
-    assert len(found) == 13, sorted(found)
+    # 12 since item 30 S5 retired DeviceAssignment (assigned_date).
+    assert len(found) == 12, sorted(found)
 
 
 def test_item_last_updated_onupdate_uses_central():
