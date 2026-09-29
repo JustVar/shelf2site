@@ -28,9 +28,9 @@ def _mk_order(client, name):
 def dep_units(admin_client, db):
     """One order with a deployment visit and two units, plus a second order.
 
-    Unit A resolves through the item path (item_id set), unit B through the
-    legacy path (item_id NULL, device_table naming a per-category table), so
-    the picker feed exercises both branches.
+    Unit A resolves through its item (item_id set). Unit B has no item
+    (item_id NULL); since item 30 S4 retired the legacy per-table path it
+    resolves to its provisioning-id fallback.
     """
     order_id = _mk_order(admin_client, "CONTRACT-TEST Deploy Corp")
     other_id = _mk_order(admin_client, "CONTRACT-TEST Other Corp")
@@ -157,8 +157,8 @@ def test_units_feed_lists_both_serial_paths(admin_client, dep_units):
 
     # item path resolves through item_schema.items.item_sn
     assert by_id[dep_units["unit_item"]]["serial"] == "CONTRACT-TEST-DEP-CAM-1"
-    # legacy path finds no such device, so it falls back rather than raising
-    assert by_id[dep_units["unit_legacy"]]["serial"] == "edge_boxes#999999"
+    # a row with no item falls back to its provisioning id rather than raising
+    assert by_id[dep_units["unit_legacy"]]["serial"] == f"Provisioning #{dep_units['unit_legacy']}"
     # an empty stages array means no stage machine, so no chip
     assert by_id[dep_units["unit_item"]]["stage"] is None
 

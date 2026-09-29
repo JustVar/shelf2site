@@ -432,6 +432,20 @@ data, data before readers, readers before drops.
    `edge_boxes`. The index lists every order-linked edge box item, so
    stock edge boxes assigned to an order appear there too. Certification
    rows still key on `oem_serial` and the provisioning id, unchanged.
+   **Fulfillment and orders built 2026-09-29:** the stock snapshot counts
+   `edge_box` items by SKU (`brand_sku`, else `brand_pn`), busy when
+   an active record links them. The Building board's devices are edge box
+   item rows WITH stages (the stage machine), and the unit count adds
+   still-out item rows WITHOUT stages, so no row counts twice. The SE
+   counts, the order panel, `_resolve_unit_serial` (fallback now
+   `Provisioning #id`), the order page label and `_sku_availability`
+   (ready item stock through `candidate_items` only) read items. S4 is
+   complete: no route module reads `TABLE_MODELS`, a legacy device class
+   or `get_serial`/`get_display_name` any more. Left for S5 besides the
+   list above: `api.py` imports `compute_completeness` and labels audit
+   rows with `TABLE_DISPLAY_NAMES`; `admin.py` passes `TABLE_DISPLAY_NAMES`
+   to the OUI page; the order cancel audit and the `items` sentinel writes
+   still name `device_table` and `device_id`.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,

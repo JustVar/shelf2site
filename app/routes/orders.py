@@ -24,7 +24,7 @@ from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
     CustomerOrder, DeploymentRecord, OEMPartner, OEMPurchaseOrder, DeviceProvisioning,
     Item, ItemPartNumber,
-    User, TABLE_MODELS, get_display_name, get_serial,
+    User,
     AuditLog,
 )
 from ..order_matching import candidate_items, requirement_lines
@@ -71,29 +71,9 @@ def _sku_availability(db: Session, sku_requirements: list) -> list:
         if not model:
             continue
 
-        # Count devices matching this model that are NOT in an active provisioning record
-        provisioned_device_ids_by_table: dict[str, list[int]] = {}
-        active_prov = (
-            db.query(DeviceProvisioning)
-            .filter(DeviceProvisioning.is_complete.is_(False))
-            .all()
-        )
-        for p in active_prov:
-            provisioned_device_ids_by_table.setdefault(p.device_table, []).append(p.device_id)
-
-        available = 0
-        for table_name, model_cls in TABLE_MODELS.items():
-            if not hasattr(model_cls, "model"):
-                continue
-            busy_ids = provisioned_device_ids_by_table.get(table_name, [])
-            q = db.query(model_cls).filter(model_cls.model.ilike(f"%{model}%"))
-            if busy_ids:
-                q = q.filter(~model_cls.id.in_(busy_ids))
-            available += q.count()
-
-        # item_schema.items is the system of record (2026-07 import) — count
-        # its ready stock too, via the same matcher the Assign panel uses.
-        available += len(candidate_items(db, model))
+        # Ready item stock, via the same matcher the Assign panel uses.
+        # Item 30 S4: the legacy per-table count is gone.
+        available = len(candidate_items(db, model))
 
         if available >= needed:
             status = "ok"
@@ -149,20 +129,14 @@ def order_detail(
     )
     prov_enriched = []
     for p in prov_records:
-        device_label = f"{p.device_table} #{p.device_id}"
+        device_label = f"Provisioning #{p.id}"
         if p.item_id:
-            # Item-linked row (C2C cams, Assign-panel units) — label from items.
+            # Every unit is item-linked since item 30 S4 — label from items.
             item = db.query(Item).filter(Item.id == p.item_id).first()
             if item:
                 device_label = item.item_name or item.item_model or device_label
                 if item.item_sn:
                     device_label = f"{device_label} ({item.item_sn})"
-        else:
-            model_cls = TABLE_MODELS.get(p.device_table)
-            if model_cls:
-                device = db.query(model_cls).filter(model_cls.id == p.device_id).first()
-                if device:
-                    device_label = get_display_name(device)
         prov_enriched.append({"record": p, "device_label": device_label})
 
     se_names = sorted(

@@ -27,8 +27,8 @@ from ..config import settings
 from ..localtime import fmt_local, local_today, register
 from ..database import get_db
 from ..models import (
-    CustomerOrder, DeploymentRecord, DeviceProvisioning, EdgeBox,
-    Item, OEMPartner, OEMPurchaseOrder, Site, User, TABLE_MODELS, get_serial,
+    CustomerOrder, DeploymentRecord, DeviceProvisioning,
+    Item, OEMPartner, OEMPurchaseOrder, Site, User,
     BuildCertification, BuildCertificationFile,
     InstallationCertification,
     STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
@@ -318,7 +318,9 @@ def _is_valid_sku(sku: str) -> bool:
 
 
 def _stock_snapshot(db: Session) -> tuple[list[dict], list[dict]]:
-    """Return (known_skus, unclassified) lists of EdgeBox stock grouped by part_number.
+    """Return (known_skus, unclassified) lists of edge box item stock grouped
+    by SKU (brand_sku, else brand_pn). Item 30 S4: reads items, not
+    edge_boxes.
 
     known_skus   — groups with recognized EDGE*/PVA-* part numbers
     unclassified — groups with missing, blank, or non-SKU part numbers (e.g.
@@ -327,22 +329,22 @@ def _stock_snapshot(db: Session) -> tuple[list[dict], list[dict]]:
     'Available' means: not currently linked to an active (incomplete)
     provisioning record.
     """
-    # Collect device IDs that are actively provisioned
+    # Items actively in a provisioning record
     busy_ids = {
-        p.device_id
-        for p in db.query(DeviceProvisioning.device_id)
+        p.item_id
+        for p in db.query(DeviceProvisioning.item_id)
         .filter(
-            DeviceProvisioning.device_table == "edge_boxes",
+            DeviceProvisioning.item_id.isnot(None),
             DeviceProvisioning.is_complete.is_(False),
         )
         .all()
     }
 
-    # Query all edge boxes, group by part_number
-    all_boxes = db.query(EdgeBox).all()
+    # All edge box items, grouped by SKU
+    all_boxes = db.query(Item).filter(Item.item_category == "edge_box").all()
     groups: dict[str, dict] = {}
     for box in all_boxes:
-        raw = (box.part_number or "").strip()
+        raw = (box.brand_sku or box.brand_pn or "").strip()
         model_key = raw or "— no SKU —"
         if model_key not in groups:
             groups[model_key] = {
@@ -399,7 +401,9 @@ def fulfillment_page(
         oid = p.customer_order_id
         prov_counts[oid] = prov_counts.get(oid, 0) + 1
 
-    # Device details per order (for slide panel)
+    # Edge box units in the build stage machine, per order (Building board).
+    # Item 30 S4: an edge box item row WITH stages; label-only rows (stages
+    # empty) are counted as item units below instead, never both.
     device_rows = (
         db.query(
             DeviceProvisioning.id,
@@ -410,19 +414,16 @@ def fulfillment_page(
             DeviceProvisioning.current_stage,
             DeviceProvisioning.fulfillment_type,
             DeviceProvisioning.stages,
-            EdgeBox.serial,
-            EdgeBox.part_number,
+            Item.item_sn.label("serial"),
+            sqlfunc.coalesce(Item.brand_sku, Item.brand_pn).label("part_number"),
             User.display_name,
         )
-        .outerjoin(
-            EdgeBox,
-            (DeviceProvisioning.device_id == EdgeBox.id)
-            & (DeviceProvisioning.device_table == "edge_boxes"),
-        )
+        .join(Item, DeviceProvisioning.item_id == Item.id)
         .outerjoin(User, DeviceProvisioning.assigned_to == User.id)
         .filter(
             DeviceProvisioning.customer_order_id.isnot(None),
-            DeviceProvisioning.device_table == "edge_boxes",
+            Item.item_category == "edge_box",
+            sqlfunc.jsonb_array_length(DeviceProvisioning.stages) > 0,
         )
         .all()
     )
@@ -498,11 +499,12 @@ def fulfillment_page(
     )
     team_members = sorted(r.sales_engineer for r in team_rows)
 
-    # Edge box counts per SE via DeviceProvisioning → CustomerOrder
+    # Edge box counts per SE via DeviceProvisioning → item → CustomerOrder
     eb_counts_raw = (
         db.query(CustomerOrder.sales_engineer, sqlfunc.count(DeviceProvisioning.id))
         .join(DeviceProvisioning, DeviceProvisioning.customer_order_id == CustomerOrder.id)
-        .filter(DeviceProvisioning.device_table == 'edge_boxes')
+        .join(Item, DeviceProvisioning.item_id == Item.id)
+        .filter(Item.item_category == "edge_box")
         .filter(CustomerOrder.sales_engineer.isnot(None))
         .group_by(CustomerOrder.sales_engineer)
         .all()
@@ -582,6 +584,8 @@ def fulfillment_page(
         DeviceProvisioning.customer_order_id.isnot(None),
         DeviceProvisioning.item_id.isnot(None),
         DeviceProvisioning.returned_date.is_(None),
+        # stage-machine rows are the Building devices above, not counted twice
+        sqlfunc.jsonb_array_length(DeviceProvisioning.stages) == 0,
     ).all():
         item_unit_counts[p.customer_order_id] = item_unit_counts.get(p.customer_order_id, 0) + 1
     # A cancelled order is ended and its units are unlinked, so it carries no
@@ -725,8 +729,8 @@ def fulfillment_panel_state(
 
     site_names = {s.id: s.name for s in db.query(Site).all()}
 
-    # Units already on the order: item-linked rows (Assign panel, C2C) get
-    # their identity from item_schema; legacy edge-box rows from EdgeBox.
+    # Units already on the order get their identity from item_schema
+    # (item 30 S4: the legacy edge-box branch is gone).
     devices = []
     prov_rows = (
         db.query(DeviceProvisioning)
@@ -760,10 +764,6 @@ def fulfillment_panel_state(
                     "part_number": item.brand_sku,
                     "kind": "item",
                 })
-        elif p.device_table == "edge_boxes":
-            box = db.query(EdgeBox).filter(EdgeBox.id == p.device_id).first()
-            if box:
-                entry.update({"serial": box.serial, "part_number": box.part_number})
         devices.append(entry)
 
     # Assignable stock, matched per requirement line (shared matcher — the
@@ -1047,41 +1047,24 @@ async def assign_units_to_deployment(
 # ---------------------------------------------------------------------------
 
 def _resolve_unit_serial(db: Session, row: DeviceProvisioning) -> str:
-    """Serial for a provisioning row. Two paths, and they never overlap.
+    """Serial for a provisioning row, read off its item.
 
-    SIBLING of _resolve_device_name in provisioning.py: same item_id dispatch,
+    SIBLING of _resolve_device_name in provisioning.py: same item_id link,
     DELIBERATELY different accessor. This one feeds the deployment picker, which
     wants a serial. That one feeds provisioning lists and notification prose,
     which want a name. Do not unify them.
 
-    DeviceProvisioning carries no serial column. Rows on the item path set
-    item_id and resolve through item_schema.items; legacy rows leave item_id
-    NULL and resolve through the per-category table named by device_table.
-
-    Do NOT call get_serial() on an Item. It checks serial, gpu_serial and
-    part_number, has no item_sn branch, and Item declares part_number as a
-    RELATIONSHIP, so hasattr is True and the third branch fires. It returns an
-    ItemPartNumber object where a string is expected, and the failure is silent
-    because an object renders as a repr rather than raising. get_display_name
-    fails on an Item too, differently: it dispatches on __tablename__, matches
-    no branch, and returns "-".
+    DeviceProvisioning carries no serial column; the item does (item_sn).
+    Item 30 S4 retired the legacy per-table path, so a row with no item falls
+    back to its provisioning id.
     """
-    fallback = f"{row.device_table}#{row.device_id}"
-
-    if row.item_id is not None:
-        item = db.query(Item).filter(Item.id == row.item_id).first()
-        if item is None:
-            return fallback
-        return item.item_sn or fallback
-
-    model = TABLE_MODELS.get(row.device_table)
-    if model is None:
+    fallback = f"Provisioning #{row.id}"
+    if row.item_id is None:
         return fallback
-    device = db.query(model).filter(model.id == row.device_id).first()
-    if device is None:
+    item = db.query(Item).filter(Item.id == row.item_id).first()
+    if item is None:
         return fallback
-    serial = get_serial(device)
-    return fallback if not serial or serial == "-" else serial
+    return item.item_sn or fallback
 
 
 def _unit_stage_label(row: DeviceProvisioning):
@@ -1089,9 +1072,9 @@ def _unit_stage_label(row: DeviceProvisioning):
 
     Suppressed on an empty stages array, which is the same property the advance
     path keys on when it bails with "Current stage not found". Do NOT key on
-    device_table == "edge_boxes" instead: that correlation holds in the current
-    rows but is asserted nowhere in code, so it would be a second hand
-    maintained mapping to drift.
+    the unit's category instead: that correlation holds in the current rows but
+    is asserted nowhere in code, so it would be a second hand maintained
+    mapping to drift.
 
     STAGE_LABELS.get, never a bare subscript. "acquired" is live on most rows
     and is absent from STAGE_LABELS.
