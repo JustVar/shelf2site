@@ -163,32 +163,16 @@ class _Link:
     ("demo", "demo"),
 ])
 def test_order_linkage_wins_and_is_marked_as_order_provenance(order_type, expected):
-    cls, provenance, link = _classify(_Link(order_type), deployment_type="pilot")
+    cls, provenance, link = _classify(_Link(order_type))
     assert (cls, provenance) == (expected, "order")
     assert link is not None
 
 
-@pytest.mark.parametrize("deployment_type,expected", [
-    ("pilot", "pilot"),
-    ("customer", "purchased"),
-    ("demo", "demo"),
-])
-def test_legacy_deployment_type_infers_a_class_and_is_marked_inferred(deployment_type, expected):
-    cls, provenance, link = _classify(None, deployment_type=deployment_type)
-    assert (cls, provenance) == (expected, "inferred")
-    assert link is None
+def test_no_linkage_is_unassigned():
+    """Item 30 S4 retired the legacy deployment_type inference."""
+    assert _classify(None) == ("unassigned", "none", None)
 
 
-def test_no_linkage_and_no_deployment_type_is_unassigned():
-    assert _classify(None, deployment_type=None) == ("unassigned", "none", None)
-    assert _classify(None, deployment_type="") == ("unassigned", "none", None)
-
-
-def test_an_unrecognized_order_type_falls_through_to_inference():
+def test_an_unrecognized_order_type_is_unassigned():
     """A new order_type must not silently classify as a known deal class."""
-    cls, provenance, _ = _classify(_Link("subscription"), deployment_type="customer")
-    assert (cls, provenance) == ("purchased", "inferred")
-
-
-def test_an_unrecognized_order_type_with_no_deployment_type_is_unassigned():
-    assert _classify(_Link("subscription"), deployment_type=None)[:2] == ("unassigned", "none")
+    assert _classify(_Link("subscription"))[:2] == ("unassigned", "none")

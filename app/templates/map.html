@@ -668,9 +668,6 @@
             warn.style.fontStyle = "normal";
             box.appendChild(warn);
         }
-        if (p.provenance === "inferred") {
-            box.appendChild(el("div", "prov", "Deal inferred from legacy deployment type - link an order to confirm."));
-        }
         popup.setLngLat(lngLat).setDOMContent(box).addTo(map);
     }
 

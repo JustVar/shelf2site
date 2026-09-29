@@ -404,6 +404,14 @@ data, data before readers, readers before drops.
    READ 2026-09-29); retire them before that table drops.
    **Map pre-read dropped (Jus, 2026-09-29):** data is re-imported later,
    so section 10 item 6 is not run before the map commit.
+   **Map built 2026-09-29:** the map reads items only. `_collect_units`,
+   `_needs_location` and the deal lookup drop the legacy edge box branch,
+   the `device_table` linkage and the `deployment_type` inference (and
+   its popup note); `POST /map/set-location` takes `kind` item only. On a
+   restore of the 2026-09-29 02:15 dump (READ locally), the admin map goes
+   from 7 units to 2 and the needs-location list from 63 to 50: the 5 and
+   13 that leave are legacy edge boxes, which the re-import brings back as
+   items.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,

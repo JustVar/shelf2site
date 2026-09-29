@@ -1,18 +1,15 @@
 """Deployment map: customer unit tracking (redesign, decisions locked 2026-07-09).
 
 Data model:
-- The unit universe is the UNION of unified-inventory items (item_schema.items
-  joined to their geo-located, show_on_map locations) and legacy
-  public.edge_boxes rows that carry their own coordinates. Legacy rows whose
-  serial matches an edge-box item are skipped so migrated units never render
-  twice.
+- The unit universe is the unified-inventory items (item_schema.items joined
+  to their geo-located, show_on_map locations). Item 30 S4 retired the
+  legacy public.edge_boxes branch.
 - Deal type is derived at query time, never stored: the latest
-  device_provisioning row that links a unit to a customer order supplies
+  device_provisioning row that links an item to a customer order supplies
   customer_orders.order_type (sale -> purchased, plus pilot / try_and_buy /
-  demo). Legacy edge boxes without order linkage fall back to a
-  deployment_type inference and are marked inferred; everything else is
-  unassigned. "Try & Buy" here always means order_type try_and_buy (our
-  hardware loaned out) - never the vendor_trials feature.
+  demo); anything else is unassigned. "Try & Buy" here always means
+  order_type try_and_buy (our hardware loaned out) - never the vendor_trials
+  feature.
 - Visibility flows through app.map_visibility: unit/site/customer curation
   rows plus the sensitive-order rule. That helper is the only filter; do not
   add show_on_map conditions anywhere else in this file.
@@ -35,7 +32,6 @@ from ..map_visibility import load_hidden, norm_key, unit_visible
 from ..models import (
     CustomerOrder,
     DeviceProvisioning,
-    EdgeBox,
     Item,
     Site,
     MapVisibility,
@@ -69,7 +65,7 @@ UNIT_LABELS = {"edge_box": "Edge Unit", "cloud_box": "Cloud Box", "camera_c2c": 
 UNIT_COLORS = {"edge_box": "#2CD9FF", "cloud_box": "#7FA3CE", "camera_c2c": "#01B574"}
 PRODUCT_CATEGORIES = list(UNIT_LABELS.keys())
 
-# One status color map for unified item statuses AND legacy edge-box strings -
+# One status color map for unit statuses -
 # the old page carried four disagreeing vocabularies (server colors, filter
 # checkbox values, legend labels, css classes); this dict is now the only one.
 STATUS_COLORS = {
@@ -88,22 +84,17 @@ STATUS_COLORS = {
 }
 STATUS_FALLBACK = "#97A3B6"
 
-# Legacy deployment_type inference (used only when no order linkage exists).
-DEPLOYMENT_INFERENCE = {"pilot": "pilot", "customer": "purchased", "demo": "demo"}
-
 
 def _slug(value):
     return "".join(ch if ch.isalnum() else "_" for ch in (value or "unknown").lower())
 
 
 def _deal_maps(db):
-    """Latest order linkage per unit: item_id -> row, edge_box id -> row."""
+    """Latest order linkage per unit: item_id -> row."""
     rows = (
         db.query(
             DeviceProvisioning.id,
             DeviceProvisioning.item_id,
-            DeviceProvisioning.device_table,
-            DeviceProvisioning.device_id,
             DeviceProvisioning.returned_date,
             DeviceProvisioning.created_at,
             CustomerOrder.order_type,
@@ -112,27 +103,22 @@ def _deal_maps(db):
             CustomerOrder.expected_return,
         )
         .join(CustomerOrder, CustomerOrder.id == DeviceProvisioning.customer_order_id)
+        .filter(DeviceProvisioning.item_id.isnot(None))
         .order_by(DeviceProvisioning.id)
         .all()
     )
-    by_item, by_edge = {}, {}
+    by_item = {}
     for r in rows:
-        if r.item_id is not None:
-            by_item[r.item_id] = r  # ordered by dp.id: latest row wins
-        elif r.device_table == "edge_boxes":
-            by_edge[r.device_id] = r
-    return by_item, by_edge
+        by_item[r.item_id] = r  # ordered by dp.id: latest row wins
+    return by_item
 
 
-def _classify(link, deployment_type=None):
-    """(deal_class, provenance, link_row). Provenance: order|inferred|none."""
+def _classify(link):
+    """(deal_class, provenance, link_row). Provenance: order|none."""
     if link is not None:
         cls = DEAL_CLASSES.get(link.order_type)
         if cls:
             return cls, "order", link
-    inferred = DEPLOYMENT_INFERENCE.get(deployment_type or "")
-    if inferred:
-        return inferred, "inferred", None
     return "unassigned", "none", None
 
 
@@ -184,30 +170,12 @@ def _feature(unit_key, kind, lng, lat, name, serial, category, status, deal, pro
 
 
 def _collect_units(db, user):
-    """The visible unit universe with deal context. Returns (features, extras)."""
+    """The visible unit universe with deal context.
+    Returns (features, hidden, by_item)."""
     hidden = load_hidden(db)
     can_sensitive = user.has_sensitive_customers_access
-    by_item, by_edge = _deal_maps(db)
+    by_item = _deal_maps(db)
     features = []
-
-    # Legacy rows load first so migrated items can (a) suppress their twin
-    # via the serial dedup and (b) inherit the twin's order linkage. The
-    # dedup set is built BEFORE any visibility check: hiding a migrated
-    # item must never resurrect its legacy twin.
-    legacy = (
-        db.query(EdgeBox)
-        .filter(
-            EdgeBox.geo_lat.isnot(None),
-            EdgeBox.geo_lng.isnot(None),
-            EdgeBox.show_on_map.is_(True),
-        )
-        .all()
-    )
-    eb_by_serial = {}
-    for eb in legacy:
-        sn = (eb.serial or "").strip().lower()
-        if sn:
-            eb_by_serial[sn] = eb
 
     items = (
         db.query(Item, Site)
@@ -221,19 +189,8 @@ def _collect_units(db, user):
         )
         .all()
     )
-    item_serials = set()
-    for item, loc in items:
-        sn = (item.item_sn or "").strip().lower()
-        if item.item_category == "edge_box" and sn:
-            item_serials.add(sn)
-
     for item, place in items:
-        sn = (item.item_sn or "").strip().lower()
         link = by_item.get(item.id)
-        if link is None and sn and sn in eb_by_serial:
-            # Migrated unit: its provisioning rows still point at the
-            # legacy edge_boxes id - inherit that order linkage.
-            link = by_edge.get(eb_by_serial[sn].id)
         deal, provenance, _l = _classify(link)
         customer = (link.customer_name if link else None) or place.customer
         site = place.name
@@ -249,27 +206,10 @@ def _collect_units(db, user):
             f"{BP}/items/{item.id}",
         ))
 
-    for eb in legacy:
-        sn = (eb.serial or "").strip().lower()
-        if sn and sn in item_serials:
-            continue  # migrated: the item-schema twin owns this unit
-        link = by_edge.get(eb.id)
-        deal, provenance, _l = _classify(link, eb.deployment_type)
-        customer = (link.customer_name if link else None) or eb.customer
-        if not unit_visible(hidden, f"edge_box:{eb.id}", customer, eb.site_name,
-                            bool(link and link.is_sensitive), can_sensitive):
-            continue
-        features.append(_feature(
-            f"edge_box:{eb.id}", "edge_box", eb.geo_lng, eb.geo_lat,
-            eb.org or eb.serial, eb.serial, "edge_box",
-            eb.status or "", deal, provenance, customer, eb.site_name, None,
-            None, _due_back(link), None,
-        ))
-
-    return features, hidden, by_item, by_edge
+    return features, hidden, by_item
 
 
-def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
+def _needs_location(db, by_item, hidden, can_sensitive):
     """Mappable units lacking coordinates. Editor-facing: the payload gates
     this behind is_editor_or_above, and the same visibility rules apply so
     curated-away or sensitive units never leak through the rail card.
@@ -307,28 +247,6 @@ def _needs_location(db, by_item, by_edge, hidden, can_sensitive):
             "hasLocation": it.location_id is not None,  # False = no place at all
             "viewUrl": f"{BP}/items/{it.id}",
         })
-    legacy = (
-        db.query(EdgeBox)
-        .filter(
-            EdgeBox.deployment_type.in_(["customer", "pilot", "demo"]),
-            (EdgeBox.geo_lat.is_(None)) | (EdgeBox.geo_lng.is_(None)),
-            EdgeBox.show_on_map.is_(True),
-        )
-        .all()
-    )
-    for eb in legacy:
-        link = by_edge.get(eb.id)
-        if not unit_visible(hidden, f"edge_box:{eb.id}",
-                            (link.customer_name if link else None) or eb.customer,
-                            eb.site_name, bool(link and link.is_sensitive), can_sensitive):
-            continue
-        out.append({
-            "kind": "edge_box", "id": eb.id,
-            "label": eb.org or eb.serial or f"Edge box #{eb.id}",
-            "serial": eb.serial or "",
-            "hasLocation": True,
-            "viewUrl": "",
-        })
     return out
 
 
@@ -346,7 +264,7 @@ def map_page(request: Request, db: Session = Depends(get_db),
 @router.get("/data")
 def map_data(request: Request, db: Session = Depends(get_db),
              user: User = Depends(require_map_access)):
-    features, hidden, by_item, by_edge = _collect_units(db, user)
+    features, hidden, by_item = _collect_units(db, user)
     today = local_today()
     props = [f["properties"] for f in features]
 
@@ -374,7 +292,6 @@ def map_data(request: Request, db: Session = Depends(get_db),
     # new-in-30-days: order-linked units whose provisioning row was created
     # inside the window (the only per-unit acquisition timestamp we have)
     linked = {f"item:{k}": v for k, v in by_item.items()}
-    linked.update({f"edge_box:{k}": v for k, v in by_edge.items()})
     for p in props:
         link = linked.get(p["id"])
         if link is not None and link.created_at and link.created_at >= cutoff:
@@ -415,7 +332,7 @@ def map_data(request: Request, db: Session = Depends(get_db),
     ]
     can_edit = bool(user.is_editor_or_above)
     hidden_sets = load_hidden(db)
-    needs = _needs_location(db, by_item, by_edge, hidden_sets,
+    needs = _needs_location(db, by_item, hidden_sets,
                             user.has_sensitive_customers_access) if can_edit else []
 
     payload = {
@@ -499,17 +416,8 @@ async def map_set_location(request: Request, db: Session = Depends(get_db),
         return JSONResponse(status_code=400, content={"error": "coordinates out of range"})
     # Fix-only semantics: this endpoint fills MISSING coordinates. It never
     # overwrites existing ones (no other coordinate editor exists yet, so an
-    # overwrite would be irreversible) and never flips an explicit
-    # show_on_map=False on legacy rows (that boolean is the privacy control).
-    if kind == "edge_box":
-        eb = db.query(EdgeBox).filter(EdgeBox.id == unit_id).first()
-        if not eb:
-            return JSONResponse(status_code=404, content={"error": "edge box not found"})
-        if eb.geo_lat is not None and eb.geo_lng is not None:
-            return JSONResponse(status_code=400, content={"error": "this unit already has coordinates"})
-        eb.geo_lat, eb.geo_lng = lat, lng
-        target = eb.serial or f"edge box {unit_id}"
-    elif kind == "item":
+    # overwrite would be irreversible).
+    if kind == "item":
         item = db.query(Item).filter(Item.id == unit_id).first()
         if not item:
             return JSONResponse(status_code=404, content={"error": "item not found"})
@@ -526,7 +434,7 @@ async def map_set_location(request: Request, db: Session = Depends(get_db),
         place.show_on_map = True  # first geocode implies mapping intent
         target = item.item_sn or f"item {unit_id}"
     else:
-        return JSONResponse(status_code=400, content={"error": "kind must be item or edge_box"})
+        return JSONResponse(status_code=400, content={"error": "kind must be item"})
     db.commit()
     log_event(db, "map_set_location", request=request, user_id=user.id,
               target_table=kind, target_id=unit_id, action="update",
