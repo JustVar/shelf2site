@@ -391,6 +391,19 @@ data, data before readers, readers before drops.
    skipped cameras, test edge box 22 and SEED fixtures 117 to 121), 2 MACs
    (items 910, 634) and 1 UUID (item 570) that items lack, 3 duplicate MACs
    among items, and 5 uncatalogued edge box part numbers (let go, Jus).
+   **Receiving, scan-lookup half, built 2026-09-29, scope cut by Jus:**
+   the reconcile workbook is skipped; data is re-imported later, so the
+   findings above carry no data fixes. Serial, MAC, UUID and SKU scan
+   lookups and the duplicate check read items only (the legacy tables,
+   `nas_drives` and the edge box part number fallback are gone from them).
+   The receive form keeps its target keys, now labelled by
+   `RECEIVE_TARGET_LABELS` in `receiving.py` instead of
+   `TABLE_DISPLAY_NAMES`, and direct intake uses the category approval
+   gate. Left for S5: `POST /api/receive/photo` and its serve route still
+   write and read `public.intake_photos` (0 rows, no caller in the app,
+   READ 2026-09-29); retire them before that table drops.
+   **Map pre-read dropped (Jus, 2026-09-29):** data is re-imported later,
+   so section 10 item 6 is not run before the map commit.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,

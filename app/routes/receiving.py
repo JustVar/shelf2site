@@ -16,11 +16,9 @@ from ..config import settings
 from ..localtime import register
 from ..database import get_db
 from ..models import (
-    AccessControl, Camera, CustomerOrder, EdgeBox, IntakePhoto, Item,
-    ItemPartNumber, NASDevice, NASDrive, NUC, OUIAllowlist, PendingDevice,
-    ReceivedDevice, ReceivingEvent, ReceivingEventLine, Site,
-    TABLE_MODELS, TABLE_DISPLAY_NAMES, UnitPhoto, User,
-    compute_completeness, user_can_approve_table,
+    CustomerOrder, IntakePhoto, Item, ItemPartNumber, OUIAllowlist,
+    PendingDevice, ReceivedDevice, ReceivingEvent, ReceivingEventLine, Site,
+    UnitPhoto, User, user_can_approve_category,
 )
 from sqlalchemy.exc import IntegrityError
 
@@ -45,10 +43,8 @@ register(templates.env)
 
 
 def find_serial_anywhere(db: Session, serial: str) -> dict | None:
-    """Unified serial lookup (audit H1): case-insensitive across
-    item_schema.items (the system of record), every legacy TABLE_MODELS
-    table (including GPU, whose column is gpu_serial), and
-    nas_drives.serial_number.
+    """Unified serial lookup (audit H1): case-insensitive over
+    item_schema.items, the only inventory model since item 30 S4.
 
     Matches on lower() equality, NOT ilike — scanned strings can contain
     % or _ which ilike would treat as wildcards.
@@ -61,7 +57,6 @@ def find_serial_anywhere(db: Session, serial: str) -> dict | None:
         return None
     low = serial.lower()
 
-    # item_schema.items first — the system of record.
     item = (
         db.query(Item)
         .filter(Item.item_sn.isnot(None), func.lower(Item.item_sn) == low)
@@ -80,46 +75,12 @@ def find_serial_anywhere(db: Session, serial: str) -> dict | None:
             "location": location,
             "status": item.item_status,
         }
-
-    # Legacy per-category tables — still hold most historical serials.
-    for table_name, model in TABLE_MODELS.items():
-        col = getattr(model, "serial", None)
-        if col is None:
-            col = getattr(model, "gpu_serial", None)
-        if col is None:
-            continue
-        row = db.query(model).filter(col.isnot(None), func.lower(col) == low).first()
-        if row:
-            return {
-                "table": table_name,
-                "display_table": TABLE_DISPLAY_NAMES.get(table_name, table_name),
-                "device_id": row.id,
-                "serial": getattr(row, "serial", None) or getattr(row, "gpu_serial", None),
-                "location": getattr(row, "location", None),
-                "status": getattr(row, "status", None),
-            }
-
-    # NAS bay drives live outside TABLE_MODELS.
-    drive = (
-        db.query(NASDrive)
-        .filter(NASDrive.serial_number.isnot(None), func.lower(NASDrive.serial_number) == low)
-        .first()
-    )
-    if drive:
-        return {
-            "table": "nas_drives",
-            "display_table": "NAS Drives",
-            "device_id": drive.id,
-            "serial": drive.serial_number,
-            "location": None,
-            "status": getattr(drive, "drive_status", None),
-        }
-
     return None
 
 
-# H2: legacy scan target tables -> item_schema categories. Scan intake now
+# H2: receive form target keys -> item_schema categories. Scan intake now
 # lands in item_schema.items (the system of record) — never public.*.
+# The keys are the old legacy table names, kept as the form vocabulary.
 TARGET_TABLE_TO_CATEGORY = {
     "edge_boxes": "edge_box",
     "gpus": "gpu",
@@ -145,6 +106,21 @@ TARGET_TABLE_TO_CATEGORY = {
     "pc_cooling": "cpu_cooler",
     "pc_accessories": "pc_accessories",
     "hard_drives": "storage_drive",
+}
+
+# Receive form "Target Category" labels, keyed like TARGET_TABLE_TO_CATEGORY.
+# Item 30 S4: owned here so the form no longer reads TABLE_DISPLAY_NAMES.
+RECEIVE_TARGET_LABELS = {
+    "edge_boxes": "Edge Boxes", "gpus": "GPUs", "monitors": "Monitors",
+    "computers": "Computers", "phones": "Phones",
+    "mobile_devices": "Mobile Devices", "cameras": "Cameras",
+    "network_equipment": "Network Equipment",
+    "access_control": "Access Control", "webcams": "Webcams",
+    "printers": "Printers", "office_equipment": "Office Equipment",
+    "nas_devices": "NAS Devices", "nucs": "NUCs", "ups": "UPS",
+    "ram_modules": "RAM Modules", "cpus": "CPUs", "psus": "PSUs",
+    "motherboards": "Motherboards", "pc_cooling": "PC Cooling",
+    "pc_accessories": "PC Accessories", "hard_drives": "Hard Drives",
 }
 
 # item_status is a Postgres ENUM — legacy receive/quick-mode strings must be
@@ -224,7 +200,7 @@ def receive_page(
         "request": request,
         "user": user,
         "events": events,
-        "table_choices": TABLE_DISPLAY_NAMES,
+        "table_choices": RECEIVE_TARGET_LABELS,
         "preselect_category": category or "",
         "locations": _get_locations(db),
         "statuses": ITEM_INTAKE_STATUSES,
@@ -432,21 +408,9 @@ async def close_receiving_event(
 # Barcode scan processing — §4 routing table (SCANNER_AUDIT, approved)
 # ---------------------------------------------------------------------------
 
-# MAC-bearing columns per surface. Legacy columns store the canonical
-# AA:BB:CC:DD:EE:FF (validate_mac_address funnels through normalize_mac);
-# items' macaddr columns compare against the same normalized text.
-_MAC_COLUMNS = [
-    ("items", lambda: [Item.item_mac_address_1, Item.item_mac_address_2]),
-    ("edge_boxes", lambda: [EdgeBox.mac_address, EdgeBox.mac_address_2]),
-    ("cameras", lambda: [Camera.mac_address]),
-    ("access_control", lambda: [AccessControl.mac_address]),
-    ("nas_devices", lambda: [NASDevice.mac_address_1, NASDevice.mac_address_2]),
-    ("nucs", lambda: [NUC.mac_address, NUC.mac_address_2]),
-]
-_MAC_MODELS = {
-    "items": Item, "edge_boxes": EdgeBox, "cameras": Camera,
-    "access_control": AccessControl, "nas_devices": NASDevice, "nucs": NUC,
-}
+# MAC-bearing columns on items (item 30 S4: the legacy MAC tables are gone
+# from lookups). Items' macaddr columns compare against normalize_mac text.
+_ITEM_MAC_COLUMNS = (Item.item_mac_address_1, Item.item_mac_address_2)
 
 
 def _found(table, device_id, serial, location=None, status=None, matched_on="serial"):
@@ -456,7 +420,7 @@ def _found(table, device_id, serial, location=None, status=None, matched_on="ser
         "status": "already_exists",
         "matched_on": matched_on,
         "table": table,
-        "display_table": TABLE_DISPLAY_NAMES.get(table, table.replace("_", " ").title()),
+        "display_table": table.replace("_", " ").title(),
         "device_id": device_id,
         "serial": serial,
         "location": location,
@@ -476,24 +440,11 @@ def _item_found(db, item, matched_on):
 
 
 def find_mac_anywhere(db, mac: str):
-    """Case-insensitive MAC lookup over every MAC-bearing column."""
-    for table, cols in _MAC_COLUMNS:
-        model = _MAC_MODELS[table]
-        for col in cols():
-            if table == "items":
-                row = db.query(model).filter(col == mac).first()
-            else:
-                row = db.query(model).filter(func.upper(col) == mac).first()
-            if row:
-                if table == "items":
-                    return _item_found(db, row, "mac")
-                return _found(
-                    table, row.id,
-                    getattr(row, "serial", None),
-                    location=getattr(row, "location", None),
-                    status=getattr(row, "status", None),
-                    matched_on="mac",
-                )
+    """MAC lookup over both item MAC columns."""
+    for col in _ITEM_MAC_COLUMNS:
+        row = db.query(Item).filter(col == mac).first()
+        if row:
+            return _item_found(db, row, "mac")
     return None
 
 
@@ -519,16 +470,6 @@ def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
                     {"mac_address": mac})
 
     if cls == "uuid":
-        for model, col, table in ((EdgeBox, EdgeBox.uuid, "edge_boxes"),
-                                  (NUC, NUC.uuid, "nucs")):
-            row = db.query(model).filter(func.lower(col) == low).first()
-            if row:
-                payload = _found(table, row.id, getattr(row, "serial", None),
-                                 location=getattr(row, "location", None),
-                                 status=getattr(row, "status", None),
-                                 matched_on="uuid")
-                payload["class"] = cls
-                return payload
         item = db.query(Item).filter(func.lower(Item.appliance_uuid) == low).first()
         if item:
             payload = _item_found(db, item, "uuid")
@@ -599,8 +540,6 @@ def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
             if pn.item_category:
                 prefill["item_category"] = str(pn.item_category)
             return recognized(guidance, prefill)
-        if db.query(EdgeBox).filter(func.upper(EdgeBox.part_number) == up).first():
-            return recognized(guidance, {"brand_sku": value})
         return miss(guidance + " (SKU not in the catalog.)")
 
     if cls == "hex12":
@@ -830,7 +769,7 @@ async def submit_device(
 
         # F9: skipping the review queue is an approval decision — gate it on
         # the same permission approving this device out of pending requires.
-        if not user_can_approve_table(user, target_table):
+        if not user_can_approve_category(user, item_category):
             return JSONResponse(status_code=403, content={
                 "error": "Adding this category directly to inventory needs approval rights — "
                          "uncheck 'Add directly to inventory' and submit it to the review queue.",
