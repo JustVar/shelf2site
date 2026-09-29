@@ -903,7 +903,6 @@ async def submit_device(
         mac_address=body.get("mac_address") or body.get("mac_address_1") or f"intake-{serial}",
         hostname=None,  # Hostname is for network-discovered devices only
         manufacturer=body.get("manufacturer", ""),
-        suggested_table=target_table or "network_equipment",
         suggested_category=TARGET_TABLE_TO_CATEGORY.get(target_table or "network_equipment"),
         scanner_id=f"intake:{user.username}",
         status="pending",

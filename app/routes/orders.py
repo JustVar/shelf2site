@@ -548,8 +548,6 @@ async def assign_items_to_order(
             db.rollback()
             return JSONResponse(status_code=409, content={"error": f"{label} is already assigned to an order"})
         rec = DeviceProvisioning(
-            device_table="items",      # sentinel; the real link is item_id below
-            device_id=item.id,         # NOT NULL filler, mirrors item_id
             item_id=item.id,
             site_id=None,
             current_stage="acquired",  # label only; stock units have no stage machine
@@ -791,16 +789,13 @@ async def cancel_order(
             "error": "A reason is required to cancel an order",
         })
 
-    # Rows are found by customer_order_id, NOT item_id: item_id is nullable
-    # and legacy-path rows carry device_table + device_id instead, so an
-    # item_id query would silently miss them.
+    # Rows are found by customer_order_id: every unit on the order, whatever
+    # its item.
     units = db.query(DeviceProvisioning).filter(
         DeviceProvisioning.customer_order_id == order_id).all()
     unit_list = [{
         "provisioning_id": u.id,
         "item_id": u.item_id,
-        "device_table": u.device_table,
-        "device_id": u.device_id,
     } for u in units]
 
     who = user.display_name or user.username

@@ -495,8 +495,6 @@ async def create_provisioning(
 
     # Create record with default stages
     rec = DeviceProvisioning(
-        device_table="items",   # sentinel; the real link is item_id below
-        device_id=item_id,      # NOT NULL filler, mirrors item_id
         item_id=item_id,
         site_id=int(site_id) if site_id else None,
         current_stage="staged",

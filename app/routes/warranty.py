@@ -4,7 +4,8 @@ Item 30 S4 (docs/specs/retire-legacy-inventory.md): a warranty hangs off
 item_schema.items through device_warranties.item_id and records vendor,
 start, end and notes. Customer warranties on shipped hardware are tracked by
 the OEM, not here. RMA claims and internal loaners were retired in the same
-change; their columns and the warranty_claims table drop in item 30 S5.
+change; their columns and the warranty_claims table dropped in migration 083
+(item 30 S5).
 """
 
 import csv
@@ -193,7 +194,7 @@ async def create_warranty(
     if fields["warranty_end"] < fields["warranty_start"]:
         return JSONResponse(status_code=400, content={"error": "End date is before the start date"})
 
-    warranty = DeviceWarranty(item_id=item.id, warranty_scope="external", **fields)
+    warranty = DeviceWarranty(item_id=item.id, **fields)
     db.add(warranty)
     db.commit()
     db.refresh(warranty)

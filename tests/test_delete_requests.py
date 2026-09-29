@@ -65,8 +65,8 @@ def dr_item_linked(db, admin_client):
     item_id = _new_item(db, "LINKED")
     prov_id = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, item_id, customer_order_id, current_stage, stages) "
-        "VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+        "(item_id, customer_order_id, current_stage, stages) "
+        "VALUES (:i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
         {"i": item_id, "o": order_id}).scalar()
     db.commit()
     yield {"item_id": item_id, "order_id": order_id, "prov_id": prov_id}
@@ -209,8 +209,8 @@ def test_approve_checks_again(editor_client, admin_client, db, dr_item):
     order_id = r.json()["id"]
     prov_id = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, item_id, customer_order_id, current_stage, stages) "
-        "VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+        "(item_id, customer_order_id, current_stage, stages) "
+        "VALUES (:i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
         {"i": item_id, "o": order_id}).scalar()
     db.commit()
     try:

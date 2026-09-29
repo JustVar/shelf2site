@@ -30,7 +30,7 @@ def _pending_category(pending: PendingDevice, body: dict) -> str:
         return TARGET_TABLE_TO_CATEGORY[legacy]
     if pending.suggested_category and str(pending.suggested_category) in _CATEGORIES:
         return str(pending.suggested_category)
-    return TARGET_TABLE_TO_CATEGORY.get(pending.suggested_table or "", "network")
+    return "network"
 
 
 @router.post("/pending/{device_id}/approve")

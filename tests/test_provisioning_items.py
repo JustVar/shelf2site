@@ -93,8 +93,8 @@ def test_create_show_and_advance_an_edge_box_item(admin_client, db, prov_item):
 def test_a_label_only_row_cannot_advance(admin_client, db, prov_item):
     _item_id, cam_id = prov_item
     prov_id = db.execute(sqltext(
-        "INSERT INTO device_provisioning (device_table, device_id, item_id, current_stage, stages) "
-        "VALUES ('items', :i, :i, 'acquired', '[]'::jsonb) RETURNING id"), {"i": cam_id}).scalar()
+        "INSERT INTO device_provisioning (item_id, current_stage, stages) "
+        "VALUES (:i, 'acquired', '[]'::jsonb) RETURNING id"), {"i": cam_id}).scalar()
     db.commit()
     r = admin_client.post(f"/api/provisioning/{prov_id}/advance")
     assert r.status_code == 400, r.text

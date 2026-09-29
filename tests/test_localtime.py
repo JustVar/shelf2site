@@ -284,7 +284,9 @@ def test_live_date_defaults_use_central():
         rows = conn.execute(text(LIVE_DATE_DEFAULTS)).fetchall()
     utc = sorted("%s.%s.%s = %s" % tuple(r) for r in rows if "America/Chicago" not in r[3])
     assert not utc, "%d live date defaults use the UTC date: %s" % (len(utc), utc)
-    assert len(rows) == 16, [tuple(r) for r in rows]
+    # 14 since migration 083 (item 30 S5) dropped public.device_assignments
+    # and public.maintenance_log, one Central date default each.
+    assert len(rows) == 14, [tuple(r) for r in rows]
 
 
 def test_no_template_uses_a_utc_date_default():

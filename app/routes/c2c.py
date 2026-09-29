@@ -8,9 +8,8 @@ virtual site via QR, and registered.
 Cert-subject grain is option D (docs/specs/c2c-catalog-and-accessories.md
 section 7): the camera is a unified-inventory row (item_schema.items) and the
 provisioning row links to it via the item_id FK (migration 056). This is
-deliberately its own route surface; the edge-box fulfillment/cert flow is
-hardcoded ``device_table == "edge_boxes"`` in ~10 guards, so C2C does NOT ride
-those routes, and Item is NOT registered in the shared TABLE_MODELS.
+deliberately its own route surface: the edge-box build certification flow
+serves edge_box items only, so C2C does not ride those routes.
 
 Routes:
   * GET  /fulfillment/c2c                              read-only overview (viewer)
@@ -337,13 +336,8 @@ def c2c_page(
 # public.cameras row. The provisioning row links to it via the item_id FK
 # (migration 056); the per-cam cert (C2) still keys on the provisioning row.
 #
-# device_table / device_id are NOT NULL on the shared polymorphic table, so an
-# items-backed row carries the sentinel device_table="items", device_id=<items.id>
-# while item_id is the real, integrity-backed link. Do NOT register Item in the
-# shared TABLE_MODELS (it pollutes ~15 legacy consumers). The provisioning
-# resolvers (orders.py, provisioning.py, sites.py) all .get(device_table) and
-# guard None, so an "items" row shows a plain "items #<id>" label there until an
-# item_id-aware name branch is added — non-breaking, cosmetic only.
+# item_id is the only link (the legacy device_table/device_id pair dropped in
+# migration 083, item 30 S5).
 #
 # Cams do not ride the edge-box stage pipeline, so:
 #   * stages=[]           — nullable=False; [] is guarded-falsy in every stages
@@ -462,8 +456,6 @@ async def c2c_acquire(
     cam_name = camera.item_name or camera.item_model or f"Camera #{camera.id}"
 
     rec = DeviceProvisioning(
-        device_table="items",       # sentinel; the real link is item_id below
-        device_id=int(device_id),   # NOT NULL filler, mirrors item_id
         item_id=int(device_id),     # integrity-backed FK to item_schema.items (option D)
         site_id=int(site_id) if site_id else None,
         current_stage="acquired",   # label only; cams have no stage machine

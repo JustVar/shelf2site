@@ -479,6 +479,28 @@ data, data before readers, readers before drops.
    add, inventory reset), with `tests/test_model_accessors.py`.
    `migrations/001_add_procurement_fields.py` still imports
    `TABLE_MODELS`; it is applied history and is not re-run.
+   **S5b, schema:** migration 083 (dry run by default, `--apply` to
+   commit, one transaction) drops the 22 legacy tables, `device_components`
+   and the empty `public.maintenance_log` that points at it, `nas_drives`,
+   `vendor_trials`, `device_dispositions`, `device_assignments`,
+   `warranty_claims`, `intune_sync_log` and the empty `public.receipts`;
+   the `device_table`/`device_id` pair on provisioning, credentials and
+   warranties; the unused warranty columns; and
+   `pending_devices.suggested_table`. Guards run first: every provisioning
+   and credential row has an `item_id`, every pending row with a table has
+   a category, warranties, assignments and claims are empty. On the
+   restored dump it dropped 367 rows across 31 tables (READ locally) and
+   reports ALREADY APPLIED on a rerun. The code in the same commit stops
+   writing the `items` sentinel (`c2c.py`, `orders.py`,
+   `provisioning.py`), drops the columns from the models, drops
+   `device_assignments` from `ITEM_LINKS`, and the pending category
+   fallback is `network`. **Kept on purpose:** `public.intake_photos` (the
+   receive photo routes, which have no caller in the app, still write it;
+   retiring them is a follow-up), `legacy_item_map` and
+   `component_migration_map` (migration history). **Order on the new
+   host:** restore the dump, run 083 with `--apply`, then start the app at
+   this commit or later. The code does not run against the pre-083 schema
+   (provisioning inserts no longer fill the NOT NULL legacy pair).
 
 ## 10. Review record (v1 questions, answered by Jus 2026-09-25)
 

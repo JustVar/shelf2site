@@ -30,7 +30,6 @@ ITEM_LINKS = (
     ("public.unit_photo_items", "item_id", "unit photos"),
     ("public.device_credentials", "item_id", "credentials"),
     ("public.device_warranties", "item_id", "warranties"),
-    ("public.device_assignments", "item_id", "site assignments"),
 )
 
 IMPORT_MAP_ACTION = "deleted_by_request"

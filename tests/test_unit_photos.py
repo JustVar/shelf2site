@@ -204,8 +204,8 @@ def test_order_dossiers_zip(admin_client, db, photo_ctx):
         "INSERT INTO customer_orders (order_number, customer_name, order_type, status, is_sensitive) "
         "VALUES ('AT-999903', 'CONTRACT-TEST Zip Corp', 'pilot', 'new', false) RETURNING id")).scalar()
     db.execute(sqltext(
-        "INSERT INTO device_provisioning (device_table, device_id, item_id, customer_order_id, "
-        "current_stage, stages, is_complete) VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb, false)"),
+        "INSERT INTO device_provisioning (item_id, customer_order_id, "
+        "current_stage, stages, is_complete) VALUES (:i, :o, 'acquired', '[]'::jsonb, false)"),
         {"i": photo_ctx["item_id"], "o": order_id})
     db.commit()
     try:

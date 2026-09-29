@@ -30,9 +30,9 @@ def _mk_order(client, name):
 def cancel_order(admin_client, db):
     """One pilot order carrying two provisioned units.
 
-    Unit A resolves through the item path (item_id set), unit B through the
-    legacy path (item_id NULL, device_table naming a per-category table), so
-    the captured unit list exercises both shapes.
+    Unit A links an item, unit B has none (item_id NULL), so the captured
+    unit list exercises both shapes. The legacy device_table/device_id pair
+    dropped in migration 083 (item 30 S5).
     """
     order_id = _mk_order(admin_client, "CONTRACT-TEST Cancel Corp")
 
@@ -42,13 +42,13 @@ def cancel_order(admin_client, db):
         "'Ready to Deploy') RETURNING id")).scalar()
     prov_item = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, item_id, customer_order_id, current_stage, stages) "
-        "VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+        "(item_id, customer_order_id, current_stage, stages) "
+        "VALUES (:i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
         {"i": item_id, "o": order_id}).scalar()
     prov_legacy = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, customer_order_id, current_stage, stages) "
-        "VALUES ('edge_boxes', 424242, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+        "(customer_order_id, current_stage, stages) "
+        "VALUES (:o, 'acquired', '[]'::jsonb) RETURNING id"),
         {"o": order_id}).scalar()
     db.commit()
 
@@ -146,7 +146,7 @@ def test_cancel_audit_event_captures_the_unit_list(admin_client, db, cancel_orde
     by_id = {u["provisioning_id"]: u for u in nv["units"]}
     assert by_id[cancel_order["prov_item"]]["item_id"] == cancel_order["item_id"]
     assert by_id[cancel_order["prov_legacy"]]["item_id"] is None
-    assert by_id[cancel_order["prov_legacy"]]["device_table"] == "edge_boxes"
+    assert "device_table" not in by_id[cancel_order["prov_legacy"]]
 
 
 # -- Cancelled is code-mediated --------------------------------------------

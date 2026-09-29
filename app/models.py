@@ -164,8 +164,6 @@ class DeviceCredential(Base):
     __tablename__ = "device_credentials"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    device_table = Column(String(64), nullable=False)  # e.g., "cameras", "printers"
-    device_id = Column(Integer, nullable=False)
     item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
     credential_type = Column(String(32), nullable=False)  # "login", "pin", "api_key"
     username = Column(LargeBinary, nullable=True)  # Fernet-encrypted
@@ -464,7 +462,6 @@ class PendingDevice(Base):
     ip_address = Column(String(45), nullable=True)
     hostname = Column(String(128), nullable=True)
     manufacturer = Column(String(128), nullable=True)
-    suggested_table = Column(String(64), nullable=True)
     suggested_category = Column(item_categories_enum, nullable=True)  # migration 080 (item 30)
     scanner_id = Column(String(64), nullable=True)
     network_segment = Column(String(32), nullable=True)
@@ -495,33 +492,10 @@ class DeviceWarranty(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
-    # Legacy link, nullable since migration 082; new rows use item_id only.
-    # Drops in item 30 S5.
-    device_table = Column(String(64), nullable=True)
-    device_id = Column(Integer, nullable=True)
     item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
-
-    warranty_scope = Column(String(16), nullable=False, default="external")  # external | internal
-    warranty_tier = Column(String(32))  # standard | extended | premium
     vendor = Column(String(128))
-    purchase_date = Column(Date)
     warranty_start = Column(Date)
     warranty_end = Column(Date)
-    warranty_type = Column(String(64))  # manufacturer | third-party | extended
-    warranty_holder = Column(String(32), default="brand")  # brand | oem | vendor | customer
-    registration_number = Column(String(128), unique=True)
-    coverage_details = Column(Text)
-    auto_renew = Column(Boolean, default=False)
-    renewal_cost = Column(Numeric(10, 2))
-    registration_status = Column(String(32))  # registered | not_registered | not_required
-
-    # Internal loaner fields (only used when warranty_scope='internal')
-    loaner_from_team = Column(String(128))
-    loaner_to_team = Column(String(128))
-    loaner_contact = Column(String(128))
-    loaner_agreement = Column(String(128))
-
     notes = Column(Text, nullable=True)  # migration 082 (item 30 S4)
 
     REQUIRED_FIELDS = ["item_id", "warranty_start", "warranty_end"]
@@ -667,8 +641,6 @@ class DeviceProvisioning(Base):
     __tablename__ = "device_provisioning"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    device_table = Column(String(64), nullable=False)
-    device_id = Column(Integer, nullable=False)
     site_id = Column(Integer, ForeignKey("sites.id"), nullable=True)
 
     current_stage = Column(String(32), nullable=False, default="po_in")
@@ -690,9 +662,8 @@ class DeviceProvisioning(Base):
     # Customer Order link (Migration 018)
     customer_order_id = Column(Integer, ForeignKey("customer_orders.id", ondelete="SET NULL"), nullable=True)
 
-    # C2C option D link (Migration 056): points a provisioning row at a camera
-    # entered as unified inventory (item_schema.items) instead of a legacy public.*
-    # row. Nullable; legacy rows leave it NULL. See docs/specs/c2c-catalog-and-accessories.md.
+    # The unit (Migration 056). Every row links an item since item 30; the
+    # legacy device_table/device_id pair dropped in migration 083.
     item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)
 
     # Assignment type (Migration 057): how a provisioned device is assigned -

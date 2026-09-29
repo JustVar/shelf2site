@@ -46,20 +46,20 @@ def dep_units(admin_client, db):
 
     unit_item = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, item_id, customer_order_id, current_stage, stages) "
-        "VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+        "(item_id, customer_order_id, current_stage, stages) "
+        "VALUES (:i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
         {"i": item_id, "o": order_id}).scalar()
 
     unit_legacy = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, customer_order_id, current_stage, stages) "
-        "VALUES ('edge_boxes', 999999, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+        "(customer_order_id, current_stage, stages) "
+        "VALUES (:o, 'acquired', '[]'::jsonb) RETURNING id"),
         {"o": order_id}).scalar()
 
     unit_other = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, customer_order_id, current_stage, stages) "
-        "VALUES ('edge_boxes', 999998, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+        "(customer_order_id, current_stage, stages) "
+        "VALUES (:o, 'acquired', '[]'::jsonb) RETURNING id"),
         {"o": other_id}).scalar()
 
     db.commit()

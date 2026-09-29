@@ -49,8 +49,8 @@ def _group(pn):
 def _link(db, unit):
     pid = db.execute(sqltext(
         "INSERT INTO device_provisioning "
-        "(device_table, device_id, item_id, customer_order_id, current_stage, stages, is_complete) "
-        "VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb, false) RETURNING id"),
+        "(item_id, customer_order_id, current_stage, stages, is_complete) "
+        "VALUES (:i, :o, 'acquired', '[]'::jsonb, false) RETURNING id"),
         {"i": unit["item_id"], "o": unit["order_id"]}).scalar()
     db.commit()
     return pid

@@ -167,9 +167,9 @@ def test_assign_ship_return_round_trip(admin_client, db, sku_order):
 def test_return_rejects_legacy_non_item_row(admin_client, db, sku_order):
     oid = sku_order["order_id"]
     prov_id = db.execute(sqltext(
-        "INSERT INTO device_provisioning (device_table, device_id, customer_order_id, "
+        "INSERT INTO device_provisioning (customer_order_id, "
         "current_stage, stages, is_complete) "
-        "VALUES ('edge_boxes', 999999, :o, 'registered', '[]'::jsonb, false) RETURNING id"),
+        "VALUES (:o, 'registered', '[]'::jsonb, false) RETURNING id"),
         {"o": oid}).scalar()
     db.commit()
     r = admin_client.post(f"/fulfillment/c2c/{prov_id}/return", json={})

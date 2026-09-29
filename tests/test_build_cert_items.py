@@ -30,8 +30,8 @@ def cert_unit(admin_client, db):
     for key, item_id in (("eb", eb_id), ("cam", cam_id)):
         ids[key] = db.execute(sqltext(
             "INSERT INTO device_provisioning "
-            "(device_table, device_id, item_id, customer_order_id, current_stage, stages) "
-            "VALUES ('items', :i, :i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
+            "(item_id, customer_order_id, current_stage, stages) "
+            "VALUES (:i, :o, 'acquired', '[]'::jsonb) RETURNING id"),
             {"i": item_id, "o": order_id}).scalar()
     db.commit()
     yield ids
