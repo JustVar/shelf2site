@@ -555,10 +555,9 @@
             <button onclick="document.getElementById('create-modal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
         </div>
         <form id="create-prov-form" onsubmit="createProvisioning(event)">
-            <input type="hidden" name="device_table" value="edge_boxes">
             <div class="form-group">
                 <label>Edge Box *</label>
-                <select id="prov-device" name="device_id" required>
+                <select id="prov-device" name="item_id" required>
                     <option value="">Loading edge boxes...</option>
                 </select>
             </div>

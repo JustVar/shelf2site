@@ -391,9 +391,9 @@
                     <span style="color: var(--warning, #f39c12);">Missing — required before registration</span>
                     {% endif %}
                 </dd>
-                {% else %}
-                <dt>Device ID</dt>
-                <dd>{{ rec.device_id }}</dd>
+                {% elif rec.item_id %}
+                <dt>Item</dt>
+                <dd><a href="{{ base_path }}/items/{{ rec.item_id }}">Item #{{ rec.item_id }}</a></dd>
                 {% endif %}
             </dl>
         </div>

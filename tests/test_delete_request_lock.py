@@ -40,6 +40,7 @@ GUARDED = {
     ("containment.py", "move_component"): "locked_ids",
     ("c2c.py", "c2c_acquire"): "locked_ids",
     ("orders.py", "assign_items_to_order"): "locked_ids",
+    ("provisioning.py", "create_provisioning"): "locked_ids",
     ("unit_photos.py", "upload_unit_photo"): "locked_ids",
     ("unit_photos.py", "_tag_serials"): "locked_ids",
     ("unit_photos.py", "retag_unit_photo"): "_tag_serials",

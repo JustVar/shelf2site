@@ -7,12 +7,14 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pathlib import Path
 
@@ -21,10 +23,10 @@ from ..auth import require_sites_manager, require_provisioning_manager, require_
 from ..config import settings
 from ..localtime import fmt_local, local_now, local_today, parse_utc, register
 from ..database import get_db
+from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
-    TABLE_MODELS, TABLE_DISPLAY_NAMES,
     AuditLog, CustomerOrder, DeviceProvisioning, DEFAULT_PROVISIONING_STAGES,
-    EdgeBox, Item, Site, get_display_name, get_serial,
+    Item, Site,
 )
 from ..notifications import notify
 from ..sku_conversion import convert_legacy_sku, is_legacy_sku
@@ -106,11 +108,12 @@ def provisioning_page(
     # Resolve device names, deployment types, and assignee names
     queue_items = []
     for rec in active_records:
+        unit = _resolve_unit(db, rec)
         device_name = _resolve_device_name(db, rec)
-        display_table = TABLE_DISPLAY_NAMES.get(rec.device_table, rec.device_table)
+        display_table = _unit_category_label(unit)
         site_name = rec.site.name if rec.site else "—"
         assignee_name = rec.assignee.display_name if rec.assignee else "Unassigned"
-        deployment_type = _resolve_deployment_type(db, rec.device_id)
+        deployment_type = _unit_deployment_type(unit)
 
         # Progress calculation
         stages = rec.stages or []
@@ -132,7 +135,6 @@ def provisioning_page(
         queue_items.append({
             "id": rec.id,
             "device_name": device_name,
-            "device_table": rec.device_table,
             "display_table": display_table,
             "deployment_type": deployment_type,
             "site_id": rec.site_id,
@@ -167,8 +169,8 @@ def provisioning_page(
         completed_items.append({
             "id": rec.id,
             "device_name": _resolve_device_name(db, rec),
-            "display_table": TABLE_DISPLAY_NAMES.get(rec.device_table, rec.device_table),
-            "deployment_type": _resolve_deployment_type(db, rec.device_id),
+            "display_table": _unit_category_label(_resolve_unit(db, rec)),
+            "deployment_type": _resolve_deployment_type(db, rec),
             "site_name": rec.site.name if rec.site else "—",
             "completed_at": fmt_local(rec.completed_at, "%Y-%m-%d") if rec.completed_at else "",
             "deployment_bucket": rec.deployment_bucket,
@@ -214,7 +216,6 @@ def provisioning_page(
         "sites": sites,
         "users_list": users,
         "open_orders": open_orders,
-        "table_models": TABLE_MODELS,
         "overdue_due_date_count": overdue_due_date_count,
         "due_soon_count": due_soon_count,
         "deployment_buckets": DeviceProvisioning.DEPLOYMENT_BUCKETS,
@@ -240,12 +241,13 @@ def provisioning_detail_page(
         return RedirectResponse(url=f"{BP}/provisioning/", status_code=302)
 
     # Resolve device info
+    unit = _resolve_unit(db, rec)
     device_name = _resolve_device_name(db, rec)
-    deployment_type = _resolve_deployment_type(db, rec.device_id)
-    display_table = TABLE_DISPLAY_NAMES.get(rec.device_table, rec.device_table)
+    deployment_type = _unit_deployment_type(unit)
+    display_table = _unit_category_label(unit)
 
-    # Get the edge box record for device details section
-    edge_box = db.query(EdgeBox).filter(EdgeBox.id == rec.device_id).first()
+    # Edge box details for the device section (item 30 S4: read off the item)
+    edge_box = _edge_box_view(unit)
 
     # Stage progress
     stages = rec.stages or []
@@ -353,7 +355,7 @@ def get_provisioning_by_bucket(
     now = datetime.utcnow()
     for rec in active_records:
         device_name = _resolve_device_name(db, rec)
-        deployment_type = _resolve_deployment_type(db, rec.device_id)
+        deployment_type = _resolve_deployment_type(db, rec)
         assignee_name = rec.assignee.display_name if rec.assignee else "Unassigned"
 
         # Progress calculation
@@ -403,10 +405,9 @@ async def create_provisioning(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Create a new provisioning record for an edge box."""
+    """Create a new provisioning record for an edge box item."""
     body = await request.json()
-    device_table = (body.get("device_table") or "").strip()
-    device_id = body.get("device_id")
+    item_id = body.get("item_id")
     site_id = body.get("site_id")
     assigned_to = body.get("assigned_to")
     priority = (body.get("priority") or "normal").strip()
@@ -432,18 +433,20 @@ async def create_provisioning(
         if not order.po_number:
             return JSONResponse(status_code=400, content={"error": f"Order {order.order_number} has no Customer PO - add one before assigning devices"})
 
-    # Enforce edge_boxes only
-    if device_table != "edge_boxes":
-        return JSONResponse(status_code=400, content={"error": "Provisioning is only available for edge boxes"})
-
     # Validate required fields
-    if not device_id:
-        return JSONResponse(status_code=400, content={"error": "device_id is required"})
+    try:
+        item_id = int(item_id)
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"error": "item_id is required"})
 
-    # Validate edge box exists
-    device = db.query(EdgeBox).filter(EdgeBox.id == int(device_id)).first()
+    # Validate the edge box item exists (item 30 S4: provisioning runs on items)
+    device = db.query(Item).filter(Item.id == item_id).first()
     if not device:
         return JSONResponse(status_code=404, content={"error": "Edge box not found"})
+    if str(device.item_category or "") != "edge_box":
+        return JSONResponse(status_code=400, content={"error": "Provisioning is only available for edge boxes"})
+    if locked_ids(db, "items", [device.id]):
+        return JSONResponse(status_code=409, content={"error": LOCK_MESSAGE})
 
     # Validate priority
     if priority not in DeviceProvisioning.PRIORITY_TYPES:
@@ -453,8 +456,7 @@ async def create_provisioning(
     existing = (
         db.query(DeviceProvisioning)
         .filter(
-            DeviceProvisioning.device_table == device_table,
-            DeviceProvisioning.device_id == int(device_id),
+            DeviceProvisioning.item_id == item_id,
             DeviceProvisioning.is_complete.is_(False),
         )
         .first()
@@ -468,9 +470,10 @@ async def create_provisioning(
         if not site:
             return JSONResponse(status_code=404, content={"error": "Site not found"})
 
-    # Update edge box deployment_type if provided
+    # Update the item's deployment_type attribute if provided (reassign the
+    # dict: SQLAlchemy does not track in-place JSONB mutation)
     if deployment_type in ("pilot", "customer"):
-        device.deployment_type = deployment_type
+        device.attributes = {**(device.attributes or {}), "deployment_type": deployment_type}
 
     # Parse dates
     parsed_due_date = None
@@ -492,8 +495,9 @@ async def create_provisioning(
 
     # Create record with default stages
     rec = DeviceProvisioning(
-        device_table="edge_boxes",
-        device_id=int(device_id),
+        device_table="items",   # sentinel; the real link is item_id below
+        device_id=item_id,      # NOT NULL filler, mirrors item_id
+        item_id=item_id,
         site_id=int(site_id) if site_id else None,
         current_stage="staged",
         stages=copy.deepcopy(DEFAULT_PROVISIONING_STAGES),
@@ -517,14 +521,14 @@ async def create_provisioning(
         request=request, user_id=user.id,
         target_table="device_provisioning", target_id=rec.id,
         action="create",
-        details=f"Created edge box provisioning for #{device_id} ({deployment_type or 'unspecified'})"
+        details=f"Created edge box provisioning for item #{item_id} ({deployment_type or 'unspecified'})"
                + (f" → order {customer_order_id}" if customer_order_id else ""),
     )
 
     return JSONResponse(content={
         "status": "created",
         "id": rec.id,
-        "device_name": get_display_name(device),
+        "device_name": device.item_name or device.item_sn or f"Item #{item_id}",
     })
 
 
@@ -610,19 +614,25 @@ async def fetch_zendesk_ticket(
         if legacy_sku and is_legacy_sku(legacy_sku):
             new_sku = convert_legacy_sku(legacy_sku)
 
-        # Look up edge box in inventory by serial number
+        # Look up the edge box item in inventory by serial number
         inventory_match = None
         if serial_number:
-            edge_box = db.query(EdgeBox).filter(EdgeBox.serial == serial_number).first()
-            if edge_box:
+            item = (
+                db.query(Item)
+                .filter(Item.item_category == "edge_box",
+                        func.lower(Item.item_sn) == serial_number.strip().lower())
+                .first()
+            )
+            view = _edge_box_view(item)
+            if view:
                 inventory_match = {
-                    "id": edge_box.id,
-                    "serial": edge_box.serial,
-                    "part_number": edge_box.part_number,
-                    "sku_version": edge_box.sku_version,
-                    "status": edge_box.status,
-                    "deployment_type": edge_box.deployment_type,
-                    "customer": edge_box.customer,
+                    "id": item.id,
+                    "serial": view.serial,
+                    "part_number": view.part_number or "",
+                    "sku_version": view.sku_version or "legacy",
+                    "status": view.status,
+                    "deployment_type": view.deployment_type,
+                    "customer": (item.attributes or {}).get("customer"),
                 }
 
         await client.close()
@@ -707,24 +717,15 @@ async def advance_provisioning(
     if rec.is_complete:
         return JSONResponse(status_code=400, content={"error": "Provisioning already complete"})
 
-    # Rows with item_id set carry TWO shapes, not one. c2c.py:452 creates C2C
-    # cameras this way and orders.py:489 creates stock units the same way, both
-    # with current_stage="acquired" as a label only. Live data holds six cameras
-    # and one edge box (provisioning 267, item_category "edge_box", serial
-    # USCFS0226002), so device_table="items" does NOT imply a camera.
-    #
-    # None of them have a stage machine, and none must complete through this
-    # edge-box advance pipeline. is_complete stays False for such a row for life
-    # (returned or not), so reject at the source.
-    # Defensive: today these rows carry stages=[] and already bail at the "Current
-    # stage not found" check below, but that is incidental - this makes the
-    # invariant explicit so a future stages change cannot silently open the
-    # (item_id set + is_complete + returned_date NULL) anomaly. Edge-box-table
-    # rows have item_id NULL and are unaffected.
-    if rec.item_id is not None:
+    # Every row links an item (item 30 S4). Two shapes: edge box rows created
+    # here carry the stage machine; C2C cameras (c2c.py) and stock units
+    # assigned to orders (orders.py) carry stages=[] and current_stage
+    # "acquired" as a label only. The label rows never complete through this
+    # pipeline, so reject them at the source.
+    if not rec.stages:
         return JSONResponse(
             status_code=400,
-            content={"error": "C2C cameras are not advanced through the provisioning stage machine"},
+            content={"error": "This unit has no provisioning stages to advance"},
         )
 
     stages = copy.deepcopy(rec.stages)  # deep copy for JSONB mutation tracking
@@ -754,9 +755,9 @@ async def advance_provisioning(
             break
 
     # UUID is required before entering registration stage
-    if next_stage == "registered" and rec.device_table == "edge_boxes":
-        edge_box_check = db.query(EdgeBox).filter(EdgeBox.id == rec.device_id).first()
-        if edge_box_check and not edge_box_check.uuid:
+    unit = _resolve_unit(db, rec)
+    if next_stage == "registered" and unit is not None and str(unit.item_category or "") == "edge_box":
+        if not unit.appliance_uuid:
             return JSONResponse(
                 status_code=400,
                 content={"error": "Edge box UUID is required before registration. Update the edge box record with its UUID first."},
@@ -772,12 +773,12 @@ async def advance_provisioning(
         # Device-to-site assignments were retired in item 30 S4 (sites area);
         # completion no longer writes one. The item's place is its location_id.
 
-        # Auto-update EdgeBox status to Deployed
-        edge_box = db.query(EdgeBox).filter(EdgeBox.id == rec.device_id).first()
-        if edge_box:
-            edge_box.status = "Deployed"
-            if not edge_box.deployment_type:
-                edge_box.deployment_type = "customer"
+        # Auto-update the edge box item to Deployed
+        if unit is not None:
+            unit.item_status = "Deployed"
+            attrs = unit.attributes or {}
+            if not attrs.get("deployment_type"):
+                unit.attributes = {**attrs, "deployment_type": "customer"}
 
     rec.stages = stages  # trigger JSONB update
     db.commit()
@@ -1032,7 +1033,7 @@ def delete_provisioning(
         request=request, user_id=user.id,
         target_table="device_provisioning", target_id=rec.id,
         action="delete",
-        details=f"Deleted provisioning #{rec.id} ({rec.device_table}/{rec.device_id})",
+        details=f"Deleted provisioning #{rec.id} (item {rec.item_id})",
     )
 
     db.delete(rec)
@@ -1178,65 +1179,48 @@ def get_devices_for_category(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Return devices for a given category (for the create modal dropdown).
+    """Return edge box items for the create modal dropdown.
 
-    For edge boxes, filters out:
-    - Records with no serial number (incomplete data)
-    - Devices already in an active (non-complete) provisioning workflow
+    Item 30 S4: the path keeps its edge_boxes segment for the page's fetch,
+    and the list is edge_box items. Filters out items with no serial and
+    items already in an active (non-complete) provisioning workflow.
     """
-    model = TABLE_MODELS.get(table_name)
-    if not model:
+    if table_name != "edge_boxes":
         return JSONResponse(status_code=400, content={"error": f"Invalid category: {table_name}"})
 
-    if table_name == "edge_boxes":
-        # IDs of edge boxes already in an active provisioning workflow
-        already_provisioned = {
-            row[0]
-            for row in db.query(DeviceProvisioning.device_id)
-            .filter(
-                DeviceProvisioning.device_table == "edge_boxes",
-                DeviceProvisioning.is_complete.is_(False),
-            )
-            .all()
-        }
-
-        devices = (
-            db.query(model)
-            .filter(
-                model.serial.isnot(None),
-                model.serial != "",
-            )
-            .order_by(model.serial)
-            .all()
+    already_provisioned = {
+        row[0]
+        for row in db.query(DeviceProvisioning.item_id)
+        .filter(
+            DeviceProvisioning.item_id.isnot(None),
+            DeviceProvisioning.is_complete.is_(False),
         )
-    else:
-        already_provisioned = set()
-        devices = db.query(model).all()
+        .all()
+    }
+    devices = (
+        db.query(Item)
+        .filter(
+            Item.item_category == "edge_box",
+            Item.item_sn.isnot(None),
+            Item.item_sn != "",
+        )
+        .order_by(Item.item_sn)
+        .all()
+    )
 
     result = []
     for d in devices:
         if d.id in already_provisioned:
             continue
-
-        if table_name == "edge_boxes":
-            serial = getattr(d, "serial", None) or "Unknown"
-            part_num = getattr(d, "part_number", None) or ""
-            org = getattr(d, "org", None) or ""
-            sku_ver = getattr(d, "sku_version", None) or "legacy"
-
-            # Build display: "SERIAL (PART_NUM) — Org"
-            display = f"{serial} ({part_num})" if part_num else serial
-            if org:
-                display = f"{display} — {org}"
-            display_with_badge = display
-        else:
-            display_with_badge = get_display_name(d)
-            sku_ver = None
-
+        view = _edge_box_view(d)
+        display = f"{view.serial} ({view.part_number})" if view.part_number else view.serial
+        owner = (d.attributes or {}).get("customer") or d.department_or_owner
+        if owner:
+            display = f"{display} — {owner}"
         result.append({
             "id": d.id,
-            "name": display_with_badge,
-            "sku_version": sku_ver if table_name == "edge_boxes" else None,
+            "name": display,
+            "sku_version": view.sku_version or "legacy",
         })
 
     return JSONResponse(content={"devices": result})
@@ -1263,7 +1247,7 @@ def export_provisioning(
         device_name = _resolve_device_name(db, rec)
         site_name = rec.site.name if rec.site else ""
         assignee_name = rec.assignee.display_name if rec.assignee else ""
-        deployment_type = _resolve_deployment_type(db, rec.device_id)
+        deployment_type = _resolve_deployment_type(db, rec)
         stages = rec.stages or []
         completed_stages = sum(1 for s in stages if s.get("completed"))
         stage_label = _get_stage_label(stages, rec.current_stage)
@@ -1394,51 +1378,66 @@ async def bulk_assign_order(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _resolve_device_name(db: Session, row: DeviceProvisioning) -> str:
-    """Human-readable name for a provisioning row. Two paths, one dispatch.
+def _resolve_unit(db: Session, row: DeviceProvisioning):
+    """The item a provisioning row links, or None."""
+    if row.item_id is None:
+        return None
+    return db.query(Item).filter(Item.id == row.item_id).first()
 
-    SIBLING of _resolve_unit_serial in fulfillment.py: same item_id dispatch,
+
+def _resolve_device_name(db: Session, row: DeviceProvisioning) -> str:
+    """Human-readable name for a provisioning row.
+
+    SIBLING of _resolve_unit_serial in fulfillment.py: same item_id link,
     DELIBERATELY different accessor. This one feeds provisioning lists and
     notification prose, which want a name. That one feeds the deployment picker,
     which wants a serial. Do not unify them. A merge would have to pick one
     accessor and would silently put serials into "X fully provisioned by Y"
     messages, with nothing failing.
 
-    Item is NOT a member of the inventory-model family get_display_name was
-    written for. Item.__tablename__ is "items", which matches none of that
-    function's branches, so it falls through to the "device" column default and
-    returns "-" for every Item. That is why the item path reads fields directly,
-    and why adding "items": Item to TABLE_MODELS makes this worse rather than
-    better: seven visibly wrong labels become seven bare hyphens.
-
-    item_name over manufacturer + model, to match the legacy semantic including
-    its weakness: the cameras branch renders every unit of one model
-    identically, and the live C2C cameras share a manufacturer and model. Unit
-    level disambiguation, if wanted, belongs on both paths rather than here.
+    item_name over serial. Item 30 S4 retired the legacy per-table path.
     """
-    fallback = f"{row.device_table}#{row.device_id}"
-
-    if row.item_id is not None:
-        item = db.query(Item).filter(Item.id == row.item_id).first()
-        if item is None:
-            return fallback
-        return item.item_name or item.item_sn or fallback
-
-    model = TABLE_MODELS.get(row.device_table)
-    if not model:
-        return fallback
-    device = db.query(model).filter(model.id == row.device_id).first()
-    if not device:
-        return fallback
-    return get_display_name(device) or fallback
+    item = _resolve_unit(db, row)
+    if item is None:
+        return f"Provisioning #{row.id}"
+    return item.item_name or item.item_sn or f"Item #{item.id}"
 
 
-def _resolve_deployment_type(db: Session, device_id: int) -> str:
-    """Resolve the deployment_type for an edge box."""
-    edge_box = db.query(EdgeBox).filter(EdgeBox.id == device_id).first()
-    if edge_box and edge_box.deployment_type:
-        return edge_box.deployment_type
-    return ""
+def _unit_deployment_type(item) -> str:
+    """The deployment_type attribute of an item, or ''."""
+    if item is None:
+        return ""
+    return (item.attributes or {}).get("deployment_type") or ""
+
+
+def _resolve_deployment_type(db: Session, row: DeviceProvisioning) -> str:
+    """Resolve the deployment_type for a provisioning row's item."""
+    return _unit_deployment_type(_resolve_unit(db, row))
+
+
+def _unit_category_label(item) -> str:
+    """Category label for the queue and detail pages."""
+    if item is None or not item.item_category:
+        return "Unknown"
+    return str(item.item_category).replace("_", " ").title()
+
+
+def _edge_box_view(item):
+    """Edge box fields for the detail page and the Zendesk match, read off an
+    edge_box item. None for any other unit."""
+    if item is None or str(item.item_category or "") != "edge_box":
+        return None
+    attrs = item.attributes or {}
+    return SimpleNamespace(
+        serial=item.item_sn,
+        part_number=item.brand_sku or item.brand_pn,
+        sku_version=attrs.get("sku_version"),
+        status=str(item.item_status) if item.item_status else None,
+        deployment_type=attrs.get("deployment_type"),
+        mac1=item.item_mac_address_1,
+        mac2=item.item_mac_address_2,
+        uuid=item.appliance_uuid,
+    )
 
 
 def _get_stage_label(stages, stage_name: str) -> str:

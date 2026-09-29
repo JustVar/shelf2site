@@ -412,6 +412,19 @@ data, data before readers, readers before drops.
    from 7 units to 2 and the needs-location list from 63 to 50: the 5 and
    13 that leave are legacy edge boxes, which the re-import brings back as
    items.
+   **Provisioning built 2026-09-29:** provisioning runs on edge box items.
+   Create takes `item_id` (category `edge_box`, refused while the item has
+   a pending delete request) and writes the `items` sentinel row with the
+   stage machine; the create dropdown
+   (`GET /api/provisioning/devices/edge_boxes`, path kept) lists edge box
+   items with a serial and no active record. Queue, detail, board, export
+   and the Zendesk match read the item: serial, SKU, `sku_version` and
+   `deployment_type` attributes, MACs and `appliance_uuid`. The registration
+   UUID check and the completion update (status Deployed) act on the item.
+   Advance now refuses rows with no stages (the C2C and order label rows)
+   instead of every row with an `item_id`. Nothing in `provisioning.py`
+   reads `device_table` or `device_id` any more; the sentinel writes in
+   `provisioning.py`, `c2c.py` and `orders.py` go in S5 with the columns.
 5. **S5 drop.** The 22 tables and their models, `TABLE_MODELS`,
    `TABLE_DISPLAY_NAMES`, `InventoryMixin`, the legacy helpers,
    `device_table`/`device_id` columns, `device_components`, `nas_drives`,
