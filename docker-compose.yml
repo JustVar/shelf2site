@@ -12,7 +12,6 @@ services:
       - "5433:5432"
     volumes:
       - /data/asset-tracker/postgres:/var/lib/postgresql/data
-      - /opt/asset_tracker/db_init:/docker-entrypoint-initdb.d
     networks:
       - asset_tracker_net
     healthcheck:

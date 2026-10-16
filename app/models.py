@@ -1053,7 +1053,7 @@ component_actions_enum = SAEnum(
 # item_schema.current_containment — a SQL VIEW (migration 065), THE read path
 # for containment state: latest component_history event per component, present
 # only while installed/moved. Defined on its OWN MetaData so create_all never
-# tries to create it as a table (fresh DBs get the view from db_init +
+# tries to create it as a table (fresh DBs get the view from db/10_extras.sql +
 # migration 065). One-hop parent resolution is correct by invariant: units
 # cannot be installed as components, so a parent is never itself contained.
 _containment_view_metadata = MetaData()

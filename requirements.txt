@@ -1,25 +1,26 @@
-# Asset Tracker System — Central Hub
-fastapi>=0.115.0
-starlette>=0.52.0,<1.0.0  # 1.0.0 has Jinja2 template cache bug (unhashable dict globals)
-uvicorn[standard]>=0.34.0
-sqlalchemy>=2.0
-psycopg2-binary>=2.9
-mac-vendor-lookup>=0.1.12
-jinja2>=3.1
-httpx>=0.27
-openpyxl>=3.1
-python-dotenv>=1.0
-cryptography>=43.0
-bcrypt>=4.2.1,<5.0
-itsdangerous>=2.2
-python-multipart>=0.0.9
-sse-starlette>=2.0
-pysmb>=1.2.9.1  # NetBIOS name resolution for Windows devices
-pytesseract>=0.3.10  # OCR for label photo extraction
-Pillow>=10.0  # Image processing for OCR
-aiosmtplib>=3.0  # Async SMTP client for email notifications
-gunicorn
-asyncpg>=0.29
-PyMuPDF>=1.27  # PDF generation + merge for composite build-certification reports (S6e)
-pytest>=8.0  # contract tests in tests/ — see docs/CONTRACT_TESTS.md
-tzdata>=2025.1  # zone data for app/localtime.py, docs/specs/local-time.md ruling 5
+# Pinned to the versions the full contract suite last passed on.
+# SQLAlchemy stays on 2.0: 2.1 changes the default Postgres driver for
+# postgresql:// URLs from psycopg2 to psycopg 3.
+fastapi==0.143.1
+starlette==0.52.1          # 1.0.0 has a Jinja2 template cache bug (unhashable dict globals)
+uvicorn[standard]==0.53.0
+gunicorn==26.2.0
+sqlalchemy==2.0.54
+psycopg2-binary==2.9.13
+asyncpg==0.32.0            # SSE fan-out over Postgres LISTEN/NOTIFY
+jinja2==3.1.6
+httpx==0.28.1
+python-multipart==0.0.32
+itsdangerous==2.2.0
+sse-starlette==3.4.11
+python-dotenv==1.2.3
+cryptography==50.0.1       # Fernet-encrypted credentials vault
+bcrypt==4.3.0
+openpyxl==3.1.5            # Excel exports
+PyMuPDF==1.28.2            # composite certification report PDFs
+Pillow==12.3.0             # photo handling and OCR preprocessing
+pytesseract==0.3.13        # OCR of label photos at intake
+mac-vendor-lookup==0.1.15  # MAC address manufacturer lookup
+aiosmtplib==5.1.3          # email notifications
+tzdata==2026.5             # zone data for app/localtime.py
+pytest==9.1.1              # contract tests in tests/

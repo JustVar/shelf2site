@@ -30,5 +30,9 @@ def get_db():
 
 
 def create_all_tables():
-    """Create all tables defined in models.py."""
-    Base.metadata.create_all(bind=engine)
+    """Build the full schema: the models' tables plus the db/ SQL extras.
+
+    See app/schema.py. Idempotent; an existing database is left as it is.
+    """
+    from .schema import build_schema
+    build_schema()

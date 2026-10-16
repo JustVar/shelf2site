@@ -186,12 +186,16 @@ def test_units_feed_requires_provisioning_manager(viewer_client, dep_units):
 
 # -- picker markup on the board ---------------------------------------------
 
-def test_picker_markup_renders_on_fulfillment_board(admin_client):
+def test_picker_markup_renders_on_fulfillment_board(admin_client, dep_units):
     """The trigger and modal must reach the page, and only in the active block.
 
     Compiles is not renders: the endpoints can be green while the button never
     ships. The trigger count is 1 because the completed-block card copy is
     deliberately left without one.
+
+    dep_units supplies the active deployment card to gate on, so the test does
+    not depend on whatever data the database already holds; on an empty
+    database it used to fail with no card to count.
     """
     r = admin_client.get("/fulfillment/")
     assert r.status_code == 200, r.text

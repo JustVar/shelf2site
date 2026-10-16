@@ -10,4 +10,3 @@ tests/
 docs/
 *.md
 data_backup/
-db_init/
