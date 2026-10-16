@@ -1,5 +1,5 @@
 // @ts-check
-/* Admin — Part Numbers (Company SKU catalog) */
+/* Admin — Part Numbers (SKU catalog) */
 
 /** @param {string} groupClass */
 function toggleGroup(groupClass) {

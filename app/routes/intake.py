@@ -141,7 +141,7 @@ from ..validation import normalize_mac as _normalize_mac
 
 
 def _get_part_numbers(db):
-    return db.query(ItemPartNumber).order_by(ItemPartNumber.brand_sku).all()
+    return db.query(ItemPartNumber).order_by(ItemPartNumber.item_sku).all()
 
 
 def create_item(
@@ -186,8 +186,8 @@ def create_item(
         raise ValueError("Unknown category: " + _category)
     if _status and _status not in ITEM_STATUSES:
         raise ValueError("Unknown status: " + _status)
-    _sku = _clean_str(fields.get("brand_sku"))
-    if _sku and not db.query(ItemPartNumber.id).filter(ItemPartNumber.brand_sku == _sku).first():
+    _sku = _clean_str(fields.get("item_sku"))
+    if _sku and not db.query(ItemPartNumber.id).filter(ItemPartNumber.item_sku == _sku).first():
         raise ValueError("SKU " + _sku + " is not in the part numbers list")
     _location = _safe_int(fields.get("location_id"))
     if _location is not None and db.get(Site, _location) is None:
@@ -205,10 +205,10 @@ def create_item(
         item_mac_address_1=mac1,
         item_mac_address_2=mac2,
         item_storage_size_gb=_safe_float(fields.get("item_storage_size_gb")),
-        appliance_uuid=_clean_str(fields.get("appliance_uuid")),
-        brand_sku=_sku,
-        brand_pn=_clean_str(fields.get("brand_pn")),
-        item_associated_brand_pn=_clean_str(fields.get("item_associated_brand_pn")),
+        platform_uuid=_clean_str(fields.get("platform_uuid")),
+        item_sku=_sku,
+        item_pn=_clean_str(fields.get("item_pn")),
+        item_associated_pn=_clean_str(fields.get("item_associated_pn")),
         vendor_id=_safe_int(fields.get("vendor_id")),
         item_vendor=_clean_str(fields.get("item_vendor")),
         date_purchased=_safe_date(fields.get("date_purchased")),
@@ -284,10 +284,10 @@ async def intake_submit(
     item_mac_address_1: str = Form(default=""),
     item_mac_address_2: str = Form(default=""),
     item_storage_size_gb: str = Form(default=""),
-    appliance_uuid: str = Form(default=""),
-    brand_sku: str = Form(default=""),
-    brand_pn: str = Form(default=""),
-    item_associated_brand_pn: str = Form(default=""),
+    platform_uuid: str = Form(default=""),
+    item_sku: str = Form(default=""),
+    item_pn: str = Form(default=""),
+    item_associated_pn: str = Form(default=""),
     # vendor_id is a vendor_profiles id from a select, validated by _vendor_id_or_error.
     vendor_id: str = Form(default=""),
     item_vendor: str = Form(default=""),
@@ -366,10 +366,10 @@ async def intake_submit(
                 "item_mac_address_1": item_mac_address_1,
                 "item_mac_address_2": item_mac_address_2,
                 "item_storage_size_gb": item_storage_size_gb,
-                "appliance_uuid": appliance_uuid,
-                "brand_sku": brand_sku,
-                "brand_pn": brand_pn,
-                "item_associated_brand_pn": item_associated_brand_pn,
+                "platform_uuid": platform_uuid,
+                "item_sku": item_sku,
+                "item_pn": item_pn,
+                "item_associated_pn": item_associated_pn,
                 "vendor_id": vendor_value,
                 "item_vendor": item_vendor,
                 "date_purchased": date_purchased,

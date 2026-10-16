@@ -116,10 +116,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
-VALID_ROLES = ("justin_admin", "system_admin", "ceo", "admin", "warranty_admin", "trials_admin", "procurement_admin", "editor", "viewer", "map_kiosk")
+VALID_ROLES = ("super_admin", "system_admin", "ceo", "admin", "warranty_admin", "trials_admin", "procurement_admin", "editor", "viewer", "map_kiosk")
 SUB_ADMIN_ROLES = ("warranty_admin", "trials_admin", "procurement_admin")
 ROLE_DISPLAY = {
-    "justin_admin": "Super Admin",
+    "super_admin": "Super Admin",
     "system_admin": "System Admin",
     "ceo": "CEO",
     "admin": "Administrator",
@@ -131,7 +131,7 @@ ROLE_DISPLAY = {
     "map_kiosk": "Map Kiosk",
 }
 ROLE_TIER = {
-    "justin_admin": 5, "system_admin": 4, "ceo": 4, "admin": 3,
+    "super_admin": 5, "system_admin": 4, "ceo": 4, "admin": 3,
     "warranty_admin": 2, "trials_admin": 2, "procurement_admin": 2,
     "editor": 1, "viewer": 0, "map_kiosk": 0,
 }
@@ -312,10 +312,10 @@ def require_receipts(user: User = Depends(get_current_user)) -> User:
 # ---------------------------------------------------------------------------
 
 def get_assignable_roles(actor_role: str) -> list[str]:
-    """Return roles this actor can assign (their tier and below, excluding justin_admin)."""
+    """Return roles this actor can assign (their tier and below, excluding super_admin)."""
     actor_tier = ROLE_TIER.get(actor_role, 0)
     return [r for r in VALID_ROLES
-            if ROLE_TIER[r] <= actor_tier and r != "justin_admin"]
+            if ROLE_TIER[r] <= actor_tier and r != "super_admin"]
 
 
 def can_manage_user(actor: User, target: User) -> bool:

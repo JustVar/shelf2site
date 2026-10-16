@@ -19,7 +19,7 @@ upload. Only the hardware set matters. Decided 2026-09-09:
 
 NOT in scope: trimming the hardware field list itself. On the current mock
 data the hardware set alone flags 546 of 548 items, driven almost entirely
-by vendor_id (546), brand_pn (530), location_id (529) and brand_sku
+by vendor_id (546), item_pn (530), location_id (529) and item_sku
 (500). That is a data question, deferred until the real import lands.
 
 ## Ground facts (READ 2026-09-09 at 9c235f1)

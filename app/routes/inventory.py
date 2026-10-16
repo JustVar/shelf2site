@@ -120,8 +120,8 @@ def inventory_page(
             or_(
                 Item.item_name.ilike(search),
                 Item.item_sn.ilike(search),
-                Item.brand_sku.ilike(search),
-                Item.brand_pn.ilike(search),
+                Item.item_sku.ilike(search),
+                Item.item_pn.ilike(search),
                 Item.item_model.ilike(search),
                 Item.item_manufacturer.ilike(search),
             )
@@ -155,7 +155,7 @@ def inventory_page(
             "category_display": category_display(item.item_category) if item.item_category else "—",
             "status":       str(item.item_status) if item.item_status else "—",
             "location":     loc_map.get(loc_overrides.get(item.id, item.location_id), "—"),
-            "sku":          item.brand_sku or "—",
+            "sku":          item.item_sku or "—",
             "last_updated": item.last_updated,
             "color":        FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         })
@@ -226,8 +226,8 @@ def quick_view_save(
     item_status: str = Form(default=""),
     location_id: str = Form(default=""),
     department_or_owner: str = Form(default=""),
-    brand_sku: str = Form(default=""),
-    brand_pn: str = Form(default=""),
+    item_sku: str = Form(default=""),
+    item_pn: str = Form(default=""),
     notes: str = Form(default=""),
 ):
     """Save Quick View edits and return updated read-mode partial."""
@@ -258,8 +258,8 @@ def quick_view_save(
     item.item_status = _clean_str(item_status) or None
     item.location_id = _safe_int(location_id)
     item.department_or_owner = _clean_str(department_or_owner)
-    item.brand_sku = _clean_str(brand_sku)
-    item.brand_pn = _clean_str(brand_pn)
+    item.item_sku = _clean_str(item_sku)
+    item.item_pn = _clean_str(item_pn)
     item.notes = _clean_str(notes)
 
     try:
@@ -438,8 +438,8 @@ def inventory_export_csv(
             "status": str(item.item_status) if item.item_status else "",
             "location_name": loc_map.get(loc_overrides.get(item.id, item.location_id), ""),
             "department_or_owner": item.department_or_owner or "",
-            "brand_sku": item.brand_sku or "",
-            "brand_pn": item.brand_pn or "",
+            "item_sku": item.item_sku or "",
+            "item_pn": item.item_pn or "",
             "last_updated": item.last_updated.isoformat() if item.last_updated else "",
         }
 
@@ -448,7 +448,7 @@ def inventory_export_csv(
     writer = csv.DictWriter(buf, fieldnames=[
         "id", "name", "serial", "manufacturer", "model",
         "category", "status", "location_name", "department_or_owner",
-        "brand_sku", "brand_pn", "last_updated",
+        "item_sku", "item_pn", "last_updated",
     ])
     writer.writeheader()
     for item in items:

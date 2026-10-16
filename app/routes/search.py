@@ -66,9 +66,9 @@ def search_results_partial(
     SEARCH_COLS = [
         "item_name", "item_sn", "item_model", "item_manufacturer",
         "item_category", "item_status", "item_vendor",
-        "brand_sku", "brand_pn", "item_associated_brand_pn",
+        "item_sku", "item_pn", "item_associated_pn",
         "item_mac_address_1", "item_mac_address_2",
-        "appliance_uuid", "department_or_owner",
+        "platform_uuid", "department_or_owner",
     ]
     filters = [
         cast(getattr(Item, name), Text).ilike(search_term)

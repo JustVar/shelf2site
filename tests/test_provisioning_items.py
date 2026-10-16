@@ -83,7 +83,7 @@ def test_create_show_and_advance_an_edge_box_item(admin_client, db, prov_item):
     assert admin_client.post(f"/api/provisioning/{prov_id}/advance").status_code == 200
     r = admin_client.post(f"/api/provisioning/{prov_id}/advance")
     assert r.status_code == 400 and "UUID" in r.text, r.text
-    db.execute(sqltext("UPDATE item_schema.items SET appliance_uuid = 'contract-test-uuid' WHERE id = :i"),
+    db.execute(sqltext("UPDATE item_schema.items SET platform_uuid = 'contract-test-uuid' WHERE id = :i"),
                {"i": item_id})
     db.commit()
     r = admin_client.post(f"/api/provisioning/{prov_id}/advance")

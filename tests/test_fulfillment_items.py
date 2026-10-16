@@ -26,7 +26,7 @@ def ful_unit(admin_client, db):
     order_id = r.json()["id"]
     item_id = db.execute(sqltext(
         "INSERT INTO item_schema.items (item_name, item_sn, item_category, item_status, "
-        "brand_pn, item_model) VALUES ('CONTRACT-TEST Ful Edge', :sn, 'edge_box', "
+        "item_pn, item_model) VALUES ('CONTRACT-TEST Ful Edge', :sn, 'edge_box', "
         "'Ready to Deploy', :pn, :m) RETURNING id"), {"sn": SERIAL, "pn": PN, "m": MODEL}).scalar()
     db.commit()
     yield {"order_id": order_id, "item_id": item_id}

@@ -40,7 +40,7 @@
     },
   ];
 
-  const ADMIN_TIER_ROLES = new Set(['admin', 'system_admin', 'justin_admin', 'ceo']);
+  const ADMIN_TIER_ROLES = new Set(['admin', 'system_admin', 'super_admin', 'ceo']);
 
   // ---- Helpers ----
   function initialsFor(name) {
@@ -59,7 +59,7 @@
 
   function roleDisplayLabel(role) {
     const map = {
-      justin_admin: 'Super admin',
+      super_admin: 'Super admin',
       system_admin: 'System admin',
       ceo: 'CEO',
       admin: 'Admin',

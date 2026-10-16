@@ -1,4 +1,4 @@
-/* Hardware Asset Tracker — Main Stylesheet */
+/* Shelf2Site main stylesheet */
 /* Fonts loaded from static/css/fonts.css — no external Google Fonts dependency */
 
 /* ===== Theme Variables ===== */
@@ -2736,14 +2736,10 @@ thead th:nth-child(1) {
 }
 .sx-nav--collapsed .sx-nav__header-expanded { display: none; }
 .sx-nav--collapsed .sx-nav__header-collapsed { display: flex; }
-.sx-nav__logo-horiz {
-  height: 38px; width: auto; max-width: 190px;
-  object-fit: contain; object-position: left center;
+.sx-nav__logo-horiz, .sx-nav__logo-icon {
+  display: flex; align-items: center; color: var(--text); text-decoration: none;
 }
-.sx-nav__logo-icon {
-  width: 34px; height: 34px;
-  object-fit: contain;
-}
+.sx-nav__logo-horiz svg { height: 30px; width: auto; max-width: 180px; }
 .sx-nav__toggle-btn {
   background: none; border: 1px solid transparent;
   border-radius: 5px; cursor: pointer; padding: 5px;
@@ -2904,8 +2900,6 @@ html.sx-nav-pre-collapsed .sx-nav__footer-actions { display: none; }
 /* Status badge colors */
 .eb-status--production      { background: var(--sx-green-dim); color: var(--sx-green); }
 .eb-status--stock           { background: rgba(99,102,241,0.15); color: #818cf8; }
-.eb-status--brand-lab     { background: var(--sx-blue-dim); color: var(--sx-blue-light); }
-.eb-status--brand-inventory { background: var(--sx-amber-dim); color: var(--sx-amber); }
 .eb-status--hardware-lab    { background: var(--sx-amber-dim); color: var(--sx-amber); }
 .eb-status--customer-lab    { background: var(--sx-blue-dim); color: var(--sx-blue-light); }
 .eb-status--demo-kit        { background: rgba(168,85,247,0.15); color: #c084fc; }

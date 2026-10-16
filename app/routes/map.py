@@ -68,17 +68,15 @@ PRODUCT_CATEGORIES = list(UNIT_LABELS.keys())
 # One status color map for unit statuses -
 # the old page carried four disagreeing vocabularies (server colors, filter
 # checkbox values, legend labels, css classes); this dict is now the only one.
+# Keyed on the item_statuses enum (app/models.py), the only source of a map
+# point's status; test_map_status_colors checks the two stay in step.
 STATUS_COLORS = {
     "Deployed": "#01B574",
-    "Production": "#01B574",
+    "Installed": "#01B574",
     "Ready to Deploy": "#2CD9FF",
     "Pending": "#FFB547",
-    "Customer Lab": "#FFB547",
     "Un-deployable": "#FF6B6B",
     "Checked Out": "#A492D6",
-    "Demo Kit": "#A492D6",
-    "Company Lab": "#2C9FD9",
-    "Company Inventory": "#2C9FD9",
     "Decommissioned": "#97A3B6",
     "Unassigned": "#97A3B6",
 }

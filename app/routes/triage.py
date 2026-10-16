@@ -64,8 +64,8 @@ FIELD_LABELS = {
     "item_status": "Status",
     "location_id": "Location",
     "department_or_owner": "Dept / owner",
-    "brand_sku": "Company SKU",
-    "brand_pn": "Company P/N",
+    "item_sku": "SKU",
+    "item_pn": "Part Number",
     "vendor_id": "Vendor",
     "date_purchased": "Date purchased",
     "intended_purpose": "Intended purpose",
@@ -73,7 +73,7 @@ FIELD_LABELS = {
     "item_mac_address_1": "MAC address 1",
     "item_mac_address_2": "MAC address 2",
     "item_storage_size_gb": "Storage (GB)",
-    "appliance_uuid": "Appliance UUID",
+    "platform_uuid": "Platform UUID",
     "tracking_number": "Tracking number",
     "place_check": "Place / status mismatch",
     "containment_check": "Installed place divergence",
@@ -81,8 +81,8 @@ FIELD_LABELS = {
 
 FIELD_TYPES = {
     "item_name": "text", "item_manufacturer": "text", "item_model": "text",
-    "item_sn": "text", "department_or_owner": "text", "brand_sku": "sku_select",
-    "brand_pn": "text", "appliance_uuid": "text", "intended_purpose": "text",
+    "item_sn": "text", "department_or_owner": "text", "item_sku": "sku_select",
+    "item_pn": "text", "platform_uuid": "text", "intended_purpose": "text",
     "tracking_number": "text",
     "item_mac_address_1": "mac", "item_mac_address_2": "mac",
     "item_storage_size_gb": "number",
@@ -385,7 +385,7 @@ def triage_fix_panel(
         ]
     elif field_type == "sku_select":
         ctx["part_numbers"] = (
-            db.query(ItemPartNumber).order_by(ItemPartNumber.brand_sku).all()
+            db.query(ItemPartNumber).order_by(ItemPartNumber.item_sku).all()
         )
 
     return templates.TemplateResponse("partials/triage_fix_panel.html", ctx)
@@ -458,19 +458,19 @@ async def triage_fix_save(
             status_code=400,
         )
 
-    # brand_sku renders as a <select> of part_numbers (field_type sku_select),
+    # item_sku renders as a <select> of part_numbers (field_type sku_select),
     # so the UI only offers valid SKUs; this save-time check is the backstop.
-    # brand_pn and item_associated_brand_pn are NOT FK-constrained — they're
+    # item_pn and item_associated_pn are NOT FK-constrained — they're
     # plain String columns with no corresponding column in part_numbers, so
     # validation against the PN table would be nonsensical.
-    if field_name == "brand_sku" and new_value:
+    if field_name == "item_sku" and new_value:
         exists = db.query(ItemPartNumber.id).filter(
-            ItemPartNumber.brand_sku == new_value
+            ItemPartNumber.item_sku == new_value
         ).first()
         if not exists:
             return JSONResponse({
                 "success": False,
-                "error": f"'{new_value}' is not a valid Company SKU. It must match an entry in the Part Numbers table.",
+                "error": f"'{new_value}' is not a valid SKU. It must match an entry in the Part Numbers table.",
             }, status_code=400)
 
     if field_name == "item_status" and (

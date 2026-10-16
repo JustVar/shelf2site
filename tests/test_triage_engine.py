@@ -35,7 +35,7 @@ def _purge(db):
     ids = [r[0] for r in db.execute(sqltext(
         "SELECT id FROM item_schema.items WHERE item_sn LIKE :p"), {"p": SN_PREFIX + "%"})]
     _delete_items(db, ids)
-    db.execute(sqltext("DELETE FROM item_schema.part_numbers WHERE brand_sku LIKE :p"),
+    db.execute(sqltext("DELETE FROM item_schema.part_numbers WHERE item_sku LIKE :p"),
                {"p": SN_PREFIX + "%"})
     db.execute(sqltext("DELETE FROM sites WHERE name LIKE :p"), {"p": NAME_PREFIX + "%"})
     db.execute(sqltext("DELETE FROM vendor_profiles WHERE name LIKE :p"), {"p": NAME_PREFIX + "%"})
@@ -62,11 +62,11 @@ def ref(db):
     customer = Site(name=NAME_PREFIX + " customer site", site_type="customer_site")
     warehouse = Site(name=NAME_PREFIX + " warehouse", site_type="warehouse")
     vendor = VendorProfile(name=NAME_PREFIX + " vendor")
-    sku = ItemPartNumber(brand_sku=SN_PREFIX + "-SKU", item_category="gpu")
+    sku = ItemPartNumber(item_sku=SN_PREFIX + "-SKU", item_category="gpu")
     db.add_all([customer, warehouse, vendor, sku])
     db.commit()
     refs = {"customer": customer.id, "warehouse": warehouse.id,
-            "vendor": vendor.id, "sku": sku.brand_sku}
+            "vendor": vendor.id, "sku": sku.item_sku}
     yield refs
     _purge(db)
 
@@ -87,8 +87,8 @@ def make_item(db, ref):
             "item_status": "Unassigned",
             "location_id": ref["warehouse"],
             "department_or_owner": NAME_PREFIX + " dept",
-            "brand_sku": ref["sku"],
-            "brand_pn": SN_PREFIX + "-PN",
+            "item_sku": ref["sku"],
+            "item_pn": SN_PREFIX + "-PN",
             "vendor_id": ref["vendor"],
         }
         values.update(overrides)
@@ -212,7 +212,7 @@ def test_containment_divergence(db, ref, make_item, editor_client, stored, flagg
 
 def test_badge_counts_an_item_with_a_gap(db, make_item):
     baseline = triage.get_triage_total_count(db)
-    make_item(brand_pn=None)
+    make_item(item_pn=None)
     assert triage.get_triage_total_count(db) == baseline + 1
 
 
@@ -224,7 +224,7 @@ def test_badge_ignores_a_complete_item(db, make_item):
 
 def test_badge_excludes_a_decommissioned_item(db, make_item):
     baseline = triage.get_triage_total_count(db)
-    item = make_item(brand_pn=None)
+    item = make_item(item_pn=None)
     assert triage.get_triage_total_count(db) == baseline + 1
     db.execute(sqltext("UPDATE item_schema.items SET item_status = 'Decommissioned' WHERE id = :i"),
                {"i": item.id})

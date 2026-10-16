@@ -13,7 +13,7 @@ lowering the minimum and restarting re-activates the shorter entries with no fil
 Fail-open: if the file is absent or unreadable, the set is empty and a startup WARNING is logged
 - a missing list never breaks logins or password changes (length is still enforced by the
 validator). The file is plaintext, one password per line, matched case-insensitively, and lives
-under PASSWORD_BLOCKLIST_PATH (a bind-mounted runtime data dir on apphost), NOT in git.
+under PASSWORD_BLOCKLIST_PATH (fetched by scripts/fetch_password_blocklist.sh), NOT in git.
 """
 import logging
 from pathlib import Path

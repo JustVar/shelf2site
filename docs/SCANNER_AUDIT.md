@@ -174,11 +174,11 @@ AI(00) SSCC; classify on the uppercased value; all lookups case-insensitive.
 | # | Pattern (uppercased) | Class | Lookup | On miss |
 |---|---|---|---|---|
 | 1 | `^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$` or dotted quad-pairs | MAC (separated) | `normalize_mac` → all MAC columns (legacy + `item_mac_address_1/2`) | "No device with MAC … — receive with MAC prefilled?" |
-| 2 | UUID 8-4-4-4-12 | UUID | `edge_boxes.uuid`, `nucs.uuid`, `items.appliance_uuid` | "UUID not linked — scan the serial instead" |
+| 2 | UUID 8-4-4-4-12 | UUID | `edge_boxes.uuid`, `nucs.uuid`, `items.platform_uuid` | "UUID not linked — scan the serial instead" |
 | 3 | `^1Z[0-9A-Z]{16}$` | Tracking (UPS) | tracking-number columns | "Shipping label — create/select a receiving event for this shipment?" |
 | 4 | `^00\d{18}$` (SSCC) / `^\d{20,22}$` | Tracking (SSCC/FedEx/USPS) | same | same |
 | 5 | `^AT-\d{4,}$` | Order number | `customer_orders.order_number` | "Order not found" |
-| 6 | `^(PVA|EDGE|E2C)…-\d{5,6}$` | Unit PN (`brand_pn`) | `items.brand_pn` | "Unit PN not in items — receive with PN prefilled?" |
+| 6 | `^(PVA|EDGE|E2C)…-\d{5,6}$` | Unit PN (`item_pn`) | `items.item_pn` | "Unit PN not in items — receive with PN prefilled?" |
 | 7 | SKU grammars (`PVA-25-30R5`, `EDGE25-56TB-NR`, `PVA50-84TB-Z2`, `E2C-…`) | SKU | part_numbers / `edge_boxes.part_number` | "That's a SKU, not a unit — now scan the unit serial" (prefill category) |
 | 8 | `^[0-9A-F]{12}$` | **Ambiguous** MAC-vs-serial | tie-break: serial hit → MAC lookup → OUI-prefix check → serial-unknown with "looks like a MAC?" hint | per branch |
 | 9 | `^USCF…` | 2026 edge-box serial | serial lookup; prefill edge_boxes/2026 on miss | "New 2026 edge box — confirm intake" |

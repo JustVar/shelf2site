@@ -216,7 +216,7 @@ async def notify(
         emoji = SLACK_EMOJI.get(notification_type, ":bell:")
         slack_text = f"{emoji} *{title}*\n{message}"
         if full_url:
-            slack_text += f"\n<{full_url}|View in Asset Tracker>"
+            slack_text += f"\n<{full_url}|View in Shelf2Site>"
         await send_slack(slack_text, test_mode=is_test_mode)
 
     # --- Per-user delivery (Slack DMs + email, based on each subscriber's preferences) ---
@@ -268,7 +268,7 @@ async def _deliver_to_subscribers(
 
     dm_text = f"*{title}*\n{message}"
     if full_url:
-        dm_text += f"\n<{full_url}|View in Asset Tracker>"
+        dm_text += f"\n<{full_url}|View in Shelf2Site>"
 
     for sub in subscriptions:
         if not sub.deliver_slack:
@@ -290,16 +290,16 @@ async def _deliver_to_subscribers(
 
         # --- Email delivery ---
         if sub.deliver_email and user.email:
-            email_subject = f"[Asset Tracker] {title}"
+            email_subject = f"[Shelf2Site] {title}"
             link_html = (
-                "<p><a href='" + full_url + "'>View in Asset Tracker &rarr;</a></p>"
+                "<p><a href='" + full_url + "'>View in Shelf2Site &rarr;</a></p>"
                 if full_url else ""
             )
             email_body = (
                 "<p style='font-family:sans-serif;'>" + message + "</p>"
                 + link_html
                 + "<hr style='border:none;border-top:1px solid #eee;margin:1.5rem 0;'>"
-                + "<p style='font-size:0.8em;color:#999;'>Asset Tracker &mdash; Company</p>"
+                + "<p style='font-size:0.8em;color:#999;'>Shelf2Site</p>"
             )
             await send_email(user.email, email_subject, email_body)
 

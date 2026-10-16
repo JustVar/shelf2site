@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ order.order_number }} — {{ order.customer_name }} - Asset Tracker{% endblock %}
+{% block title %}{{ order.order_number }} — {{ order.customer_name }} - Shelf2Site{% endblock %}
 {% block nav_fulfillment %}active{% endblock %}
 
 {% block content %}
@@ -120,7 +120,7 @@
                        placeholder="e.g. PVA-100-30NR" autocomplete="off" style="min-width:220px;"
                        oninput="skuEditorHint()">
                 <datalist id="sku-catalog">
-                    {% for pn in part_numbers %}<option value="{{ pn.brand_sku }}">{{ pn.sku_description or '' }}</option>{% endfor %}
+                    {% for pn in part_numbers %}<option value="{{ pn.item_sku }}">{{ pn.sku_description or '' }}</option>{% endfor %}
                 </datalist>
             </div>
             <div>

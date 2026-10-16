@@ -1,12 +1,12 @@
 {
-  "name": "Asset Tracker",
-  "short_name": "Asset Tracker",
-  "description": "Hardware inventory tracker with privacy-first network auto-discovery",
+  "name": "Shelf2Site",
+  "short_name": "Shelf2Site",
+  "description": "Hardware inventory and fulfillment, from shelf to site",
   "start_url": "../dashboard",
   "scope": "../",
   "display": "standalone",
   "background_color": "#1a1d23",
-  "theme_color": "#157ca4",
+  "theme_color": "#0B5E7E",
   "orientation": "any",
   "categories": ["business", "utilities"],
   "icons": [

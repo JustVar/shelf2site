@@ -1,0 +1,22 @@
+Shelf2Site is published for portfolio review.
+
+Written by Justin Varughese. No licence is granted: you may view the code on
+GitHub, and all other rights are reserved by the copyright holder.
+
+Third-party material keeps its own licence, in the file beside it:
+
+  static/vendor/htmx-2.0.4/            htmx 2.0.4, Zero-Clause BSD
+  static/vendor/maplibre-gl-4.7.1/     MapLibre GL JS 4.7.1, BSD-3-Clause
+  static/vendor/html5-qrcode-2.3.8/    html5-qrcode 2.3.8, Apache-2.0
+  static/fonts/                        Inter, Barlow, Barlow Condensed,
+                                       IBM Plex Mono and Space Grotesk, all
+                                       SIL Open Font License 1.1
+                                       (static/fonts/licenses/)
+
+Downloaded or loaded at run time, not stored in this repository:
+
+  Map tiles     CARTO basemaps (https://carto.com/attributions) with
+                OpenStreetMap data, (c) OpenStreetMap contributors, ODbL.
+                The map shows this credit.
+  Blocklist     SecLists Pwdb_top-1000000.txt (MIT), fetched by
+                scripts/fetch_password_blocklist.sh at a pinned commit.

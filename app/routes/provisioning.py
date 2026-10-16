@@ -185,7 +185,7 @@ def provisioning_page(
     sites = db.query(Site).filter(Site.is_active.is_(True), Site.site_type == "customer_site").order_by(Site.name).all()
     from ..models import User as UserModel
     users_q = db.query(UserModel).filter(UserModel.is_active.is_(True))
-    if user.role != "justin_admin":
+    if user.role != "super_admin":
         users_q = users_q.filter(
             ~UserModel.username.like("test_%"),
             ~UserModel.username.like("dbg_%"),
@@ -296,7 +296,7 @@ def provisioning_detail_page(
         if cur:
             sites = sorted(sites + [cur], key=lambda s: s.name or "")
     users_q = db.query(UserModel).filter(UserModel.is_active.is_(True))
-    if user.role != "justin_admin":
+    if user.role != "super_admin":
         users_q = users_q.filter(
             ~UserModel.username.like("test_%"),
             ~UserModel.username.like("dbg_%"),
@@ -755,7 +755,7 @@ async def advance_provisioning(
     # UUID is required before entering registration stage
     unit = _resolve_unit(db, rec)
     if next_stage == "registered" and unit is not None and str(unit.item_category or "") == "edge_box":
-        if not unit.appliance_uuid:
+        if not unit.platform_uuid:
             return JSONResponse(
                 status_code=400,
                 content={"error": "Edge box UUID is required before registration. Update the edge box record with its UUID first."},
@@ -1051,7 +1051,7 @@ async def upload_validation_report(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    """Upload a validate.py JSON report for this provisioning record."""
+    """Upload a validation tool JSON report for this provisioning record."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
     if not rec:
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
@@ -1067,10 +1067,10 @@ async def upload_validation_report(
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JSONResponse(status_code=400, content={"error": "Invalid JSON file"})
 
-    # Validate it looks like a validate report
+    # Validate it looks like a validation tool report
     if "report_version" not in report_data or "result" not in report_data:
         return JSONResponse(status_code=400, content={
-            "error": "Not a valid validate report (missing report_version or result)"
+            "error": "Not a valid validation report (missing report_version or result)"
         })
 
     overall_result = report_data.get("result", {}).get("overall", "UNKNOWN")
@@ -1428,13 +1428,13 @@ def _edge_box_view(item):
     attrs = item.attributes or {}
     return SimpleNamespace(
         serial=item.item_sn,
-        part_number=item.brand_sku or item.brand_pn,
+        part_number=item.item_sku or item.item_pn,
         sku_version=attrs.get("sku_version"),
         status=str(item.item_status) if item.item_status else None,
         deployment_type=attrs.get("deployment_type"),
         mac1=item.item_mac_address_1,
         mac2=item.item_mac_address_2,
-        uuid=item.appliance_uuid,
+        uuid=item.platform_uuid,
     )
 
 

@@ -10,7 +10,7 @@ ON CONFLICT (type_name) DO NOTHING;
 
 -- Product SKU catalog (from the original db_init). The fulfillment and scan
 -- code parses these SKU shapes (app/sku_conversion.py); legacy SKUs keep is_legacy.
-INSERT INTO item_schema.part_numbers (brand_sku, sku_description, item_category, is_legacy)
+INSERT INTO item_schema.part_numbers (item_sku, sku_description, item_category, is_legacy)
 VALUES
     ('PVA-25-30R5',  '25 Channel, 30xdays of storage, Raid5',  'edge_box', true),
     ('PVA-25-60R5',  '25 Channel, 60xdays of storage, Raid5',  'edge_box', true),
@@ -91,4 +91,4 @@ VALUES
     ('STOR-PACK-96TB',  'Group of drives totaling 96TB',          'storage_drive', false),
     ('STOR-PACK-128TB', 'Group of drives totaling 128TB',         'storage_drive', false),
     ('STOR-PACK-160TB', 'Group of drives totaling 160TB',         'storage_drive', false)
-ON CONFLICT (brand_sku) DO NOTHING;
+ON CONFLICT (item_sku) DO NOTHING;

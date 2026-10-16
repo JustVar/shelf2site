@@ -319,7 +319,7 @@ def _is_valid_sku(sku: str) -> bool:
 
 def _stock_snapshot(db: Session) -> tuple[list[dict], list[dict]]:
     """Return (known_skus, unclassified) lists of edge box item stock grouped
-    by SKU (brand_sku, else brand_pn). Item 30 S4: reads items, not
+    by SKU (item_sku, else item_pn). Item 30 S4: reads items, not
     edge_boxes.
 
     known_skus   — groups with recognized EDGE*/PVA-* part numbers
@@ -344,7 +344,7 @@ def _stock_snapshot(db: Session) -> tuple[list[dict], list[dict]]:
     all_boxes = db.query(Item).filter(Item.item_category == "edge_box").all()
     groups: dict[str, dict] = {}
     for box in all_boxes:
-        raw = (box.brand_sku or box.brand_pn or "").strip()
+        raw = (box.item_sku or box.item_pn or "").strip()
         model_key = raw or "— no SKU —"
         if model_key not in groups:
             groups[model_key] = {
@@ -386,9 +386,9 @@ def fulfillment_page(
     orders = [o for o in all_orders if not o.is_sensitive or can_see_sensitive]
 
     # Owner split (migration 074, docs/specs/order-owner-split-slice-1.md): the
-    # In-House board is company-owned work only, and every tile, column, group
+    # In-House board is in-house work only, and every tile, column, group
     # and counter below reads this list. In-house is not oem rather than equal
-    # to brand, so an unexpected value cannot vanish from both boards.
+    # to in_house, so an unexpected value cannot vanish from both boards.
     oem_orders = [o for o in orders if o.owner == "oem"]
     orders = [o for o in orders if o.owner != "oem"]
 
@@ -415,7 +415,7 @@ def fulfillment_page(
             DeviceProvisioning.fulfillment_type,
             DeviceProvisioning.stages,
             Item.item_sn.label("serial"),
-            sqlfunc.coalesce(Item.brand_sku, Item.brand_pn).label("part_number"),
+            sqlfunc.coalesce(Item.item_sku, Item.item_pn).label("part_number"),
             User.display_name,
         )
         .join(Item, DeviceProvisioning.item_id == Item.id)
@@ -761,7 +761,7 @@ def fulfillment_panel_state(
             if item:
                 entry.update({
                     "serial": item.item_sn,
-                    "part_number": item.brand_sku,
+                    "part_number": item.item_sku,
                     "kind": "item",
                 })
         devices.append(entry)
@@ -778,7 +778,7 @@ def fulfillment_panel_state(
                 "item_id": item.id,
                 "serial": item.item_sn,
                 "name": item.item_name or item.item_model,
-                "sku": item.brand_sku,
+                "sku": item.item_sku,
                 "status": str(item.item_status) if item.item_status else "—",
                 "location": site_names.get(item.location_id),
             })
@@ -1301,7 +1301,7 @@ def certifications_index(
             DeviceProvisioning.current_stage,
             DeviceProvisioning.is_complete,
             Item.item_sn.label("serial"),
-            sqlfunc.coalesce(Item.brand_sku, Item.brand_pn).label("part_number"),
+            sqlfunc.coalesce(Item.item_sku, Item.item_pn).label("part_number"),
             CustomerOrder.order_number,
             CustomerOrder.customer_name,
             CustomerOrder.due_date,
@@ -1409,8 +1409,8 @@ def _cert_edge_box(db, prov):
     return SimpleNamespace(
         id=item.id,
         serial=item.item_sn,
-        uuid=item.appliance_uuid,
-        part_number=item.brand_sku or item.brand_pn,
+        uuid=item.platform_uuid,
+        part_number=item.item_sku or item.item_pn,
     )
 
 

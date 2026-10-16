@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Intake - Asset Tracker{% endblock %}
+{% block title %}Intake - Shelf2Site{% endblock %}
 
 {% block content %}
 {% from 'partials/icons.html' import icon %}
@@ -96,23 +96,23 @@
         <input type="text" name="item_storage_size_gb" id="item_storage_size_gb" class="itk-input" placeholder="e.g. 512">
       </div>
       <div class="itk-field itk-cond" data-cats="edge_box,cloud_box,camera_c2c">
-        <label class="itk-label" for="appliance_uuid">Appliance UUID</label>
-        <input type="text" name="appliance_uuid" id="appliance_uuid" class="itk-input" placeholder="Appliance system identifier">
+        <label class="itk-label" for="platform_uuid">Platform UUID</label>
+        <input type="text" name="platform_uuid" id="platform_uuid" class="itk-input" placeholder="Platform system identifier">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="brand_sku">Company SKU</label>
-        <input type="text" name="brand_sku" id="brand_sku" class="itk-input" list="brand-sku-list" placeholder="e.g. SKU-CAM-001" autocomplete="off">
-        <datalist id="brand-sku-list">
-        {% for pn in part_numbers %}<option value="{{ pn.brand_sku }}">{{ pn.sku_description }}</option>{% endfor %}
+        <label class="itk-label" for="item_sku">SKU</label>
+        <input type="text" name="item_sku" id="item_sku" class="itk-input" list="sku-list" placeholder="e.g. SKU-CAM-001" autocomplete="off">
+        <datalist id="sku-list">
+        {% for pn in part_numbers %}<option value="{{ pn.item_sku }}">{{ pn.sku_description }}</option>{% endfor %}
         </datalist>
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="brand_pn">Company Part Number</label>
-        <input type="text" name="brand_pn" id="brand_pn" class="itk-input" placeholder="e.g. PN-12345">
+        <label class="itk-label" for="item_pn">Part Number</label>
+        <input type="text" name="item_pn" id="item_pn" class="itk-input" placeholder="e.g. PN-12345">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="item_associated_brand_pn">Associated Part Number</label>
-        <input type="text" name="item_associated_brand_pn" id="item_associated_brand_pn" class="itk-input" placeholder="Related Company PN">
+        <label class="itk-label" for="item_associated_pn">Associated Part Number</label>
+        <input type="text" name="item_associated_pn" id="item_associated_pn" class="itk-input" placeholder="Related part number">
       </div>
     </div>
   </div>

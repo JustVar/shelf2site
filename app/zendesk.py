@@ -1,4 +1,4 @@
-"""Zendesk API client for the Asset Tracker.
+"""Zendesk API client for Shelf2Site.
 
 Handles authentication, request/response, error handling, and rate limit
 retry with exponential backoff. Uses httpx for async HTTP requests.

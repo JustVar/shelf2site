@@ -13,6 +13,7 @@
 set -uo pipefail
 
 BACKUP_ROOT="/data/asset-tracker/backups"
+FILE_OWNER="${AT_FILE_OWNER:-deploy}"
 DAILY_DIR="$BACKUP_ROOT/daily"
 RESULT_FILE="$BACKUP_ROOT/last_restore_test.txt"
 DB_CONTAINER="asset_tracker_db"
@@ -92,6 +93,6 @@ psql_c postgres "DROP DATABASE IF EXISTS $SCRATCH_DB" >/dev/null
 
 if [ "$FAILS" -eq 0 ]; then RES="PASS"; else RES="FAIL ($FAILS failing check(s))"; fi
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $RES dump=$(basename "$DUMP")" > "$RESULT_FILE"
-chown brand:brand "$RESULT_FILE" 2>/dev/null || true
+chown "$FILE_OWNER:$FILE_OWNER" "$RESULT_FILE" 2>/dev/null || true
 echo "RESULT: $RES"
 [ "$FAILS" -eq 0 ]

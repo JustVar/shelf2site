@@ -4,7 +4,7 @@ Admins can broadcast a pre-restart banner to all active users via SSE.
 No database required — state is in-memory and intentionally resets on restart.
 
 Also renders the nightly-backup status row (status.json is written by
-scripts/at-backup.sh on apphost and bind-mounted read-only into the
+the backup job (scripts/at-backup.sh) and mounted read-only into the
 container — see docs/BACKUPS.md).
 """
 
@@ -67,7 +67,7 @@ def _backup_status():
         return {
             "level": "warn",
             "headline": "No backup recorded",
-            "detail": "status.json missing — check at-backup.timer on apphost (docs/BACKUPS.md)",
+            "detail": "status.json missing: no backup job has reported yet (docs/BACKUPS.md)",
             "age_label": "—",
             "ts_label": "—",
             "size_label": "—",
@@ -83,13 +83,13 @@ def _backup_status():
 
     if not raw.get("ok"):
         level, headline = "urg", "Last backup FAILED"
-        detail = raw.get("error") or "see history.jsonl on apphost"
+        detail = raw.get("error") or "see history.jsonl beside status.json"
     elif age_h >= BACKUP_RED_HOURS:
         level, headline = "urg", "Backups stale"
-        detail = "no successful backup in over 3 days — check at-backup.timer on apphost"
+        detail = "no successful backup in over 3 days: check the backup job (docs/BACKUPS.md)"
     elif age_h >= BACKUP_AMBER_HOURS:
         level, headline = "warn", "Backups stale"
-        detail = "last backup is older than 36 h — check at-backup.timer on apphost"
+        detail = "last backup is older than 36 h: check the backup job (docs/BACKUPS.md)"
     elif raw.get("size_alert"):
         level, headline = "warn", "Backup size anomaly"
         detail = "dump is over 2x the 7-day median — verify before trusting it"

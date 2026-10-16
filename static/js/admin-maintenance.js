@@ -93,11 +93,11 @@ async function forceReload() {
 // ---------------------------------------------------------------------------
 
 /** @type {Set<string>} */
-const ADMIN_ROLES = new Set(['justin_admin', 'system_admin', 'admin', 'ceo']);
+const ADMIN_ROLES = new Set(['super_admin', 'system_admin', 'admin', 'ceo']);
 
 /** @type {Record<string, string>} */
 const ROLE_LABELS = {
-    justin_admin: 'Super Admin', system_admin: 'System Admin', ceo: 'CEO',
+    super_admin: 'Super Admin', system_admin: 'System Admin', ceo: 'CEO',
     admin: 'Administrator', warranty_admin: 'Warranty Admin',
     trials_admin: 'Trials Admin', procurement_admin: 'Procurement Admin',
     editor: 'Editor', viewer: 'Viewer',

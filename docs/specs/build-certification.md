@@ -53,7 +53,7 @@ From app/models.py:1881. These already exist; the migration does not touch them.
 | hardware_validation | JSONB null | component inventory + SMART (shape below) |
 | qa_checklist | JSONB null | the 5 QA checks (shape below) |
 | license_counts | JSONB null | assigned / ordered (shape below) |
-| appliance_version | varchar(64) null | Appliance version string |
+| software_version | varchar(64) null | Appliance version string |
 | certified_by | varchar(128) null | QA half signer |
 | co_certified_by | varchar(128) null | Hardware/SMART half signer |
 | certified_at | datetime null | when the QA half landed |
@@ -114,7 +114,7 @@ license_counts — two integers, per device, hand-entered at cert time.
 
 ## Contributor split
 
-- QA half (qa_status, certified_by, certified_at): qa_checklist (5 items), hardware_validation.components (inventory + ok), license_counts, appliance_version.
+- QA half (qa_status, certified_by, certified_at): qa_checklist (5 items), hardware_validation.components (inventory + ok), license_counts, software_version.
 - Hardware half (hw_status, co_certified_by, co_certified_at): hardware_validation.smart_test, and the report file uploads (S6d).
 
 ## All-pass gate (how cert_status is computed)
@@ -141,7 +141,7 @@ The build_certification table has no inserting route today, so it is expected to
 ## Slice plan
 
 - S6a — this migration + a read-only certification index page (/fulfillment/certifications): lists devices needing/having cert, organized by date / customer / SKU, with search. Proves the schema, ships the nav home. No writes.
-- S6b — per-device cert detail view + QA capture (5 checks, component inventory, licenses, appliance_version). First write path (qa_status -> complete).
+- S6b — per-device cert detail view + QA capture (5 checks, component inventory, licenses, software_version). First write path (qa_status -> complete).
 - S6c — Hardware contribution (SMART result + sign-off via co_certified_by), partial-state handling, and the computed all-pass cert_status gate (hw_status -> complete, terminal compute).
 - S6d — report file uploads per device. Needs a child table (build_certification_files) for multiple files per cert; its own schema decision, not pre-baked here. Intersects the /tmp cleanup track.
 - S6e — composite downloadable certification report per device (QA + hardware + SMART + licenses + files into one document).

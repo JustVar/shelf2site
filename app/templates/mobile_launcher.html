@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Asset Tracker{% endblock %}
+{% block title %}Shelf2Site{% endblock %}
 
 {% block content %}
 {% from "_fl_icons.html" import fl_icon %}
+{% from "_brand.html" import brand_logo %}
 <div class="mobile-launcher fl-restyle">
 {% include "_fl_bg.html" %}
 <div class="fl-lift ml-wrap">
 
     <header class="ml-header">
-        <img src="{{ base_path }}/static/img/logo-brand-full.png?v={{ request.state.js_v('img/logo-brand-full.png') or '0' }}"
-             alt="Asset Tracker" class="ml-logo">
+        <span class="ml-logo">{{ brand_logo(44, 's2s-ml') }}</span>
     </header>
 
     <!-- Hero: camera scanning is the primary field workflow -->

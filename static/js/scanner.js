@@ -254,7 +254,7 @@ class BarcodeScanner {
 
   // ─── html5-qrcode Fallback ─────────────────────────────────────
 
-  /** Start scanning using html5-qrcode (CDN lazy-load). */
+  /** Start scanning using html5-qrcode (vendored, loaded on first use). */
   async #startFallback() {
     // Stop the native video — html5-qrcode manages its own stream
     if (this.#video) {
@@ -269,7 +269,7 @@ class BarcodeScanner {
     // (static/vendor), the scan path never depends on a CDN (H12).
     if (typeof Html5Qrcode === 'undefined') {
       await this.#loadScript(
-        this.#basePath + '/static/vendor/html5-qrcode.min.js'
+        this.#basePath + '/static/vendor/html5-qrcode-2.3.8/html5-qrcode.min.js'
       );
     }
 

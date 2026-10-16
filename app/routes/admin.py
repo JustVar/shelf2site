@@ -264,7 +264,7 @@ def delete_oui_entry(
 
 
 # ---------------------------------------------------------------------------
-# Part Numbers (Company SKU catalog)
+# Part Numbers (SKU catalog)
 # ---------------------------------------------------------------------------
 
 @router.get("/admin/part-numbers", response_class=HTMLResponse)
@@ -276,19 +276,19 @@ def part_numbers_page(
     """SKU catalog. Viewable by editors+, editable by system admins."""
     rows = (
         db.query(ItemPartNumber)
-        .order_by(ItemPartNumber.item_category, ItemPartNumber.brand_sku)
+        .order_by(ItemPartNumber.item_category, ItemPartNumber.item_sku)
         .all()
     )
-    # usage count per SKU (plain string match on item.brand_sku)
+    # usage count per SKU (plain string match on item.item_sku)
     usage = {}
     for sku, cnt in (
-        db.query(Item.brand_sku, func.count(Item.id))
-        .filter(Item.brand_sku.isnot(None))
-        .group_by(Item.brand_sku)
+        db.query(Item.item_sku, func.count(Item.id))
+        .filter(Item.item_sku.isnot(None))
+        .group_by(Item.item_sku)
         .all()
     ):
         usage[sku] = cnt
-    pn_rows = [{"pn": r, "usage": usage.get(r.brand_sku, 0)} for r in rows]
+    pn_rows = [{"pn": r, "usage": usage.get(r.item_sku, 0)} for r in rows]
     categories = [{"value": c, "display": category_display(c)} for c in ALL_CATEGORIES]
     return templates.TemplateResponse("admin_part_numbers.html", {
         "request": request,
@@ -308,7 +308,7 @@ async def add_part_number(
 ):
     """Create a new SKU."""
     form = await request.form()
-    sku = (form.get("brand_sku") or "").strip()
+    sku = (form.get("item_sku") or "").strip()
     desc = (form.get("sku_description") or "").strip()
     category = (form.get("item_category") or "").strip()
     is_legacy = form.get("is_legacy") == "on"
@@ -316,12 +316,12 @@ async def add_part_number(
     notes = (form.get("notes") or "").strip()
 
     if not sku:
-        return JSONResponse(status_code=400, content={"error": "Company SKU is required"})
-    if db.query(ItemPartNumber).filter(ItemPartNumber.brand_sku == sku).first():
+        return JSONResponse(status_code=400, content={"error": "SKU is required"})
+    if db.query(ItemPartNumber).filter(ItemPartNumber.item_sku == sku).first():
         return JSONResponse(status_code=409, content={"error": f"SKU '{sku}' already exists"})
 
     pn = ItemPartNumber(
-        brand_sku=sku,
+        item_sku=sku,
         sku_description=desc or None,
         item_category=category or None,
         is_legacy=is_legacy,
@@ -334,7 +334,7 @@ async def add_part_number(
     log_event(
         db, "part_number_added", request=request, user_id=user.id,
         target_table="part_numbers", target_id=pn.id, action="create",
-        new_values={"brand_sku": sku, "item_category": category},
+        new_values={"item_sku": sku, "item_category": category},
         details=f"Added SKU {sku}",
     )
     return JSONResponse(content={"status": "added", "id": pn.id})
@@ -347,7 +347,7 @@ async def edit_part_number(
     db: Session = Depends(get_db),
     user: User = Depends(require_system_admin),
 ):
-    """Edit a SKU's description/category/flags/notes. The brand_sku value
+    """Edit a SKU's description/category/flags/notes. The item_sku value
     itself is NOT editable (it is the catalog key; items reference it by string)."""
     pn = db.query(ItemPartNumber).filter(ItemPartNumber.id == pn_id).first()
     if not pn:
@@ -367,7 +367,7 @@ async def edit_part_number(
     log_event(
         db, "part_number_updated", request=request, user_id=user.id,
         target_table="part_numbers", target_id=pn.id, action="update",
-        old_values=old, details=f"Updated SKU {pn.brand_sku}",
+        old_values=old, details=f"Updated SKU {pn.item_sku}",
     )
     return JSONResponse(content={"status": "updated"})
 
@@ -380,19 +380,19 @@ def delete_part_number(
     user: User = Depends(require_system_admin),
 ):
     """Delete a SKU - HARD-BLOCKED if any item references it (plain string match,
-    no DB FK), to prevent orphaning item.brand_sku values."""
+    no DB FK), to prevent orphaning item.item_sku values."""
     pn = db.query(ItemPartNumber).filter(ItemPartNumber.id == pn_id).first()
     if not pn:
         return JSONResponse(status_code=404, content={"error": "Not found"})
 
-    ref_count = db.query(Item).filter(Item.brand_sku == pn.brand_sku).count()
+    ref_count = db.query(Item).filter(Item.item_sku == pn.item_sku).count()
     if ref_count > 0:
         return JSONResponse(status_code=409, content={
-            "error": f"Cannot delete: {ref_count} item(s) use SKU '{pn.brand_sku}'. "
+            "error": f"Cannot delete: {ref_count} item(s) use SKU '{pn.item_sku}'. "
                      f"Reassign those items first."
         })
 
-    sku = pn.brand_sku
+    sku = pn.item_sku
     db.delete(pn)
     db.commit()
     log_event(
@@ -416,7 +416,7 @@ def user_management_page(
     """Render the user management page."""
     query = db.query(UserModel)
     # Hide test/debug/service accounts from non-superadmin users
-    if user.role != "justin_admin":
+    if user.role != "super_admin":
         query = query.filter(
             ~UserModel.username.like("test_%"),
             ~UserModel.username.like("dbg_%"),
@@ -511,7 +511,7 @@ async def add_user(
         return JSONResponse(status_code=400, content={"error": f"Password too weak: {strength_error}"})
     if role not in VALID_ROLES:
         return JSONResponse(status_code=400, content={"error": f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}"})
-    if role == "justin_admin":
+    if role == "super_admin":
         return JSONResponse(status_code=403, content={"error": "Cannot create users with Super Admin role"})
     assignable = get_assignable_roles(user.role)
     if role not in assignable:
@@ -1003,7 +1003,7 @@ async def change_user_role(
 
     if not new_role:
         return JSONResponse(status_code=400, content={"error": "Role is required"})
-    if new_role == "justin_admin":
+    if new_role == "super_admin":
         return JSONResponse(status_code=403, content={"error": "Cannot assign Super Admin role"})
     assignable = get_assignable_roles(user.role)
     if new_role not in assignable:
@@ -1052,7 +1052,7 @@ def delete_user_account(
         return JSONResponse(status_code=404, content={"error": "User not found"})
     if target.id == user.id:
         return JSONResponse(status_code=400, content={"error": "Cannot delete yourself"})
-    if target.role == "justin_admin":
+    if target.role == "super_admin":
         return JSONResponse(status_code=403, content={"error": "Cannot delete Super Admin account"})
     if not can_manage_user(user, target):
         return JSONResponse(status_code=403, content={"error": "You cannot manage this user"})

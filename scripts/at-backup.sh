@@ -20,6 +20,8 @@ set -uo pipefail
 
 # Overridable for sandboxed testing (e.g. AT_BACKUP_ROOT=/tmp/at_prune_test).
 BACKUP_ROOT="${AT_BACKUP_ROOT:-/data/asset-tracker/backups}"
+# The user that pulls backups off this host owns the artifacts.
+FILE_OWNER="${AT_FILE_OWNER:-deploy}"
 DAILY_DIR="$BACKUP_ROOT/daily"
 GLOBALS_DIR="$BACKUP_ROOT/globals"
 STATUS_FILE="$BACKUP_ROOT/status.json"
@@ -76,7 +78,7 @@ json_status() {
     > "$STATUS_FILE"
   cat "$STATUS_FILE" >> "$HISTORY_FILE"
   tail -n 60 "$HISTORY_FILE" > "$HISTORY_FILE.tmp" && mv "$HISTORY_FILE.tmp" "$HISTORY_FILE"
-  chown brand:brand "$STATUS_FILE" "$HISTORY_FILE" 2>/dev/null || true
+  chown "$FILE_OWNER:$FILE_OWNER" "$STATUS_FILE" "$HISTORY_FILE" 2>/dev/null || true
 }
 
 fail() {
@@ -132,7 +134,7 @@ prune "$DAILY_DIR/asset_tracker_*.dump" "$KEEP_DAILY"
 prune "$DAILY_DIR/files_*.tar.gz"       "$KEEP_DAILY"
 prune "$GLOBALS_DIR/globals_*.sql"      "$KEEP_GLOBALS"
 
-# ── 5. ownership + status (artifacts stay fetchable by the brand pull) ────
-chown -R brand:brand "$DAILY_DIR" "$GLOBALS_DIR" 2>/dev/null || true
+# ── 5. ownership + status (artifacts stay fetchable by the backup pull user) ────
+chown -R "$FILE_OWNER:$FILE_OWNER" "$DAILY_DIR" "$GLOBALS_DIR" 2>/dev/null || true
 json_status true ""
 echo "OK: dump=${DUMP_BYTES}B files=${FILES_BYTES}B globals=${GLOBALS_DONE} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"

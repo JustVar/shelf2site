@@ -8,7 +8,7 @@ the row so a re-geocode fires only when the address text changes. Every
 failure is graceful: geocode() returns None, the caller saves without
 coordinates and the UI offers a retry / pick-on-map fallback.
 
-Egress note: apphost's app container must reach GEOCODER_BASE_URL. If
+Egress note: the app container must reach GEOCODER_BASE_URL. If
 egress is blocked, geocode() returns None and the flow degrades to the
 map Fix (set-location) path.
 """

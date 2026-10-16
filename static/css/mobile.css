@@ -36,7 +36,8 @@
 }
 .mobile-launcher .ml-header { display: flex; justify-content: center; padding: 12px 0 4px; }
 .mobile-launcher .ml-cards { display: flex; flex-direction: column; gap: 10px; }
-.mobile-launcher .ml-logo { height: 56px; width: auto; }
+.mobile-launcher .ml-logo { display: flex; color: var(--text); }
+.mobile-launcher .ml-logo svg { height: 44px; width: auto; }
 
 .mobile-launcher .ml-hero,
 .mobile-launcher .ml-card {

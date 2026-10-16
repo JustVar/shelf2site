@@ -17,7 +17,7 @@ def routing_rows(db):
     ids = {}
     ids["item"] = db.execute(sqltext(
         "INSERT INTO item_schema.items (item_name, item_sn, item_category, item_status, "
-        "item_mac_address_1, appliance_uuid, brand_pn, tracking_number) VALUES "
+        "item_mac_address_1, platform_uuid, item_pn, tracking_number) VALUES "
         "('CONTRACT-TEST Route Box', 'CONTRACT-TEST-RT-1', 'edge_box', 'Unassigned', "
         "'AA:BB:CC:11:22:33', 'DEADBEEF-1111-2222-3333-444455556666', "
         "'PVA-25-30NR-099999', '1Z999AA10123456784') RETURNING id")).scalar()
@@ -133,14 +133,14 @@ def test_unit_pn_hit_and_miss(editor_client, routing_rows):
     hit = _scan(editor_client, "pva-25-30nr-099999")
     assert hit["status"] == "already_exists" and hit["matched_on"] == "unit_pn"
     miss = _scan(editor_client, "PVA-25-30NR-088888")
-    assert miss["status"] == "unknown" and miss["prefill"]["brand_pn"] == "PVA-25-30NR-088888"
+    assert miss["status"] == "unknown" and miss["prefill"]["item_pn"] == "PVA-25-30NR-088888"
 
 
 def test_sku_is_recognized_not_a_unit(editor_client, routing_rows):
     got = _scan(editor_client, "pva-100-30nr")   # real catalog SKU
     assert got["status"] == "recognized" and got["class"] == "sku"
     assert "not a unit serial" in got["guidance"]
-    assert got["prefill"]["brand_sku"] == "PVA-100-30NR"
+    assert got["prefill"]["item_sku"] == "PVA-100-30NR"
     miss = _scan(editor_client, "PVA-77-77ZZ")
     assert miss["status"] == "unknown" and "not in the catalog" in miss["guidance"]
 

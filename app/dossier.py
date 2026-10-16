@@ -72,7 +72,7 @@ def build_item_dossier_pdf(db, item, user, helpers) -> bytes:
         ("Category", item.item_category), ("Status", item.item_status),
         ("Manufacturer", item.item_manufacturer), ("Model", item.item_model),
         ("MAC 1", item.item_mac_address_1), ("MAC 2", item.item_mac_address_2),
-        ("SKU", item.brand_sku), ("Unit PN", item.brand_pn),
+        ("SKU", item.item_sku), ("Unit PN", item.item_pn),
         ("Location", site.name if site else None),
         ("Department/Owner", item.department_or_owner),
         ("Purchased", item.date_purchased),

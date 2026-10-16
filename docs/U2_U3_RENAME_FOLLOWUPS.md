@@ -49,7 +49,7 @@ These items came out of the U2d.1 migration to ENUM types (`user_permission_stat
 
 - **Permissions-constants DRY.** `USER_PERMISSION_COLUMNS` (15 names) lives in `app/routes/admin.py`. `USER_INHERITED_PERMS` (14) + `USER_NON_INHERITED_PERMS` (1) live in `migrations/048_permission_columns_to_enum.py`. Identical content, two homes. Move canonical to `app/models.py` and import from both. Bundle with the next code change that touches permissions handling.
 
-- **dashboard.html line 172 — pre-existing bug.** Reads raw `user.can_view_financial` instead of going through `user.has_financial_access`. Effect: COG-by-category section is hidden from admin / CEO / system_admin / justin_admin / procurement_admin users unless they have an explicit per-user grant. Fix is a one-line template change. Pre-dates U2d.1; not introduced by the migration.
+- **dashboard.html line 172 — pre-existing bug.** Reads raw `user.can_view_financial` instead of going through `user.has_financial_access`. Effect: COG-by-category section is hidden from admin / CEO / system_admin / super_admin / procurement_admin users unless they have an explicit per-user grant. Fix is a one-line template change. Pre-dates U2d.1; not introduced by the migration.
 
 - **Legacy `app/static/js/admin-users.js` — orphaned, kept for rollback.** No template references it after U2b. Safe to delete after U2d.2 verifies. (See item below for rollback consideration.)
 

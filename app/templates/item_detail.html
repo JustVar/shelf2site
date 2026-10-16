@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ item.item_name or 'Item' }} - Asset Tracker{% endblock %}
+{% block title %}{{ item.item_name or 'Item' }} - Shelf2Site{% endblock %}
 
 {% block content %}
 {% from 'partials/icons.html' import icon %}
@@ -145,20 +145,20 @@
         <input type="text" name="item_storage_size_gb" id="item_storage_size_gb" class="itk-input" value="{{ item.item_storage_size_gb or '' }}">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="appliance_uuid">Appliance UUID</label>
-        <input type="text" name="appliance_uuid" id="appliance_uuid" class="itk-input" value="{{ item.appliance_uuid or '' }}">
+        <label class="itk-label" for="platform_uuid">Platform UUID</label>
+        <input type="text" name="platform_uuid" id="platform_uuid" class="itk-input" value="{{ item.platform_uuid or '' }}">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="brand_sku">Company SKU</label>
-        <input type="text" name="brand_sku" id="brand_sku" class="itk-input" value="{{ item.brand_sku or '' }}">
+        <label class="itk-label" for="item_sku">SKU</label>
+        <input type="text" name="item_sku" id="item_sku" class="itk-input" value="{{ item.item_sku or '' }}">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="brand_pn">Company Part Number</label>
-        <input type="text" name="brand_pn" id="brand_pn" class="itk-input" value="{{ item.brand_pn or '' }}">
+        <label class="itk-label" for="item_pn">Part Number</label>
+        <input type="text" name="item_pn" id="item_pn" class="itk-input" value="{{ item.item_pn or '' }}">
       </div>
       <div class="itk-field">
-        <label class="itk-label" for="item_associated_brand_pn">Associated Part Number</label>
-        <input type="text" name="item_associated_brand_pn" id="item_associated_brand_pn" class="itk-input" value="{{ item.item_associated_brand_pn or '' }}">
+        <label class="itk-label" for="item_associated_pn">Associated Part Number</label>
+        <input type="text" name="item_associated_pn" id="item_associated_pn" class="itk-input" value="{{ item.item_associated_pn or '' }}">
       </div>
     </div>
   </div>
@@ -304,7 +304,7 @@
   {% endif %}
 
   <!-- Identifiers -->
-  {% set has_ids = item.item_mac_address_1 or item.item_mac_address_2 or item.appliance_uuid or item.item_storage_size_gb or item.brand_sku or item.brand_pn or item.item_associated_brand_pn %}
+  {% set has_ids = item.item_mac_address_1 or item.item_mac_address_2 or item.platform_uuid or item.item_storage_size_gb or item.item_sku or item.item_pn or item.item_associated_pn %}
   {% if has_ids %}
   <div class="dtl-section">
     <div class="dtl-section-title">Identifiers & Part Numbers</div>
@@ -327,28 +327,28 @@
         <div class="dtl-value">{{ item.item_storage_size_gb }} GB</div>
       </div>
       {% endif %}
-      {% if item.appliance_uuid %}
+      {% if item.platform_uuid %}
       <div class="dtl-field" style="grid-column:1/-1">
-        <div class="dtl-label">Appliance UUID</div>
-        <div class="dtl-value dtl-mono" style="font-size:11px">{{ item.appliance_uuid }}</div>
+        <div class="dtl-label">Platform UUID</div>
+        <div class="dtl-value dtl-mono" style="font-size:11px">{{ item.platform_uuid }}</div>
       </div>
       {% endif %}
-      {% if item.brand_sku %}
+      {% if item.item_sku %}
       <div class="dtl-field">
-        <div class="dtl-label">Company SKU</div>
-        <div class="dtl-value dtl-mono">{{ item.brand_sku }}</div>
+        <div class="dtl-label">SKU</div>
+        <div class="dtl-value dtl-mono">{{ item.item_sku }}</div>
       </div>
       {% endif %}
-      {% if item.brand_pn %}
+      {% if item.item_pn %}
       <div class="dtl-field">
-        <div class="dtl-label">Company PN</div>
-        <div class="dtl-value dtl-mono">{{ item.brand_pn }}</div>
+        <div class="dtl-label">Part Number</div>
+        <div class="dtl-value dtl-mono">{{ item.item_pn }}</div>
       </div>
       {% endif %}
-      {% if item.item_associated_brand_pn %}
+      {% if item.item_associated_pn %}
       <div class="dtl-field">
         <div class="dtl-label">Associated PN</div>
-        <div class="dtl-value dtl-mono">{{ item.item_associated_brand_pn }}</div>
+        <div class="dtl-value dtl-mono">{{ item.item_associated_pn }}</div>
       </div>
       {% endif %}
     </div>

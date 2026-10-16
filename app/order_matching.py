@@ -6,7 +6,7 @@ about what counts as an assignable unit.
 
 A candidate is an item_schema.items row that:
   * matches the requirement string — case-insensitive equality on
-    brand_sku (catalog identity), with a fallback ilike on item_model
+    item_sku (catalog identity), with a fallback ilike on item_model
     for free-text requirements that are not catalog SKUs;
   * is 'Ready to Deploy' — explicitly staged stock. Unassigned/Pending
     rows are deliberately NOT offered (they have not been triaged), and
@@ -45,7 +45,7 @@ def candidate_items(db: Session, model: str) -> list[Item]:
         db.query(Item)
         .filter(
             or_(
-                func.lower(Item.brand_sku) == model.lower(),
+                func.lower(Item.item_sku) == model.lower(),
                 Item.item_model.ilike(f"%{_escape_like(model)}%"),
             ),
             Item.item_status == "Ready to Deploy",

@@ -292,10 +292,10 @@ async def item_update(
     item_mac_address_1: str = Form(default=""),
     item_mac_address_2: str = Form(default=""),
     item_storage_size_gb: str = Form(default=""),
-    appliance_uuid: str = Form(default=""),
-    brand_sku: str = Form(default=""),
-    brand_pn: str = Form(default=""),
-    item_associated_brand_pn: str = Form(default=""),
+    platform_uuid: str = Form(default=""),
+    item_sku: str = Form(default=""),
+    item_pn: str = Form(default=""),
+    item_associated_pn: str = Form(default=""),
     vendor_id: str = Form(default=""),
     item_vendor: str = Form(default=""),
     date_purchased: str = Form(default=""),
@@ -401,10 +401,10 @@ async def item_update(
     item.item_mac_address_1 = mac1_clean
     item.item_mac_address_2 = mac2_clean
     item.item_storage_size_gb = _safe_float(item_storage_size_gb)
-    item.appliance_uuid = _clean_str(appliance_uuid)
-    item.brand_sku = _clean_str(brand_sku)
-    item.brand_pn = _clean_str(brand_pn)
-    item.item_associated_brand_pn = _clean_str(item_associated_brand_pn)
+    item.platform_uuid = _clean_str(platform_uuid)
+    item.item_sku = _clean_str(item_sku)
+    item.item_pn = _clean_str(item_pn)
+    item.item_associated_pn = _clean_str(item_associated_pn)
     item.vendor_id = vendor_value
     item.item_vendor = _clean_str(item_vendor)
     item.date_purchased = _safe_date(date_purchased)

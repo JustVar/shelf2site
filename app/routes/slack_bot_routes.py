@@ -139,10 +139,10 @@ async def test_notification_email(
         "You will receive provisioning alerts here when you subscribe with email delivery enabled."
         "</p>"
         "<hr style='border:none;border-top:1px solid #eee;margin:1.5rem 0;'>"
-        "<p style='font-size:0.8em;color:#999;'>Asset Tracker &mdash; Company</p>"
+        "<p style='font-size:0.8em;color:#999;'>Shelf2Site</p>"
     )
 
-    ok = await send_email(user.email, "[Asset Tracker] Test Notification", body_html)
+    ok = await send_email(user.email, "[Shelf2Site] Test Notification", body_html)
     if ok:
         return JSONResponse(content={"status": "sent", "to": user.email})
     return JSONResponse(status_code=500, content={

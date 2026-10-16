@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}C2C Cameras - Asset Tracker{% endblock %}
+{% block title %}C2C Cameras - Shelf2Site{% endblock %}
 
 {% block content %}
 {% from "_fl_icons.html" import fl_icon %}
@@ -84,7 +84,7 @@
           {% if cam.cert_status == 'cancelled' %}<span class="fl-badge urg">CANCELLED</span>{% else %}<span class="fl-badge warn">PENDING</span>{% endif %}
         </div>
         <div class="fl-osub-l">
-          <span class="fl-ochip">{{ cam.brand_sku or 'No SKU' }}</span>
+          <span class="fl-ochip">{{ cam.item_sku or 'No SKU' }}</span>
           <span class="fl-mchip">{{ cam.item_sn or 'No Serial' }}</span>
         </div>
         <div class="c2c-cam__meta">{{ cam.order_number or 'No Order' }}{% if cam.customer_name %} &middot; {{ cam.customer_name }}{% endif %}</div>
@@ -110,7 +110,7 @@
           <span class="fl-badge ok">CERTIFIED</span>
         </div>
         <div class="fl-osub-l">
-          <span class="fl-ochip">{{ cam.brand_sku or 'No SKU' }}</span>
+          <span class="fl-ochip">{{ cam.item_sku or 'No SKU' }}</span>
           <span class="fl-mchip">{{ cam.item_sn or 'No Serial' }}</span>
         </div>
         <div class="c2c-cam__meta">{{ cam.order_number or 'No Order' }}{% if cam.certified_by %} &middot; by {{ cam.certified_by }}{% endif %}</div>
@@ -438,7 +438,7 @@ function c2cRecertify() {
           <input type="radio" name="c2c-acq-cam" value="{{ it.item_id }}">
           <span class="c2c-radio__main">
             <span class="c2c-radio__name">{{ it.item_name or 'Camera' }}</span>
-            <span class="c2c-radio__meta"><span class="c2c-mono">{{ it.item_sn or 'no serial' }}</span> &middot; {{ it.brand_sku }}</span>
+            <span class="c2c-radio__meta"><span class="c2c-mono">{{ it.item_sn or 'no serial' }}</span> &middot; {{ it.item_sku }}</span>
           </span>
         </label>
         {% endfor %}

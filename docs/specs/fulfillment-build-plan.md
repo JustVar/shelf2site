@@ -230,7 +230,7 @@ warranty model, components migration.
 
 Fulfillment reads EdgeBox from legacy public.*, while the rest of the app uses
 item_schema. Two SKU systems coexist (new: item_schema.part_numbers +
-Item.brand_sku; old: EdgeBox.part_number + regex `_is_valid_sku`). This does not
+Item.item_sku; old: EdgeBox.part_number + regex `_is_valid_sku`). This does not
 block the pipeline UX + modals. Fully unblocking strict SKU select (B2/B3) is a
 separate later track: migrate public.edge_boxes -> item_schema.items; rewire
 `_is_valid_sku` to query part_numbers; promote sku_requirements.model from free

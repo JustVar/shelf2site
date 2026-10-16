@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Part Numbers - Asset Tracker{% endblock %}
+{% block title %}Part Numbers - Shelf2Site{% endblock %}
 
 {% block content %}
 <div class="partnums-page fl-restyle">
@@ -8,7 +8,7 @@
 <div class="fl-lift">
 <h1>Part Numbers</h1>
 <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
-    The Company SKU catalog. SKUs defined here are the managed vocabulary that
+    The SKU catalog. SKUs defined here are the managed vocabulary that
     intake and triage pick from. Editors can view; system admins can add, edit,
     and remove entries. A SKU cannot be deleted while items still reference it.
 </p>
@@ -31,8 +31,8 @@
     <h3 style="margin-bottom: 0.8rem;">Add Part Number</h3>
     <form id="add-pn-form" class="form-inline" onsubmit="addPN(event)" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
         <div class="form-group" style="margin-bottom: 0;">
-            <label>Company SKU</label>
-            <input type="text" id="pn-sku" name="brand_sku"
+            <label>SKU</label>
+            <input type="text" id="pn-sku" name="item_sku"
                    placeholder="e.g. PVA-25-30R5" required style="width: 160px;">
         </div>
         <div class="form-group" style="margin-bottom: 0;">
@@ -102,7 +102,7 @@
                     <td></td>
                     <td></td>
                     <td>
-                        <span style="font-family: monospace; font-weight: 600; font-size: 0.9rem; background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">{{ row.pn.brand_sku }}</span>
+                        <span style="font-family: monospace; font-weight: 600; font-size: 0.9rem; background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">{{ row.pn.item_sku }}</span>
                     </td>
                     <td style="color: var(--text-muted); font-size: 0.9rem;">{{ row.pn.sku_description or '' }}</td>
                     <td>
@@ -123,7 +123,7 @@
                             Edit
                         </button>
                         <button class="fl-obtn danger"
-                                onclick="event.stopPropagation(); deletePN({{ row.pn.id }}, {{ (row.pn.brand_sku or '')|tojson|forceescape }})">
+                                onclick="event.stopPropagation(); deletePN({{ row.pn.id }}, {{ (row.pn.item_sku or '')|tojson|forceescape }})">
                             Delete
                         </button>
                     </td>

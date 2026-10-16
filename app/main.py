@@ -1,4 +1,4 @@
-"""FastAPI application for the Asset Tracker."""
+"""FastAPI application for Shelf2Site."""
 
 import asyncio
 import concurrent.futures
@@ -88,8 +88,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Asset Tracker",
-    description="Hardware asset tracker for Company",
+    title="Shelf2Site",
+    description="Hardware inventory and fulfillment, from shelf to site",
     version="2.0.0",
     lifespan=lifespan,
     # No interactive API docs in production — /docs, /redoc and /openapi.json

@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 {% set _kiosk = user and user.role == 'map_kiosk' %}
 {% from "_fl_icons.html" import fl_icon %}
+{% from "_brand.html" import brand_logo, brand_mark %}
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Asset Tracker{% endblock %}</title>
+    <title>{% block title %}Shelf2Site{% endblock %}</title>
     <script>
     // Sidebar state init — runs during <head> parse, BEFORE any CSS/body renders.
     // Sets html.sx-nav-pre-collapsed if the user is collapsed so first paint is
@@ -73,7 +74,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Asset Tracker">
+    <meta name="apple-mobile-web-app-title" content="Shelf2Site">
     <meta name="base-path" content="{{ base_path | default('') }}">
     <script>window.BP = "{{ base_path }}";</script>
     <script src="{{ base_path }}/static/js/theme.js?v={{ request.state.js_v('js/theme.js') or '0' }}"></script>
@@ -104,17 +105,13 @@
       <!-- Header -->
       <div class="sx-nav__header">
         <div class="sx-nav__header-expanded">
-          <img src="{{ base_path }}/static/img/logo-horizontal.svg?v={{ request.state.js_v('img/logo-horizontal.svg') or '0' }}"
-               alt="the company" class="sx-nav__logo-horiz"
-               onerror="this.style.display='none'">
+          <a href="{{ base_path }}/dashboard" class="sx-nav__logo-horiz">{{ brand_logo(30, 's2s-nav') }}</a>
           <button class="sx-nav__toggle-btn" onclick="sxNavCollapse()" title="Collapse sidebar">
             {{ fl_icon('chevrLeft', 'mute', 13) }}
           </button>
         </div>
         <div class="sx-nav__header-collapsed">
-          <img src="{{ base_path }}/static/img/logo-icon.svg?v={{ request.state.js_v('img/logo-icon.svg') or '0' }}"
-               alt="Company" class="sx-nav__logo-icon"
-               onerror="this.style.display='none'">
+          <a href="{{ base_path }}/dashboard" class="sx-nav__logo-icon">{{ brand_mark(34, 's2s-nav-mark') }}</a>
           <button class="sx-nav__toggle-btn" onclick="sxNavExpand()" title="Expand sidebar">
             {{ fl_icon('chevrRight', 'mute', 13) }}
           </button>
@@ -445,7 +442,7 @@
             <button class="hamburger" onclick="toggleMobileSidebar()">
                 <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
-            <span style="font-weight: 600;">Asset Tracker</span>
+            <span style="font-weight: 600;">Shelf2Site</span>
         </header>
 
         <!-- Maintenance announcement banner — shown when active, hidden otherwise -->
@@ -521,7 +518,7 @@
                            content can abort the remaining scripts in that
                            fragment, turning one page's problem into a broken
                            page. The browser console is this repo's real JS
-                           check, since node is not on apphost. */
+                           check. */
                         console.error('PageInit: no root found for page "' + name + '". Init skipped.');
                         return;
                     }

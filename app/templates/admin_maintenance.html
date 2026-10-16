@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Service Maintenance - Asset Tracker{% endblock %}
+{% block title %}Service Maintenance - Shelf2Site{% endblock %}
 {% block nav_admin %}active{% endblock %}
 
 {% block content %}
@@ -16,7 +16,7 @@
     The banner appears on every page until you clear it or the server restarts.
 </p>
 
-<!-- Nightly backup status row (status.json from scripts/at-backup.sh on apphost; docs/BACKUPS.md) -->
+<!-- Nightly backup status row (status.json from scripts/at-backup.sh; docs/BACKUPS.md) -->
 <div class="fl-banner {{ backup.level }}" id="backup-status-row" style="cursor: default;">
     <span class="fl-banner-title">Database Backup</span>
     <div class="fl-banner-stats" style="flex-wrap: wrap;">

@@ -469,7 +469,7 @@ def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
                     {"mac_address": mac})
 
     if cls == "uuid":
-        item = db.query(Item).filter(func.lower(Item.appliance_uuid) == low).first()
+        item = db.query(Item).filter(func.lower(Item.platform_uuid) == low).first()
         if item:
             payload = _item_found(db, item, "uuid")
             payload["class"] = cls
@@ -522,20 +522,20 @@ def _route_scan(db, cls: str, value: str, gs1: dict) -> dict:
         return miss("Order not found.")
 
     if cls == "unit_pn":
-        item = db.query(Item).filter(func.lower(Item.brand_pn) == low).first()
+        item = db.query(Item).filter(func.lower(Item.item_pn) == low).first()
         if item:
             payload = _item_found(db, item, "unit_pn")
             payload["class"] = cls
             return payload
         return miss("Unit PN not in inventory — receive it with the PN prefilled?",
-                    {"brand_pn": value})
+                    {"item_pn": value})
 
     if cls == "sku":
         guidance = "That's a SKU, not a unit serial — now scan the unit's serial."
         pn = db.query(ItemPartNumber).filter(
-            func.lower(ItemPartNumber.brand_sku) == low).first()
+            func.lower(ItemPartNumber.item_sku) == low).first()
         if pn:
-            prefill = {"brand_sku": pn.brand_sku}
+            prefill = {"item_sku": pn.item_sku}
             if pn.item_category:
                 prefill["item_category"] = str(pn.item_category)
             return recognized(guidance, prefill)
@@ -781,17 +781,17 @@ async def submit_device(
         if unmatched_location:
             notes = (notes + "\n" if notes else "") + f"Location (as scanned): {unmatched_location}"
 
-        # brand_sku is an FK into item_schema.part_numbers — only store a
+        # item_sku is an FK into item_schema.part_numbers — only store a
         # known SKU; unknown scans go to notes instead of failing the insert.
-        brand_sku = None
+        item_sku = None
         part_number = (body.get("part_number") or "").strip()
         if part_number:
             from ..models import ItemPartNumber
             known = db.query(ItemPartNumber).filter(
-                func.lower(ItemPartNumber.brand_sku) == part_number.lower()
+                func.lower(ItemPartNumber.item_sku) == part_number.lower()
             ).first()
             if known:
-                brand_sku = known.brand_sku
+                item_sku = known.item_sku
             else:
                 notes = (notes + "\n" if notes else "") + f"Part number (as scanned): {part_number}"
 
@@ -839,8 +839,8 @@ async def submit_device(
                     "department_or_owner": body.get("assigned_to"),
                     "item_mac_address_1": body.get("mac_address_1") or body.get("mac_address"),
                     "item_mac_address_2": body.get("mac_address_2"),
-                    "appliance_uuid": body.get("uuid"),
-                    "brand_sku": brand_sku,
+                    "platform_uuid": body.get("uuid"),
+                    "item_sku": item_sku,
                     "item_vendor": event.vendor if event else None,
                     "notes": notes,
                 },
@@ -853,7 +853,7 @@ async def submit_device(
                 # H16/H17: tick the event's SKU line + the matching OEM PO
                 # line, record the unit↔event link. Never blocks: no match,
                 # no SKU, no PO — all silent no-ops.
-                unit_sku = part_number or brand_sku
+                unit_sku = part_number or item_sku
                 _record_received_unit(db, event, unit_sku, serial, item_id=item.id)
                 sync_oem_receipt(db, event.purchase_order, unit_sku)
                 _maybe_autocomplete(event)

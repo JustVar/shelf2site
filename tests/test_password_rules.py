@@ -164,12 +164,12 @@ def test_find_context_word_never_matches_a_username():
 # ── Rule 4a: configured context words (plain substring) ────────────────────
 
 @pytest.mark.parametrize("password,word", [
-    ("brand-mountain-river", "brand"),
-    ("my-BrAnD-phrase-9", "brand"),          # casefolded
+    ("shelf2site-mountain-river", "shelf2site"),
+    ("my-ShElF2SiTe-phrase-9", "shelf2site"),          # casefolded
     ("my-assettracker-login-99", "assettracker"),
     ("myASSETTRACKERlogin9", "assettracker"),    # embedded, no separators
     ("the-asset-tracker-vault", "asset-tracker"),
-    ("brand2-fields-999", "brand"),
+    ("shelf2site2-fields-999", "shelf2site"),
     ("Go-ASSETTRACKER-Team-Winner", "assettracker"),
     ("my-password-is-long-99", "password"),
 ])
@@ -178,10 +178,10 @@ def test_context_words_are_rejected_anywhere_in_the_password(password, word):
 
 
 @pytest.mark.parametrize("password", [
-    "isotope-ladder-vault-9",     # "sot" is not "brand"
+    "shelfish-ladder-vault-9",    # "shelf" is not "shelf2site"
     "sotto-voce-brisket-9",
-    "sotheby-meadow-lantern",     # "sot" is not "brand"
-    "soteri-museum-tour-42",      # one letter short
+    "shelf2-meadow-lantern-x",    # "shelf2" is not "shelf2site"
+    "shelf2sit-museum-tour-42",   # one letter short
     "compass-lantern-quilt",      # "pass" is not "password"
     "crossword-tunnel-vault",     # "word" is not "password"
     "asset-manager-jungle",       # bare "asset" is not configured
@@ -250,7 +250,7 @@ def test_a_username_shorter_than_the_minimum_word_length_is_skipped():
 
 @pytest.mark.parametrize("password,username,fragment", [
     ("walter-secret-vault-2026", "walter", "your username"),
-    ("brand-mountain-river", None, "'brand'"),
+    ("shelf2site-mountain-river", None, "'shelf2site'"),
     ("silver12silver12", None, "repeated pattern"),
     ("ponmlkjihgfedcba", None, "simple sequence"),
     ("gfdsapoiuytrewq", None, "keyboard pattern"),
@@ -324,7 +324,7 @@ def test_whitespace_padding_cannot_smuggle_a_short_secret_past_the_minimum(passw
 @pytest.mark.parametrize("password", [
     "my-pａssword-is-long-99",   # fullwidth 'a' (U+FF41) inside "password"
     "ｐａｓｓｗｏｒｄ１２３４５６７",       # entirely fullwidth
-    "my-ＳＯＴＥＲＩＸ-phrase-9",
+    "my-ＳＨＥＬＦ２ＳＩＴＥ-phrase-9",
 ])
 def test_compatibility_homoglyphs_do_not_hide_a_context_word(password):
     """casefold() folds case but not NFKC; these read as the banned word to a human."""

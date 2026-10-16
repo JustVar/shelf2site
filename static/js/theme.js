@@ -1,5 +1,5 @@
 // @ts-check
-/* Hardware Asset Tracker — Theme & Sidebar */
+/* Shelf2Site theme and sidebar */
 
 (function () {
     // Apply theme immediately to prevent flash

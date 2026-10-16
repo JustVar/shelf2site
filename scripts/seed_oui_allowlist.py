@@ -54,7 +54,7 @@ SEED_DATA = [
 
 
 def main():
-    print("=== Company Hardware Inventory - OUI Allowlist Seed ===")
+    print("=== Shelf2Site - OUI Allowlist Seed ===")
     print()
 
     create_all_tables()

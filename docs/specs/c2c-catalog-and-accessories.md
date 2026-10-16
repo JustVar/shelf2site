@@ -27,21 +27,21 @@ spec does not invalidate C1 (see section 8) but decides the grain C2 builds on.
 ## 2. Grounded facts (read this session, with source)
 
 **The catalog exists and is categorized.**
-- `item_schema.part_numbers` (`ItemPartNumber`), keyed on `brand_sku` (unique),
+- `item_schema.part_numbers` (`ItemPartNumber`), keyed on `item_sku` (unique),
   carries an `item_category` enum column. 85 rows.
 - Category distribution: `edge_box` 73, `storage_drive` 7, `gpu` 2, `camera` 1,
   `camera_c2c` 1, `cloud_box` 1.
 - The canonical C2C camera SKU is **`C2C-GEN1-4MP`** -> `item_category =
   camera_c2c`, "Company C2C Gen1 4MP Camera", not legacy.
 - `E2C-25-2TB` is `item_category = edge_box` (legacy, SimplyNUC) — NOT a camera.
-- `item_schema.items` FKs to `part_numbers.brand_sku`
-  (`items.brand_sku` -> `part_numbers.brand_sku`).
+- `item_schema.items` FKs to `part_numbers.item_sku`
+  (`items.item_sku` -> `part_numbers.item_sku`).
 
 **There are two unlinked camera worlds.** This is the central finding.
 
 | | Legacy `public.cameras` (`Camera`) | Unified `item_schema.items` (`Item`) |
 |---|---|---|
-| SKU link | none — no `brand_sku`, no `part_number` column | `brand_sku` FK -> `part_numbers`, plus `item_category` |
+| SKU link | none — no `item_sku`, no `part_number` column | `item_sku` FK -> `part_numbers`, plus `item_category` |
 | Identity | vendor `model` + `serial` | SKU + category + `item_sn` |
 | Points here | `TABLE_MODELS["cameras"]`, the acquire path, `DeviceProvisioning`, the cert FK chain | nothing in the provisioning/cert world |
 | Sample rows | ids 1-5 (Hanwha/Avigilon, real serials, no SKU) | id 17 = `camera_c2c` / `C2C-GEN1-4MP` / serial `C2C-SX-0001`; id 16 = `camera` / `PVA-CAM-HW8080` |
@@ -139,7 +139,7 @@ ship).
 A C2C "needed" line is discriminated by a **catalog join**, not a string prefix
 or a JSONB `category` field:
 
-> `sku_requirements.model` -> `part_numbers.brand_sku` where
+> `sku_requirements.model` -> `part_numbers.item_sku` where
 > `item_category = 'camera_c2c'`.
 
 This supersedes the C1 "SKU-prefix" idea and vindicates the C1 "no category field
@@ -159,9 +159,9 @@ this for edge boxes; extending it to a catalog-backed picker is spec scope.
 
 Where a physical camera records which SKU it fulfills: a **`fulfillment_sku`
 column on the `DeviceProvisioning` row**, set at acquire time, as a **foreign key
-to `part_numbers.brand_sku`** (not a bare string).
+to `part_numbers.item_sku`** (not a bare string).
 
-- Precedent: `items.brand_sku` is already an FK to `part_numbers` — matching
+- Precedent: `items.item_sku` is already an FK to `part_numbers` — matching
   that pattern keeps the catalog the single source of truth and blocks the
   `EDGE-2000` class of non-catalog typo at write time.
 - Double duty: it marks cert-eligibility (a `camera_c2c` SKU) AND is the only
@@ -214,7 +214,7 @@ expensive after C2 builds the cert write path.
   on a table holding ~2 camera rows while real stock stays in `public.cameras`.
 
 ### Option C — bridge legacy `cameras` to its SKU / items id
-- **Means:** add a `brand_sku` (FK to `part_numbers`) or an `items` link to
+- **Means:** add a `item_sku` (FK to `part_numbers`) or an `items` link to
   `public.cameras`. Keep provisioning/cert on `cameras`. SKU becomes reachable
   from the provisioned cam, so availability is computable.
 - **Cost:** a migration on `cameras` + a backfill tagging existing cams with
@@ -237,7 +237,7 @@ row `C2C-GEN1-4MP`, items id 17, was created that way). Acquisition and
 certification stay on the `DeviceProvisioning` chain C1 built; **migration 055
 and the cert grain are untouched** (cert still keys on `device_provisioning_id`).
 Availability becomes computable natively, because the items row already carries
-`brand_sku` + `item_category`.
+`item_sku` + `item_category`.
 
 D is a lighter shape than the original "B" framing: it keeps the provisioning row
 (so the order-link and serial-snapshot come along for free) and only adds a link
@@ -246,7 +246,7 @@ column; it does not fork cert off the provisioning subsystem.
 **Why not the others (the decision record):**
 - **A — REJECTED.** The owner requires available-in-stock counting (how many can
   we use vs how many to order); A explicitly drops that.
-- **C — DOMINATED.** `item_schema.items` already carries `brand_sku` +
+- **C — DOMINATED.** `item_schema.items` already carries `item_sku` +
   `item_category`, so per-model counts are native under D; bolting a SKU onto
   legacy `public.cameras` (C) is redundant and deepens the seam.
 - **B1 — DEAD.** Probed: registering `Item` in the shared `TABLE_MODELS` pollutes
@@ -279,7 +279,7 @@ reused as-is.
 - **Acquired** — cam `DeviceProvisioning` rows on the order (like #243).
   Computable now.
 - **Available in stock** — **now computable under D.** Query `item_schema.items`
-  directly, filtered on `item_category = 'camera_c2c'` (and/or `brand_sku`),
+  directly, filtered on `item_category = 'camera_c2c'` (and/or `item_sku`),
   netting out cams already linked to an active `DeviceProvisioning` (via the new
   `item_id`). Do NOT reuse `_sku_availability` for cams — its cross-category
   `ilike` over-matches and it never sees `item_schema.items`.

@@ -419,7 +419,7 @@ data, data before readers, readers before drops.
    (`GET /api/provisioning/devices/edge_boxes`, path kept) lists edge box
    items with a serial and no active record. Queue, detail, board, export
    and the Zendesk match read the item: serial, SKU, `sku_version` and
-   `deployment_type` attributes, MACs and `appliance_uuid`. The registration
+   `deployment_type` attributes, MACs and `platform_uuid`. The registration
    UUID check and the completion update (status Deployed) act on the item.
    Advance now refuses rows with no stages (the C2C and order label rows)
    instead of every row with an `item_id`. Nothing in `provisioning.py`
@@ -428,12 +428,12 @@ data, data before readers, readers before drops.
    **Build certification built 2026-09-29:** the index, detail page,
    report and the QA, hardware, files, close, cancel and recertify routes
    resolve the unit through `device_provisioning.item_id` to an
-   `edge_box` item (`_cert_edge_box`: serial, `appliance_uuid`, SKU), never
+   `edge_box` item (`_cert_edge_box`: serial, `platform_uuid`, SKU), never
    `edge_boxes`. The index lists every order-linked edge box item, so
    stock edge boxes assigned to an order appear there too. Certification
    rows still key on `oem_serial` and the provisioning id, unchanged.
    **Fulfillment and orders built 2026-09-29:** the stock snapshot counts
-   `edge_box` items by SKU (`brand_sku`, else `brand_pn`), busy when
+   `edge_box` items by SKU (`item_sku`, else `item_pn`), busy when
    an active record links them. The Building board's devices are edge box
    item rows WITH stages (the stage machine), and the unit count adds
    still-out item rows WITHOUT stages, so no row counts twice. The SE

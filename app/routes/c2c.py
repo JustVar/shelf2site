@@ -1,6 +1,6 @@
 """C2C camera certification — a separate, lighter fulfillment flow.
 
-C2C cameras (category ``camera_c2c``) are the company's Cloud2 camera product.
+C2C cameras (category ``camera_c2c``) are the cloud-connected camera product.
 Unlike edge boxes there is no build and no parts: acquire the cameras for an
 order, then certify each one — powered on, firmware verified, connected to its
 virtual site via QR, and registered.
@@ -72,7 +72,7 @@ def _c2c_board_data(db: Session) -> dict:
     """
     # Catalog SKUs that count as C2C cameras (today: just C2C-GEN1-4MP).
     c2c_skus = {
-        sku for (sku,) in db.query(ItemPartNumber.brand_sku)
+        sku for (sku,) in db.query(ItemPartNumber.item_sku)
         .filter(ItemPartNumber.item_category == "camera_c2c").all()
     }
 
@@ -93,7 +93,7 @@ def _c2c_board_data(db: Session) -> dict:
             DeviceProvisioning.id.label("provisioning_id"),
             DeviceProvisioning.item_id,
             DeviceProvisioning.customer_order_id,
-            Item.item_name, Item.item_sn, Item.brand_sku,
+            Item.item_name, Item.item_sn, Item.item_sku,
             CustomerOrder.order_number, CustomerOrder.customer_name,
             C2CCertification.status.label("cert_status"),
             C2CCertification.certified_by, C2CCertification.certified_at,
@@ -117,7 +117,7 @@ def _c2c_board_data(db: Session) -> dict:
             "item_id": r.item_id,
             "item_name": r.item_name,
             "item_sn": r.item_sn,
-            "brand_sku": r.brand_sku,
+            "item_sku": r.item_sku,
             "order_id": r.customer_order_id,
             "order_number": r.order_number,
             "customer_name": r.customer_name,
@@ -153,7 +153,7 @@ def _c2c_board_data(db: Session) -> dict:
         avail_q = avail_q.filter(~Item.id.in_(linked_item_ids))
     available_items = [
         {"item_id": i.id, "item_name": i.item_name, "item_sn": i.item_sn,
-         "brand_sku": i.brand_sku}
+         "item_sku": i.item_sku}
         for i in avail_q.order_by(Item.id).all()
     ]
 
@@ -195,7 +195,7 @@ def _c2c_board_data(db: Session) -> dict:
             "notes": c["notes"],
             "name": c["item_name"],
             "serial": c["item_sn"],
-            "sku": c["brand_sku"],
+            "sku": c["item_sku"],
             "order_number": c["order_number"],
         }
         for c in pending_cams + certified_cams
@@ -408,7 +408,7 @@ async def c2c_acquire(
     # error / spuriously 409 a loan acquire.
     if order.order_type == "sale":
         c2c_skus = {
-            sku for (sku,) in db.query(ItemPartNumber.brand_sku)
+            sku for (sku,) in db.query(ItemPartNumber.item_sku)
             .filter(ItemPartNumber.item_category == "camera_c2c").all()
         }
         needed = sum(int(line.get("qty") or 0) for line in (order.sku_requirements or [])
@@ -878,7 +878,7 @@ def _build_c2c_composite_pdf(db, cert, item, prov):
     when = fmt_local(cert.certified_at, "%Y-%m-%d %H:%M %Z") or "-"
     line("C2C Camera Certification", size=18, dy=30, bold=True)
     line(f"Camera serial: {serial}", bold=True)
-    line(f"Model / SKU: {(item.item_model if item else '') or ''}  {(item.brand_sku if item else '') or ''}")
+    line(f"Model / SKU: {(item.item_model if item else '') or ''}  {(item.item_sku if item else '') or ''}")
     line(f"Status: {cert.status}", bold=True,
          color=((0, 0.5, 0.15) if cert.status == "certified" else (0.6, 0.4, 0)))
     line(f"Certified by: {cert.certified_by or '-'}    Date: {when}")
@@ -1161,7 +1161,7 @@ def c2c_history(
         "request": request,
         "user": user,
         "item": {"id": item.id, "item_name": item.item_name, "item_sn": item.item_sn,
-                 "brand_sku": item.brand_sku},
+                 "item_sku": item.item_sku},
         "events": events,
     }
     return templates.TemplateResponse("c2c_history.html", ctx)

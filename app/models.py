@@ -23,7 +23,7 @@ LOCAL_TODAY_SQL = "(now() AT TIME ZONE 'America/Chicago')::date"
 
 # Admin-level roles (CEO included, has all admin access except credentials).
 # Single home for this tuple; auth, api and admin import it from here.
-ADMIN_LEVEL_ROLES = ("justin_admin", "system_admin", "admin", "ceo")
+ADMIN_LEVEL_ROLES = ("super_admin", "system_admin", "admin", "ceo")
 
 
 # item_categories ENUM (public schema). Defined here, ahead of the models,
@@ -724,11 +724,11 @@ class CustomerOrder(Base):
     # Loan due date (Migration 058) for non-sale order types; per-camera return
     # lives on device_provisioning.returned_date and order return status derives.
     expected_return = Column(Date, nullable=True)
-    # Build ownership (Migration 074): brand or oem, see OWNERS. The partner
-    # is set exactly when the OEM owns the order. The CHECK
+    # Build ownership (Migration 074, values renamed in 086): in_house or oem,
+    # see OWNERS. The partner is set exactly when the OEM owns the order. The CHECK
     # customer_orders_owner_partner_check in migration 074 enforces that, not
     # this model. See docs/specs/order-owner-split-slice-1.md.
-    owner = Column(String(16), nullable=False, server_default="brand")
+    owner = Column(String(16), nullable=False, server_default="in_house")
     oem_partner_id = Column(Integer, ForeignKey("oem_partners.id"), nullable=True)
     customer_name = Column(String(256), nullable=False)
     customer_account = Column(String(256), nullable=True)
@@ -808,7 +808,7 @@ class CustomerOrder(Base):
     # vocabulary, same pattern as ORDER_TYPES. See
     # docs/specs/order-owner-split-slice-1.md.
     OWNERS = {
-        "brand": "Company",
+        "in_house": "In-house",
         "oem": "OEM",
     }
 
@@ -1066,10 +1066,10 @@ class Item(Base):
     item_mac_address_1         = Column(String(64), nullable=True)
     item_mac_address_2         = Column(String(64), nullable=True)
     item_storage_size_gb       = Column(Float, nullable=True)
-    appliance_uuid                = Column(String(512), nullable=True)
-    brand_sku                = Column(String(512), ForeignKey('item_schema.part_numbers.brand_sku'), nullable=True)
-    brand_pn                 = Column(String(512), nullable=True)
-    item_associated_brand_pn = Column(String(512), nullable=True)
+    platform_uuid              = Column(String(512), nullable=True)
+    item_sku                   = Column(String(512), ForeignKey('item_schema.part_numbers.item_sku'), nullable=True)
+    item_pn                    = Column(String(512), nullable=True)
+    item_associated_pn         = Column(String(512), nullable=True)
     # Real FK to public.vendor_profiles (migration 075), ON DELETE SET NULL.
     vendor_id                  = Column(Integer, ForeignKey("vendor_profiles.id", ondelete="SET NULL"), nullable=True)
     item_vendor                = Column(String(1024), nullable=True)
@@ -1094,13 +1094,13 @@ class Item(Base):
     REQUIRED_FIELDS_HARDWARE = [
         "item_name", "item_manufacturer", "item_model", "item_sn",
         "item_category", "item_status", "location_id",
-        "department_or_owner", "brand_sku", "brand_pn", "vendor_id",
+        "department_or_owner", "item_sku", "item_pn", "vendor_id",
     ]
     # Default — the only triage set, and what the generic dispatcher reads
     REQUIRED_FIELDS = REQUIRED_FIELDS_HARDWARE
 
     location = relationship('Site', foreign_keys=[location_id])  # Migration 063
-    part_number = relationship('ItemPartNumber', foreign_keys=[brand_sku])
+    part_number = relationship('ItemPartNumber', foreign_keys=[item_sku])
 
 
 # Dead after Migration 063 (rows folded into sites; nothing points here).
@@ -1137,7 +1137,7 @@ class ItemPartNumber(Base):
     __table_args__ = {'schema': 'item_schema'}
 
     id              = Column(Integer, primary_key=True, autoincrement=True)
-    brand_sku     = Column(String(512), unique=True, nullable=False)
+    item_sku        = Column(String(512), unique=True, nullable=False)
     sku_description = Column(Text, nullable=True)
     item_category   = Column(item_categories_enum, nullable=True)
     is_legacy       = Column(Boolean, default=False)
@@ -1248,7 +1248,7 @@ class BuildCertification(Base):
     )
     device_uuid = Column(String(64), nullable=True)
     hardware_validation = Column(JSONB, nullable=True)
-    appliance_version = Column(String(64), nullable=True)
+    software_version = Column(String(64), nullable=True)
     license_counts = Column(JSONB, nullable=True)
     qa_checklist = Column(JSONB, nullable=True)
     certified_by = Column(String(128), nullable=True)

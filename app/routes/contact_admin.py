@@ -1,4 +1,4 @@
-"""Contact Admin — posts user message to #asset-tracker-admin Slack channel."""
+"""Contact Admin — posts user message to #shelf2site-admin Slack channel."""
 import os
 import httpx
 from fastapi import APIRouter, Depends, Request

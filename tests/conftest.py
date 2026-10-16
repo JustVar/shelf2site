@@ -1,13 +1,13 @@
 """Shared fixtures for the contract tests.
 
-These run INSIDE the app container against the live `asset_tracker` database
-(there is no separate test cluster). Every fixture that writes cleans up after
-itself and prefixes its rows with `contract-test` so anything left behind by a
-crashed run is obvious and safe to delete.
+The tests drive the running app over HTTP at 127.0.0.1:8081 and read its
+database directly (there is no separate test cluster). Every fixture that
+writes cleans up after itself and prefixes its rows with `contract-test`, so
+anything left behind by a crashed run is obvious and safe to delete.
 
-Run them with:
+Run them inside the app container:
 
-    ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/ -q"
+    docker compose exec -T app python -m pytest tests/ -q
 """
 
 import secrets

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Deployment Map - Asset Tracker{% endblock %}
+{% block title %}Deployment Map - Shelf2Site{% endblock %}
 {% block nav_map %}active{% endblock %}
 
 {% block head %}
@@ -273,6 +273,10 @@
         attributionControl: false,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    // Basemap credit, always expanded: the CARTO tiles require it and carry
+    // OpenStreetMap data (ODbL), which requires it too. The text comes from
+    // the CARTO style itself, so it stays whatever CARTO asks for.
+    map.addControl(new maplibregl.AttributionControl({ compact: false }), "bottom-right");
     window._mpMap = map; // debug/gate handle, mirrors window._lockManager precedent
     var popup = new maplibregl.Popup({ offset: 12, maxWidth: "290px" }); // single reused instance
 

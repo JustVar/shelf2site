@@ -146,7 +146,7 @@ def order_detail(
     )
 
     # Catalog for the SKU-requirements editor typeahead (same pattern as intake).
-    part_numbers = db.query(ItemPartNumber).order_by(ItemPartNumber.brand_sku).all()
+    part_numbers = db.query(ItemPartNumber).order_by(ItemPartNumber.item_sku).all()
 
     # Unit photos across this order, grouped by direction (shipment-photos).
     from ..models import UnitPhoto
@@ -187,7 +187,7 @@ def order_detail(
         "part_numbers": part_numbers,
         # Plain list usable in BOTH template blocks — a {% set %} in the
         # content block cannot cross into the scripts block (Jinja scoping).
-        "catalog_skus": [pn.brand_sku for pn in part_numbers],
+        "catalog_skus": [pn.item_sku for pn in part_numbers],
         "photos_by_direction": photos_by_direction,
         "ORDER_STATUSES": CustomerOrder.ORDER_STATUSES,
         "ORDER_TYPES": CustomerOrder.ORDER_TYPES,
@@ -228,7 +228,7 @@ async def create_order(
     # whitelist the owner and couple the partner. Validate here and never lean
     # on the CHECK: the IntegrityError catch below reports every integrity
     # failure as a duplicate PO.
-    owner = (body.get("owner") or "brand").strip()
+    owner = (body.get("owner") or "in_house").strip()
     if owner not in CustomerOrder.OWNERS:
         return JSONResponse(status_code=400, content={"error": "Invalid owner"})
     oem_partner_id = None
@@ -417,7 +417,7 @@ async def update_order(
     # Build ownership, parity with create_order (migration 074). The partner is
     # read only when owner is in the body; the edit form always sends both.
     if "owner" in body:
-        owner = (body.get("owner") or "brand").strip()
+        owner = (body.get("owner") or "in_house").strip()
         if owner not in CustomerOrder.OWNERS:
             db.rollback()
             return JSONResponse(status_code=400, content={"error": "Invalid owner"})

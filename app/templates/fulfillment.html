@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Fulfillment - Asset Tracker{% endblock %}
+{% block title %}Fulfillment - Shelf2Site{% endblock %}
 {% block nav_fulfillment %}active{% endblock %}
 
 {% block head %}
@@ -1406,7 +1406,7 @@ input[type="date"].sp-field-input{color-scheme:dark;width:fit-content;max-width:
                 <label class="sp-field-lbl">Build Owner</label>
                 <select class="sp-field-input" name="owner" id="no-owner" onchange="toggleOwnerFields()">
                 {% for k, v in owners.items() %}
-                <option value="{{ k }}" {% if k == 'brand' %}selected{% endif %}>{{ v }}</option>
+                <option value="{{ k }}" {% if k == 'in_house' %}selected{% endif %}>{{ v }}</option>
                 {% endfor %}
                 </select>
             </div>
@@ -1995,7 +1995,7 @@ function toggleOrderTypeFields() {
 }
 
 /* Build owner (owner split, migration 074). Same disable-when-hidden shape as
-   toggleOrderTypeFields, so FormData omits the partner for Company orders. */
+   toggleOrderTypeFields, so FormData omits the partner for in-house orders. */
 function toggleOwnerFields() {
     const isOem = document.getElementById('no-owner').value === 'oem';
     const wrap = document.getElementById('no-oem-partner-wrap');

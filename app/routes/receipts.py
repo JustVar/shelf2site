@@ -145,7 +145,7 @@ def receipt_detail(
         lines.append({
             "item_id": ri.item_id,
             "item_name": (item.item_name if item and item.item_name else None),
-            "brand_sku": (item.brand_sku if item else None),
+            "item_sku": (item.item_sku if item else None),
             "item_sn": (item.item_sn if item else None),
             "quantity": ri.quantity,
             "notes": ri.notes,

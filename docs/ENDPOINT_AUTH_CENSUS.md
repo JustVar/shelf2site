@@ -44,7 +44,7 @@ ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python
 | `get_current_user` | any logged-in active user (including viewers) |
 | `require_viewer` | any role except `map_kiosk` |
 | `require_editor` | editor, sub-admins, admin tier |
-| `require_admin` | admin tier (justin_admin, system_admin, ceo, admin) |
+| `require_admin` | admin tier (super_admin, system_admin, ceo, admin) |
 | `require_*` domain deps | admin tier OR the matching permission grant (see `app/auth.py`) |
 | in-body `is_editor_or_above` | editor enforcement in the handler: redirect+toast for form posts, 403 with a message for fetch endpoints |
 | self-auth | handler checks the session itself (SSE stream only) |

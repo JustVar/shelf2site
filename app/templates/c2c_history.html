@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Certification history {{ item.item_sn or item.item_name }} - Asset Tracker{% endblock %}
+{% block title %}Certification history {{ item.item_sn or item.item_name }} - Shelf2Site{% endblock %}
 
 {% block head %}
 <style>
@@ -80,7 +80,7 @@
   <h1 class="c2ch-title">Certification history
     <span class="c2ch-title__serial">{{ item.item_sn or 'no serial' }}</span>
   </h1>
-  <div class="c2ch-sub">{{ item.item_name or 'Camera' }}{% if item.brand_sku %} &middot; {{ item.brand_sku }}{% endif %}</div>
+  <div class="c2ch-sub">{{ item.item_name or 'Camera' }}{% if item.item_sku %} &middot; {{ item.item_sku }}{% endif %}</div>
   <div class="c2ch-count">
     {{ events|length }} certification event{{ '' if events|length == 1 else 's' }} across this camera's lifecycle
   </div>

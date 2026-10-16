@@ -55,12 +55,12 @@
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="qv-field">
-      <div class="qv-field-label">Company SKU</div>
-      <input type="text" name="brand_sku" class="itk-input" value="{{ item.brand_sku or '' }}">
+      <div class="qv-field-label">SKU</div>
+      <input type="text" name="item_sku" class="itk-input" value="{{ item.item_sku or '' }}">
     </div>
     <div class="qv-field">
-      <div class="qv-field-label">Company PN</div>
-      <input type="text" name="brand_pn" class="itk-input" value="{{ item.brand_pn or '' }}">
+      <div class="qv-field-label">Part Number</div>
+      <input type="text" name="item_pn" class="itk-input" value="{{ item.item_pn or '' }}">
     </div>
   </div>
 
@@ -113,12 +113,12 @@
       <div class="qv-field-value">{{ item.department_or_owner or '—' }}</div>
     </div>
     <div class="qv-field">
-      <div class="qv-field-label">Company SKU</div>
-      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.brand_sku or '—' }}</div>
+      <div class="qv-field-label">SKU</div>
+      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.item_sku or '—' }}</div>
     </div>
     <div class="qv-field">
-      <div class="qv-field-label">Company PN</div>
-      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.brand_pn or '—' }}</div>
+      <div class="qv-field-label">Part Number</div>
+      <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.item_pn or '—' }}</div>
     </div>
   </div>
 
@@ -137,10 +137,10 @@
       <div class="qv-field-value" style="font-size:12px;font-family:var(--sx-font-mono)">{{ item.item_mac_address_2 | upper }}</div>
     </div>
     {% endif %}
-    {% if item.appliance_uuid %}
+    {% if item.platform_uuid %}
     <div class="qv-field" style="grid-column:1/-1">
-      <div class="qv-field-label">Appliance UUID</div>
-      <div class="qv-field-value" style="font-size:11px;font-family:var(--sx-font-mono)">{{ item.appliance_uuid }}</div>
+      <div class="qv-field-label">Platform UUID</div>
+      <div class="qv-field-value" style="font-size:11px;font-family:var(--sx-font-mono)">{{ item.platform_uuid }}</div>
     </div>
     {% endif %}
     {% if item.tracking_number %}

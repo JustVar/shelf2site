@@ -63,7 +63,7 @@ def test_update_accepts_a_known_status(admin_client, db, order):
 @pytest.mark.parametrize("field,value,message", [
     ("item_category", "spaceship", "Unknown category"),
     ("item_status", "Lost at sea", "Unknown status"),
-    ("brand_sku", "CONTRACT-TEST-NO-SUCH-SKU", "not in the part numbers list"),
+    ("item_sku", "CONTRACT-TEST-NO-SUCH-SKU", "not in the part numbers list"),
     ("location_id", "987654321", "location does not exist"),
 ])
 def test_intake_explains_a_value_the_database_would_reject(editor_client, db, field, value, message):

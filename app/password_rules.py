@@ -2,7 +2,7 @@
 
 A 15-character minimum invites a specific failure: passwords that are long but
 trivially guessable — "aaaaaaaaaaaaaaa", "123456789012345", "qwertyuiopasdfgh",
-"brand-brand". The breach blocklist cannot catch these, because only ~5.5k
+"shelf2site-shelf2site". The breach blocklist cannot catch these, because only ~5.5k
 of its entries are long enough to be consulted at all.
 
 These are NOT character-class composition rules (NIST SP 800-63B Rev 4 advises

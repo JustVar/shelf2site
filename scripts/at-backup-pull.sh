@@ -17,7 +17,7 @@ set -uo pipefail
 
 # Keepalives + connect timeout: a scheduled pull must fail fast, never hang.
 SSH_OPTS="${AT_SSH_OPTS:--i $HOME/.ssh/id_ed25519 -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4}"
-SSH_HOST="${AT_SSH_HOST:-admin@192.0.2.10}"
+SSH_HOST="${AT_SSH_HOST:-deploy@192.0.2.10}"
 REMOTE_ROOT="/data/asset-tracker/backups"
 LOCAL_ROOT="${AT_BACKUP_LOCAL:-/c/Users/you/Backups/asset-tracker}"
 

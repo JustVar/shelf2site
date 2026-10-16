@@ -61,7 +61,7 @@ class Settings:
         w.strip().lower()
         for w in os.getenv(
             "PASSWORD_CONTEXT_WORDS",
-            "brand,assettracker,asset-tracker,password",
+            "shelf2site,assettracker,asset-tracker,password",
         ).split(",")
         if w.strip()
     ]
@@ -100,7 +100,7 @@ class Settings:
     # an install never calls a third party with no contact address set.
     GEOCODER_ENABLED: bool = os.getenv("GEOCODER_ENABLED", "false").lower() == "true"
     GEOCODER_BASE_URL: str = os.getenv("GEOCODER_BASE_URL", "https://nominatim.openstreetmap.org/search")
-    GEOCODER_USER_AGENT: str = os.getenv("GEOCODER_USER_AGENT", "AssetTracker/1.0")
+    GEOCODER_USER_AGENT: str = os.getenv("GEOCODER_USER_AGENT", "Shelf2Site/1.0")
     GEOCODER_RATE_LIMIT_S: float = float(os.getenv("GEOCODER_RATE_LIMIT_S", "1.1"))
     GEOCODER_TIMEOUT_S: float = float(os.getenv("GEOCODER_TIMEOUT_S", "10"))
 
@@ -119,7 +119,7 @@ class Settings:
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM: str = os.getenv("SMTP_FROM", "Asset Tracker <noreply@example.com>")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "Shelf2Site <noreply@example.com>")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() == "true"
 
 

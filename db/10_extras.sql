@@ -127,7 +127,7 @@ $$;
 CREATE INDEX IF NOT EXISTS idx_items_category    ON item_schema.items (item_category);
 CREATE INDEX IF NOT EXISTS idx_items_status      ON item_schema.items (item_status);
 CREATE INDEX IF NOT EXISTS idx_items_location    ON item_schema.items (location_id);
-CREATE INDEX IF NOT EXISTS idx_items_brand_sku ON item_schema.items (brand_sku);
+CREATE INDEX IF NOT EXISTS idx_items_item_sku ON item_schema.items (item_sku);
 CREATE INDEX IF NOT EXISTS idx_items_vendor      ON item_schema.items (vendor_id);
 CREATE INDEX IF NOT EXISTS idx_component_history_item   ON item_schema.component_history (item_id);
 CREATE INDEX IF NOT EXISTS idx_component_history_parent ON item_schema.component_history (parent_item_id);

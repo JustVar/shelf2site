@@ -1,4 +1,4 @@
-"""Guided tour definitions for the Hardware Asset Tracker.
+"""Guided tour definitions for Shelf2Site.
 
 Each tour is a dict with:
   - id: unique string identifier

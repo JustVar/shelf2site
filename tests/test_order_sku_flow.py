@@ -21,7 +21,7 @@ def sku_order(admin_client, db):
     assert r.status_code == 200, r.text
     order_id = r.json()["id"]
     item_id = db.execute(sqltext(
-        "INSERT INTO item_schema.items (item_name, item_sn, item_category, item_status, brand_sku) "
+        "INSERT INTO item_schema.items (item_name, item_sn, item_category, item_status, item_sku) "
         "VALUES ('CONTRACT-TEST SKU Box', 'CONTRACT-TEST-SKU-BOX-1', 'edge_box', "
         "'Ready to Deploy', 'PVA-100-30NR') RETURNING id")).scalar()
     db.commit()

@@ -13,9 +13,9 @@ if [ -z "$PREV" ] || [ -z "$NEW" ]; then
   echo "ABORT: usage: wsync PREV NEW" >&2; exit 1
 fi
 
-REPO="${AT_WS_REPO:-/c/Users/you/Company/asset-tracker/asset-tracker}"
+REPO="${AT_WS_REPO:-$HOME/shelf2site}"
 SSH_OPTS="${AT_SSH_OPTS:--i ~/.ssh/id_ed25519}"
-SSH_HOST="${AT_SSH_HOST:-admin@192.0.2.10}"
+SSH_HOST="${AT_SSH_HOST:-deploy@192.0.2.10}"
 BUNDLE_NAME="sync_${PREV}_${NEW}.bundle"
 SRC="/tmp/${BUNDLE_NAME}"
 DST="/c/tmp/${BUNDLE_NAME}"
