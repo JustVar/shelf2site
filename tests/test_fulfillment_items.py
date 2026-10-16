@@ -79,5 +79,6 @@ def test_panel_and_order_page_show_the_item(admin_client, db, ful_unit):
     assert [(d["serial"], d["kind"]) for d in dev] == [(SERIAL, "item")]
     page = admin_client.get(f"/orders/{ful_unit['order_id']}")
     assert page.status_code == 200
-    assert f"CONTRACT-TEST Ful Edge ({SERIAL})" in page.text
+    # The units table shows the unit and its serial in separate columns.
+    assert "CONTRACT-TEST Ful Edge" in page.text and SERIAL in page.text
     assert admin_client.get("/fulfillment/").status_code == 200

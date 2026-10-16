@@ -18,16 +18,20 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_provisioning_viewer, require_provisioning_manager
 from ..config import settings
-from ..localtime import register
+from ..localtime import local_today, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
 from ..models import (
     CustomerOrder, DeploymentRecord, OEMPartner, OEMPurchaseOrder, DeviceProvisioning,
-    Item, ItemPartNumber,
+    InstallationCertification, Item, ItemPartNumber, OrderDocument, Site,
     User,
     AuditLog,
 )
 from ..order_matching import candidate_items, requirement_lines
+from ..order_tracks import (
+    COLUMNS, STEP_LABELS, NEXT_STEP, STATUS_COLUMN, TRACKS,
+    cert_doc_orders, column_of, flags, track_of, unit_counts,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -43,17 +47,17 @@ register(templates.env)
 # ---------------------------------------------------------------------------
 
 def _next_order_number(db: Session) -> str:
-    """Generate the next AT-XXXX order number."""
+    """Generate the next SO-XXXX order number (AT- on orders made before Shelf2Site)."""
     last = (
         db.query(CustomerOrder)
         .order_by(CustomerOrder.id.desc())
         .first()
     )
     if not last or not last.order_number:
-        return "AT-1001"
+        return "SO-1001"
     m = re.search(r"(\d+)$", last.order_number)
     n = int(m.group(1)) + 1 if m else 1001
-    return f"AT-{n}"
+    return f"SO-{n}"
 
 
 # ---------------------------------------------------------------------------
@@ -130,14 +134,70 @@ def order_detail(
     prov_enriched = []
     for p in prov_records:
         device_label = f"Provisioning #{p.id}"
-        if p.item_id:
+        item = db.query(Item).filter(Item.id == p.item_id).first() if p.item_id else None
+        if item:
             # Every unit is item-linked since item 30 S4 — label from items.
-            item = db.query(Item).filter(Item.id == p.item_id).first()
-            if item:
-                device_label = item.item_name or item.item_model or device_label
-                if item.item_sn:
-                    device_label = f"{device_label} ({item.item_sn})"
-        prov_enriched.append({"record": p, "device_label": device_label})
+            device_label = item.item_name or item.item_model or device_label
+        cert_url = None
+        if item and item.item_category == "camera_c2c":
+            cert_url = f"{BP}/fulfillment/c2c/history/{item.id}"
+        elif item and p.stages and item.item_sn:
+            cert_url = f"{BP}/fulfillment/certifications/history/{item.item_sn}"
+        prov_enriched.append({"record": p, "device_label": device_label, "item": item,
+                              "cert_url": cert_url})
+
+    # Track, column and next step (docs/specs/one-board-two-tracks.md).
+    track = track_of(order)
+    linked, still_out = unit_counts(db, [order.id]).get(order.id, (0, 0))
+    column = column_of(order, linked, still_out)
+    has_cert_doc = order.id in cert_doc_orders(db, [order.id])
+    next_col = NEXT_STEP[track].get(column) if column else None
+    track_info = {
+        "track": track,
+        "track_label": TRACKS[track],
+        "columns": COLUMNS[track],
+        "column": column,
+        "column_label": dict(COLUMNS[track]).get(column) if column else None,
+        "next": next_col,
+        "next_label": STEP_LABELS.get((track, next_col)) if next_col else None,
+        "linked": linked,
+        "still_out": still_out,
+        "flags": flags(order, column, still_out, has_cert_doc, local_today()) if column else {},
+        # The edit form names stored statuses by this track's columns.
+        "status_labels": {
+            k: dict(COLUMNS[track]).get(v, k) + ("" if list(STATUS_COLUMN[track].values()).count(v) == 1
+                                                 else " (" + CustomerOrder.ORDER_STATUSES[k] + ")")
+            for k, v in STATUS_COLUMN[track].items() if v
+        },
+    }
+
+    # Stock that can be assigned, matched per requirement line (the same
+    # matcher the availability card counts with).
+    candidates, seen = [], set()
+    site_names = {st.id: st.name for st in db.query(Site).all()}
+    if order.status != "cancelled":
+        for line in requirement_lines(order):
+            for it in candidate_items(db, line["model"]):
+                if it.id in seen:
+                    continue
+                seen.add(it.id)
+                candidates.append({"id": it.id, "serial": it.item_sn, "sku": it.item_sku,
+                                   "name": it.item_name or it.item_model,
+                                   "location": site_names.get(it.location_id)})
+
+    documents = (db.query(OrderDocument).filter(OrderDocument.customer_order_id == order.id)
+                 .order_by(OrderDocument.uploaded_at.desc(), OrderDocument.id.desc()).all())
+
+    deployments = (db.query(DeploymentRecord).filter(DeploymentRecord.customer_order_id == order.id)
+                   .order_by(DeploymentRecord.scheduled_date.asc().nullslast(), DeploymentRecord.id).all())
+    install_certs = {
+        c.deployment_record_id: c for c in db.query(InstallationCertification).filter(
+            InstallationCertification.deployment_record_id.in_([d.id for d in deployments] or [0])).all()
+    }
+    units_per_visit = {}
+    for p in prov_records:
+        if p.deployment_record_id:
+            units_per_visit[p.deployment_record_id] = units_per_visit.get(p.deployment_record_id, 0) + 1
 
     se_names = sorted(
         n[0] for n in db.query(CustomerOrder.sales_engineer)
@@ -197,6 +257,20 @@ def order_detail(
         "STATUS_COLORS": CustomerOrder.STATUS_COLORS,
         "cancel_reason": cancel_reason,
         "se_names": se_names,
+        "t": track_info,
+        "candidates": candidates,
+        "documents": documents,
+        "DOC_KINDS": OrderDocument.KINDS,
+        "deployments": deployments,
+        "install_certs": install_certs,
+        "units_per_visit": units_per_visit,
+        "DEPLOYMENT_STATUS_LABELS": DeploymentRecord.DEPLOYMENT_STATUS_LABELS,
+        "OEM_STATUSES": OEMPurchaseOrder.OEM_STATUSES,
+        "OEM_STATUS_LABELS": OEMPurchaseOrder.OEM_STATUS_LABELS,
+        "customer_sites": (db.query(Site).filter(Site.is_active.is_(True), Site.site_type == "customer_site")
+                           .order_by(Site.name.asc()).all()),
+        "active_users": db.query(User).filter(User.is_active.is_(True)).order_by(User.display_name.asc()).all(),
+        "today": local_today(),
     })
 
 

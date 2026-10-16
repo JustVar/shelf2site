@@ -8,7 +8,7 @@
 {% include "_fl_bg.html" %}
 <div class="fl-lift">
 <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
-    <a href="{{ base_path }}/orders/" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">&larr; Orders</a>
+    <a href="{{ base_path }}/fulfillment/" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">&larr; Fulfillment</a>
 </div>
 
 <!-- Header -->
@@ -19,10 +19,13 @@
             {% set sc = STATUS_COLORS.get(order.status, 'var(--text-muted)') %}
             <span id="status-badge" style="font-size:0.82rem; font-weight:600; padding:0.2rem 0.65rem; border-radius:99px;
                          background:{{ sc }}22; color:{{ sc }}; border:1px solid {{ sc }}55;">
-                {{ ORDER_STATUSES.get(order.status, order.status) | title }}
+                {% if t.column %}{{ t.column_label }}{% else %}{{ ORDER_STATUSES.get(order.status, order.status) | title }}{% endif %}
             </span>
+            <span class="order-type-badge">{{ t.track_label }}</span>
             <span class="order-type-badge order-type-badge--{{ order.order_type }}">{{ ORDER_TYPES.get(order.order_type, order.order_type) }}</span>
-            {% if order.owner == 'oem' %}<span class="order-type-badge">OEM: {{ order.oem_partner.name if order.oem_partner else 'Unassigned' }}</span>{% endif %}
+            {% if order.owner == 'oem' %}<span class="order-type-badge">Vendor: {{ order.oem_partner.name if order.oem_partner else 'Unassigned' }}</span>{% elif t.track == 'vendor' %}<span class="order-type-badge">Built in-house</span>{% endif %}
+            {% if t.flags.get('docs_missing') %}<span class="badge badge-warning" id="docs-missing-badge">Docs missing</span>{% endif %}
+            {% if t.flags.get('late') %}<span class="badge badge-danger">Late</span>{% endif %}
         </div>
         <div style="font-size:1.1rem; font-weight:500; margin-top:0.35rem;">{{ order.customer_name }}</div>
         {% if order.customer_account and order.customer_account != order.customer_name %}
@@ -36,7 +39,6 @@
            docs/specs/customer-order-cancel.md #}
         {% if order.status != 'cancelled' %}
         <button class="fl-obtn" onclick="openEditModal()">Edit Order</button>
-        <button class="fl-obtn" onclick="updateStatus()">Update Status</button>
         <button class="fl-obtn danger" id="cancel-order-btn" onclick="openCancelModal()">Cancel Order</button>
         <button class="fl-obtn danger" onclick="deleteOrder()">Delete</button>
         {% endif %}
@@ -54,6 +56,30 @@
     </div>
     <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.2rem;">
         Cancelled orders are terminal. Any units that were linked have been unlinked.
+    </div>
+</div>
+{% endif %}
+
+{% if t.column %}
+<!-- Progress along the track (docs/specs/one-board-two-tracks.md) -->
+<div class="table-section otrk" id="progress-section" style="margin-bottom:1.5rem;">
+    <ol class="otrk-steps">
+        {% set ns = namespace(passed=true) %}
+        {% for key, label in t.columns %}
+        {% if key == t.column %}{% set state = 'now' %}{% set ns.passed = false %}{% elif ns.passed %}{% set state = 'done' %}{% else %}{% set state = 'todo' %}{% endif %}
+        <li class="otrk-step otrk-step--{{ state }}" data-step="{{ key }}"><span class="otrk-dot"></span>{{ label }}</li>
+        {% endfor %}
+    </ol>
+    <div class="otrk-foot">
+        <span class="otrk-units">
+            {% if t.track == 'stock' %}{{ t.still_out }} of {{ t.linked }} unit{{ 's' if t.linked != 1 }} out{% if order.expected_return %} &middot; due back {{ order.expected_return }}{% endif %}
+            {% else %}{{ t.linked }} unit{{ 's' if t.linked != 1 }} linked{% if order.due_date %} &middot; due {{ order.due_date }}{% endif %}{% endif %}
+        </span>
+        {% if user.has_provisioning_manage and t.next %}
+        {% set needs_units = t.track == 'stock' and t.next == 'shipped' and not t.linked %}
+        {% if needs_units %}<span class="otrk-hint">Assign units from stock to ship</span>{% endif %}
+        <button class="fl-cta" id="advance-btn" onclick="advanceOrder({{ t.next | tojson | forceescape }})"{% if needs_units %} disabled{% endif %}>{{ t.next_label }}</button>
+        {% endif %}
     </div>
 </div>
 {% endif %}
@@ -89,14 +115,14 @@
         {% endif %}
     </div>
     <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
-        <div style="font-size:0.78rem; color:var(--text-muted);">Provisioning</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Units</div>
         <div style="font-size:1.2rem; font-weight:700; line-height:1.1;">{{ prov_records | length }}</div>
-        <div style="font-size:0.75rem; color:var(--text-muted);">linked records</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">linked to this order</div>
     </div>
     <div class="summary-card" style="flex-direction:column; gap:0.2rem;">
-        <div style="font-size:0.78rem; color:var(--text-muted);">OEM POs</div>
-        <div style="font-size:1.2rem; font-weight:700; line-height:1.1;">{{ oem_pos | length }}</div>
-        <div style="font-size:0.75rem; color:var(--text-muted);">purchase orders</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Documents</div>
+        <div style="font-size:1.2rem; font-weight:700; line-height:1.1;">{{ documents | length }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">on file</div>
     </div>
 </div>
 
@@ -196,7 +222,7 @@
 <!-- OEM Purchase Orders -->
 <div class="table-section" style="margin-bottom:1.5rem;">
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
-        <h2 style="margin:0;">OEM Purchase Orders</h2>
+        <h2 style="margin:0;">Purchase Orders</h2>
         {% if user.has_provisioning_manage %}
         <button class="fl-cta" onclick="document.getElementById('add-po-modal').classList.add('open')"
                 style="margin-left:auto;">+ Add PO</button>
@@ -236,10 +262,10 @@
                 <td style="font-size:0.85rem;">{{ po.order_date or '—' }}</td>
                 <td style="font-size:0.85rem;">{{ po.expected_delivery or '—' }}</td>
                 <td>
-                    {% if po.status == 'received' %}<span class="badge badge-success">Received</span>
-                    {% elif po.status == 'partial' %}<span class="badge badge-warning">Partial</span>
-                    {% elif po.status == 'cancelled' %}<span class="badge badge-danger">Cancelled</span>
-                    {% else %}<span class="badge">Ordered</span>{% endif %}
+                    {% if po.status == 'verified' %}<span class="badge badge-success">{{ OEM_STATUS_LABELS[po.status] }}</span>
+                    {% elif po.status == 'receiving' %}<span class="badge badge-warning">{{ OEM_STATUS_LABELS[po.status] }}</span>
+                    {% elif po.status == 'cancelled' %}<span class="badge badge-danger">{{ OEM_STATUS_LABELS[po.status] }}</span>
+                    {% else %}<span class="badge">{{ OEM_STATUS_LABELS.get(po.status, po.status) }}</span>{% endif %}
                 </td>
                 {% if user.has_provisioning_manage %}
                 <td>
@@ -259,50 +285,82 @@
         </tbody>
     </table>
     {% else %}
-    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No OEM purchase orders yet.</p>
+    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No purchase orders yet.</p>
     {% endif %}
 </div>
 
-<!-- Linked Provisioning Records -->
+<!-- Units on this order -->
 <div class="table-section" id="prov-section" style="margin-bottom:1.5rem;">
-    <h2>Linked Provisioning Records</h2>
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+        <h2 style="margin:0;">Units</h2>
+        {% if user.has_provisioning_manage and order.status != 'cancelled' %}
+        {% if candidates %}<button class="fl-obtn" id="assign-open-btn" onclick="toggleAssign()">+ Assign from stock</button>{% endif %}
+        {% if t.track == 'stock' and t.still_out %}<button class="fl-obtn" onclick="returnAll()" style="margin-left:auto;">Return all</button>{% endif %}
+        {% endif %}
+    </div>
+
+    {% if user.has_provisioning_manage and candidates %}
+    <div id="assign-panel" style="display:none; border:1px solid var(--border-color,#444); border-radius:8px; padding:0.75rem; margin-bottom:0.75rem;">
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Ready-to-deploy stock matching this order's SKUs.</div>
+        <table class="data-table">
+            <thead><tr><th style="width:1%;"></th><th>Serial</th><th>Item</th><th>SKU</th><th>Location</th></tr></thead>
+            <tbody>
+            {% for c in candidates %}
+            <tr>
+                <td><input type="checkbox" class="assign-cb" value="{{ c.id }}" aria-label="Assign {{ c.serial or c.name }}"></td>
+                <td style="font-family:monospace;">{{ c.serial or '—' }}</td>
+                <td>{{ c.name or '—' }}</td>
+                <td>{{ c.sku or '—' }}</td>
+                <td style="color:var(--text-muted);">{{ c.location or '—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:0.6rem;">
+            <span id="assign-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-right:auto;"></span>
+            <button class="fl-obtn" onclick="toggleAssign()">Close</button>
+            <button class="fl-cta" onclick="submitAssign()">Assign selected</button>
+        </div>
+    </div>
+    {% endif %}
+
     {% if prov_records %}
-    <table class="data-table" style="margin-top:0.75rem;">
+    <table class="data-table">
         <thead>
             <tr>
-                <th>Device</th>
-                <th>Stage</th>
-                <th>Assignee</th>
-                <th>Priority</th>
-                <th>Complete</th>
-                <th></th>
+                <th>Unit</th>
+                <th>Serial</th>
+                <th>SKU</th>
+                <th>State</th>
+                <th>Visit</th>
+                <th>Certification</th>
+                {% if user.has_provisioning_manage %}<th style="width:1%;"></th>{% endif %}
             </tr>
         </thead>
         <tbody>
-            {% for item in prov_records %}
-            {% set p = item.record %}
+            {% for u in prov_records %}
+            {% set p = u.record %}
             <tr>
                 <td>
-                    <a href="{{ base_path }}/provisioning/{{ p.id }}" style="color:var(--accent,#3498db);">
-                        {{ item.device_label }}
-                    </a>
+                    {% if u.item %}<a href="{{ base_path }}/items/{{ u.item.id }}" style="color:var(--accent,#3498db);">{{ u.device_label }}</a>
+                    {% else %}<a href="{{ base_path }}/provisioning/{{ p.id }}" style="color:var(--accent,#3498db);">{{ u.device_label }}</a>{% endif %}
                 </td>
-                <td style="font-size:0.85rem;">{{ p.current_stage | title }}</td>
-                <td style="font-size:0.85rem;">{{ p.assignee.display_name if p.assignee else '—' }}</td>
+                <td style="font-family:monospace; font-size:0.85rem;">{{ u.item.item_sn if u.item and u.item.item_sn else '—' }}</td>
+                <td style="font-size:0.85rem;">{{ u.item.item_sku if u.item and u.item.item_sku else '—' }}</td>
                 <td>
-                    {% if p.priority == 'urgent' %}<span class="badge badge-danger">Urgent</span>
-                    {% elif p.priority == 'high' %}<span class="badge badge-warning">High</span>
-                    {% else %}<span class="badge">{{ p.priority | title }}</span>{% endif %}
+                    {% if p.returned_date %}<span class="badge">Returned {{ p.returned_date }}</span>
+                    {% elif u.item %}<span class="badge{% if u.item.item_status == 'Deployed' %} badge-success{% endif %}">{{ u.item.item_status }}</span>
+                    {% else %}<span class="badge">{{ p.current_stage | title }}</span>{% endif %}
                 </td>
-                <td>
-                    {% if p.is_complete %}<span class="badge badge-success">✓ Complete</span>
-                    {% else %}<span class="badge">In Progress</span>{% endif %}
-                </td>
+                <td style="font-size:0.85rem;">{{ ('#' ~ p.deployment_record_id) if p.deployment_record_id else '—' }}</td>
+                <td style="font-size:0.85rem;">{% if u.cert_url %}<a href="{{ u.cert_url }}" style="color:var(--accent,#3498db);">History</a>{% else %}—{% endif %}</td>
                 {% if user.has_provisioning_manage %}
-                <td>
+                <td style="white-space:nowrap;">
+                    {% if t.track == 'stock' and u.item and not p.returned_date %}
+                    <button class="fl-obtn" onclick="returnUnit({{ p.id }})">Return</button>
+                    {% endif %}
                     <button class="fl-obtn" onclick="unlinkProvisioning({{ p.id }})"
-                            style="color:var(--text-muted);"
-                            title="Unlink from this order">Unlink</button>
+                            style="color:var(--text-muted);" title="Unlink from this order">Unlink</button>
                 </td>
                 {% endif %}
             </tr>
@@ -311,8 +369,130 @@
     </table>
     {% else %}
     <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">
-        No units assigned yet. Use <strong>Assign</strong> on this order's card on the <a href="{{ base_path }}/fulfillment/" style="color:var(--accent,#3498db);">Fulfillment board</a>.
+        No units linked yet.{% if t.track == 'vendor' %} Vendor builds ship from the vendor; link units here when they reach inventory.{% elif candidates %} Use <strong>+ Assign from stock</strong> above.{% else %} Add SKU requirements above to see matching stock.{% endif %}
     </p>
+    {% endif %}
+</div>
+
+<!-- Shipping -->
+<div class="table-section" id="shipping-section" style="margin-bottom:1.5rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+        <h2 style="margin:0;">Shipping</h2>
+        {% if order.tracking_number %}<span class="badge">{{ order.carrier or 'Carrier' }} {{ order.tracking_number }}</span>{% endif %}
+    </div>
+    {% set ship_ro = not user.has_provisioning_manage or order.status == 'cancelled' %}
+    <div class="otrk-form">
+        <label>Method
+            <select id="ship-method" class="form-control"{% if ship_ro %} disabled{% endif %}>
+                {% for k, v in [('carrier','Carrier'),('transferred','Hand transfer')] %}
+                <option value="{{ k }}"{% if (order.ship_method or 'carrier') == k %} selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+            </select></label>
+        <label>Carrier<input id="ship-carrier" class="form-control" value="{{ order.carrier or '' }}"{% if ship_ro %} disabled{% endif %}></label>
+        <label>Tracking number<input id="ship-tracking" class="form-control" value="{{ order.tracking_number or '' }}"{% if ship_ro %} disabled{% endif %}></label>
+        <label>Recipient<input id="ship-recipient" class="form-control" value="{{ order.recipient_name or '' }}"{% if ship_ro %} disabled{% endif %}></label>
+        <label class="otrk-wide">Ship to<input id="ship-address" class="form-control" value="{{ order.shipping_address or '' }}"{% if ship_ro %} disabled{% endif %}></label>
+        <label>Shipped<input type="date" id="ship-shipped" class="form-control" value="{{ order.shipped_date or '' }}"{% if ship_ro %} disabled{% endif %}></label>
+        <label>Delivered<input type="date" id="ship-delivered" class="form-control" value="{{ order.delivered_date or '' }}"{% if ship_ro %} disabled{% endif %}></label>
+    </div>
+    {% if not ship_ro %}
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end; align-items:center; margin-top:0.6rem;">
+        <span id="ship-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-right:auto;"></span>
+        <button class="fl-cta" onclick="saveShipping()">Save shipping</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Documents (vendor certifications and the like) -->
+<div class="table-section" id="documents-section" style="margin-bottom:1.5rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+        <h2 style="margin:0;">{{ 'Vendor documents' if t.track == 'vendor' else 'Documents' }}</h2>
+        {% if t.flags.get('docs_missing') %}<span class="badge badge-warning">No certification on file</span>{% endif %}
+    </div>
+    {% if documents %}
+    <table class="data-table">
+        <thead><tr><th>Document</th><th>Kind</th><th>Size</th><th>Added</th>{% if user.has_provisioning_manage %}<th style="width:1%;"></th>{% endif %}</tr></thead>
+        <tbody>
+        {% for d in documents %}
+        <tr>
+            <td><a href="{{ base_path }}/orders/documents/{{ d.id }}" target="_blank" style="color:var(--accent,#3498db);">{{ d.original_name }}</a>
+                {% if d.note %}<div style="font-size:0.78rem; color:var(--text-muted);">{{ d.note }}</div>{% endif %}</td>
+            <td><span class="badge{% if d.kind == 'certification' %} badge-success{% endif %}">{{ DOC_KINDS.get(d.kind, d.kind) }}</span></td>
+            <td style="font-size:0.85rem;">{{ (d.size_bytes / 1024) | round(0) | int }} KB</td>
+            <td style="font-size:0.85rem; color:var(--text-muted);">{{ d.uploaded_at | localtime('%Y-%m-%d') if d.uploaded_at else '—' }} &middot; {{ d.uploaded_by or '—' }}</td>
+            {% if user.has_provisioning_manage %}
+            <td><button class="fl-obtn danger" onclick="deleteDocument({{ d.id }})" title="Remove document">Remove</button></td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.25rem 0;">No documents yet.{% if t.track == 'vendor' %} The vendor's certification and validation reports belong here.{% endif %}</p>
+    {% endif %}
+    {% if user.has_provisioning_manage %}
+    <div class="otrk-form" style="margin-top:0.75rem;">
+        <label>File<input type="file" id="doc-file" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.txt,.csv,.xlsx,.docx"></label>
+        <label>Kind
+            <select id="doc-kind" class="form-control">
+                {% for k, v in DOC_KINDS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+            </select></label>
+        <label class="otrk-wide">Note<input id="doc-note" class="form-control" placeholder="Optional"></label>
+    </div>
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end; align-items:center; margin-top:0.6rem;">
+        <span id="doc-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-right:auto;"></span>
+        <button class="fl-cta" id="doc-upload-btn" onclick="uploadDocument()">Upload</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Deployments: site visits and installation certification -->
+<div class="table-section" id="deployments-section" style="margin-bottom:1.5rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+        <h2 style="margin:0;">Deployments</h2>
+        {% if user.has_provisioning_manage and order.status != 'cancelled' %}
+        <button class="fl-obtn" onclick="openModal('deploy-modal')" style="margin-left:auto;">+ Schedule visit</button>
+        {% endif %}
+    </div>
+    {% if deployments %}
+    <table class="data-table">
+        <thead><tr><th>Visit</th><th>Site</th><th>Scheduled</th><th>Status</th><th>Units</th><th>Installation</th>{% if user.has_provisioning_manage %}<th style="width:1%;"></th>{% endif %}</tr></thead>
+        <tbody>
+        {% for d in deployments %}
+        {% set ic = install_certs.get(d.id) %}
+        <tr data-dep="{{ d.id }}">
+            <td style="font-family:monospace;">#{{ d.id }}</td>
+            <td>{{ d.site.name if d.site else (d.address or '—') }}
+                {% if d.integrator_name %}<div style="font-size:0.78rem; color:var(--text-muted);">{{ d.integrator_name }}</div>{% endif %}</td>
+            <td style="font-size:0.85rem;">{{ d.scheduled_date or '—' }}</td>
+            <td>
+                {% if user.has_provisioning_manage and d.status != 'cancelled' and not (ic and ic.status == 'certified') %}
+                <select class="form-control dep-status" onchange="setDeployStatus({{ d.id }}, this.value)" aria-label="Status of visit {{ d.id }}">
+                    {% for k, v in DEPLOYMENT_STATUS_LABELS.items() if k != 'cancelled' %}
+                    <option value="{{ k }}"{% if k == d.status %} selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}<span class="badge{% if d.status == 'complete' %} badge-success{% endif %}">{{ DEPLOYMENT_STATUS_LABELS.get(d.status, d.status) }}</span>{% endif %}
+            </td>
+            <td>{{ units_per_visit.get(d.id, 0) }}</td>
+            <td style="font-size:0.85rem;">
+                {% if ic and ic.status == 'certified' %}
+                <a href="{{ base_path }}/fulfillment/install-cert/{{ ic.id }}/pdf" target="_blank" style="color:var(--accent,#3498db);">Certified</a>
+                <div style="color:var(--text-muted); font-size:0.78rem;">{{ ic.installer_company or ic.installer_name or '' }}{% if ic.completion_date %} &middot; {{ ic.completion_date }}{% endif %}</div>
+                {% else %}—{% endif %}
+            </td>
+            {% if user.has_provisioning_manage %}
+            <td style="white-space:nowrap;">
+                {% if order.status != 'cancelled' %}<button class="fl-obtn" onclick="openUnitPicker({{ d.id }})">Assign Units</button>{% endif %}
+                {% if not (ic and ic.status == 'certified') and d.status != 'cancelled' %}<button class="fl-obtn" onclick="openCertify({{ d.id }})">Certify</button>{% endif %}
+            </td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.85rem; padding:0.25rem 0;">No site visits yet.</p>
     {% endif %}
 </div>
 
@@ -466,10 +646,8 @@
                        action and cannot be cleared, so offering it here
                        posts a value the route refuses. See
                        docs/specs/customer-order-cancel.md #}
-                    {% for key, label in ORDER_STATUSES.items() %}
-                    {% if key != 'cancelled' %}
+                    {% for key, label in t.status_labels.items() %}
                     <option value="{{ key }}"{% if key == order.status %} selected{% endif %}>{{ label }}</option>
-                    {% endif %}
                     {% endfor %}
                 </select>
             </div>
@@ -546,34 +724,77 @@
     </div>
 </div>
 
-{% if order.status != 'cancelled' %}
-<div id="status-modal" class="modal-overlay">
-    <div class="modal-box" style="max-width:380px;">
+
+<!-- Schedule a site visit -->
+<div id="deploy-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:520px;">
         <div class="modal-header">
-            <h2>Update Status</h2>
-            <button class="modal-close" onclick="document.getElementById('status-modal').classList.remove('open')">✕</button>
+            <h2>Schedule a site visit</h2>
+            <button class="modal-close" onclick="closeModal('deploy-modal')">&#10005;</button>
         </div>
-        <div class="form-group" style="margin-top:0.75rem;">
-            <label>New Status</label>
-            <select id="status-select" class="form-control">
-                {# cancelled is omitted on purpose: it is set only by the
-                   Cancel action, which requires a reason. See
-                   docs/specs/customer-order-cancel.md #}
-                {% for key, label in ORDER_STATUSES.items() %}
-                {% if key != 'cancelled' %}
-                <option value="{{ key }}" {% if key == order.status %}selected{% endif %}>{{ label }}</option>
-                {% endif %}
-                {% endfor %}
-            </select>
+        <div class="otrk-form" style="margin-top:0.75rem;">
+            <label class="otrk-wide">Site
+                <select id="dep-site" class="form-control">
+                    <option value="">No saved site (use the address)</option>
+                    {% for st in customer_sites %}<option value="{{ st.id }}">{{ st.name }}</option>{% endfor %}
+                </select></label>
+            <label class="otrk-wide">Address<input id="dep-address" class="form-control" placeholder="Used when no site is chosen"></label>
+            <label>Scheduled<input type="date" id="dep-date" class="form-control"></label>
+            <label>Engineer
+                <select id="dep-se" class="form-control">
+                    <option value="">Unassigned</option>
+                    {% for u in active_users %}<option value="{{ u.id }}">{{ u.display_name }}</option>{% endfor %}
+                </select></label>
+            <label>Installer<input id="dep-integrator" class="form-control" value="{{ order.integrator_name or '' }}" placeholder="Integrator, if a third party installs"></label>
+            <label>Installer contact<input id="dep-contact" class="form-control"></label>
+            <label class="otrk-wide">Notes<input id="dep-notes" class="form-control"></label>
         </div>
-        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
-            <button class="fl-obtn" onclick="document.getElementById('status-modal').classList.remove('open')">Cancel</button>
-            <button class="fl-cta" onclick="saveStatus()">Save</button>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; align-items:center; margin-top:1rem;">
+            <span id="dep-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-right:auto;"></span>
+            <button class="fl-obtn" onclick="closeModal('deploy-modal')">Cancel</button>
+            <button class="fl-cta" onclick="submitDeployment()">Schedule</button>
         </div>
-        <div id="status-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-top:0.5rem;"></div>
     </div>
 </div>
-{% endif %}
+
+<!-- Assign units to a visit -->
+<div id="unit-picker-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:480px;">
+        <div class="modal-header">
+            <h2>Assign units to visit <span id="pk-dep-label"></span></h2>
+            <button class="modal-close" onclick="closeModal('unit-picker-modal')">&#10005;</button>
+        </div>
+        <div id="pk-body" style="margin-top:0.75rem; font-size:0.88rem;">Loading&hellip;</div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; align-items:center; margin-top:1rem;">
+            <span id="pk-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-right:auto;"></span>
+            <button class="fl-obtn" onclick="closeModal('unit-picker-modal')">Cancel</button>
+            <button class="fl-cta" onclick="pkSubmit()">Assign</button>
+        </div>
+    </div>
+</div>
+
+<!-- Certify an installation -->
+<div id="certify-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width:480px;">
+        <div class="modal-header">
+            <h2>Certify installation <span id="cert-dep-label"></span></h2>
+            <button class="modal-close" onclick="closeModal('certify-modal')">&#10005;</button>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin:0.5rem 0;">Attach the signed post-install report (PDF). This marks the visit complete and locks it.</p>
+        <div class="otrk-form">
+            <label class="otrk-wide">Post-install report (PDF)<input type="file" id="cert-file" class="form-control" accept=".pdf,application/pdf"></label>
+            <label>Installed by<input id="cert-installer" class="form-control"></label>
+            <label>Company<input id="cert-company" class="form-control"></label>
+            <label>Completed<input type="date" id="cert-date" class="form-control" value="{{ today }}"></label>
+            <label class="otrk-wide">Notes<input id="cert-notes" class="form-control"></label>
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; align-items:center; margin-top:1rem;">
+            <span id="cert-error" style="color:var(--danger,#e74c3c); font-size:0.85rem; margin-right:auto;"></span>
+            <button class="fl-obtn" onclick="closeModal('certify-modal')">Cancel</button>
+            <button class="fl-cta" onclick="submitCertify()">Certify</button>
+        </div>
+    </div>
+</div>
 
 <!-- Add OEM PO modal -->
 <div id="add-po-modal" class="modal-overlay">
@@ -619,10 +840,7 @@
             <div class="form-group">
                 <label>Status</label>
                 <select id="po-status" class="form-control">
-                    <option value="ordered">Ordered</option>
-                    <option value="partial">Partial</option>
-                    <option value="received">Received</option>
-                    <option value="cancelled">Cancelled</option>
+                    {% for k in OEM_STATUSES %}<option value="{{ k }}">{{ OEM_STATUS_LABELS[k] }}</option>{% endfor %}
                 </select>
             </div>
         </div>
@@ -691,28 +909,196 @@
 {% block scripts %}
 <script>
 // BP available globally from base.html
-const ORDER_ID = {{ order.id }};
+var ORDER_ID = {{ order.id }};
 
 // ---------------------------------------------------------------------------
-// Status update
+// Track, units, shipping, documents and visits (docs/specs/one-board-two-tracks.md)
 // ---------------------------------------------------------------------------
-function updateStatus() {
-    document.getElementById('status-modal').classList.add('open');
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+async function postJson(url, body) {
+    var resp = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                 body: JSON.stringify(body || {})});
+    var data = await resp.json().catch(function () { return {}; });
+    return {ok: resp.ok, data: data};
 }
-async function saveStatus() {
-    const status = document.getElementById('status-select').value;
-    try {
-        const resp = await fetch(`${BP}/api/orders/${ORDER_ID}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({status}),
+
+async function advanceOrder(to) {
+    var btn = document.getElementById('advance-btn');
+    if (btn) btn.disabled = true;
+    var r = await postJson(BP + '/api/orders/' + ORDER_ID + '/advance', {to: to});
+    if (r.ok) { location.reload(); return; }
+    if (btn) btn.disabled = false;
+    SxToast.error(r.data.error || 'Could not move the order', 0);
+}
+
+function toggleAssign() {
+    var panel = document.getElementById('assign-panel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+async function submitAssign() {
+    var ids = Array.prototype.map.call(document.querySelectorAll('.assign-cb:checked'),
+                                       function (cb) { return parseInt(cb.value, 10); });
+    var err = document.getElementById('assign-error');
+    if (!ids.length) { err.textContent = 'Tick at least one unit.'; return; }
+    var r = await postJson(BP + '/api/orders/' + ORDER_ID + '/assign-items', {item_ids: ids});
+    if (r.ok) { location.reload(); return; }
+    err.textContent = r.data.error || r.data.detail || 'Could not assign';
+}
+
+async function returnUnit(provId) {
+    var r = await postJson(BP + '/fulfillment/c2c/' + provId + '/return', {});
+    if (r.ok) { location.reload(); return; }
+    SxToast.error(r.data.error || 'Could not mark the unit returned', 0);
+}
+
+async function returnAll() {
+    if (!(await SxDialog.confirm({ title: 'Return all units', message: 'Mark every unit still out on this order as returned today?', okLabel: 'Mark returned' }))) return;
+    var r = await postJson(BP + '/fulfillment/c2c/order/' + ORDER_ID + '/return-all', {});
+    if (r.ok) { location.reload(); return; }
+    SxToast.error(r.data.error || 'Could not mark the units returned', 0);
+}
+
+async function saveShipping() {
+    var v = function (id) { return document.getElementById(id).value.trim(); };
+    var body = {
+        ship_method: v('ship-method'), carrier: v('ship-carrier') || null,
+        tracking_number: v('ship-tracking') || null, recipient_name: v('ship-recipient') || null,
+        shipping_address: v('ship-address') || null,
+        shipped_date: v('ship-shipped') || null, delivered_date: v('ship-delivered') || null,
+    };
+    var r = await postJson(BP + '/fulfillment/' + ORDER_ID + '/ship', body);
+    if (r.ok) { location.reload(); return; }
+    document.getElementById('ship-error').textContent = r.data.detail || r.data.error || 'Could not save';
+}
+
+async function uploadDocument() {
+    var input = document.getElementById('doc-file');
+    var err = document.getElementById('doc-error');
+    if (!input.files.length) { err.textContent = 'Choose a file first.'; return; }
+    var fd = new FormData();
+    fd.append('file', input.files[0]);
+    fd.append('kind', document.getElementById('doc-kind').value);
+    fd.append('note', document.getElementById('doc-note').value);
+    var btn = document.getElementById('doc-upload-btn');
+    btn.disabled = true;
+    var resp = await fetch(BP + '/api/orders/' + ORDER_ID + '/documents', {method: 'POST', body: fd});
+    if (resp.ok) { location.reload(); return; }
+    btn.disabled = false;
+    var d = await resp.json().catch(function () { return {}; });
+    err.textContent = d.error || 'Upload failed';
+}
+
+async function deleteDocument(docId) {
+    if (!(await SxDialog.confirm({ title: 'Remove document', message: 'Remove this document from the order?', okLabel: 'Remove', danger: true }))) return;
+    var resp = await fetch(BP + '/api/orders/documents/' + docId, {method: 'DELETE'});
+    if (resp.ok) { location.reload(); return; }
+    SxToast.error('Could not remove the document', 0);
+}
+
+async function submitDeployment() {
+    var v = function (id) { return document.getElementById(id).value.trim(); };
+    var body = {
+        customer_order_id: ORDER_ID,
+        site_id: v('dep-site') ? parseInt(v('dep-site'), 10) : null,
+        address: v('dep-address') || null,
+        scheduled_date: v('dep-date') || null,
+        se_assigned_id: v('dep-se') ? parseInt(v('dep-se'), 10) : null,
+        integrator_name: v('dep-integrator') || null,
+        integrator_contact: v('dep-contact') || null,
+        notes: v('dep-notes') || null,
+    };
+    if (!body.site_id && !body.address) {
+        document.getElementById('dep-error').textContent = 'Choose a site or enter an address.';
+        return;
+    }
+    var r = await postJson(BP + '/fulfillment/deployments', body);
+    if (r.ok) { location.reload(); return; }
+    document.getElementById('dep-error').textContent = r.data.detail || r.data.error || 'Could not schedule';
+}
+
+async function setDeployStatus(depId, status) {
+    var r = await postJson(BP + '/fulfillment/deployments/' + depId + '/status', {status: status});
+    if (r.ok) { SxToast.success('Visit #' + depId + ' updated'); return; }
+    SxToast.error(r.data.detail || 'Could not update the visit', 0);
+    location.reload();
+}
+
+var pkDepId = null;
+async function openUnitPicker(depId) {
+    pkDepId = depId;
+    document.getElementById('pk-dep-label').textContent = '#' + depId;
+    document.getElementById('pk-error').textContent = '';
+    var body = document.getElementById('pk-body');
+    body.textContent = 'Loading\u2026';
+    openModal('unit-picker-modal');
+    var resp = await fetch(BP + '/fulfillment/deployments/' + depId + '/units');
+    var data = await resp.json().catch(function () { return {}; });
+    if (!resp.ok) { body.textContent = data.detail || 'Could not load units'; return; }
+    body.innerHTML = '';
+    var add = function (title, list, selectable) {
+        if (!list.length) return;
+        var h = document.createElement('div');
+        h.style.cssText = 'font-size:0.78rem;color:var(--text-muted);margin:0.5rem 0 0.25rem;';
+        h.textContent = title;
+        body.appendChild(h);
+        list.forEach(function (u) {
+            var row = document.createElement('label');
+            row.style.cssText = 'display:flex;gap:0.5rem;align-items:center;padding:0.2rem 0;';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox'; cb.value = u.id; cb.className = 'pk-cb';
+            cb.disabled = !selectable; cb.checked = !selectable && title === 'On this visit';
+            row.appendChild(cb);
+            var txt = document.createElement('span');
+            txt.textContent = u.serial + (u.returned_date ? ' (returned ' + u.returned_date + ')' : '');
+            row.appendChild(txt);
+            body.appendChild(row);
         });
-        if (resp.ok) location.reload();
-        else {
-            const d = await resp.json();
-            document.getElementById('status-error').textContent = d.error || 'Failed';
-        }
-    } catch(e) { document.getElementById('status-error').textContent = e.message; }
+    };
+    add('Available', data.available || [], true);
+    add('On this visit', data.assigned || [], false);
+    add('Returned', data.returned || [], false);
+    if (!(data.available || []).length) {
+        var p = document.createElement('p');
+        p.style.cssText = 'color:var(--text-muted);';
+        p.textContent = 'No unassigned units on this order.';
+        body.appendChild(p);
+    }
+}
+
+async function pkSubmit() {
+    var ids = Array.prototype.map.call(document.querySelectorAll('.pk-cb:checked:not(:disabled)'),
+                                       function (cb) { return parseInt(cb.value, 10); });
+    if (!ids.length) { document.getElementById('pk-error').textContent = 'Tick at least one unit.'; return; }
+    var r = await postJson(BP + '/fulfillment/deployments/' + pkDepId + '/units', {provisioning_ids: ids});
+    if (r.ok) { location.reload(); return; }
+    document.getElementById('pk-error').textContent = r.data.detail || 'Could not assign';
+}
+
+var certDepId = null;
+function openCertify(depId) {
+    certDepId = depId;
+    document.getElementById('cert-dep-label').textContent = '#' + depId;
+    document.getElementById('cert-error').textContent = '';
+    openModal('certify-modal');
+}
+
+async function submitCertify() {
+    var file = document.getElementById('cert-file');
+    var err = document.getElementById('cert-error');
+    if (!file.files.length) { err.textContent = 'Attach the post-install PDF.'; return; }
+    var fd = new FormData();
+    fd.append('file', file.files[0]);
+    fd.append('installer_name', document.getElementById('cert-installer').value);
+    fd.append('installer_company', document.getElementById('cert-company').value);
+    fd.append('completion_date', document.getElementById('cert-date').value);
+    fd.append('notes', document.getElementById('cert-notes').value);
+    var resp = await fetch(BP + '/fulfillment/deployments/' + certDepId + '/install/certify', {method: 'POST', body: fd});
+    if (resp.ok) { location.reload(); return; }
+    var d = await resp.json().catch(function () { return {}; });
+    err.textContent = d.detail || 'Could not certify';
 }
 
 // ---------------------------------------------------------------------------
@@ -880,10 +1266,10 @@ async function saveNotes() {
 // ---------------------------------------------------------------------------
 // SKU requirements editor + live availability refresh
 // ---------------------------------------------------------------------------
-const SKU_LINES = {{ sku_lines | tojson }};
-const SKU_CATALOG = new Set({{ catalog_skus | tojson }});
-const CAN_MANAGE_SKUS = {{ 'true' if user.has_provisioning_manage else 'false' }};
-let skuEditIndex = -1;
+var SKU_LINES = {{ sku_lines | tojson }};
+var SKU_CATALOG = new Set({{ catalog_skus | tojson }});
+var CAN_MANAGE_SKUS = {{ 'true' if user.has_provisioning_manage else 'false' }};
+var skuEditIndex = -1;
 
 function escHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1078,6 +1464,30 @@ async function saveEditOrder() {
 </script>
 
 <style>
+.otrk-steps { list-style: none; display: flex; gap: 0; margin: 0; padding: 0; counter-reset: s; }
+.otrk-step { flex: 1; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); position: relative; padding-right: 0.5rem; }
+.otrk-step:not(:last-child)::after { content: ""; flex: 1; height: 2px; background: var(--border-color, #3a3f4b); margin-left: 0.25rem; }
+.otrk-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border-color, #3a3f4b); flex: 0 0 auto; }
+.otrk-step--done { color: var(--text); }
+.otrk-step--done .otrk-dot { background: var(--success, #01B574); border-color: var(--success, #01B574); }
+.otrk-step--done:not(:last-child)::after { background: var(--success, #01B574); }
+.otrk-step--now { color: var(--text); font-weight: 700; }
+.otrk-step--now .otrk-dot { border-color: var(--accent, #1690BC); background: var(--accent, #1690BC); box-shadow: 0 0 0 4px rgba(22, 144, 188, 0.2); }
+.otrk-foot { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.9rem; flex-wrap: wrap; }
+.otrk-units { font-size: 0.85rem; color: var(--text-muted); margin-right: auto; }
+.otrk-hint { font-size: 0.8rem; color: var(--text-muted); }
+#advance-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.otrk-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem 0.75rem; }
+.otrk-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-muted); }
+.otrk-form .otrk-wide { grid-column: 1 / -1; }
+.otrk-form input.form-control, .otrk-form select.form-control {
+    min-height: 36px; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.88rem;
+}
+.otrk-form input[type=file].form-control { padding: 0.3rem; }
+@media (max-width: 640px) {
+    .otrk-steps { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+    .otrk-step:not(:last-child)::after { display: none; }
+}
 @media (max-width: 640px) {
     .notes-grid { grid-template-columns: 1fr !important; }
 }

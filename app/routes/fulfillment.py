@@ -907,6 +907,13 @@ async def create_deployment(
     db.add(dr)
     db.commit()
     db.refresh(dr)
+    log_event(
+        db, "deployment_created", request=request, user_id=user.id,
+        target_table="deployment_records", target_id=dr.id, action="create",
+        new_values={"customer_order_id": dr.customer_order_id, "site_id": dr.site_id,
+                    "scheduled_date": str(dr.scheduled_date) if dr.scheduled_date else None},
+        details=f"Scheduled deployment #{dr.id} for order {dr.customer_order_id}",
+    )
 
     return {
         "ok": True,
@@ -961,6 +968,12 @@ async def update_deployment_status(
         dr.installed_date = local_today()
 
     db.commit()
+    log_event(
+        db, "deployment_status_changed", request=request, user_id=user.id,
+        target_table="deployment_records", target_id=dr.id, action="update",
+        old_values={"status": old_status}, new_values={"status": new_status},
+        details=f"Deployment #{dr.id}: {old_status} to {new_status}",
+    )
     return {"ok": True, "id": dr.id, "old_status": old_status, "status": new_status}
 
 
@@ -1033,6 +1046,12 @@ async def assign_units_to_deployment(
         found[pid].deployment_record_id = dep_id
 
     db.commit()
+    log_event(
+        db, "deployment_units_assigned", request=request, user_id=user.id,
+        target_table="deployment_records", target_id=dep_id, action="update",
+        new_values={"provisioning_ids": ids},
+        details=f"Assigned {len(ids)} unit(s) to deployment #{dep_id}",
+    )
     return {
         "ok": True,
         "deployment_record_id": dep_id,
@@ -1962,6 +1981,13 @@ async def certify_installation(
         dr.installed_date = local_today()
 
     db.commit()
+    log_event(
+        db, "installation_certified", request=request, user_id=user.id,
+        target_table="deployment_records", target_id=dep_id, action="update",
+        new_values={"cert_id": cert.id, "installer_name": cert.installer_name,
+                    "installer_company": cert.installer_company},
+        details=f"Certified installation for deployment #{dep_id} ({cert.pdf_original_name})",
+    )
     return {"ok": True, "deployment_id": dep_id, "cert_id": cert.id, "status": "certified"}
 
 

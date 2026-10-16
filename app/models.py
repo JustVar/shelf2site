@@ -712,7 +712,7 @@ class CustomerOrder(Base):
     __tablename__ = "customer_orders"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    order_number = Column(String(32), unique=True, nullable=False)  # AT-2001, AT-2002, …
+    order_number = Column(String(32), unique=True, nullable=False)  # SO-1001, SO-1002 (AT- before the rename)
     salesforce_order_id = Column(String(64), nullable=True)
     salesforce_opp_id = Column(String(64), nullable=True)
     po_number = Column(String(64), unique=True, nullable=True)  # Salesforce customer PO; app-level gate for pipeline entry

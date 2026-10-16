@@ -193,9 +193,11 @@ def test_create_cannot_start_an_order_cancelled(admin_client, db):
 
 # -- Surfaces ---------------------------------------------------------------
 
-def test_status_modal_omits_cancelled(admin_client, cancel_order):
-    """Reachability, not existence: the option arrives through a loop over
-    ORDER_STATUSES, so the RENDERED page is asserted rather than the source.
+def test_status_select_omits_cancelled(admin_client, cancel_order):
+    """Reachability, not existence: the option arrives through a loop over the
+    track's status labels, so the RENDERED page is asserted rather than the
+    source. The status select lives in the Edit Order form; moving an order
+    forward is the advance button (docs/specs/one-board-two-tracks.md).
 
     Scoped to the order status select on purpose. The OEM purchase order
     modal on this same page legitimately offers a cancelled option -- OEM
@@ -203,7 +205,7 @@ def test_status_modal_omits_cancelled(admin_client, cancel_order):
     page-wide assertion would fail on a correct build.
     """
     html = admin_client.get(f"/orders/{cancel_order['order_id']}").text
-    m = re.search(r'<select id="status-select".*?</select>', html, re.S)
+    m = re.search(r'<select id="edit-status".*?</select>', html, re.S)
     assert m, "order status select not found on the page"
     block = m.group(0)
     assert '<option value="cancelled"' not in block
@@ -311,10 +313,9 @@ def test_active_order_offers_edit_status_and_delete(admin_client, cancel_order):
     the order is live, or the absence assertions prove nothing."""
     html = admin_client.get(f"/orders/{cancel_order['order_id']}").text
     assert 'onclick="openEditModal()"' in html
-    assert 'onclick="updateStatus()"' in html
+    assert 'id="advance-btn"' in html
     assert 'onclick="deleteOrder()"' in html
     assert 'id="edit-order-modal"' in html
-    assert 'id="status-modal"' in html
     assert 'id="cancel-order-btn"' in html
 
 
@@ -326,8 +327,7 @@ def test_cancelled_order_hides_edit_status_and_delete(admin_client, cancel_order
 
     assert 'id="cancel-banner"' in html, "page did not render as cancelled"
     assert 'onclick="openEditModal()"' not in html
-    assert 'onclick="updateStatus()"' not in html
+    assert 'id="advance-btn"' not in html
     assert 'onclick="deleteOrder()"' not in html
     assert 'id="edit-order-modal"' not in html
-    assert 'id="status-modal"' not in html
     assert 'id="cancel-order-btn"' not in html
