@@ -6,28 +6,28 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/assettracker/static/fonts/inter-400.ttf') format('truetype');
+  src: url('../fonts/inter-400.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Inter';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/assettracker/static/fonts/inter-500.ttf') format('truetype');
+  src: url('../fonts/inter-500.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Inter';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/assettracker/static/fonts/inter-600.ttf') format('truetype');
+  src: url('../fonts/inter-600.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Inter';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/assettracker/static/fonts/inter-700.ttf') format('truetype');
+  src: url('../fonts/inter-700.ttf') format('truetype');
 }
 
 /* Barlow */
@@ -36,35 +36,35 @@
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-300.ttf') format('truetype');
+  src: url('../fonts/barlow-300.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Barlow';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-400.ttf') format('truetype');
+  src: url('../fonts/barlow-400.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Barlow';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-500.ttf') format('truetype');
+  src: url('../fonts/barlow-500.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Barlow';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-600.ttf') format('truetype');
+  src: url('../fonts/barlow-600.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Barlow';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-700.ttf') format('truetype');
+  src: url('../fonts/barlow-700.ttf') format('truetype');
 }
 
 /* Barlow Condensed */
@@ -73,21 +73,21 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-condensed-400.ttf') format('truetype');
+  src: url('../fonts/barlow-condensed-400.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Barlow Condensed';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-condensed-600.ttf') format('truetype');
+  src: url('../fonts/barlow-condensed-600.ttf') format('truetype');
 }
 @font-face {
   font-family: 'Barlow Condensed';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/assettracker/static/fonts/barlow-condensed-700.ttf') format('truetype');
+  src: url('../fonts/barlow-condensed-700.ttf') format('truetype');
 }
 
 /* IBM Plex Mono */
@@ -96,14 +96,14 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/assettracker/static/fonts/ibm-plex-mono-400.ttf') format('truetype');
+  src: url('../fonts/ibm-plex-mono-400.ttf') format('truetype');
 }
 @font-face {
   font-family: 'IBM Plex Mono';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/assettracker/static/fonts/ibm-plex-mono-500.ttf') format('truetype');
+  src: url('../fonts/ibm-plex-mono-500.ttf') format('truetype');
 }
 
 @font-face {
@@ -111,5 +111,5 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/assettracker/static/fonts/space-grotesk-700.ttf') format('truetype');
+  src: url('../fonts/space-grotesk-700.ttf') format('truetype');
 }

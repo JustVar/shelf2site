@@ -40,9 +40,10 @@ templates = Jinja2Templates(
 )
 BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
+templates.env.globals["zendesk_ticket_base"] = settings.ZENDESK_TICKET_BASE
 register(templates.env)
 
-VALIDATION_REPORT_DIR = Path("/data/validation-reports")
+VALIDATION_REPORT_DIR = Path(settings.VALIDATION_REPORT_DIR)
 
 
 # ---------------------------------------------------------------------------
@@ -653,7 +654,7 @@ async def fetch_zendesk_ticket(
             "legacy_sku": legacy_sku,
             "new_sku": new_sku,
             "inventory_match": inventory_match,
-            "url": f"https://example-help.zendesk.com/agent/tickets/{ticket_id}",
+            "url": (settings.ZENDESK_TICKET_BASE + str(ticket_id)) if settings.ZENDESK_TICKET_BASE else "",
         })
 
     except Exception as e:

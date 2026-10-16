@@ -9,7 +9,6 @@ container — see docs/BACKUPS.md).
 """
 
 import json
-import os
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -35,7 +34,7 @@ BP = settings.ROOT_PATH.rstrip("/")
 templates.env.globals["base_path"] = BP
 register(templates.env)
 
-BACKUP_STATUS_FILE = Path(os.environ.get("BACKUP_STATUS_DIR", "/app/data/backups")) / "status.json"
+BACKUP_STATUS_FILE = Path(settings.BACKUP_STATUS_DIR) / "status.json"
 BACKUP_AMBER_HOURS = 36
 BACKUP_RED_HOURS = 72
 

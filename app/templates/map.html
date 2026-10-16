@@ -4,7 +4,7 @@
 {% block nav_map %}active{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<link rel="stylesheet" href="{{ base_path }}/static/vendor/maplibre-gl-4.7.1/maplibre-gl.css" />
 <style>
     /* ── Redesign (map-redesign-mock-v1): hero strip + chart-as-filter rail
        + full-bleed GPU map. Colors ride the fl tokens; deal/unit/status
@@ -246,7 +246,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="{{ base_path }}/static/vendor/maplibre-gl-4.7.1/maplibre-gl.js"></script>
 <script>
 (function () {
     "use strict";

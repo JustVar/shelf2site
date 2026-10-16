@@ -34,7 +34,7 @@ register(templates.env)
 STATUSES = list(HAND_EDITABLE_ITEM_STATUSES)
 
 ALLOWED_RECEIPT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".pdf", ".eml", ".msg", ".html"}
-RECEIPT_STORAGE_PATH = "/app/data/receipts"
+RECEIPT_STORAGE_PATH = settings.RECEIPT_UPLOAD_DIR
 
 
 def _get_locations(db: Session) -> list[dict]:

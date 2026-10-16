@@ -169,8 +169,8 @@ def test_find_context_word_never_matches_a_username():
     ("my-assettracker-login-99", "assettracker"),
     ("myASSETTRACKERlogin9", "assettracker"),    # embedded, no separators
     ("the-asset-tracker-vault", "asset-tracker"),
-    ("apphost-fields-999", "apphost"),
-    ("Go-apphost-Team-Winner", "apphost"),
+    ("brand2-fields-999", "brand"),
+    ("Go-ASSETTRACKER-Team-Winner", "assettracker"),
     ("my-password-is-long-99", "password"),
 ])
 def test_context_words_are_rejected_anywhere_in_the_password(password, word):
@@ -180,8 +180,8 @@ def test_context_words_are_rejected_anywhere_in_the_password(password, word):
 @pytest.mark.parametrize("password", [
     "isotope-ladder-vault-9",     # "sot" is not "brand"
     "sotto-voce-brisket-9",
-    "sparrow-meadow-lantern",     # "spar" is not "apphost"
-    "sparta-museum-tour-42",      # one letter short
+    "sotheby-meadow-lantern",     # "sot" is not "brand"
+    "soteri-museum-tour-42",      # one letter short
     "compass-lantern-quilt",      # "pass" is not "password"
     "crossword-tunnel-vault",     # "word" is not "password"
     "asset-manager-jungle",       # bare "asset" is not configured

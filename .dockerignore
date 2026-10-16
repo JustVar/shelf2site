@@ -1,12 +1,15 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 .env
 *.log
 .git/
-.gitignore
+.github/
 tests/
 docs/
+media/
 *.md
+data/
 data_backup/

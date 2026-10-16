@@ -1,61 +1,54 @@
-"""CLI script to create initial admin user accounts.
+"""Create the first admin account on a new install.
 
-Run once during setup:
-    python -m scripts.create_admin_user
+The app has no sign-up page: every other account is created by an admin on
+the Users page. The new admin must change the password on first sign-in.
 
-Or from the asset_tracker directory:
-    python scripts/create_admin_user.py
+    python -m scripts.create_admin_user USERNAME "Display Name"
+    docker compose exec app python -m scripts.create_admin_user USERNAME "Display Name"
+
+The password is asked for twice and must pass the password rules
+(validate_password_strength in app/auth.py).
 """
 
+import argparse
+import getpass
 import sys
 from pathlib import Path
 
-# Add parent to path so we can import the app modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import settings  # noqa: E402
+from app.auth import create_user, validate_password_strength  # noqa: E402
 from app.database import SessionLocal, create_all_tables  # noqa: E402
-from app.auth import create_user, hash_password  # noqa: E402
-from app.models import User  # noqa: E402
+from app.models import ADMIN_LEVEL_ROLES, User  # noqa: E402
 
 
-def main():
-    print("=== Company Hardware Inventory - User Setup ===")
-    print()
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Create the first admin account.")
+    parser.add_argument("username")
+    parser.add_argument("display_name", nargs="?", default=None)
+    parser.add_argument("--role", default=ADMIN_LEVEL_ROLES[0], choices=list(ADMIN_LEVEL_ROLES))
+    args = parser.parse_args(argv)
 
     create_all_tables()
     db = SessionLocal()
-
     try:
-        # Initial accounts per plan
-        initial_users = [
-            ("justin", "Justin Varughese", "admin"),
-            ("nico", "Nico", "editor"),
-            ("chris", "Chris", "editor"),
-        ]
-
-        for username, display_name, role in initial_users:
-            existing = db.query(User).filter(User.username == username).first()
-            if existing:
-                print(f"  [SKIP] User '{username}' already exists (role={existing.role})")
-                continue
-
-            # Prompt for password
-            import getpass
-            password = getpass.getpass(f"  Password for {username} ({role}): ")
-            if not password:
-                print(f"  [SKIP] No password entered for '{username}'")
-                continue
-
-            user = create_user(db, username, display_name, password, role)
-            print(f"  [OK] Created user '{username}' (role={role}, id={user.id})")
-
-        print()
-        print("Done. Users can now log in at /login")
-
+        if db.query(User).filter(User.username == args.username).first():
+            print(f"User '{args.username}' already exists; nothing changed.")
+            return 1
+        password = getpass.getpass(f"Password for {args.username}: ")
+        problem = validate_password_strength(password, username=args.username)
+        if problem:
+            print("Password rejected: " + problem)
+            return 1
+        if getpass.getpass("Repeat the password: ") != password:
+            print("The passwords do not match; nothing changed.")
+            return 1
+        user = create_user(db, args.username, args.display_name or args.username, password, args.role)
+        print(f"Created '{user.username}' (role {user.role}). Sign in at /login.")
+        return 0
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

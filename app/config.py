@@ -22,16 +22,20 @@ class Settings:
     CREDENTIAL_ENCRYPTION_KEY: str = os.getenv("CREDENTIAL_ENCRYPTION_KEY", "")
 
     # Session (signed cookies)
-    SESSION_SECRET_KEY: str = os.getenv(
-        "SESSION_SECRET_KEY",
-        "CHANGE-ME-generate-with-python-c-import-secrets-secrets-token-hex-32",
-    )
+    SESSION_SECRET_KEY: str = os.getenv("SESSION_SECRET_KEY", "")
+    # Required: a default here would be a published signing key, so anyone
+    # could forge a session cookie for any user.
+    if len(SESSION_SECRET_KEY) < 32 or SESSION_SECRET_KEY.upper().startswith(("GENERATE", "CHANGE-ME")):
+        raise RuntimeError(
+            "SESSION_SECRET_KEY is missing or still a placeholder. Generate one with "
+            "python -c \"import secrets; print(secrets.token_hex(32))\" and set it in .env."
+        )
 
     # Root path prefix (for reverse proxy sub-path deployment, e.g. "/inventory")
     ROOT_PATH: str = os.getenv("ROOT_PATH", "")
 
     # Base URL the app is reached at (used to build absolute links in notifications)
-    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "https://192.0.2.10:8443/assettracker")
+    APP_BASE_URL: str = os.getenv("APP_BASE_URL", "http://localhost:8081")
 
     # Set True when serving behind HTTPS (Cloudflare Tunnel, cloud VM).
     # Marks session cookie as Secure — browsers will NOT send it over plain HTTP.
@@ -57,7 +61,7 @@ class Settings:
         w.strip().lower()
         for w in os.getenv(
             "PASSWORD_CONTEXT_WORDS",
-            "brand,assettracker,asset-tracker,apphost,password",
+            "brand,assettracker,asset-tracker,password",
         ).split(",")
         if w.strip()
     ]
@@ -65,7 +69,7 @@ class Settings:
 
     # Slack webhook (optional, for team channel alerts)
     SLACK_WEBHOOK_URL: str = os.getenv("SLACK_WEBHOOK_URL", "")
-    # Separate webhook for E2E test notifications (private channel, only Justin)
+    # Separate webhook for E2E test notifications (a private test channel)
     SLACK_TEST_WEBHOOK_URL: str = os.getenv("SLACK_TEST_WEBHOOK_URL", "")
     # Slack bot token for per-user DMs (xoxb-...)
     SLACK_BOT_TOKEN: str = os.getenv("SLACK_BOT_TOKEN", "")
@@ -83,12 +87,20 @@ class Settings:
     INSTALL_CERT_UPLOAD_DIR: str = os.getenv("INSTALL_CERT_UPLOAD_DIR", "data/install-cert-reports")
     # C2C cert source files + generated composite (5b/5c); bytes on disk, metadata in DB
     C2C_CERT_UPLOAD_DIR: str = os.getenv("C2C_CERT_UPLOAD_DIR", "data/c2c-cert-reports")
+    # Validation tool reports uploaded on the provisioning board
+    VALIDATION_REPORT_DIR: str = os.getenv("VALIDATION_REPORT_DIR", "data/validation-reports")
+    # Purchase receipts attached at intake
+    RECEIPT_UPLOAD_DIR: str = os.getenv("RECEIPT_UPLOAD_DIR", "data/receipts")
+    # Where the backup job writes status.json for the maintenance page
+    BACKUP_STATUS_DIR: str = os.getenv("BACKUP_STATUS_DIR", "data/backups")
 
     # Geocoding (Nominatim / OpenStreetMap default; empty base-url disables it).
-    # Nominatim policy: descriptive User-Agent + >=1 req/sec (see app/geocoding.py).
-    GEOCODER_ENABLED: bool = os.getenv("GEOCODER_ENABLED", "true").lower() == "true"
+    # Nominatim policy: descriptive User-Agent with contact details and at most
+    # one request per second (see app/geocoding.py). Off unless switched on, so
+    # an install never calls a third party with no contact address set.
+    GEOCODER_ENABLED: bool = os.getenv("GEOCODER_ENABLED", "false").lower() == "true"
     GEOCODER_BASE_URL: str = os.getenv("GEOCODER_BASE_URL", "https://nominatim.openstreetmap.org/search")
-    GEOCODER_USER_AGENT: str = os.getenv("GEOCODER_USER_AGENT", "AssetTracker/1.0 (owner@example.com)")
+    GEOCODER_USER_AGENT: str = os.getenv("GEOCODER_USER_AGENT", "AssetTracker/1.0")
     GEOCODER_RATE_LIMIT_S: float = float(os.getenv("GEOCODER_RATE_LIMIT_S", "1.1"))
     GEOCODER_TIMEOUT_S: float = float(os.getenv("GEOCODER_TIMEOUT_S", "10"))
 
@@ -96,6 +108,11 @@ class Settings:
     ZENDESK_SUBDOMAIN: str = os.getenv("ZENDESK_SUBDOMAIN", "")
     ZENDESK_EMAIL: str = os.getenv("ZENDESK_EMAIL", "")
     ZENDESK_API_TOKEN: str = os.getenv("ZENDESK_API_TOKEN", "")
+    # Agent ticket links are built from the subdomain; with none set, ticket
+    # numbers show without a link.
+    ZENDESK_TICKET_BASE: str = (
+        "https://" + ZENDESK_SUBDOMAIN + ".zendesk.com/agent/tickets/" if ZENDESK_SUBDOMAIN else ""
+    )
 
     # Email / SMTP (for notification email delivery channel)
     SMTP_HOST: str = os.getenv("SMTP_HOST", "")

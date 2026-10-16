@@ -234,9 +234,11 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if item.zendesk_ticket_id %}
-                        <a href="https://example-help.zendesk.com/agent/tickets/{{ item.zendesk_ticket_id }}"
+                        {% if item.zendesk_ticket_id and zendesk_ticket_base %}
+                        <a href="{{ zendesk_ticket_base }}{{ item.zendesk_ticket_id }}"
                            target="_blank" style="color: var(--info); text-decoration: none; font-size: 0.8rem;">#{{ item.zendesk_ticket_id }}</a>
+                        {% elif item.zendesk_ticket_id %}
+                        <span style="font-size: 0.8rem;">#{{ item.zendesk_ticket_id }}</span>
                         {% else %}
                         <span style="color: var(--text-muted);">&mdash;</span>
                         {% endif %}
@@ -735,6 +737,7 @@
 {% block scripts %}
 <script>
     // BP available globally from base.html
+    var ZENDESK_TICKET_BASE = {{ zendesk_ticket_base | tojson }};
     const ALL_ITEMS = {{ queue_items | tojson }};
     const BUCKET_LABELS = {{ deployment_buckets | tojson }};
     let boardData = null; // Cached board API response
@@ -1137,11 +1140,11 @@
         const zendeskHtml = item.zendesk_ticket_id
             ? `<div class="pipeline-card-meta-item">
                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                   <a href="https://example-help.zendesk.com/agent/tickets/${item.zendesk_ticket_id}"
-                      target="_blank" onclick="event.stopPropagation();"
-                      style="color: var(--info); text-decoration: none; font-size: 0.8rem;">
-                       Ticket #${item.zendesk_ticket_id}
-                   </a>
+                   ${ZENDESK_TICKET_BASE
+                       ? `<a href="${ZENDESK_TICKET_BASE + item.zendesk_ticket_id}"
+                             target="_blank" onclick="event.stopPropagation();"
+                             style="color: var(--info); text-decoration: none; font-size: 0.8rem;">Ticket #${item.zendesk_ticket_id}</a>`
+                       : `<span style="font-size: 0.8rem;">Ticket #${item.zendesk_ticket_id}</span>`}
                </div>`
             : '';
 

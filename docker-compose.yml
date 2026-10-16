@@ -1,55 +1,53 @@
+# Runs the app and its database on one machine.
+#
+#   cp .env.template .env      # then fill in the three GENERATE values
+#   docker compose up -d --build
+#   docker compose exec app python -m scripts.create_admin_user admin "Your Name"
+#   open http://localhost:8081
+#
+# The app builds the schema on first start. Data lives in two named volumes,
+# so `docker compose down` keeps it and `docker compose down -v` deletes it.
 
 services:
   db:
     image: postgres:16
-    container_name: asset_tracker_db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: asset_tracker
       POSTGRES_USER: asset_tracker_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5433:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
-      - /data/asset-tracker/postgres:/var/lib/postgresql/data
-    networks:
-      - asset_tracker_net
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U asset_tracker_user -d asset_tracker"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   app:
     build: .
-    container_name: asset_tracker_app
-    restart: always
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://asset_tracker_user:${POSTGRES_PASSWORD}@db:5432/asset_tracker
     volumes:
-      - /data/asset-tracker/photos:/app/data/photos
-      - /data/asset-tracker/receipts:/app/data/receipts
-      - /data/asset-tracker/cert-reports:/app/data/cert-reports
-      - /data/asset-tracker/c2c-cert-reports:/app/data/c2c-cert-reports
-      - /data/asset-tracker/install-cert-reports:/app/data/install-cert-reports
-      - /data/asset-tracker/security:/app/data/security
-      # Backup status.json for the maintenance page — read-only (docs/BACKUPS.md)
-      - /data/asset-tracker/backups:/app/data/backups:ro
-      - /opt/asset_tracker/static:/app/static
-      - /opt/asset_tracker/app:/app/app
-      - /opt/asset_tracker/migrations:/app/migrations
-      - /opt/asset_tracker/scripts:/app/scripts
-      # Contract tests (docs/CONTRACT_TESTS.md). Mounted rather than baked into
-      # the image (.dockerignore skips tests/) so edits need no rebuild.
-      - /opt/asset_tracker/tests:/app/tests
+      # Photos, receipts and certification reports.
+      - appdata:/app/data
+      # Contract tests, mounted so `docker compose exec app python -m pytest
+      # tests/ -q` runs the current files without a rebuild.
+      - ./tests:/app/tests:ro
     ports:
       - "127.0.0.1:8081:8081"
-    networks:
-      - asset_tracker_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs -o /dev/null http://127.0.0.1:8081/login"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
-networks:
-  asset_tracker_net:
-    driver: bridge
+volumes:
+  pgdata:
+  appdata:
