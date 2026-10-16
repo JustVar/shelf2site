@@ -58,7 +58,6 @@ def _get_locations(db: Session) -> list[dict]:
     return [{"id": r.id, "name": r.name} for r in rows]
 
 
-import time as _time
 import logging
 _log = logging.getLogger(__name__)
 
@@ -74,12 +73,8 @@ def inventory_page(
     include_decommissioned: bool = Query(default=False),
     page: int = Query(default=1),
 ):
-    _t0 = _time.time()
     tiles = _get_tile_stats(db, include_decommissioned)
-    _log.warning(f"TIMING tiles: {_time.time()-_t0:.3f}s")
-    _t1 = _time.time()
     locations = _get_locations(db)
-    _log.warning(f"TIMING locations: {_time.time()-_t1:.3f}s")
 
     query = db.query(Item)
 
@@ -160,7 +155,6 @@ def inventory_page(
             "color":        FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         })
 
-    _log.warning(f"TIMING total before render: {_time.time()-_t0:.3f}s")
     return templates.TemplateResponse("inventory.html", {
         "request":      request,
         "user":         user,

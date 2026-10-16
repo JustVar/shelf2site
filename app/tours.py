@@ -1825,11 +1825,6 @@ TOURS: list[dict] = [
                 "target": ".page-header",
             },
             {
-                "title": "Per-Role Gap Counts",
-                "description": "Each tab represents a role. The badge on the tab is the number of items missing fields for that role. Switch tabs to focus on one role at a time.",
-                "target": ".trg-tabs",
-            },
-            {
                 "title": "Sort and Pagination",
                 "description": "Sort by oldest, gap count, or name. Per page controls how many rows you see at once.",
                 "target": ".trg-controls",
