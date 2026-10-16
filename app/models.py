@@ -851,6 +851,35 @@ class OEMPurchaseOrder(Base):
     customer_order = relationship("CustomerOrder", back_populates="oem_pos")
 
 
+class OrderDocument(Base):
+    """A file attached to a customer order, mostly the vendor's certification
+    and validation documents (docs/specs/one-board-two-tracks.md). Files only,
+    no parsing: bytes on disk under ORDER_DOC_UPLOAD_DIR/<order id>/, metadata
+    here. Migration 087 creates the table on existing installs."""
+    __tablename__ = "order_documents"
+
+    KINDS = {
+        "certification": "Certification",
+        "validation": "Validation",
+        "shipping": "Shipping",
+        "other": "Other",
+    }
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    customer_order_id = Column(Integer, ForeignKey("customer_orders.id", ondelete="CASCADE"),
+                               nullable=False, index=True)
+    kind = Column(String(32), nullable=False, server_default="other")
+    original_name = Column(String(255), nullable=False)
+    stored_name = Column(String(255), nullable=False)
+    content_type = Column(String(128), nullable=True)
+    size_bytes = Column(Integer, nullable=False)
+    note = Column(Text, nullable=True)
+    uploaded_by = Column(String(128), nullable=True)
+    uploaded_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    customer_order = relationship("CustomerOrder")
+
+
 class OEMPartner(Base):
     """Who builds, certifies and ships an order (Migration 074).
 

@@ -89,6 +89,8 @@ class Settings:
     C2C_CERT_UPLOAD_DIR: str = os.getenv("C2C_CERT_UPLOAD_DIR", "data/c2c-cert-reports")
     # Validation tool reports uploaded on the provisioning board
     VALIDATION_REPORT_DIR: str = os.getenv("VALIDATION_REPORT_DIR", "data/validation-reports")
+    # Documents attached to an order (vendor certifications and the like)
+    ORDER_DOC_UPLOAD_DIR: str = os.getenv("ORDER_DOC_UPLOAD_DIR", "data/order-docs")
     # Purchase receipts attached at intake
     RECEIPT_UPLOAD_DIR: str = os.getenv("RECEIPT_UPLOAD_DIR", "data/receipts")
     # Where the backup job writes status.json for the maintenance page

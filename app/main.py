@@ -25,7 +25,7 @@ from .routes import (
     dashboard, error_routes, fulfillment,
     intake, inventory, item_detail,
     locks, maintenance_routes, map as map_route,
-    mobile, notification_routes, orders, pending,
+    mobile, notification_routes, order_flow, orders, pending,
     provisioning, receipts, receiving, search,
     sites, slack_bot_routes, sse, support,
     tours, unit_photos, vendors, warranty,
@@ -528,6 +528,7 @@ app.include_router(fulfillment.router)
 app.include_router(c2c.router)
 app.include_router(provisioning.router)
 app.include_router(orders.router)
+app.include_router(order_flow.router)
 app.include_router(sites.router)
 app.include_router(search.router)
 app.include_router(locks.router, prefix="/api")

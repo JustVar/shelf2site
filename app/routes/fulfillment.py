@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 
+from ..audit import log_event
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
 from ..localtime import fmt_local, local_today, register
@@ -35,6 +36,7 @@ from ..models import (
     AuditLog,
 )
 from ..order_matching import candidate_items, requirement_lines
+from ..order_tracks import PRE_SHIP, mark_units_deployed
 from ..sku_conversion import is_legacy_sku, is_2026_sku
 
 router = APIRouter()
@@ -823,38 +825,35 @@ async def update_ship_details(
     if not order:
         return JSONResponse(status_code=404, content={"detail": "Order not found"})
 
+    if order.status == "cancelled":
+        return JSONResponse(status_code=409, content={"detail": "A cancelled order cannot ship"})
+
     update_data = payload.dict(exclude_none=True)
+    old_values = {k: (str(getattr(order, k)) if getattr(order, k) is not None else None)
+                  for k in update_data}
+    old_status = order.status
     for field, value in update_data.items():
         setattr(order, field, value)
 
     # If shipped_date is being set and order is not yet shipped, advance status.
-    # Any pre-ship status advances — orders assigned straight from stock skip
-    # sourcing/building entirely (previously only building/testing advanced,
-    # which stranded 'new' orders at status new after shipping).
-    if payload.shipped_date and order.status in ("new", "sourcing", "building", "testing"):
+    # Any pre-ship status advances; orders assigned straight from stock skip
+    # sourcing and building entirely.
+    if payload.shipped_date and order.status in PRE_SHIP:
         order.status = "shipped"
 
-    # Shipping moves the order's still-out item-linked units out the door:
-    # their inventory rows go Deployed. Legacy edge-box rows (item_id NULL)
-    # are untouched — their pipeline manages device state separately. The
-    # managed statuses (Installed / Checked Out / Decommissioned) are never
-    # overwritten.
-    if payload.shipped_date:
-        linked = (
-            db.query(DeviceProvisioning)
-            .filter(
-                DeviceProvisioning.customer_order_id == order.id,
-                DeviceProvisioning.item_id.isnot(None),
-                DeviceProvisioning.returned_date.is_(None),
-            )
-            .all()
-        )
-        for rec in linked:
-            item = db.query(Item).filter(Item.id == rec.item_id).first()
-            if item and item.item_status not in ("Installed", "Checked Out", "Decommissioned"):
-                item.item_status = "Deployed"
+    # Shipping moves the order's still-out units out the door (shared with the
+    # advance route, app/order_tracks.py).
+    units_deployed = mark_units_deployed(db, order) if payload.shipped_date else 0
 
     db.commit()
+    log_event(
+        db, "order_ship_details_updated", request=request, user_id=user.id,
+        target_table="customer_orders", target_id=order.id, action="update",
+        old_values={**old_values, "status": old_status},
+        new_values={**{k: str(v) for k, v in update_data.items()}, "status": order.status,
+                    "units_deployed": units_deployed},
+        details=f"Updated shipping for {order.order_number}",
+    )
 
     return {
         "ok": True,

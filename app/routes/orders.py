@@ -602,6 +602,23 @@ def order_availability(
 # API — OEM Purchase Orders
 # ---------------------------------------------------------------------------
 
+def _oem_po_problem(body: dict, require_status: bool):
+    """A message for a PO body the database would reject, else None. The
+    status CHECK (db/10_extras.sql) allows only OEM_STATUSES; quantities
+    must be whole numbers."""
+    status = (body.get("status") or "").strip()
+    if (status or require_status) and status not in OEMPurchaseOrder.OEM_STATUSES:
+        return "Unknown PO status: " + (status or "(blank)")
+    for field in ("qty_ordered", "qty_received"):
+        if body.get(field) not in (None, ""):
+            try:
+                if int(body[field]) < 0:
+                    return field.replace("_", " ").capitalize() + " cannot be negative"
+            except (TypeError, ValueError):
+                return field.replace("_", " ").capitalize() + " must be a whole number"
+    return None
+
+
 @router.post("/api/orders/{order_id}/oem-pos")
 async def create_oem_po(
     order_id: int,
@@ -618,6 +635,9 @@ async def create_oem_po(
     sku = (body.get("sku") or "").strip()
     if not vendor_name or not sku:
         return JSONResponse(status_code=400, content={"error": "vendor_name and sku are required"})
+    problem = _oem_po_problem(body, require_status=False)
+    if problem:
+        return JSONResponse(status_code=400, content={"error": problem})
 
     po = OEMPurchaseOrder(
         customer_order_id=order_id,
@@ -628,7 +648,7 @@ async def create_oem_po(
         qty_received=int(body.get("qty_received") or 0),
         order_date=body.get("order_date") or None,
         expected_delivery=body.get("expected_delivery") or None,
-        status=body.get("status") or "ordered",
+        status=(body.get("status") or "").strip() or "ordered",
         notes=(body.get("notes") or "").strip() or None,
     )
     db.add(po)
@@ -658,6 +678,9 @@ async def update_oem_po(
         return JSONResponse(status_code=404, content={"error": "PO not found"})
 
     body = await request.json()
+    problem = _oem_po_problem(body, require_status="status" in body)
+    if problem:
+        return JSONResponse(status_code=400, content={"error": problem})
     for field in ["vendor_name", "po_number", "sku", "status", "notes"]:
         if field in body:
             setattr(po, field, (body[field] or "").strip() or None)
