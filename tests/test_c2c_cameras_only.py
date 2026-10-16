@@ -89,3 +89,15 @@ def test_an_edge_box_cannot_take_a_camera_certification(admin_client, db, mixed_
     db.commit()
     assert db.execute(sqltext("SELECT count(*) FROM c2c_certification WHERE device_provisioning_id = :p"),
                       {"p": pid}).scalar() == 0
+
+
+def test_vendor_supplied_cameras_are_not_a_stock_shortfall(admin_client, db, mixed_order):
+    """Camera lines the vendor supplies (source oem) arrive with the vendor's
+    build, so they never show short on the camera page or fill the quota."""
+    oid, cams = mixed_order["order_id"], mixed_order["cams"]
+    r = admin_client.put(f"/api/orders/{oid}", json={"sku_requirements": [
+        {"model": SKU, "qty": 2, "source": "oem"}]})
+    assert r.status_code == 200, r.text
+    page = admin_client.get("/fulfillment/c2c").text
+    assert "CONTRACT-TEST Mixed Corp" not in page
+    assert _acquire(admin_client, oid, cams[0]).status_code == 409

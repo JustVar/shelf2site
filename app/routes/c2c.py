@@ -163,8 +163,7 @@ def _c2c_board_data(db: Session) -> dict:
     order_rollup = []
     total_needed = 0
     for o in db.query(CustomerOrder).order_by(CustomerOrder.id).all():
-        need = sum(int(line.get("qty") or 0) for line in (o.sku_requirements or [])
-                   if line.get("model") in c2c_skus)
+        need = stock_camera_need(o, c2c_skus)
         acq = acquired_by_order.get(o.id, 0)
         if o.status == "cancelled":
             # Ended order: no C2C work remains against it
@@ -300,6 +299,15 @@ def _pilots_due_back(db: Session) -> dict:
     }
 
 
+def stock_camera_need(order, c2c_skus) -> int:
+    """Cameras this order needs from our stock: its camera lines, less any
+    the vendor supplies (source "oem"). Vendor-supplied cameras arrive with
+    the vendor's build (docs/specs/one-board-two-tracks.md), so they never
+    count as a shortfall here or toward the acquire quota."""
+    return sum(int(line.get("qty") or 0) for line in (order.sku_requirements or [])
+               if line.get("model") in c2c_skus and (line.get("source") or "tbd") != "oem")
+
+
 @router.get("/fulfillment/pilots-due-back", response_class=HTMLResponse)
 def pilots_due_back_page(
     request: Request,
@@ -413,8 +421,7 @@ async def c2c_acquire(
             sku for (sku,) in db.query(ItemPartNumber.item_sku)
             .filter(ItemPartNumber.item_category == "camera_c2c").all()
         }
-        needed = sum(int(line.get("qty") or 0) for line in (order.sku_requirements or [])
-                     if line.get("model") in c2c_skus)
+        needed = stock_camera_need(order, c2c_skus)
         # Count cameras only: an order's edge boxes are item-linked rows too.
         acquired = (
             db.query(DeviceProvisioning)

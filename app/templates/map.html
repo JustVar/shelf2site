@@ -690,6 +690,19 @@
         });
     }
 
+    // First view: frame every unit once, so a fleet in one region is in view
+    // rather than the world view's default center. Later reloads leave the
+    // camera where the person put it. Runs from both the data load and the
+    // map load, whichever finishes second.
+    var fittedOnce = false;
+    function fitToUnitsOnce() {
+        if (fittedOnce || !mapReady || !allFeatures.length) return;
+        var bounds = new maplibregl.LngLatBounds();
+        allFeatures.forEach(function (f) { bounds.extend(f.geometry.coordinates); });
+        map.fitBounds(bounds, { padding: 80, maxZoom: 8, duration: 0 });
+        fittedOnce = true;
+    }
+
     function reloadData() {
         return fetch("{{ base_path }}/map/data").then(function (r) {
             if (r.status === 401) { document.getElementById("mp-relogin").classList.add("open"); return null; }
@@ -730,6 +743,7 @@
             } else {
                 refreshSource();
             }
+            fitToUnitsOnce();
         }).catch(function (err) { console.error("map data load failed:", err); });
     }
 
@@ -738,6 +752,7 @@
         mapReady = true;
         addSourceAndLayers();
         setMode(mode);
+        fitToUnitsOnce();
     });
 
     map.on("click", "clusters", function (e) {

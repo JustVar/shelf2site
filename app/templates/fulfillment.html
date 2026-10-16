@@ -32,6 +32,7 @@
 .fb-card { display: block; cursor: pointer; }
 .fb-card-link { display: block; color: inherit; text-decoration: none; }
 .fb-card-link:hover { text-decoration: underline; }
+.fb-card .fl-obtn { white-space: nowrap; }
 .fb-card .fl-otitle { font-size: 14px; }
 .fb-meta { font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 3px; margin: 6px 0 10px; }
 .fb-flags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -130,7 +131,7 @@
                     <span class="fl-ochip">{{ c.order_number }}</span>
                     <span class="order-type-badge order-type-badge--{{ c.order_type }}">{{ c.type_label }}</span>
                 </div>
-                <a class="fl-otitle fb-card-link" href="{{ base_path }}/orders/{{ c.id }}">{{ c.customer_name }}</a>{% if c.is_sensitive %} {{ fl_icon('lock', 'mute', 12) }}{% endif %}
+                <a class="fl-otitle fb-card-link" href="{{ base_path }}/orders/{{ c.id }}">{{ c.customer_name }}{% if c.is_sensitive %} <span title="Sensitive customer">{{ fl_icon('lock', 'mute', 12) }}</span>{% endif %}</a>
                 <div class="fb-meta">
                     {% if track == 'vendor' %}
                     <span>{{ fl_icon('procurement', 'mute', 12) }} {{ c.partner or 'Built in-house' }}</span>
