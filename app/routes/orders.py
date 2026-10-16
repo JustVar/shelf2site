@@ -27,7 +27,7 @@ from ..models import (
     User,
     AuditLog,
 )
-from ..order_matching import candidate_items, requirement_lines
+from ..order_matching import candidate_items, linked_count, requirement_lines
 from ..order_tracks import (
     COLUMNS, STEP_LABELS, NEXT_STEP, STATUS_COLUMN, TRACKS,
     cert_doc_orders, column_of, flags, track_of, unit_counts,
@@ -64,22 +64,37 @@ def _next_order_number(db: Session) -> str:
 # SKU availability helper
 # ---------------------------------------------------------------------------
 
-def _sku_availability(db: Session, sku_requirements: list) -> list:
-    """For each {model, qty, source} requirement, count unprovisioned inventory."""
+def _sku_availability(db: Session, sku_requirements: list, order_id: int | None = None) -> list:
+    """For each {model, qty, source} requirement: units already linked to the
+    order, ready stock that could fill the rest, and a status.
+
+    linked  -> every unit on the line is linked to the order
+    vendor  -> the rest comes from the vendor build, so stock is not needed
+    ok / partial / none -> ready stock against what is still needed
+    """
     results = []
     for req in sku_requirements:
         # Tolerant read: legacy hand-written rows used a 'sku' key; the
         # editor writes the canonical 'model' key only.
         model = (req.get("model") or req.get("sku") or "").strip()
-        needed = int(req.get("qty") or 0)
+        try:
+            needed = int(req.get("qty") or 0)
+        except (TypeError, ValueError):
+            needed = 0
         if not model:
             continue
+        source = req.get("source", "tbd")
 
+        linked = linked_count(db, order_id, model)
+        remaining = max(needed - linked, 0)
         # Ready item stock, via the same matcher the Assign panel uses.
-        # Item 30 S4: the legacy per-table count is gone.
         available = len(candidate_items(db, model))
 
-        if available >= needed:
+        if remaining == 0:
+            status = "linked"
+        elif source == "oem":
+            status = "vendor"
+        elif available >= remaining:
             status = "ok"
         elif available > 0:
             status = "partial"
@@ -89,7 +104,9 @@ def _sku_availability(db: Session, sku_requirements: list) -> list:
         results.append({
             "model": model,
             "qty": needed,
-            "source": req.get("source", "tbd"),
+            "source": source,
+            "linked": linked,
+            "remaining": remaining,
             "available": available,
             "status": status,
         })
@@ -122,7 +139,7 @@ def order_detail(
     if order.is_sensitive and not user.has_sensitive_customers_access:
         return RedirectResponse(f"{BP}/fulfillment/", status_code=303)
 
-    availability = _sku_availability(db, order.sku_requirements or [])
+    availability = _sku_availability(db, order.sku_requirements or [], order.id)
 
     # Linked provisioning records
     prov_records = (
@@ -667,9 +684,9 @@ def order_availability(
 ):
     """Return live SKU availability check for this order."""
     order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
-    if not order:
+    if not order or (order.is_sensitive and not user.has_sensitive_customers_access):
         return JSONResponse(status_code=404, content={"error": "Order not found"})
-    return JSONResponse(content={"availability": _sku_availability(db, order.sku_requirements or [])})
+    return JSONResponse(content={"availability": _sku_availability(db, order.sku_requirements or [], order.id)})
 
 
 # ---------------------------------------------------------------------------

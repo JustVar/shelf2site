@@ -567,6 +567,11 @@ def seed(s: Seeder):
                     owner="oem", oem_partner_id=P["Copperleaf Manufacturing"],
                     sales_engineer="Jordan Lee", sales_engineer_id=se)
     reqs(o_cedar, [("EDGE25-NR", 2, "oem"), ("C2C-GEN1-8MP", 4, "stock")])
+    s.post(f"/api/orders/{o_cedar}/oem-pos", json={
+        "vendor_name": "Copperleaf Manufacturing", "po_number": "CLM-PO-1150", "sku": "EDGE25-NR",
+        "qty_ordered": 2, "qty_received": 2, "order_date": d(-40), "expected_delivery": d(-20),
+        "status": "verified"})
+    s.bump("purchase orders")
     advance(o_cedar, "building")
     document(o_cedar, "copperleaf-certificate-CVS.pdf", "certification", "Certificate of conformance",
              ["Customer order CVS-PO-2026-09", "2 x EDGE25-NR burn-in 48h: pass",
@@ -590,6 +595,11 @@ def seed(s: Seeder):
     o_gulf = order("Gulf Coast Marina", "sale", po_number="GCM-1042", due_date=d(8),
                    owner="oem", oem_partner_id=P["Ridgeline Systems Integration"])
     reqs(o_gulf, [("EDGE200-Z2", 1, "oem"), ("C2C-GEN1-8MP", 6, "stock")])
+    s.post(f"/api/orders/{o_gulf}/oem-pos", json={
+        "vendor_name": "Ridgeline Systems Integration", "po_number": "RSI-PO-3288", "sku": "EDGE200-Z2",
+        "qty_ordered": 1, "qty_received": 1, "order_date": d(-30), "expected_delivery": d(-6),
+        "status": "receiving"})
+    s.bump("purchase orders")
     advance(o_gulf, "building")
     assign(o_gulf, [e200.pop(0)])
     acquire(o_gulf, [cams8.pop() for _ in range(6)])

@@ -59,6 +59,35 @@ def test_availability_counts_ready_items(admin_client, ful_unit):
     assert r.status_code == 200, r.text
     line = [a for a in r.json()["availability"] if a["model"] == MODEL][0]
     assert (line["available"], line["status"]) == (1, "partial")
+    assert (line["linked"], line["remaining"]) == (0, 2)
+
+
+def _line(client, order_id):
+    r = client.get(f"/api/orders/{order_id}/availability")
+    assert r.status_code == 200, r.text
+    return [a for a in r.json()["availability"] if a["model"] == MODEL][0]
+
+
+def _set_line(db, order_id, qty, source):
+    db.execute(sqltext("UPDATE customer_orders SET sku_requirements = CAST(:r AS jsonb) WHERE id = :o"),
+               {"r": f'[{{"model": "{MODEL}", "qty": {qty}, "source": "{source}"}}]', "o": order_id})
+    db.commit()
+
+
+def test_a_linked_unit_counts_toward_its_line(admin_client, db, ful_unit):
+    """A unit already on the order fills its line: an installed order never
+    reads as short of stock because its units left the shelf."""
+    _link(db, ful_unit)
+    line = _line(admin_client, ful_unit["order_id"])
+    assert (line["linked"], line["remaining"], line["available"], line["status"]) == (1, 1, 0, "none")
+    _set_line(db, ful_unit["order_id"], 1, "stock")
+    assert _line(admin_client, ful_unit["order_id"])["status"] == "linked"
+
+
+def test_a_vendor_built_line_does_not_need_stock(admin_client, db, ful_unit):
+    _set_line(db, ful_unit["order_id"], 5, "oem")
+    line = _line(admin_client, ful_unit["order_id"])
+    assert (line["remaining"], line["status"]) == (5, "vendor")
 
 
 def test_panel_and_order_page_show_the_item(admin_client, db, ful_unit):
@@ -69,6 +98,6 @@ def test_panel_and_order_page_show_the_item(admin_client, db, ful_unit):
     assert [(d["serial"], d["kind"]) for d in dev] == [(SERIAL, "item")]
     page = admin_client.get(f"/orders/{ful_unit['order_id']}")
     assert page.status_code == 200
-    # The units table shows the unit and its serial in separate columns.
+    # The units table shows the unit name with its serial under it.
     assert "CONTRACT-TEST Ful Edge" in page.text and SERIAL in page.text
     assert admin_client.get("/fulfillment/").status_code == 200

@@ -253,8 +253,10 @@ def test_sensitive_order_page_now_gated(admin_client, db, photo_ctx):
         assert c.post("/login", data={"username": username, "password": password}).status_code == 302
         r = c.get(f"/orders/{photo_ctx['order_id']}")
         assert r.status_code == 303, f"sensitive order must mask as redirect, got {r.status_code}"
+        assert c.get(f"/api/orders/{photo_ctx['order_id']}/availability").status_code == 404
         r = admin_client.get(f"/orders/{photo_ctx['order_id']}")
         assert r.status_code == 200
+        assert admin_client.get(f"/api/orders/{photo_ctx['order_id']}/availability").status_code == 200
     finally:
         c.close()
         db.rollback()

@@ -14,9 +14,8 @@ A candidate is an item_schema.items row that:
   * has no still-out provisioning row (item_id link with returned_date
     IS NULL) — mirrors the C2C one-still-out-per-item invariant.
 
-Legacy public.* tables are NOT consulted here; item_schema.items is the
-system of record (2026-07 Casey import). The availability card still adds
-legacy-table counts separately while those tables are retired.
+item_schema.items is the system of record for stock. linked_count uses the
+same match rule for units already on an order.
 """
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -54,6 +53,27 @@ def candidate_items(db: Session, model: str) -> list[Item]:
         .order_by(Item.id)
         .all()
     )
+
+
+def linked_count(db: Session, order_id: int, model: str) -> int:
+    """Units already linked to the order that match a requirement line, by
+    the same SKU-or-model rule as candidate_items. Returned units still count:
+    they filled the line when they went out."""
+    model = (model or "").strip()
+    if not model or order_id is None:
+        return 0
+    return (
+        db.query(func.count(DeviceProvisioning.id))
+        .join(Item, Item.id == DeviceProvisioning.item_id)
+        .filter(
+            DeviceProvisioning.customer_order_id == order_id,
+            or_(
+                func.lower(Item.item_sku) == model.lower(),
+                Item.item_model.ilike(f"%{_escape_like(model)}%"),
+            ),
+        )
+        .scalar()
+    ) or 0
 
 
 def requirement_lines(order) -> list[dict]:

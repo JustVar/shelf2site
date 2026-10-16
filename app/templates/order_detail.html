@@ -171,13 +171,15 @@
     </div>
     {% endif %}
 
+    <div style="overflow-x:auto;">
     <table class="data-table" id="sku-table"{% if not availability %} style="display:none;"{% endif %}>
         <thead>
             <tr>
                 <th>Model</th>
                 <th>Qty Needed</th>
+                <th>Linked</th>
                 <th>Source Plan</th>
-                <th>Available in Stock</th>
+                <th>Ready in Stock</th>
                 <th>Status</th>
                 {% if user.has_provisioning_manage %}<th style="width:1%;"></th>{% endif %}
             </tr>
@@ -189,6 +191,7 @@
                     {% if row.model not in catalog_skus %}<span class="badge badge-warning" title="This SKU is not in the part-numbers catalog">not in catalog</span>{% endif %}
                 </td>
                 <td>{{ row.qty }}</td>
+                <td>{{ row.linked }}</td>
                 <td style="color:var(--text-muted); font-size:0.85rem;">
                     {% if row.source == 'stock' %}From stock
                     {% elif row.source == 'oem' %}OEM order
@@ -196,10 +199,14 @@
                 </td>
                 <td>{{ row.available }}</td>
                 <td>
-                    {% if row.status == 'ok' %}
+                    {% if row.status == 'linked' %}
+                    <span class="badge badge-success">✓ All linked</span>
+                    {% elif row.status == 'vendor' %}
+                    <span class="badge otrk-vendor" title="The vendor builds the rest; stock is not needed">Vendor builds {{ row.remaining }}</span>
+                    {% elif row.status == 'ok' %}
                     <span class="badge badge-success">✓ Sufficient</span>
                     {% elif row.status == 'partial' %}
-                    <span class="badge badge-warning">⚠ Partial ({{ row.available }}/{{ row.qty }})</span>
+                    <span class="badge badge-warning">⚠ Partial ({{ row.available }}/{{ row.remaining }})</span>
                     {% else %}
                     <span class="badge badge-danger">✗ None available</span>
                     {% endif %}
@@ -214,12 +221,14 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     <p id="sku-empty" style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;{% if availability %} display:none;{% endif %}">
         No SKU requirements yet.{% if user.has_provisioning_manage %} Use <strong>+ Add SKU</strong> above to define what this order needs.{% endif %}
     </p>
 </div>
 
-<!-- OEM Purchase Orders -->
+<!-- OEM Purchase Orders: the vendor track buys from the OEM; a pilot from stock shows the section only if it already has a PO -->
+{% if t.track == 'vendor' or oem_pos %}
 <div class="table-section" style="margin-bottom:1.5rem;">
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
         <h2 style="margin:0;">Purchase Orders</h2>
@@ -229,7 +238,8 @@
         {% endif %}
     </div>
     {% if oem_pos %}
-    <table class="data-table">
+    <div style="overflow-x:auto;">
+    <table class="data-table otrk-pos">
         <thead>
             <tr>
                 <th>Vendor</th>
@@ -284,10 +294,12 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">No purchase orders yet.</p>
     {% endif %}
 </div>
+{% endif %}
 
 <!-- Units on this order -->
 <div class="table-section" id="prov-section" style="margin-bottom:1.5rem;">
@@ -325,12 +337,11 @@
     {% endif %}
 
     {% if prov_records %}
-    <table class="data-table">
+    <div style="overflow-x:auto;">
+    <table class="data-table otrk-utable">
         <thead>
             <tr>
                 <th>Unit</th>
-                <th>Serial</th>
-                <th>SKU</th>
                 <th>State</th>
                 <th>Visit</th>
                 <th>Certification</th>
@@ -344,9 +355,8 @@
                 <td>
                     {% if u.item %}<a href="{{ base_path }}/items/{{ u.item.id }}" style="color: var(--link);">{{ u.device_label }}</a>
                     {% else %}<a href="{{ base_path }}/provisioning/{{ p.id }}" style="color: var(--link);">{{ u.device_label }}</a>{% endif %}
+                    <div class="otrk-sub">{{ u.item.item_sn if u.item and u.item.item_sn else '' }}{% if u.item and u.item.item_sku %} &middot; {{ u.item.item_sku }}{% endif %}</div>
                 </td>
-                <td style="font-family:monospace; font-size:0.85rem;">{{ u.item.item_sn if u.item and u.item.item_sn else '—' }}</td>
-                <td style="font-size:0.85rem;">{{ u.item.item_sku if u.item and u.item.item_sku else '—' }}</td>
                 <td>
                     {% if p.returned_date %}<span class="badge">Returned {{ p.returned_date }}</span>
                     {% elif u.item %}<span class="badge{% if u.item.item_status == 'Deployed' %} badge-success{% endif %}">{{ u.item.item_status }}</span>
@@ -367,6 +377,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem 0;">
         No units linked yet.{% if t.track == 'vendor' %} Vendor builds ship from the vendor; link units here when they reach inventory.{% elif candidates %} Use <strong>+ Assign from stock</strong> above.{% else %} Add SKU requirements above to see matching stock.{% endif %}
@@ -410,7 +421,8 @@
         {% if t.flags.get('docs_missing') %}<span class="badge badge-warning">No certification on file</span>{% endif %}
     </div>
     {% if documents %}
-    <table class="data-table">
+    <div style="overflow-x:auto;">
+    <table class="data-table otrk-utable otrk-docs">
         <thead><tr><th>Document</th><th>Kind</th><th>Size</th><th>Added</th>{% if user.has_provisioning_manage %}<th style="width:1%;"></th>{% endif %}</tr></thead>
         <tbody>
         {% for d in documents %}
@@ -427,6 +439,7 @@
         {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color:var(--text-muted); font-size:0.85rem; padding:0.25rem 0;">No documents yet.{% if t.track == 'vendor' %} The vendor's certification and validation reports belong here.{% endif %}</p>
     {% endif %}
@@ -455,7 +468,8 @@
         {% endif %}
     </div>
     {% if deployments %}
-    <table class="data-table">
+    <div style="overflow-x:auto;">
+    <table class="data-table otrk-visits">
         <thead><tr><th>Visit</th><th>Site</th><th>Scheduled</th><th>Status</th><th>Units</th><th>Installation</th>{% if user.has_provisioning_manage %}<th style="width:1%;"></th>{% endif %}</tr></thead>
         <tbody>
         {% for d in deployments %}
@@ -491,6 +505,7 @@
         {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color:var(--text-muted); font-size:0.85rem; padding:0.25rem 0;">No site visits yet.</p>
     {% endif %}
@@ -1276,10 +1291,14 @@ function escHtml(s) {
 }
 
 function availRowHtml(row, idx) {
-    const statusHtml = row.status === 'ok'
+    const statusHtml = row.status === 'linked'
+        ? '<span class="badge badge-success">✓ All linked</span>'
+        : row.status === 'vendor'
+        ? `<span class="badge otrk-vendor" title="The vendor builds the rest; stock is not needed">Vendor builds ${row.remaining}</span>`
+        : row.status === 'ok'
         ? '<span class="badge badge-success">✓ Sufficient</span>'
         : row.status === 'partial'
-            ? `<span class="badge badge-warning">⚠ Partial (${row.available}/${row.qty})</span>`
+            ? `<span class="badge badge-warning">⚠ Partial (${row.available}/${row.remaining})</span>`
             : '<span class="badge badge-danger">✗ None available</span>';
     const sourceLabel = row.source === 'stock' ? 'From stock' : row.source === 'oem' ? 'OEM order' : 'TBD';
     const catalogChip = SKU_CATALOG.has(row.model)
@@ -1292,6 +1311,7 @@ function availRowHtml(row, idx) {
     return `<tr>
         <td style="font-weight:500; white-space:nowrap;">${escHtml(row.model)}${catalogChip}</td>
         <td>${row.qty}</td>
+        <td>${row.linked}</td>
         <td style="color:var(--text-muted);font-size:0.85rem;">${sourceLabel}</td>
         <td>${row.available}</td>
         <td>${statusHtml}</td>
@@ -1476,6 +1496,15 @@ async function saveEditOrder() {
 .otrk-foot { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.9rem; flex-wrap: wrap; }
 .otrk-units { font-size: 0.85rem; color: var(--text-muted); margin-right: auto; }
 .otrk-hint { font-size: 0.8rem; color: var(--text-muted); }
+.otrk-vendor { background: var(--accent-primary-dim); color: var(--text); border: 1px solid var(--accent-border); }
+/* main.css gives every thead th a 150px floor; these tables size to content. */
+#sku-table thead th, .otrk-pos thead th, .otrk-utable thead th, .otrk-visits thead th { min-width: 0; }
+.otrk-utable td:first-child { min-width: 170px; }
+.otrk-utable td:first-child .otrk-sub { white-space: nowrap; }
+.otrk-utable td:last-child { white-space: nowrap; }
+.otrk-visits td:last-child .fl-obtn { display: block; width: 100%; margin: 2px 0; white-space: nowrap; }
+.otrk-docs td:first-child { white-space: normal; min-width: 220px; }
+.otrk-sub { font-family: var(--sx-font-mono, monospace); font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
 #advance-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .otrk-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem 0.75rem; }
 .otrk-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-muted); }
