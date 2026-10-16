@@ -105,13 +105,13 @@
       <!-- Header -->
       <div class="sx-nav__header">
         <div class="sx-nav__header-expanded">
-          <a href="{{ base_path }}/dashboard" class="sx-nav__logo-horiz">{{ brand_logo(30, 's2s-nav') }}</a>
+          <a href="{{ base_path }}/dashboard" hx-boost="false" class="sx-nav__logo-horiz">{{ brand_logo(30, 's2s-nav') }}</a>
           <button class="sx-nav__toggle-btn" onclick="sxNavCollapse()" title="Collapse sidebar">
             {{ fl_icon('chevrLeft', 'mute', 13) }}
           </button>
         </div>
         <div class="sx-nav__header-collapsed">
-          <a href="{{ base_path }}/dashboard" class="sx-nav__logo-icon">{{ brand_mark(34, 's2s-nav-mark') }}</a>
+          <a href="{{ base_path }}/dashboard" hx-boost="false" class="sx-nav__logo-icon">{{ brand_mark(34, 's2s-nav-mark') }}</a>
           <button class="sx-nav__toggle-btn" onclick="sxNavExpand()" title="Expand sidebar">
             {{ fl_icon('chevrRight', 'mute', 13) }}
           </button>

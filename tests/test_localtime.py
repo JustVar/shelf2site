@@ -136,8 +136,7 @@ UTC_WORD = re.compile(r"\bUTC\b")
 # The Date sites: a calendar day is never converted, so .strftime( stays.
 DATE_SITES = {
     "partials/item_quick_view.html": {"item.last_updated"},
-    "fulfillment.html": {
-        "dr.scheduled_date", "dr.installed_date", "dr.cert_completion_date", "card.due_date"},
+    "fulfillment.html": {"c.expected_return", "c.due_date"},
     "item_detail.html": {
         "containment.parent.installed_date", "item.date_purchased", "item.dispatched_date",
         "r.transaction_date", "r.created_at", "ch.installed_date", "c.event.action_date",

@@ -1,6 +1,6 @@
 """Contract tests for fulfillment and orders on items (item 30 S4).
 
-Stock health, the order panel, the order page and SKU availability read
+Assignable stock, the order panel, the order page and SKU availability read
 item_schema.items; the legacy per-category tables are no longer read. All
 rows are CONTRACT-TEST-prefixed and removed by the fixture.
 """
@@ -8,8 +8,6 @@ rows are CONTRACT-TEST-prefixed and removed by the fixture.
 import pytest
 from sqlalchemy import text as sqltext
 
-from app.database import SessionLocal
-from app.routes.fulfillment import _stock_snapshot
 
 SERIAL = "CONTRACT-TEST-FUL-EB-1"
 PN = "CONTRACT-TEST-FUL-PN"
@@ -37,15 +35,6 @@ def ful_unit(admin_client, db):
     db.commit()
 
 
-def _group(pn):
-    s = SessionLocal()
-    try:
-        known, unclassified = _stock_snapshot(s)
-    finally:
-        s.close()
-    return {g["model"]: g for g in known + unclassified}.get(pn)
-
-
 def _link(db, unit):
     pid = db.execute(sqltext(
         "INSERT INTO device_provisioning "
@@ -56,12 +45,13 @@ def _link(db, unit):
     return pid
 
 
-def test_stock_snapshot_counts_edge_box_items(db, ful_unit):
-    g = _group(PN)
-    assert g is not None and (g["total"], g["available"]) == (1, 1)
+def test_order_page_offers_ready_stock_until_it_is_linked(admin_client, db, ful_unit):
+    """The order page's Assign from stock list (docs/specs/one-board-two-tracks.md)
+    offers the matching ready item, and stops offering it once it is on an order."""
+    cb = f'class="assign-cb" value="{ful_unit["item_id"]}"'
+    assert cb in admin_client.get(f"/orders/{ful_unit['order_id']}").text
     _link(db, ful_unit)
-    g = _group(PN)
-    assert (g["total"], g["available"]) == (1, 0), "an active record makes the item busy"
+    assert cb not in admin_client.get(f"/orders/{ful_unit['order_id']}").text
 
 
 def test_availability_counts_ready_items(admin_client, ful_unit):

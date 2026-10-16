@@ -29,15 +29,15 @@ from ..localtime import fmt_local, local_today, register
 from ..database import get_db
 from ..models import (
     CustomerOrder, DeploymentRecord, DeviceProvisioning,
-    Item, OEMPartner, OEMPurchaseOrder, Site, User,
-    BuildCertification, BuildCertificationFile,
-    InstallationCertification,
-    STAGE_GROUPS, STAGE_LABELS, STAGE_INDEX, STAGE_TO_GROUP,
-    AuditLog,
+    Item, OEMPartner, Site, User, BuildCertification,
+    BuildCertificationFile, InstallationCertification,
+    STAGE_LABELS,
 )
 from ..order_matching import candidate_items, requirement_lines
-from ..order_tracks import PRE_SHIP, mark_units_deployed
-from ..sku_conversion import is_legacy_sku, is_2026_sku
+from ..order_tracks import (
+    COLUMNS, NEXT_STEP, PRE_SHIP, STEP_LABELS, STOCK, TRACKS,
+    cert_doc_orders, column_of, flags, mark_units_deployed, track_of, unit_counts,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -66,17 +66,6 @@ def _stage_label(value):
 
 
 templates.env.filters["stage_label"] = _stage_label
-
-# Archived statuses are the ended ones, shown collapsed; active ones are the
-# open columns. ARCHIVED is hand-held because "ended" is a judgement the
-# vocabulary cannot derive. ACTIVE derives from it by subtraction, so the
-# union always covers CustomerOrder.ORDER_STATUSES and a status added there
-# can never fall through the columns dict into New.
-# See docs/specs/customer-order-cancel.md.
-ARCHIVED_STATUSES = ["delivered", "installed", "cancelled"]
-ACTIVE_STATUSES = [s for s in CustomerOrder.ORDER_STATUSES
-                   if s not in ARCHIVED_STATUSES]
-
 
 class ShipDetailsUpdate(BaseModel):
     ship_method: Optional[str] = None
@@ -120,252 +109,6 @@ class CertHWSubmit(BaseModel):
     smart_result: str           # "pass" or "fail"
 
 
-def _order_urgency(due_date) -> str:
-    """Map a due date to an urgency bucket. Single source of the thresholds,
-    shared by the order cards and the Building-board groups."""
-    if not due_date:
-        return "normal"
-    days = (due_date - local_today()).days
-    if days < 0:
-        return "overdue"
-    if days <= 3:
-        return "critical"
-    if days <= 7:
-        return "soon"
-    return "normal"
-
-
-# Building-board grouping (S1). Group key = (order x SKU). Group stage = the
-# LEAST-ADVANCED linked device, so a lagging unit holds the whole group back.
-# Tab rollup: Queued (no linked devices, card from sku_requirements intent) /
-# Ready for Handoff (every linked device build-cert complete) / In Progress.
-GROUP_TO_BUILD_LABEL = {
-    "new": "Drafting", "sourcing": "Sourcing", "building": "Assembly", "testing": "Testing",
-}
-
-
-
-# 5-stage Building tracker buckets (display label -> substage names).
-# Testing excludes the certified step; Sign-off is certified alone.
-BUILD_TRACKER = [
-    ("Drafting",  ["po_in", "scoped", "sourced", "ready"]),
-    ("Sourcing",  ["ordered", "tracking", "deliver", "received"]),
-    ("Assembly",  ["staged", "building", "registered", "licensed"]),
-    ("Testing",   ["hw_check", "sw_version", "pva_events"]),
-    ("Sign-off",  ["certified"]),
-]
-
-
-def _build_stage_states(gdevs):
-    """Per-group rollup of the 5 Building tracker stages to done/current/future,
-    derived from each device current_stage (contiguous-completion model)."""
-    states = []
-    idxs = [STAGE_INDEX.get(d.get("current_stage"), -1) for d in gdevs] or [-1]
-    for label, subs in BUILD_TRACKER:
-        first = min(STAGE_INDEX[n] for n in subs)
-        last = max(STAGE_INDEX[n] for n in subs)
-        if label == "Sign-off":
-            if all(d.get("build_cert_complete") for d in gdevs):
-                st = "done"
-            elif max(idxs) < first:
-                st = "future"
-            else:
-                st = "current"
-        else:
-            if min(idxs) > last:
-                st = "done"
-            elif max(idxs) < first:
-                st = "future"
-            else:
-                st = "current"
-        states.append({"label": label, "state": st})
-    return states
-
-
-
-_SE_PALETTE = ["#3b82f6", "#a855f7", "#f97316", "#10b981", "#f43f5e", "#f59e0b"]
-
-
-def _se_color(name):
-    """Deterministic per-name color from a fixed 6-color palette."""
-    if not name:
-        return "var(--text-muted)"
-    return _SE_PALETTE[sum(ord(c) for c in name) % len(_SE_PALETTE)]
-
-
-def _se_initials(name):
-    """Up to two initials from a name, or ? when unassigned."""
-    if not name:
-        return "?"
-    parts = name.split()
-    if len(parts) >= 2:
-        return (parts[0][0] + parts[1][0]).upper()
-    return name[:2].upper()
-
-
-def build_fulfillment_groups(orders, order_devices, item_unit_counts=None):
-    """orders: list of CustomerOrder ORM rows. order_devices: {order_id: [device dict]}
-    each carrying part_number, current_stage, build_cert_complete. Returns Building cards.
-
-    item_unit_counts: {order_id: n} still-out item-linked units (Assign panel,
-    C2C). They are not in the edge-box stage machine so they stay off the
-    stage cards — but unit_count rides on every group so the card's Ship
-    action can appear once ANY unit is on the order."""
-    item_unit_counts = item_unit_counts or {}
-    groups = []
-    for o in orders:
-        o_meta = {
-            "sales_engineer": o.sales_engineer,
-            "se_color": _se_color(o.sales_engineer),
-            "se_initials": _se_initials(o.sales_engineer),
-            "due_date": o.due_date,
-            "urgency": _order_urgency(o.due_date),
-            "is_sensitive": o.is_sensitive,
-            "order_type": o.order_type,
-            "unit_count": item_unit_counts.get(o.id, 0) + len(order_devices.get(o.id, [])),
-        }
-        devs = order_devices.get(o.id, [])
-        by_sku = {}
-        for d in devs:
-            sku = (d.get("part_number") or "").strip() or "Unspecified"
-            by_sku.setdefault(sku, []).append(d)
-
-        for sku, gdevs in by_sku.items():
-            laggard = min(gdevs, key=lambda d: STAGE_INDEX.get(d.get("current_stage"), -1))
-            lag_group = STAGE_TO_GROUP.get(laggard.get("current_stage"))
-            all_cert = all(d.get("build_cert_complete") for d in gdevs)
-            if all_cert:
-                tab, stage_label = "ready_for_handoff", "Sign-off"
-            else:
-                tab = "in_progress"
-                stage_label = GROUP_TO_BUILD_LABEL.get(lag_group, lag_group)
-            groups.append({
-                **o_meta,
-                "order_id": o.id, "order_number": o.order_number,
-                "customer_name": o.customer_name, "sku": sku,
-                "device_count": len(gdevs), "tab": tab, "stage_label": stage_label,
-                "stage_states": _build_stage_states(gdevs),
-                "source": "devices",
-            })
-
-        for req in (o.sku_requirements or []):
-            # Canonical key is 'model' (matches the model comment, the
-            # availability card and the C2C sale quota); 'sku' is tolerated
-            # for legacy hand-written rows. This read previously used only
-            # 'sku', so every intent card rendered as "Unspecified".
-            sku = (req.get("model") or req.get("sku") or "").strip() or "Unspecified"
-            if sku in by_sku:
-                continue
-            groups.append({
-                **o_meta,
-                "order_id": o.id, "order_number": o.order_number,
-                "customer_name": o.customer_name, "sku": sku,
-                "device_count": 0, "intended_qty": int(req.get("qty") or 0),
-                "tab": "queued", "stage_label": None, "source": "intent",
-            })
-
-        if not devs and not (o.sku_requirements or []):
-            groups.append({
-                **o_meta,
-                "order_id": o.id, "order_number": o.order_number,
-                "customer_name": o.customer_name, "sku": "Unspecified",
-                "device_count": 0, "intended_qty": 0,
-                "tab": "queued", "stage_label": None, "source": "empty",
-            })
-    return groups
-
-
-def _build_order_card(order: CustomerOrder, prov_count: int) -> dict:
-    """Return a lightweight dict for rendering a Kanban card."""
-    days_until_due = (order.due_date - local_today()).days if order.due_date else None
-    urgency = _order_urgency(order.due_date)
-
-    total_sku_qty = sum(int(r.get("qty") or 0) for r in (order.sku_requirements or []))
-
-    return {
-        "id": order.id,
-        "order_number": order.order_number,
-        "customer_name": order.customer_name,
-        "status": order.status,
-        "due_date": order.due_date,
-        "days_until_due": days_until_due,
-        "urgency": urgency,
-        "prov_count": prov_count,
-        "total_sku_qty": total_sku_qty,
-        "sku_requirements": order.sku_requirements or [],
-        "is_sensitive": order.is_sensitive,
-        "sales_engineer": order.sales_engineer,
-        "deployment_type": order.deployment_type,
-        "po_number": order.po_number,
-        "default_fulfillment_type": order.default_fulfillment_type,
-        "integrator_name": order.integrator_name or None,
-        "distributor_name": order.distributor_name or None,
-        # ── Shipping fields (migration 021) ──
-        "shipped_date": order.shipped_date,
-        "delivered_date": order.delivered_date,
-        "carrier": order.carrier,
-        "tracking_number": order.tracking_number,
-        "shipping_address": order.shipping_address,
-        "ship_method": order.ship_method or "carrier",
-        "recipient_name": order.recipient_name,
-        "order_type": order.order_type,
-    }
-
-
-def _is_valid_sku(sku: str) -> bool:
-    """Return True if the part_number looks like a real EDGE/PVA SKU."""
-    if not sku:
-        return False
-    return is_2026_sku(sku) or is_legacy_sku(sku)
-
-
-def _stock_snapshot(db: Session) -> tuple[list[dict], list[dict]]:
-    """Return (known_skus, unclassified) lists of edge box item stock grouped
-    by SKU (item_sku, else item_pn). Item 30 S4: reads items, not
-    edge_boxes.
-
-    known_skus   — groups with recognized EDGE*/PVA-* part numbers
-    unclassified — groups with missing, blank, or non-SKU part numbers (e.g.
-                   vendor hardware IDs like "6VX72", old "E2C-*" codes, or NULL)
-
-    'Available' means: not currently linked to an active (incomplete)
-    provisioning record.
-    """
-    # Items actively in a provisioning record
-    busy_ids = {
-        p.item_id
-        for p in db.query(DeviceProvisioning.item_id)
-        .filter(
-            DeviceProvisioning.item_id.isnot(None),
-            DeviceProvisioning.is_complete.is_(False),
-        )
-        .all()
-    }
-
-    # All edge box items, grouped by SKU
-    all_boxes = db.query(Item).filter(Item.item_category == "edge_box").all()
-    groups: dict[str, dict] = {}
-    for box in all_boxes:
-        raw = (box.item_sku or box.item_pn or "").strip()
-        model_key = raw or "— no SKU —"
-        if model_key not in groups:
-            groups[model_key] = {
-                "model": model_key,
-                "total": 0,
-                "available": 0,
-                "is_valid_sku": _is_valid_sku(raw),
-                "raw_part": raw,
-            }
-        groups[model_key]["total"] += 1
-        if box.id not in busy_ids:
-            groups[model_key]["available"] += 1
-
-    all_groups = sorted(groups.values(), key=lambda g: g["model"])
-    known = [g for g in all_groups if g["is_valid_sku"]]
-    unclassified = [g for g in all_groups if not g["is_valid_sku"]]
-    return known, unclassified
-
-
 # ---------------------------------------------------------------------------
 # Main Fulfillment page
 # ---------------------------------------------------------------------------
@@ -376,332 +119,67 @@ def fulfillment_page(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_viewer),
 ):
-    """Unified Kanban showing order pipeline + stock health."""
+    """One board, two tracks, one card per order (docs/specs/one-board-two-tracks.md).
 
-    # Fetch all orders, apply sensitive filter
-    all_orders = (
-        db.query(CustomerOrder)
+    Vendor orders and pilots from stock each get a lane of columns. The
+    columns come from app/order_tracks.py; cancelled orders are off the board.
+    """
+    can_see_sensitive = user.has_sensitive_customers_access
+    orders = [
+        o for o in db.query(CustomerOrder)
+        .filter(CustomerOrder.status != "cancelled")
         .order_by(CustomerOrder.due_date.asc().nullslast(), CustomerOrder.created_at.desc())
         .all()
-    )
-    can_see_sensitive = user.has_sensitive_customers_access
-    orders = [o for o in all_orders if not o.is_sensitive or can_see_sensitive]
+        if not o.is_sensitive or can_see_sensitive
+    ]
+    ids = [o.id for o in orders]
+    counts = unit_counts(db, ids)
+    with_cert = cert_doc_orders(db, ids)
+    today = local_today()
 
-    # Owner split (migration 074, docs/specs/order-owner-split-slice-1.md): the
-    # In-House board is in-house work only, and every tile, column, group
-    # and counter below reads this list. In-house is not oem rather than equal
-    # to in_house, so an unexpected value cannot vanish from both boards.
-    oem_orders = [o for o in orders if o.owner == "oem"]
-    orders = [o for o in orders if o.owner != "oem"]
-
-    # Provisioning counts per order
-    prov_counts: dict[int, int] = {}
-    for p in db.query(DeviceProvisioning.customer_order_id).filter(
-        DeviceProvisioning.customer_order_id.isnot(None),
-        DeviceProvisioning.is_complete.is_(False),
-    ).all():
-        oid = p.customer_order_id
-        prov_counts[oid] = prov_counts.get(oid, 0) + 1
-
-    # Edge box units in the build stage machine, per order (Building board).
-    # Item 30 S4: an edge box item row WITH stages; label-only rows (stages
-    # empty) are counted as item units below instead, never both.
-    device_rows = (
-        db.query(
-            DeviceProvisioning.id,
-            DeviceProvisioning.customer_order_id,
-            DeviceProvisioning.assigned_to,
-            DeviceProvisioning.validation_result,
-            DeviceProvisioning.is_complete,
-            DeviceProvisioning.current_stage,
-            DeviceProvisioning.fulfillment_type,
-            DeviceProvisioning.stages,
-            Item.item_sn.label("serial"),
-            sqlfunc.coalesce(Item.item_sku, Item.item_pn).label("part_number"),
-            User.display_name,
-        )
-        .join(Item, DeviceProvisioning.item_id == Item.id)
-        .outerjoin(User, DeviceProvisioning.assigned_to == User.id)
-        .filter(
-            DeviceProvisioning.customer_order_id.isnot(None),
-            Item.item_category == "edge_box",
-            sqlfunc.jsonb_array_length(DeviceProvisioning.stages) > 0,
-        )
-        .all()
-    )
-    order_devices: dict[int, list[dict]] = {}
-    for row in device_rows:
-        order_devices.setdefault(row.customer_order_id, []).append({
-            "prov_id": row.id,
-            "serial": row.serial,
-            "part_number": row.part_number,
-            "assigned_to_id": row.assigned_to,
-            "assigned_to_name": row.display_name,
-            "validation_result": row.validation_result,
-            "is_complete": row.is_complete,
-            "current_stage": row.current_stage,
-            "fulfillment_type": row.fulfillment_type,
-            "build_cert_complete": any(
-                s.get("name") == "certified" and s.get("completed")
-                for s in (row.stages or [])
-            ),
+    lanes = {track: {key: [] for key, _ in COLUMNS[track]} for track in TRACKS}
+    tiles = {"open": 0, "late": 0, "due_back_soon": 0, "docs_missing": 0}
+    for o in orders:
+        linked, still_out = counts.get(o.id, (0, 0))
+        column = column_of(o, linked, still_out)
+        if column is None:
+            continue
+        track = track_of(o)
+        f = flags(o, column, still_out, o.id in with_cert, today)
+        for k in tiles:
+            tiles[k] += 1 if f[k] else 0
+        nxt = NEXT_STEP[track].get(column)
+        required = sum(int(r.get("qty") or 0) for r in (o.sku_requirements or []))
+        lanes[track][column].append({
+            "id": o.id,
+            "order_number": o.order_number,
+            "customer_name": o.customer_name,
+            "order_type": o.order_type,
+            "type_label": CustomerOrder.ORDER_TYPES.get(o.order_type, o.order_type),
+            "partner": (o.oem_partner.name if o.oem_partner else None) if o.owner == "oem" else None,
+            "due_date": o.due_date,
+            "expected_return": o.expected_return,
+            "linked": linked,
+            "still_out": still_out,
+            "required": required,
+            "is_sensitive": o.is_sensitive,
+            "flags": f,
+            "next": nxt,
+            "next_label": STEP_LABELS.get((track, nxt)) if nxt else None,
+            "needs_units": track == STOCK and nxt == "shipped" and linked == 0,
         })
-
-    # OEM purchase orders — all, linked and unlinked
-    oem_pos = db.query(OEMPurchaseOrder).order_by(
-        OEMPurchaseOrder.expected_delivery.asc().nullslast()
-    ).all()
-
-    # H17: receiving events linked to each PO (matched by normalized PO
-    # text — reconciliation is text-based, never an FK). Read-only on the
-    # OEM card; the board's manual editing is untouched.
-    from ..models import ReceivingEvent
-    from ..po_matching import norm_po
-    _events_by_po: dict[str, list] = {}
-    for ev in db.query(ReceivingEvent).filter(ReceivingEvent.purchase_order.isnot(None)).all():
-        _events_by_po.setdefault(norm_po(ev.purchase_order), []).append({
-            "id": ev.id,
-            "received": ev.received_quantity or 0,
-            "expected": ev.expected_quantity,
-            "status": ev.status,
-        })
-
-    # Group into status columns for the OEM board
-    oem_columns: dict[str, list] = {s: [] for s in OEMPurchaseOrder.OEM_STATUSES}
-    for po in oem_pos:
-        status = po.status if po.status in oem_columns else "ordered"
-        oem_columns[status].append({
-            "recv_events": _events_by_po.get(norm_po(po.po_number), []) if po.po_number else [],
-            "id": po.id,
-            "vendor_name": po.vendor_name,
-            "po_number": po.po_number,
-            "sku": po.sku,
-            "qty_ordered": po.qty_ordered,
-            "qty_received": po.qty_received,
-            "order_date": po.order_date,
-            "expected_delivery": po.expected_delivery,
-            "received_date": po.received_date,
-            "status": po.status,
-            "notes": po.notes,
-            "customer_order_id": po.customer_order_id,
-            "customer_order_number": po.customer_order.order_number if po.customer_order else None,
-            "customer_name": po.customer_order.customer_name if po.customer_order else None,
-        })
-
-    # Active sales engineers for coverage panel
-    team_rows = (
-        db.query(CustomerOrder.sales_engineer)
-        .filter(
-            CustomerOrder.status.in_(ACTIVE_STATUSES),
-            CustomerOrder.sales_engineer.isnot(None),
-            CustomerOrder.sales_engineer != "",
-        )
-        .distinct()
-        .all()
-    )
-    team_members = sorted(r.sales_engineer for r in team_rows)
-
-    # Edge box counts per SE via DeviceProvisioning → item → CustomerOrder
-    eb_counts_raw = (
-        db.query(CustomerOrder.sales_engineer, sqlfunc.count(DeviceProvisioning.id))
-        .join(DeviceProvisioning, DeviceProvisioning.customer_order_id == CustomerOrder.id)
-        .join(Item, DeviceProvisioning.item_id == Item.id)
-        .filter(Item.item_category == "edge_box")
-        .filter(CustomerOrder.sales_engineer.isnot(None))
-        .group_by(CustomerOrder.sales_engineer)
-        .all()
-    )
-    edge_box_counts = {name: count for name, count in eb_counts_raw}
-
-    # Deployment records — active only (exclude cancelled)
-    deployment_records = db.query(DeploymentRecord).filter(
-        DeploymentRecord.status.notin_(["cancelled"])
-    ).order_by(
-        DeploymentRecord.scheduled_date.asc().nullslast()
-    ).all()
-
-    # Group into status columns for deployment pipeline
-    deploy_columns: dict[str, list] = {
-        s: [] for s in DeploymentRecord.DEPLOYMENT_STATUSES
-        if s != "cancelled"
-    }
-    # Install certs for these deployment records (I1 read-only board state)
-    dep_ids = [dr.id for dr in deployment_records]
-    cert_map = {}
-    if dep_ids:
-        for ic in db.query(InstallationCertification).filter(
-            InstallationCertification.deployment_record_id.in_(dep_ids)
-        ).all():
-            cert_map[ic.deployment_record_id] = ic
-
-    for dr in deployment_records:
-        status = dr.status if dr.status in deploy_columns else "scheduled"
-        deploy_columns[status].append({
-            "id": dr.id,
-            "customer_order_id": dr.customer_order_id,
-            "order_number": dr.customer_order.order_number if dr.customer_order else None,
-            "customer_name": dr.customer_order.customer_name if dr.customer_order else None,
-            "site_id": dr.site_id,
-            "site_name": dr.site.name if dr.site else None,
-            "address": dr.address,
-            "status": dr.status,
-            "scheduled_date": dr.scheduled_date,
-            "installed_date": dr.installed_date,
-            "se_assigned_id": dr.se_assigned_id,
-            "se_name": dr.se_assigned.display_name if dr.se_assigned else None,
-            "integrator_name": dr.integrator_name,
-            "integrator_contact": dr.integrator_contact,
-            "notes": dr.notes,
-            "cert_status": cert_map[dr.id].status if dr.id in cert_map else None,
-            "certified_by": cert_map[dr.id].certified_by if dr.id in cert_map else None,
-            "installer_name": cert_map[dr.id].installer_name if dr.id in cert_map else None,
-            "installer_company": cert_map[dr.id].installer_company if dr.id in cert_map else None,
-            "cert_id": cert_map[dr.id].id if dr.id in cert_map else None,
-            "pdf_stored_name": cert_map[dr.id].pdf_stored_name if dr.id in cert_map else None,
-            "cert_completion_date": cert_map[dr.id].completion_date if dr.id in cert_map else None,
-        })
-
-    # Sites for deployment modal dropdown
-    sites = db.query(Site).filter(Site.is_active.is_(True), Site.site_type == "customer_site").order_by(Site.name.asc()).all()
-    site_list = [{"id": s.id, "name": s.name, "address": s.address, "type": s.site_type} for s in sites]
-
-    # SEs for deployment modal dropdown
-    se_users = db.query(User).filter(User.is_active.is_(True)).order_by(User.display_name.asc()).all()
-    se_list = [{"id": u.id, "name": u.display_name} for u in se_users]
-
-    # Build card dicts
-    cards = [_build_order_card(o, prov_counts.get(o.id, 0)) for o in orders]
-
-    # OEM-owned coordination cards: the same card dict as the In-House cards,
-    # plus the partner name for display. Read-only in slice 1.
-    oem_cards = []
-    for _o in oem_orders:
-        _card = _build_order_card(_o, prov_counts.get(_o.id, 0))
-        _card["partner_name"] = _o.oem_partner.name if _o.oem_partner else None
-        oem_cards.append(_card)
-
-    # S1: order x SKU grouped cards for the Building board (least-advanced rollup)
-    item_unit_counts: dict[int, int] = {}
-    for p in db.query(DeviceProvisioning.customer_order_id).filter(
-        DeviceProvisioning.customer_order_id.isnot(None),
-        DeviceProvisioning.item_id.isnot(None),
-        DeviceProvisioning.returned_date.is_(None),
-        # stage-machine rows are the Building devices above, not counted twice
-        sqlfunc.jsonb_array_length(DeviceProvisioning.stages) == 0,
-    ).all():
-        item_unit_counts[p.customer_order_id] = item_unit_counts.get(p.customer_order_id, 0) + 1
-    # A cancelled order is ended and its units are unlinked, so it carries no
-    # build work: exclude it from the Building rollup, which reads the raw
-    # order list rather than the status columns
-    # (docs/specs/customer-order-cancel.md, reconciliation set).
-    _buildable = [o for o in orders if o.status != "cancelled"]
-    fulfillment_groups = build_fulfillment_groups(_buildable, order_devices, item_unit_counts)
-
-    # Group by status
-    columns: dict[str, list] = {s: [] for s in ACTIVE_STATUSES + ARCHIVED_STATUSES}
-    for card in cards:
-        status = card["status"] if card["status"] in columns else "new"
-        columns[status].append(card)
-
-    # Cancel reasons have no column by design (docs/specs/customer-order-cancel.md):
-    # they live only in the order_cancelled audit event, so the board reads
-    # them back. Scoped to cancelled cards, which are expected to be rare.
-    # DORMANT: the archived section that renders these sits behind a false
-    # conditional in fulfillment.html until the archive feature ships, so
-    # nothing displays them yet. Kept so the data is ready when it does.
-    cancel_reasons: dict[int, str] = {}
-    cancelled_ids = [c["id"] for c in columns.get("cancelled", [])]
-    if cancelled_ids:
-        for _tid, _nv in db.query(AuditLog.target_id, AuditLog.new_values).filter(
-            AuditLog.event_type == "order_cancelled",
-            AuditLog.target_table == "customer_orders",
-            AuditLog.target_id.in_(cancelled_ids),
-        ).order_by(AuditLog.id.asc()).all():
-            if isinstance(_nv, dict) and _nv.get("reason"):
-                cancel_reasons[_tid] = _nv["reason"]
-
-    # Summary counts
-    total_active = sum(len(columns[s]) for s in ACTIVE_STATUSES)
-    overdue_count = sum(1 for c in cards if c["urgency"] == "overdue")
-    due_soon_count = sum(1 for c in cards if c["urgency"] in ("critical", "soon"))
-
-    # Stock snapshot — split into known SKUs and unclassified entries
-    stock_known, stock_unclassified = _stock_snapshot(db)
-    stock_total = sum(g["total"] for g in stock_known) + sum(g["total"] for g in stock_unclassified)
-    stock_available = sum(g["available"] for g in stock_known) + sum(g["available"] for g in stock_unclassified)
-    unclassified_count = sum(g["total"] for g in stock_unclassified)
-
-    # Unlinked active provisioning records (not tied to any order)
-    unlinked_prov = (
-        db.query(DeviceProvisioning)
-        .filter(
-            DeviceProvisioning.is_complete.is_(False),
-            DeviceProvisioning.customer_order_id.is_(None),
-        )
-        .count()
-    )
 
     return templates.TemplateResponse("fulfillment.html", {
         "request": request,
         "user": user,
-        "columns": columns,
-        "active_statuses": ACTIVE_STATUSES,
-        "archived_statuses": ARCHIVED_STATUSES,
-        "cancel_reasons": cancel_reasons,
-        "order_statuses": CustomerOrder.ORDER_STATUSES,
+        "lanes": lanes,
+        "tracks": TRACKS,
+        "columns": COLUMNS,
+        "tiles": tiles,
+        "today": today,
         "order_types": CustomerOrder.ORDER_TYPES,
-        "status_colors": CustomerOrder.STATUS_COLORS,
-        "total_active": total_active,
-        "overdue_count": overdue_count,
-        "due_soon_count": due_soon_count,
-        "owners": CustomerOrder.OWNERS,
         "oem_partners": (db.query(OEMPartner).filter(OEMPartner.active.is_(True))
-                        .order_by(OEMPartner.name.asc()).all()),
-        "oem_orders": oem_cards,
-        "oem_order_count": len(oem_cards),
-        "stock_known": stock_known,
-        "stock_unclassified": stock_unclassified,
-        "unclassified_count": unclassified_count,
-        "stock_total": stock_total,
-        "stock_available": stock_available,
-        "unlinked_prov": unlinked_prov,
-        "can_see_sensitive": can_see_sensitive,
-        "order_devices": order_devices,
-        "fulfillment_groups": fulfillment_groups,
-        "team_members": team_members,
-        "edge_box_counts": edge_box_counts,
-        "current_user_name": user.display_name,
-        "oem_columns": oem_columns,
-        "oem_status_labels": OEMPurchaseOrder.OEM_STATUS_LABELS,
-        "oem_statuses": OEMPurchaseOrder.OEM_STATUSES,
-        "oem_total": len(oem_pos),
-        "oem_active": sum(1 for p in oem_pos if p.status not in ("verified", "cancelled")),
-        "oem_dot_colors": {
-            "ordered": "var(--accent-blue)",
-            "in_production": "var(--fl-amber)",
-            "acceptance": "var(--fl-purple)",
-            "receiving": "var(--fl-orange)",
-            "verified": "var(--fl-green)",
-            "cancelled": "var(--text-muted)",
-        },
-        "today": local_today(),
-        "stage_groups": STAGE_GROUPS,
-        "stage_labels": STAGE_LABELS,
-        "deploy_columns": deploy_columns,
-        "deploy_status_labels": DeploymentRecord.DEPLOYMENT_STATUS_LABELS,
-        "deploy_statuses": [s for s in DeploymentRecord.DEPLOYMENT_STATUSES if s != "cancelled"],
-        "deploy_total": len(deployment_records),
-        "deploy_active": sum(1 for d in deployment_records
-                             if d.status not in ("complete", "cancelled")),
-        "deploy_dot_colors": {
-            "scheduled": "var(--text-muted)",
-            "in_transit": "var(--accent-blue)",
-            "on_site": "var(--fl-amber)",
-            "installing": "var(--fl-purple)",
-            "complete": "var(--fl-green)",
-        },
-        "site_list": site_list,
-        "se_list": se_list,
+                         .order_by(OEMPartner.name.asc()).all()),
     })
 
 

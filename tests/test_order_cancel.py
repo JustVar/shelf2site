@@ -228,10 +228,8 @@ def test_cancelled_order_leaves_the_active_board(admin_client, cancel_order):
     """Discriminating observable: the order is ON the board while active and
     GONE once cancelled, because cancelled is an archived status.
 
-    This is the regression guard for the columns dict. If cancelled were
-    missing from ACTIVE_STATUSES + ARCHIVED_STATUSES, the fallback in
-    fulfillment.py would assign it to "new" and the cancelled order would
-    render in the New column instead of disappearing.
+    This is the regression guard for the board query and STATUS_COLUMN: a
+    cancelled order must disappear rather than fall into a first column.
     """
     before = admin_client.get("/fulfillment/").text
     assert "CONTRACT-TEST Cancel Corp" in before
@@ -240,17 +238,16 @@ def test_cancelled_order_leaves_the_active_board(admin_client, cancel_order):
     assert "CONTRACT-TEST Cancel Corp" not in after
 
 
-def test_active_statuses_derive_from_the_vocabulary():
-    """The drift guard. ARCHIVED is hand-held; ACTIVE derives from it, so the
-    union always covers ORDER_STATUSES and no status can fall through."""
+def test_cancelled_is_off_both_tracks():
+    """The drift guard. The board places orders through STATUS_COLUMN
+    (app/order_tracks.py); cancelled must map to no column on either track,
+    and every other status must map to one (test_order_tracks checks totality)."""
     from app.models import CustomerOrder
-    from app.routes.fulfillment import ACTIVE_STATUSES, ARCHIVED_STATUSES
+    from app.order_tracks import STATUS_COLUMN
 
-    assert "cancelled" in ARCHIVED_STATUSES
-    assert "cancelled" not in ACTIVE_STATUSES
-    assert ACTIVE_STATUSES == [s for s in CustomerOrder.ORDER_STATUSES
-                               if s not in ARCHIVED_STATUSES]
-    assert set(ACTIVE_STATUSES) | set(ARCHIVED_STATUSES) >= set(CustomerOrder.ORDER_STATUSES)
+    for track, mapping in STATUS_COLUMN.items():
+        assert mapping["cancelled"] is None, track
+        assert all(mapping[s] for s in CustomerOrder.ORDER_STATUSES if s != "cancelled"), track
     # STATUS_COLORS is the third hand-maintained site; a missing key renders a
     # muted grey badge rather than failing, so assert the pairing explicitly.
     assert sorted(CustomerOrder.STATUS_COLORS) == sorted(CustomerOrder.ORDER_STATUSES)

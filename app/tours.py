@@ -2094,14 +2094,87 @@ TOURS: list[dict] = [
     # the PO cards with linked receiving events live HERE, not on
     # /admin/procurement, so the three approved steps land here.
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Fulfillment, one board two tracks (docs/specs/one-board-two-tracks.md).
+    # Supersedes fulfillment_board_tour below, whose board no longer exists;
+    # that key stays retired and disabled for the record.
+    # ------------------------------------------------------------------
     {
-        "id": "fulfillment_board_tour",
+        "id": "fulfillment_tracks_tour",
         "name": "Fulfillment Board",
         "page_pattern": "/fulfillment",
         "template": "fulfillment.html",
-        "description": "Orders in flight — build pipeline, shipping, deployments, and the OEM PO board",
+        "description": "Vendor orders and pilots from stock on one board, one card per order",
         "required_access": "has_provisioning_view",
         "enabled": True,
+        "group": "fulfillment",
+        "steps": [
+            {
+                "target": "#fb-tiles",
+                "title": "What Needs You",
+                "description": (
+                    "Four counts: orders still open, orders running late, "
+                    "pilots due back within 30 days, and vendor orders "
+                    "shipped without their certification. Click a tile to "
+                    "light up just those cards."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": ".fb-tabs",
+                "title": "Two Tracks",
+                "description": (
+                    "<strong>Vendor</strong> orders are built, certified and "
+                    "shipped by a vendor: Ordered, Building, Shipped, Installed. "
+                    "<strong>Pilots &amp; demos</strong> are lent from our stock: "
+                    "Assigned, Shipped, Out at site, Returned."
+                ),
+                "position": "bottom",
+            },
+            {
+                "target": ".fb-card",
+                "title": "One Card per Order",
+                "description": (
+                    "Customer, vendor or return date, units, and any flags. "
+                    "Click the card for the whole order: units, shipping, "
+                    "documents and site visits."
+                ),
+                "position": "right",
+                "optional": True,
+            },
+            {
+                "target": ".fb-card .fl-obtn",
+                "title": "The Next Step",
+                "description": (
+                    "Each card offers the one move its track allows next. "
+                    "The server checks it too: a sale cannot start without "
+                    "its PO, and a pilot cannot ship without units."
+                ),
+                "position": "left",
+                # Manage-gated, and absent on finished orders.
+                "optional": True,
+            },
+            {
+                "target": "#new-order-btn",
+                "title": "Starting an Order",
+                "description": (
+                    "Pick the track first. A vendor order needs the customer "
+                    "PO; a pilot or demo needs the date it comes back."
+                ),
+                "position": "left",
+                "optional": True,
+            },
+        ],
+    },
+
+    {
+        "id": "fulfillment_board_tour",
+        "name": "Fulfillment Board (retired)",
+        "page_pattern": "/fulfillment",
+        "template": "fulfillment.html",
+        "description": "Retired with the build-stage board; see fulfillment_tracks_tour",
+        "required_access": "has_provisioning_view",
+        "enabled": False,
         "group": "fulfillment",
         "steps": [
             {
@@ -2228,7 +2301,7 @@ TOURS: list[dict] = [
         "name": "Order Detail",
         "page_pattern": "/orders/*",
         "template": "order_detail.html",
-        "description": "One order's full picture — status, SKU lines, linked units, photos, and dossier export",
+        "description": "One order's full picture: its track, units, shipping, documents, visits and photos",
         "required_access": "has_provisioning_view",
         "enabled": True,
         "group": "fulfillment",
@@ -2237,11 +2310,21 @@ TOURS: list[dict] = [
                 "target": "#status-badge",
                 "title": "Where This Order Stands",
                 "description": (
-                    "The status walks New → Sourcing → Building → Testing → "
-                    "Shipped → Delivered → Installed. Editors update it from "
-                    "the buttons beside it."
+                    "The order's column on its track, next to which track "
+                    "it is on: Vendor, or Pilots &amp; demos."
                 ),
                 "position": "bottom",
+            },
+            {
+                "target": "#progress-section",
+                "title": "Its Track",
+                "description": (
+                    "Every step on the track, with the current one marked. "
+                    "Editors move the order on with the button here."
+                ),
+                "position": "bottom",
+                # Absent on cancelled orders.
+                "optional": True,
             },
             {
                 "target": "#sku-add-btn",
@@ -2257,11 +2340,30 @@ TOURS: list[dict] = [
             },
             {
                 "target": "#prov-section",
-                "title": "Linked Units",
+                "title": "Units",
                 "description": (
-                    "The actual units assigned to this order, each linking to "
-                    "its provisioning record. Assignment happens on the "
-                    "Fulfillment board."
+                    "The units on this order, with their state and "
+                    "certification history. Editors assign stock here and "
+                    "mark pilot units returned."
+                ),
+                "position": "top",
+            },
+            {
+                "target": "#documents-section",
+                "title": "Vendor Documents",
+                "description": (
+                    "The vendor's certification and validation reports, kept "
+                    "as sent. A vendor order that has shipped without a "
+                    "certification shows Docs missing on the board."
+                ),
+                "position": "top",
+            },
+            {
+                "target": "#deployments-section",
+                "title": "Site Visits",
+                "description": (
+                    "Schedule a visit, put units on it, and certify the "
+                    "install with the signed report. A certified visit locks."
                 ),
                 "position": "top",
             },

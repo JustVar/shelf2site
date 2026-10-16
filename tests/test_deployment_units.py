@@ -184,35 +184,35 @@ def test_units_feed_requires_provisioning_manager(viewer_client, dep_units):
     assert r.status_code in (401, 403), r.text
 
 
-# -- picker markup on the board ---------------------------------------------
+# -- picker markup on the order page ------------------------------------------
 
-def test_picker_markup_renders_on_fulfillment_board(admin_client, dep_units):
-    """The trigger and modal must reach the page, and only in the active block.
+def test_picker_markup_renders_on_the_order_page(admin_client, dep_units):
+    """The trigger and modal must reach the page. Site visits moved from the
+    board to the order page (docs/specs/one-board-two-tracks.md).
 
     Compiles is not renders: the endpoints can be green while the button never
-    ships. The trigger count is 1 because the completed-block card copy is
-    deliberately left without one.
-
-    dep_units supplies the active deployment card to gate on, so the test does
-    not depend on whatever data the database already holds; on an empty
-    database it used to fail with no card to count.
+    ships. dep_units supplies one scheduled visit on its order, so exactly one
+    Assign Units trigger must render there, and none on the other order.
     """
-    r = admin_client.get("/fulfillment/")
+    r = admin_client.get(f"/orders/{dep_units['order_id']}")
     assert r.status_code == 200, r.text
     html = r.text
-
-    # One trigger per ACTIVE deployment card and none on the completed copies.
-    # data-dep-tab is emitted only by the active-pipeline card, so it is the
-    # count to match; a literal number here would drift with the data.
-    active_cards = html.count('data-dep-tab="')
-    assert active_cards >= 1, "no active deployment cards rendered to gate on"
-    assert html.count("Assign Units</button>") == active_cards
+    assert html.count('data-dep="') == 1
+    assert html.count("Assign Units</button>") == 1
     assert html.count('id="unit-picker-modal"') == 1
     assert html.count("function pkSubmit(") == 1
-    assert ".pk-body {" in html
 
-    # hx-boost re-executes this block on a boosted return, so a top-level
-    # lexical declaration would throw on the second execution. See CLAUDE.md.
+    other = admin_client.get(f"/orders/{dep_units['other_id']}").text
+    assert "Assign Units</button>" not in other
+
+    # hx-boost can re-execute page scripts, so a top-level lexical
+    # declaration would throw on the second execution. See CLAUDE.md.
+    assert "\nlet " not in html
+    assert "\nconst " not in html
+
+
+def test_board_has_no_top_level_lexical_declarations(admin_client):
+    html = admin_client.get("/fulfillment/").text
     assert "\nlet " not in html
     assert "\nconst " not in html
 
