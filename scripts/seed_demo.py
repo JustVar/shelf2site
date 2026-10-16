@@ -632,6 +632,10 @@ def seed(s: Seeder):
     assign(o_summit, [e25.pop(0)])
     acquire(o_summit, [cams4.pop() for _ in range(3)], cert=True)
     advance(o_summit, "shipped", "at_site")
+    s.post(f"/fulfillment/{o_summit}/ship", json={
+        "ship_method": "carrier", "carrier": "FedEx", "tracking_number": "DEMO-TRK-45870",
+        "shipped_date": d(-27), "delivered_date": d(-25), "recipient_name": "Property Manager",
+        "shipping_address": "Summit Ridge Apartments, Denver CO"})
     place(o_summit, "Summit Ridge - Denver")
     visit(o_summit, "Summit Ridge - Denver", -24, "Front Range AV", status="complete")
 
@@ -639,13 +643,16 @@ def seed(s: Seeder):
     reqs(o_prairie, [("C2C-GEN1-8MP", 2, "stock")])
     acquire(o_prairie, [cams8.pop() for _ in range(2)])
     advance(o_prairie, "shipped", "at_site")
+    s.post(f"/fulfillment/{o_prairie}/ship", json={
+        "ship_method": "carrier", "carrier": "UPS", "tracking_number": "DEMO-TRK-43315",
+        "shipped_date": d(-52), "delivered_date": d(-49), "recipient_name": "Field Office Lead"})
     place(o_prairie, "Prairie Wind - Amarillo Field Office")
 
     o_mesa = order("Mesa Verde Foods", "demo", expected_return=d(40), due_date=d(2))
     reqs(o_mesa, [("C2C-GEN1-4MP", 2, "stock")])
     acquire(o_mesa, [cams4.pop() for _ in range(2)])
     advance(o_mesa, "shipped")
-    s.post(f"/fulfillment/{o_mesa}/ship", json={"carrier": "UPS", "tracking_number": "DEMO-TRK-46220",
+    s.post(f"/fulfillment/{o_mesa}/ship", json={"ship_method": "carrier", "carrier": "UPS", "tracking_number": "DEMO-TRK-46220",
                                                 "recipient_name": "Plant Security"})
 
     o_riverbend = order("Riverbend Credit Union", "pilot", expected_return=d(25), due_date=d(4))
@@ -657,6 +664,9 @@ def seed(s: Seeder):
     reqs(o_oakmont, [("C2C-GEN1-4MP", 2, "stock")])
     acquire(o_oakmont, [cams4.pop() for _ in range(2)])
     advance(o_oakmont, "shipped", "at_site", "returned")
+    s.post(f"/fulfillment/{o_oakmont}/ship", json={
+        "ship_method": "transferred", "shipped_date": d(-42), "delivered_date": d(-41),
+        "recipient_name": "Hotel IT"})
 
     o_northgate = order("Northgate Stadium", "pilot", expected_return=d(60), due_date=d(9),
                         notes="Waiting on the venue's network survey")

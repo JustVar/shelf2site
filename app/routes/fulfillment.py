@@ -13,7 +13,7 @@ import pymupdf as fitz
 from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse, FileResponse
@@ -68,7 +68,7 @@ def _stage_label(value):
 templates.env.filters["stage_label"] = _stage_label
 
 class ShipDetailsUpdate(BaseModel):
-    ship_method: Optional[str] = None
+    ship_method: Optional[Literal["carrier", "transferred"]] = None
     carrier: Optional[str] = None
     tracking_number: Optional[str] = None
     shipping_address: Optional[str] = None
@@ -300,13 +300,17 @@ async def update_ship_details(
 ):
     """Save shipping / transfer details for a customer order."""
     order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
-    if not order:
+    if not order or (order.is_sensitive and not user.has_sensitive_customers_access):
         return JSONResponse(status_code=404, content={"detail": "Order not found"})
 
     if order.status == "cancelled":
         return JSONResponse(status_code=409, content={"detail": "A cancelled order cannot ship"})
 
     update_data = payload.dict(exclude_none=True)
+    shipped = update_data.get("shipped_date", order.shipped_date)
+    delivered = update_data.get("delivered_date", order.delivered_date)
+    if shipped and delivered and delivered < shipped:
+        return JSONResponse(status_code=400, content={"detail": "Delivered date is before the shipped date"})
     old_values = {k: (str(getattr(order, k)) if getattr(order, k) is not None else None)
                   for k in update_data}
     old_status = order.status

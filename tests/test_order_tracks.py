@@ -197,3 +197,15 @@ def test_an_oem_po_the_database_would_reject_gets_a_400(admin_client, db, vendor
     db.commit()
     assert db.execute(sqltext("SELECT count(*) FROM oem_purchase_orders WHERE customer_order_id = :o"),
                       {"o": vendor_order}).scalar() == 0
+
+
+# ── shipping details ────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("payload,status", [
+    ({"shipped_date": "2026-10-05", "delivered_date": "2026-10-01"}, 400),
+    ({"ship_method": "pigeon"}, 422),
+])
+def test_bad_shipping_details_are_refused(admin_client, db, vendor_order, payload, status):
+    r = admin_client.post(f"/fulfillment/{vendor_order}/ship", json=payload)
+    assert r.status_code == status, r.text
+    assert _order(db, vendor_order) == ("new", False, False)
