@@ -5,6 +5,8 @@
 
 # Shelf2Site: hardware from the shelf to the customer site
 
+[![CI](https://github.com/JustVar/shelf2site/actions/workflows/ci.yml/badge.svg)](https://github.com/JustVar/shelf2site/actions/workflows/ci.yml)
+
 Justin Varughese. [LinkedIn](https://www.linkedin.com/in/justin-var/)
 
 I built this hardware asset tracker for internal use at the company, an AI
