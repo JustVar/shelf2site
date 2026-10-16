@@ -115,7 +115,7 @@
             {% set cat_str = itm.item_category|string if itm.item_category else None %}
             {% if cat_str %}
             {% set color = category_colors.get(cat_str, '#888888') %}
-            <span class="inv-cat-pill" style="background:{{ color }}22;color:{{ color }}">
+            <span class="inv-cat-pill" style="background:{{ color }}22;--pill:{{ color }}">
               {{ category_display(cat_str) }}
             </span>
             {% else %}

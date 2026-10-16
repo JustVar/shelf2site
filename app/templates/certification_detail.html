@@ -94,7 +94,7 @@
   .certd-lic input:focus { border-color: var(--cert-emerald, #10b981); }
 
   .certd-submit {
-    margin-top: 0.5rem; background: var(--cert-emerald, #10b981); color: #fff;
+    margin-top: 0.5rem; background: #0F7A55; color: #fff;  /* 5:1 with white text */
     border: none; border-radius: 7px; padding: 0.55rem 1.3rem;
     font-size: 0.88rem; font-weight: 600; cursor: pointer; font-family: inherit;
   }
@@ -234,15 +234,15 @@
             <div class="certd-comp-row" data-type="{{ t }}">
               <span class="certd-comp-type-label">{{ t|upper }}</span>
               <input type="text" class="certd-comp-model" placeholder="Model" value="{{ pc.model if pc else '' }}">
-              <span class="certd-comp-ok"><input type="checkbox" class="certd-comp-okbox"{% if not pc or pc.ok %} checked{% endif %}></span>
+              <span class="certd-comp-ok"><input type="checkbox" class="certd-comp-okbox" aria-label="Component passes"{% if not pc or pc.ok %} checked{% endif %}></span>
             </div>
             {% endfor %}
           </div>
 
           <div class="certd-field__label" style="margin:1.1rem 0 0.4rem 0;">License counts</div>
           <div class="certd-lic">
-            <div><label>Assigned</label><input type="number" id="certd-lic-assigned" min="0" value="{{ qa_prefill.license.get('assigned', 0) if qa_prefill else 0 }}"></div>
-            <div><label>Ordered</label><input type="number" id="certd-lic-ordered" min="0" value="{{ qa_prefill.license.get('ordered', 0) if qa_prefill else 0 }}"></div>
+            <div><label for="certd-lic-assigned">Assigned</label><input type="number" id="certd-lic-assigned" min="0" value="{{ qa_prefill.license.get('assigned', 0) if qa_prefill else 0 }}"></div>
+            <div><label for="certd-lic-ordered">Ordered</label><input type="number" id="certd-lic-ordered" min="0" value="{{ qa_prefill.license.get('ordered', 0) if qa_prefill else 0 }}"></div>
           </div>
 
           <div>

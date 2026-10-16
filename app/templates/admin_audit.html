@@ -13,7 +13,7 @@
 <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: end;">
     <div class="form-group" style="margin-bottom: 0;">
         <label>Event Type</label>
-        <select id="filter-event" onchange="applyFilters()" style="width: 200px;">
+        <select id="filter-event" aria-label="Filter by event" onchange="applyFilters()" style="width: 200px;">
             <option value="">All Events</option>
             {% for group, types in event_groups %}
             <optgroup label="{{ group }}">
@@ -26,7 +26,7 @@
     </div>
     <div class="form-group" style="margin-bottom: 0;">
         <label>User</label>
-        <select id="filter-user" onchange="applyFilters()" style="width: 180px;">
+        <select id="filter-user" aria-label="Filter by user" onchange="applyFilters()" style="width: 180px;">
             <option value="">All Users</option>
             {% for u in all_users %}
             <option value="{{ u.id }}" {% if current_user_filter == u.id|string %}selected{% endif %}>{{ u.display_name }}</option>
@@ -37,7 +37,7 @@
 
 <!-- Audit Entries -->
 <div class="table-section">
-    <div style="overflow-x: auto;">
+    <div style="overflow-x: auto;" tabindex="0" role="region" aria-label="Audit log table">
         <table>
             <thead>
                 <tr>

@@ -38,7 +38,7 @@
                 {% for p in profiles %}
                 <tr>
                     <td>
-                        <a href="{{ base_path }}/vendors/{{ p.id }}" style="font-weight: 600; text-decoration: none; color: var(--accent, #3498db);">
+                        <a href="{{ base_path }}/vendors/{{ p.id }}" style="font-weight: 600; text-decoration: none; color: var(--link);">
                             {{ p.display_name or p.name }}
                         </a>
                         {% if p.display_name and p.display_name != p.name %}
@@ -64,7 +64,7 @@
                     </td>
                     <td>
                         {% if p.website %}
-                        <a href="{{ p.website }}" target="_blank" rel="noopener" style="font-size: 0.82rem; color: var(--accent, #3498db); text-decoration: none; word-break: break-all;">
+                        <a href="{{ p.website }}" target="_blank" rel="noopener" style="font-size: 0.82rem; color: var(--link); text-decoration: none; word-break: break-all;">
                             {{ p.website | replace('https://', '') | replace('http://', '') | truncate(28) }}
                         </a>
                         {% else %}

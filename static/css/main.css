@@ -3,6 +3,8 @@
 
 /* ===== Theme Variables ===== */
 [data-theme="dark"] {
+    /* Link text. --accent and --primary are surface colours, not text. */
+    --link: #7CC4E4;
     --primary: #1a1a2e;
     --primary-light: #16213e;
     --accent: #0f3460;
@@ -42,7 +44,7 @@
     --sx-blue-light:   #46A1B1;
     --sx-blue-dim:     rgba(18,124,163,0.15);
     --sx-gray:         #BCBEC0;
-    --sx-gray-dim:     #7A7C7E;
+    --sx-gray-dim:     #A3A5AB;  /* 4.5:1 on the sidebar (WCAG AA) */
     --sx-white:        #F0EFF5;
     --sx-green:        #3DD68C;
     --sx-green-dim:    rgba(61,214,140,0.12);
@@ -56,14 +58,17 @@
 }
 
 [data-theme="light"] {
+    --link: #0B5E7E;
     --primary: #f5f6fa;
     --primary-light: #eef0f4;
     --accent: #dde1e7;
     --accent-bright: #e94560;
-    --success: #27ae60;
-    --warning: #f39c12;
-    --danger: #e74c3c;
-    --info: #3498db;
+    /* Status colours double as text on white, so they are dark enough for
+       4.5:1 there (WCAG AA). */
+    --success: #1E7E46;
+    --warning: #A35F00;
+    --danger: #C0392B;
+    --info: #1F6FB2;
     --text: #1a202c;
     --text-muted: #64748b;
     --card-bg: #ffffff;
@@ -132,7 +137,7 @@
     stroke: #127CA3;
 }
 [data-theme="light"] .sx-nav__section-label {
-    color: #9ca3af;
+    color: #5c6675;
 }
 [data-theme="light"] .sx-nav__toggle-btn {
     color: #6b7280;
@@ -145,10 +150,10 @@
     color: #111827;
 }
 [data-theme="light"] .sx-nav__user-role {
-    color: #6b7280;
+    color: #4b5563;
 }
 [data-theme="light"] .sx-nav__footer-btn {
-    color: #6b7280;
+    color: #4b5563;
 }
 [data-theme="light"] .sx-nav__footer-btn:hover {
     background: rgba(0, 0, 0, 0.05);
@@ -4340,7 +4345,7 @@ select.itk-input{cursor:pointer}
   background: rgba(29,158,117,.15); color: #0F6E56;
 }
 .dept-card__heat-pill--block {
-  background: rgba(70,68,62,.5); color: #5F5E5A;
+  background: rgba(70,68,62,.18); color: #3D3C39;
 }
 
 /* Dark mode contrast — match the existing pattern from U2c */
@@ -4615,7 +4620,7 @@ body.sx-nav-collapsed .sx-nav .sx-nav__subgroup-content {
   border-radius: 10px; padding: 0.85rem 0.95rem;
   display: flex; flex-direction: column; gap: 0.4rem;
 }
-.c2c-cam.is-certified { border-left-color: var(--fl-green, #22c55e); opacity: 0.78; }
+.c2c-cam.is-certified { border-left-color: var(--fl-green, #22c55e); opacity: 0.92; }
 .c2c-cam__meta { font-size: 0.72rem; color: var(--text-muted); }
 
 .c2c-empty { color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem 0.5rem; }
@@ -4635,7 +4640,7 @@ body.sx-nav-collapsed .sx-nav .sx-nav__subgroup-content {
 }
 .c2c-modal__head {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: 1rem 1.25rem; background: var(--fl-green, #10b981); color: #fff;
+  padding: 1rem 1.25rem; background: #0F7A55; color: #fff;  /* 5:1 with white text */
 }
 .c2c-modal__title { font-size: 1.05rem; font-weight: 700; }
 .c2c-modal__sub { font-size: 0.78rem; opacity: 0.9; margin-top: 0.15rem; }
@@ -4709,7 +4714,7 @@ body.sx-nav-collapsed .sx-nav .sx-nav__subgroup-content {
 .c2c-panel.is-open { transform: translateX(0); }
 .c2c-panel__head {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: 1rem 1.25rem; background: var(--fl-green, #10b981); color: #fff;
+  padding: 1rem 1.25rem; background: #0F7A55; color: #fff;  /* 5:1 with white text */
 }
 .c2c-panel__title { font-size: 1.05rem; font-weight: 700; }
 .c2c-panel__sub { font-size: 0.76rem; opacity: 0.9; margin-top: 0.1rem; }
@@ -4886,3 +4891,13 @@ body.sx-nav-collapsed .sx-nav .sx-nav__subgroup-content {
 .rcpt-replace { margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--sx-border, var(--border)); display: flex; flex-direction: column; gap: 0.35rem; }
 .pwd-warn-banner { margin: 0 0 1rem; padding: 0.7rem 1rem; border-radius: 8px; font-size: 0.85rem; color: var(--fl-amber, #f59e0b); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); }
 .pwd-warn-banner__link { color: var(--fl-amber, #f59e0b); font-weight: 600; text-decoration: underline; margin-left: 0.3rem; }
+
+/* Links that carry no class or inline colour of their own read as links in
+   both themes (they fell back to the browser's default blue). */
+main a:not([class]):not([style]) { color: var(--link); }
+
+/* Category pills: the hue is the category's, the text is mixed toward the
+   theme's text colour so it reads at 4.5:1 on its own tint (WCAG AA). */
+.inv-cat-pill, .db-rec-label { color: color-mix(in srgb, var(--pill, currentColor) 72%, #fff); }
+[data-theme="light"] .inv-cat-pill, [data-theme="light"] .db-rec-label { color: color-mix(in srgb, var(--pill, currentColor) 45%, #000); }
+[data-theme="light"] .order-type-badge--try_and_buy { color: #A8410A; }

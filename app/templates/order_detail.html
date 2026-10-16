@@ -342,8 +342,8 @@
             {% set p = u.record %}
             <tr>
                 <td>
-                    {% if u.item %}<a href="{{ base_path }}/items/{{ u.item.id }}" style="color:var(--accent,#3498db);">{{ u.device_label }}</a>
-                    {% else %}<a href="{{ base_path }}/provisioning/{{ p.id }}" style="color:var(--accent,#3498db);">{{ u.device_label }}</a>{% endif %}
+                    {% if u.item %}<a href="{{ base_path }}/items/{{ u.item.id }}" style="color: var(--link);">{{ u.device_label }}</a>
+                    {% else %}<a href="{{ base_path }}/provisioning/{{ p.id }}" style="color: var(--link);">{{ u.device_label }}</a>{% endif %}
                 </td>
                 <td style="font-family:monospace; font-size:0.85rem;">{{ u.item.item_sn if u.item and u.item.item_sn else '—' }}</td>
                 <td style="font-size:0.85rem;">{{ u.item.item_sku if u.item and u.item.item_sku else '—' }}</td>
@@ -353,7 +353,7 @@
                     {% else %}<span class="badge">{{ p.current_stage | title }}</span>{% endif %}
                 </td>
                 <td style="font-size:0.85rem;">{{ ('#' ~ p.deployment_record_id) if p.deployment_record_id else '—' }}</td>
-                <td style="font-size:0.85rem;">{% if u.cert_url %}<a href="{{ u.cert_url }}" style="color:var(--accent,#3498db);">History</a>{% else %}—{% endif %}</td>
+                <td style="font-size:0.85rem;">{% if u.cert_url %}<a href="{{ u.cert_url }}" style="color: var(--link);">History</a>{% else %}—{% endif %}</td>
                 {% if user.has_provisioning_manage %}
                 <td style="white-space:nowrap;">
                     {% if t.track == 'stock' and u.item and not p.returned_date %}
@@ -415,7 +415,7 @@
         <tbody>
         {% for d in documents %}
         <tr>
-            <td><a href="{{ base_path }}/orders/documents/{{ d.id }}" target="_blank" style="color:var(--accent,#3498db);">{{ d.original_name }}</a>
+            <td><a href="{{ base_path }}/orders/documents/{{ d.id }}" target="_blank" style="color: var(--link);">{{ d.original_name }}</a>
                 {% if d.note %}<div style="font-size:0.78rem; color:var(--text-muted);">{{ d.note }}</div>{% endif %}</td>
             <td><span class="badge{% if d.kind == 'certification' %} badge-success{% endif %}">{{ DOC_KINDS.get(d.kind, d.kind) }}</span></td>
             <td style="font-size:0.85rem;">{{ (d.size_bytes / 1024) | round(0) | int }} KB</td>
@@ -477,7 +477,7 @@
             <td>{{ units_per_visit.get(d.id, 0) }}</td>
             <td style="font-size:0.85rem;">
                 {% if ic and ic.status == 'certified' %}
-                <a href="{{ base_path }}/fulfillment/install-cert/{{ ic.id }}/pdf" target="_blank" style="color:var(--accent,#3498db);">Certified</a>
+                <a href="{{ base_path }}/fulfillment/install-cert/{{ ic.id }}/pdf" target="_blank" style="color: var(--link);">Certified</a>
                 <div style="color:var(--text-muted); font-size:0.78rem;">{{ ic.installer_company or ic.installer_name or '' }}{% if ic.completion_date %} &middot; {{ ic.completion_date }}{% endif %}</div>
                 {% else %}—{% endif %}
             </td>

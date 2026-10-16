@@ -13,7 +13,7 @@
 <!-- Summary Cards -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ total_sites }}</div>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--text);">{{ total_sites }}</div>
         <div style="color: var(--text-muted); font-size: 0.85rem;">Total Sites</div>
     </div>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
@@ -60,16 +60,17 @@
                 {% set s = item.site %}
                 <tr>
                     <td>
-                        <a href="{{ base_path }}/sites/{{ s.id }}" style="font-weight: 600; color: var(--primary);">{{ s.name }}</a>
+                        <a href="{{ base_path }}/sites/{{ s.id }}" style="font-weight: 600; color: var(--link);">{{ s.name }}</a>
                     </td>
                     <td>
+                        {# Fixed dark fills, so white text holds 4.5:1 in both themes. #}
                         <span class="badge" style="background: {{ {
-                            'internal_lab': 'var(--primary)',
-                            'customer_site': 'var(--success)',
-                            'partner': '#8b5cf6',
-                            'warehouse': 'var(--info, #3b82f6)',
-                            'office': '#6b7280'
-                        }.get(s.site_type, 'var(--border)') }}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
+                            'internal_lab': '#3F4A5C',
+                            'customer_site': '#0F7A55',
+                            'partner': '#6D44C9',
+                            'warehouse': '#1F6FB2',
+                            'office': '#4B5563'
+                        }.get(s.site_type, '#4B5563') }}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
                             {{ site_types.get(s.site_type, s.site_type) }}
                         </span>
                     </td>

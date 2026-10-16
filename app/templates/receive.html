@@ -97,7 +97,7 @@
             <div style="display:flex; align-items:center; gap:0.5rem;">
                 <input type="text" id="manual-serial" placeholder="Type, paste, or wedge-scan a serial" autofocus
                        onkeydown="if(event.key==='Enter'){event.preventDefault(); processManualSerial();}"
-                       onfocus="wedgeReadyIndicator(true)" onblur="wedgeReadyIndicator(false)"
+                       onfocus="window.wedgeReadyIndicator && wedgeReadyIndicator(true)" onblur="window.wedgeReadyIndicator && wedgeReadyIndicator(false)"
                        style="flex:1;">
                 {# H10: a wedge scanner types into whichever field has focus —
                    this dot makes "ready to scan" visible from across a bench. #}
@@ -662,6 +662,8 @@ function wedgeReadyIndicator(armed) {
     dot.style.opacity = armed ? '1' : '0.4';
     label.textContent = armed ? 'Ready to scan' : 'Click the box to arm scanning';
 }
+// autofocus can fire before this script has run; catch up once it has.
+if (document.activeElement && document.activeElement.id === 'manual-serial') wedgeReadyIndicator(true);
 
 /* H10 wedge loop: every cycle CLEARS and REFOCUSES the input, so the next
    trigger-pull never concatenates onto the last serial (SER1SER2 corruption).

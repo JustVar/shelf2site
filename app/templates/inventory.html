@@ -34,13 +34,13 @@
     {{ icon('search', size=13) }}
     <input type="text" id="inv-search-input" placeholder="Search name, serial, SKU..." value="{{ q }}" autocomplete="off">
   </div>
-  <select class="inv-select" id="inv-status-select">
+  <select class="inv-select" id="inv-status-select" aria-label="Filter by status">
     <option value="">All statuses</option>
     {% for s in filter_statuses %}
     <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
     {% endfor %}
   </select>
-  <select class="inv-select" id="inv-location-select">
+  <select class="inv-select" id="inv-location-select" aria-label="Filter by location">
     <option value="">All locations</option>
     {% for loc in locations %}
     <option value="{{ loc.id }}" {% if location == loc.id|string %}selected{% endif %}>{{ loc.name }}</option>
@@ -98,7 +98,7 @@
   <table class="inv-table fl-table" style="min-width:1000px">
     <thead>
       <tr>
-        <th class="sx-stick-left sx-stick-left--checkbox"><input type="checkbox" class="inv-cb" id="select-all" onclick="invToggleSelectAll(this)"></th>
+        <th class="sx-stick-left sx-stick-left--checkbox"><input type="checkbox" class="inv-cb" id="select-all" aria-label="Select every item on this page" onclick="invToggleSelectAll(this)"></th>
         <th class="sx-stick-left sx-stick-left--primary">Item / Serial</th>
         <th>Category</th>
         <th>Status</th>
@@ -113,14 +113,14 @@
         {% for row in rows %}
         <tr data-id="{{ row.id }}" onclick="handleRowClick(event, {{ row.id }})">
           <td class="sx-stick-left sx-stick-left--checkbox" onclick="event.stopPropagation()">
-            <input type="checkbox" class="inv-cb row-cb" value="{{ row.id }}" onclick="invOnRowCheckboxChange(event)">
+            <input type="checkbox" class="inv-cb row-cb" value="{{ row.id }}" aria-label="Select {{ row.item_name or row.item_sn or row.id }}" onclick="invOnRowCheckboxChange(event)">
           </td>
           <td class="sx-stick-left sx-stick-left--primary">
             <div class="fl-cell-name">{{ row.name }}</div>
             <div class="fl-cell-sub">{{ row.sn }}</div>
           </td>
           <td>
-            <span class="inv-cat-pill" style="background:{{ row.color }}22;color:{{ row.color }}">
+            <span class="inv-cat-pill" style="background:{{ row.color }}22;--pill:{{ row.color }}">
               {{ row.category_display }}
             </span>
           </td>

@@ -18,15 +18,15 @@
   <form class="rcpt-filters" method="get" action="{{ base_path }}/receipts">
     <div class="rcpt-filter">
       <label>From</label>
-      <input type="date" name="date_from" value="{{ f.date_from }}">
+      <input type="date" name="date_from" aria-label="From date" value="{{ f.date_from }}">
     </div>
     <div class="rcpt-filter">
       <label>To</label>
-      <input type="date" name="date_to" value="{{ f.date_to }}">
+      <input type="date" name="date_to" aria-label="To date" value="{{ f.date_to }}">
     </div>
     <div class="rcpt-filter">
       <label>Vendor</label>
-      <select name="vendor">
+      <select name="vendor" aria-label="Vendor">
         <option value="">All vendors</option>
         {% for v in vendor_options %}
         <option value="{{ v.value }}" {% if f.vendor == v.value %}selected{% endif %}>{{ v.label }}</option>
@@ -38,7 +38,7 @@
     </div>
     <div class="rcpt-filter">
       <label>Record type</label>
-      <select name="record_type">
+      <select name="record_type" aria-label="Record type">
         <option value="">All types</option>
         {% for rt in record_type_options %}
         <option value="{{ rt }}" {% if f.record_type == rt %}selected{% endif %}>{{ rt|capitalize }}</option>
@@ -52,7 +52,7 @@
   </form>
 
   {% if rows %}
-  <div class="rcpt-table-wrap">
+  <div class="rcpt-table-wrap" tabindex="0" role="region" aria-label="Receipts table">
     <table class="rcpt-table">
       <thead>
         <tr>

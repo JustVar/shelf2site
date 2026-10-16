@@ -20,7 +20,7 @@
         <div style="color: var(--text-muted); font-size: 0.85rem;">Manufacturers</div>
     </div>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ total_ouis }}</div>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--text);">{{ total_ouis }}</div>
         <div style="color: var(--text-muted); font-size: 0.85rem;">OUI Prefixes</div>
     </div>
     <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center;">
@@ -47,7 +47,7 @@
         </div>
         <div class="form-group" style="margin-bottom: 0;">
             <label>Maps to Category</label>
-            <select id="oui-table" name="maps_to_table" style="width: 180px;">
+            <select id="oui-table" name="maps_to_table" aria-label="Maps to category" style="width: 180px;">
                 <option value="">-- Select --</option>
                 {% for key, label in table_names.items() %}
                 <option value="{{ key }}">{{ label }}</option>

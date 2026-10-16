@@ -289,7 +289,7 @@
 .ocr-header {
     font-size: 0.9rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--link);
     margin-bottom: 0.8rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
@@ -343,7 +343,7 @@
 .ocr-loading {
     padding: 0.8rem;
     text-align: center;
-    color: var(--accent);
+    color: var(--link);
     font-size: 0.85rem;
 }
 

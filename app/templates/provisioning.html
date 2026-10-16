@@ -60,27 +60,27 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="prov-search" placeholder="Search devices, sites, notes..." oninput="applyFilters()">
     </div>
-    <select id="filter-priority" onchange="applyFilters()">
+    <select id="filter-priority" aria-label="Filter by priority" onchange="applyFilters()">
         <option value="">All Priorities</option>
         <option value="urgent">Urgent</option>
         <option value="high">High</option>
         <option value="normal">Normal</option>
         <option value="low">Low</option>
     </select>
-    <select id="filter-stage" onchange="applyFilters()">
+    <select id="filter-stage" aria-label="Filter by stage" onchange="applyFilters()">
         <option value="">All Stages</option>
         {% for stage in default_stages %}
         <option value="{{ stage.name }}">{{ stage.label }}</option>
         {% endfor %}
     </select>
-    <select id="filter-bucket" onchange="applyFilters()">
+    <select id="filter-bucket" aria-label="Filter by bucket" onchange="applyFilters()">
         <option value="">All Buckets</option>
         {% for key, label in deployment_buckets.items() %}
         <option value="{{ key }}">{{ label }}</option>
         {% endfor %}
         <option value="no_bucket">No Bucket</option>
     </select>
-    <select id="filter-date" onchange="applyFilters()">
+    <select id="filter-date" aria-label="Filter by date" onchange="applyFilters()">
         <option value="">All Dates</option>
         <option value="overdue">Overdue</option>
         <option value="due_soon">Due Soon (7d)</option>
@@ -118,7 +118,7 @@
 
 <!-- Pipeline Board View -->
 <div id="board-view" class="provisioning-view" style="display: block;">
-    <div class="pipeline-board">
+    <div class="pipeline-board" tabindex="0" role="region" aria-label="Provisioning pipeline">
         {% for bucket_key, bucket_label in deployment_buckets.items() %}
         <div class="pipeline-column" data-bucket="{{ bucket_key }}"
              ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, {{ bucket_key|tojson|forceescape }})">
@@ -580,7 +580,7 @@
                     {% endfor %}
                 </select>
                 {% if not open_orders %}
-                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">No open orders yet. <a href="{{ base_path }}/orders/" style="color: var(--accent);">Create one first</a>.</div>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">No open orders yet. <a href="{{ base_path }}/fulfillment/" style="color: var(--link);">Create one first</a>.</div>
                 {% endif %}
             </div>
             <div class="form-group">

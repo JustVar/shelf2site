@@ -13,7 +13,7 @@
     <a href="{{ base_path }}/inventory/" class="dtl-back" title="Back to Inventory">← Inventory</a>
     <h1 class="dtl-title">{{ item.item_name or 'Unnamed Item' }}</h1>
     <div class="dtl-badges">
-      <span class="inv-cat-pill" style="background:{{ color }}22;color:{{ color }}">{{ category_display }}</span>
+      <span class="inv-cat-pill" style="background:{{ color }}22;--pill:{{ color }}">{{ category_display }}</span>
       {% set s = item.item_status|string|lower|replace(' ','')|replace('-','') if item.item_status else 'unassigned' %}
       <span class="inv-status inv-status--{{ s }}">{{ item.item_status or 'Unassigned' }}</span>
     </div>
@@ -207,7 +207,7 @@
   <div class="itk-section">
     <div class="itk-section-title">Notes</div>
     <div class="itk-field" style="max-width:100%">
-      <textarea name="notes" id="notes" class="itk-input itk-textarea" rows="3">{{ item.notes or '' }}</textarea>
+      <textarea name="notes" id="notes" aria-label="Notes" class="itk-input itk-textarea" rows="3">{{ item.notes or '' }}</textarea>
     </div>
   </div>
 
@@ -254,7 +254,7 @@
       <div class="dtl-field">
         <div class="dtl-label">Category</div>
         <div class="dtl-value">
-          <span class="inv-cat-pill" style="background:{{ color }}22;color:{{ color }}">{{ category_display }}</span>
+          <span class="inv-cat-pill" style="background:{{ color }}22;--pill:{{ color }}">{{ category_display }}</span>
         </div>
       </div>
       <div class="dtl-field">
@@ -525,7 +525,7 @@
     <div class="dtl-section-title" style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
       <span>Photos{% if photos %} ({{ photos | length }}){% endif %}</span>
       {% if user.is_editor_or_above %}
-      <select id="item-photo-direction" style="font-size:0.75rem; padding:2px 6px;">
+      <select id="item-photo-direction" aria-label="Photo direction" style="font-size:0.75rem; padding:2px 6px;">
         <option value="inbound">Inbound</option>
         <option value="outbound">Outbound</option>
       </select>

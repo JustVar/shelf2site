@@ -77,14 +77,14 @@
 <!-- Filter bar -->
 <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
     <h2 style="font-size: 1rem; margin: 0;">Recent Errors</h2>
-    <select id="filter-source" onchange="filterErrors()" style="padding: 4px 8px; font-size: 0.8rem; background: var(--primary); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+    <select id="filter-source" aria-label="Filter by source" onchange="filterErrors()" style="padding: 4px 8px; font-size: 0.8rem; background: var(--primary); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
         <option value="">All Sources</option>
         <option value="frontend">Frontend</option>
         <option value="backend">Backend</option>
     </select>
     <span id="error-count" style="font-size: 0.8rem; color: var(--text-muted);"></span>
     <div style="flex: 1;"></div>
-    <button onclick="pruneErrors()" style="padding: 4px 12px; font-size: 0.8rem; background: var(--danger, #e74c3c); color: #fff; border: none; border-radius: 4px; cursor: pointer;"
+    <button onclick="pruneErrors()" style="padding: 4px 12px; font-size: 0.8rem; background: #C0392B; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
             title="Delete errors older than 30 days">Prune (30d+)</button>
 </div>
 

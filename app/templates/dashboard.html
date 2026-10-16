@@ -117,7 +117,7 @@
       {% if recent_activity %}
         {% for item in recent_activity %}
         <a href="{{ base_path }}/items/{{ item.id }}" class="db-rec">
-          <span class="db-rec-label" style="background:{{ item.color }}22;color:{{ item.color }}">
+          <span class="db-rec-label" style="background:{{ item.color }}22;--pill:{{ item.color }}">
             {{ item.category_display[:8] if item.category_display else '—' }}
           </span>
           <span class="db-rec-text">{{ item.name }}</span>

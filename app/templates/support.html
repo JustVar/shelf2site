@@ -101,7 +101,7 @@
                     </td>
                     {% if status_filter == 'pending' %}
                     <td>
-                        <select id="table-override-{{ d.id }}" class="table-override-select"
+                        <select id="table-override-{{ d.id }}" aria-label="Category for this device" class="table-override-select"
                                 style="font-size: 0.85rem; padding: 2px 4px; max-width: 160px;">
                             {% for c, label in available_categories %}
                             <option value="{{ c }}" {% if c == (d.suggested_category or 'network') %}selected{% endif %}>

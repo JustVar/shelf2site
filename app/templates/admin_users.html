@@ -12,7 +12,7 @@
     </div>
     <div class="users-page__controls">
       <input type="text" id="users-search" class="users-search" placeholder="Search…" autocomplete="off">
-      <select id="users-role-filter" class="users-role-filter">
+      <select id="users-role-filter" aria-label="Filter by role" class="users-role-filter">
         <option value="">All roles</option>
         <option value="admin-tier">Admin tier</option>
         <option value="editor">Editor</option>
@@ -30,7 +30,7 @@
 
 <!-- Drawer overlay + drawer (skeleton; U2c populates body and wires save) -->
 <div id="user-drawer-overlay" class="sx-drawer-overlay"></div>
-<aside id="user-drawer" class="sx-drawer" aria-hidden="true">
+<aside id="user-drawer" class="sx-drawer" aria-hidden="true" inert>
   <div class="sx-drawer-header">
     <div>
       <h3 id="user-drawer-title" class="sx-drawer-title">Edit user</h3>

@@ -173,12 +173,14 @@
     document.getElementById('user-drawer-overlay').classList.add('sx-drawer-overlay--open');
     document.getElementById('user-drawer').classList.add('sx-drawer--open');
     document.getElementById('user-drawer').setAttribute('aria-hidden', 'false');
+    document.getElementById('user-drawer').inert = false;  // closed drawers take no focus
   }
 
   function closeDrawer() {
     document.getElementById('user-drawer-overlay').classList.remove('sx-drawer-overlay--open');
     document.getElementById('user-drawer').classList.remove('sx-drawer--open');
     document.getElementById('user-drawer').setAttribute('aria-hidden', 'true');
+    document.getElementById('user-drawer').inert = true;
     currentEditUserId = null;
   }
 

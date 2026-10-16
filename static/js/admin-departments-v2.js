@@ -145,12 +145,14 @@
     document.getElementById('dept-drawer-overlay').classList.add('sx-drawer-overlay--open');
     document.getElementById('dept-drawer').classList.add('sx-drawer--open');
     document.getElementById('dept-drawer').setAttribute('aria-hidden', 'false');
+    document.getElementById('dept-drawer').inert = false;  // closed drawers take no focus
   }
 
   function closeDrawer() {
     document.getElementById('dept-drawer-overlay').classList.remove('sx-drawer-overlay--open');
     document.getElementById('dept-drawer').classList.remove('sx-drawer--open');
     document.getElementById('dept-drawer').setAttribute('aria-hidden', 'true');
+    document.getElementById('dept-drawer').inert = true;
     currentEditDeptId = null;
   }
 
