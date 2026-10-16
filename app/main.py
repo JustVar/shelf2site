@@ -5,10 +5,12 @@ import concurrent.futures
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
@@ -457,23 +459,7 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
         if isinstance(exc, csrf.CsrfError):
             return toast_redirect(_same_app_referer(request), csrf.STALE_MESSAGE, "warning")
 
-        # Get user from session for displaying current role
-        from .auth import get_session_user_id
-        from .database import SessionLocal
-        from .models import User
-
-        user = None
-        user_id = get_session_user_id(request)
-        if user_id:
-            def _fetch_user():
-                db = SessionLocal()
-                try:
-                    return db.query(User).filter(User.id == user_id).first()
-                finally:
-                    db.close()
-            import asyncio
-            user = await asyncio.to_thread(_fetch_user)
-
+        user = await _session_user(request)
         return templates.TemplateResponse(
             "permission_denied.html",
             {
@@ -497,8 +483,53 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
             )
         return RedirectResponse(url=f"{BP}/login", status_code=303)
 
-    # For other HTTP exceptions, re-raise to use default handler
-    raise exc
+    # Every other code: a 404 for a page gets the not-found page, the rest
+    # FastAPI's default JSON shape.
+    return await _not_found_or_default(request, exc)
+
+
+async def _session_user(request: Request):
+    """The signed-in user, or None. Read off the session cookie in a worker
+    thread, because exception handlers run outside route dependencies."""
+    from .auth import get_session_user_id
+    from .database import SessionLocal
+    from .models import User
+
+    user_id = get_session_user_id(request)
+    if not user_id:
+        return None
+
+    def _fetch_user():
+        db = SessionLocal()
+        try:
+            return db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+        finally:
+            db.close()
+    return await asyncio.to_thread(_fetch_user)
+
+
+async def _not_found_or_default(request: Request, exc):
+    """A browser asking for a page that does not exist gets a page inside the
+    app shell (or the login page when signed out). API callers, HTMX swaps and
+    every other status keep FastAPI's default JSON response."""
+    rel = request.url.path[len(BP):] if request.url.path.startswith(BP) else request.url.path
+    wants_page = ("text/html" in request.headers.get("accept", "")
+                  and request.headers.get("HX-Request") != "true"
+                  and not rel.startswith(("/api/", "/static/")))
+    if exc.status_code != 404 or not wants_page:
+        return await http_exception_handler(request, exc)
+    user = await _session_user(request)
+    if user is None:
+        return RedirectResponse(url=f"{BP}/login", status_code=303)
+    return templates.TemplateResponse(
+        "not_found.html", {"request": request, "user": user}, status_code=404)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Unknown paths and wrong methods are raised by the router as Starlette's
+    HTTPException, which the handler above does not see."""
+    return await _not_found_or_default(request, exc)
 
 
 # Routes

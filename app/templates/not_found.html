@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Page not found - Shelf2Site{% endblock %}
+
+{% block content %}
+<div class="denied-page fl-restyle">
+{% include "_fl_bg.html" %}
+<div class="fl-lift">
+<div class="error-page">
+  <div class="error-page__inner">
+    <div class="error-page__icon">{{ icon('search', size=32) }}</div>
+    <h1 class="error-page__title">Page not found</h1>
+    <p class="error-page__message">There is nothing at <code>{{ request.url.path }}</code>.</p>
+    <p class="error-page__hint">The link may be old, or the record may have been removed.</p>
+    <div class="error-page__actions">
+      <a href="{{ base_path }}/dashboard" class="error-page__btn error-page__btn--secondary">Back to dashboard</a>
+      <a href="{{ base_path }}/search" class="error-page__btn error-page__btn--primary">Search</a>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+{% endblock %}
