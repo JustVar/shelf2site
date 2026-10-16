@@ -18,18 +18,18 @@ from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
 from ..models import (
-    CustomerOrder, DeviceCredential, DeviceWarranty, Item, ItemLocation, ItemReceipt, ReceiptItem, ItemCheckout,
-    DeviceProvisioning, ItemComponentHistory, ItemMaintenanceLog,
-    UnitPhoto, UnitPhotoItem, User as UserModel,
+    CustomerOrder, DeviceCredential, DeviceWarranty, Item, ItemReceipt, ReceiptItem, ItemCheckout, DeviceProvisioning,
+    ItemComponentHistory, ItemMaintenanceLog, UnitPhoto,
+    UnitPhotoItem, User as UserModel,
 )
 from ..locks import get_lock
 from ..delete_requests import LOCK_MESSAGE, item_blockers, locked_ids, pending_for
 from ..audit import log_event
-from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
+from .dashboard import FL_CATEGORY_COLORS, category_display
 from .intake import (
     STATUSES, ALLOWED_RECEIPT_EXTENSIONS, RECEIPT_STORAGE_PATH,
-    _get_locations, _get_all_places, _get_categories, _normalize_mac,
-    _clean_str, _safe_float, _safe_int, _safe_date, _get_vendors, _vendor_id_or_error,
+    _get_all_places, _get_categories, _normalize_mac, _clean_str,
+    _safe_float, _safe_int, _safe_date, _get_vendors, _vendor_id_or_error,
 )
 from ..item_fields import attributes_for
 from .warranty import warranty_status
@@ -257,6 +257,7 @@ def item_detail_page(
         "receipts": receipts,
         "components": components,
         "maintenance": maintenance,
+        "maintenance_types": ItemMaintenanceLog.ENTRY_TYPES,
         "checkouts": checkouts,
         "photos": photos,
         "is_checked_out": item.item_status == "Checked Out",
@@ -365,6 +366,7 @@ async def item_update(
             "receipts": receipts,
             "components": components,
             "maintenance": maintenance,
+        "maintenance_types": ItemMaintenanceLog.ENTRY_TYPES,
             "checkouts": checkouts,
             "photos": _get_item_photos(db, item_id, user),
             "is_checked_out": item.item_status == "Checked Out",
@@ -482,6 +484,58 @@ async def add_receipt(
         return toast_redirect(f"{BP}/items/{item_id}", "Receipt upload failed", "error")
 
     return toast_redirect(f"{BP}/items/{item_id}", "Receipt added successfully")
+
+
+@router.post("/items/{item_id}/maintenance", response_class=HTMLResponse)
+def add_maintenance_entry(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_editor),
+    entry_type: str = Form(default=""),
+    description: str = Form(default=""),
+    maintenance_date: str = Form(default=""),
+    performed_by: str = Form(default=""),
+):
+    """Add a maintenance log entry. The panel was read-only before this route:
+    nothing in the app could write item_schema.maintenance_log."""
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        return toast_redirect(f"{BP}/inventory/", "Item not found", "error")
+    if locked_ids(db, "items", [item_id]):
+        return toast_redirect(f"{BP}/items/{item_id}", LOCK_MESSAGE, "warning")
+
+    kind = _clean_str(entry_type)
+    if kind not in ItemMaintenanceLog.ENTRY_TYPES:
+        return toast_redirect(f"{BP}/items/{item_id}", "Pick a maintenance type", "warning")
+    text_value = _clean_str(description)
+    if not text_value:
+        return toast_redirect(f"{BP}/items/{item_id}", "Describe the maintenance", "warning")
+    when = _safe_date(maintenance_date)
+    if maintenance_date.strip() and when is None:
+        return toast_redirect(f"{BP}/items/{item_id}", "Use a date like 2026-10-14", "warning")
+
+    entry = ItemMaintenanceLog(
+        item_id=item_id,
+        entry_type=kind,
+        description=text_value,
+        performed_by=_clean_str(performed_by) or user.display_name or user.username,
+        maintenance_date=when or local_today(),
+        created_by=user.display_name or user.username,
+    )
+    db.add(entry)
+    db.flush()
+    log_event(
+        db, "maintenance_logged",
+        request=request,
+        user_id=user.id,
+        target_table="items",
+        target_id=item_id,
+        action="create",
+        details=f"Maintenance ({kind}): {text_value[:200]}",
+    )
+    db.commit()
+    return toast_redirect(f"{BP}/items/{item_id}", "Maintenance entry added")
 
 
 @router.get("/api/receipts/{receipt_id}/download")

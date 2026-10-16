@@ -12,7 +12,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import settings  # noqa: E402
 from app.database import SessionLocal, create_all_tables  # noqa: E402
 from app.models import OUIAllowlist  # noqa: E402
 

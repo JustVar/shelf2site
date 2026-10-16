@@ -1,5 +1,5 @@
 from pathlib import Path
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
@@ -8,7 +8,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..localtime import register
 from ..database import get_db
-from ..models import Item, ItemLocation
+from ..models import Item
 from .c2c import _pilots_due_back
 
 router = APIRouter()

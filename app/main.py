@@ -5,7 +5,7 @@ import concurrent.futures
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -167,7 +167,6 @@ async def error_logging_middleware(request: Request, call_next):
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
-    path = request.url.path
     # Prevent MIME-type sniffing
     response.headers["X-Content-Type-Options"] = "nosniff"
     # Prevent clickjacking

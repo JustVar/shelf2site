@@ -249,8 +249,6 @@ def test_kiosk_is_confined_to_the_map(kiosk_client):
     # middleware 403s kiosks before get_current_user ever runs — pin it).
     r = kiosk_client.get("/api/receive/check-duplicate?serial=CONTRACT-TEST")
     assert r.status_code == 403
-    r = kiosk_client.get("/api/receive/photo/1")
-    assert r.status_code == 403
 
     r = kiosk_client.get("/events/stream")
     assert r.status_code == 403

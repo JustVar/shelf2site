@@ -2,7 +2,6 @@
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user

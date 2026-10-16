@@ -24,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
-from ..auth import get_current_user, require_map_access, require_editor
+from ..auth import require_map_access, require_editor
 from ..config import settings
 from ..localtime import local_today, register
 from ..database import get_db

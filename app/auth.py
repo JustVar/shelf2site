@@ -1,7 +1,6 @@
 """User authentication: bcrypt password hashing, session management, role checks."""
 
 from datetime import datetime, timedelta
-from functools import wraps
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status

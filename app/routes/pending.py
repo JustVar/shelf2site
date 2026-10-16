@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor
+from ..auth import require_editor
 from ..database import get_db
 from ..models import PendingDevice, ReceivedDevice, User, item_categories_enum, user_can_approve_category
 from .intake import create_item

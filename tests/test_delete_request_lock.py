@@ -28,6 +28,7 @@ ROUTES = Path(__file__).resolve().parents[1] / "app" / "routes"
 GUARDED = {
     ("item_detail.py", "item_update"): "locked_ids",
     ("item_detail.py", "add_receipt"): "locked_ids",
+    ("item_detail.py", "add_maintenance_entry"): "locked_ids",
     ("item_detail.py", "item_decommission"): "locked_ids",
     ("item_detail.py", "item_reactivate"): "locked_ids",
     ("inventory.py", "quick_view_save"): "locked_ids",

@@ -18,7 +18,8 @@ from ..config import settings
 from ..localtime import local_today, register
 from ..toast_redirect import toast_redirect
 from ..database import get_db
-from ..models import Item, ItemLocation, ItemReceipt, ReceiptItem, ItemPartNumber, Site, VendorProfile, HAND_EDITABLE_ITEM_STATUSES
+from ..models import (Item, ItemReceipt, ReceiptItem, ItemPartNumber, Site, VendorProfile,
+                      HAND_EDITABLE_ITEM_STATUSES, ITEM_STATUSES, item_categories_enum)
 from .dashboard import ALL_CATEGORIES, category_display
 
 router = APIRouter(tags=["intake"])
@@ -178,20 +179,34 @@ def create_item(
         # Code-mediated (docs/specs/item-decommission.md): never on create.
         _status = None
 
+    # Values the database would reject. Checked here so the caller gets a
+    # message instead of a failed flush (an enum or foreign key error).
+    _category = _clean_str(fields.get("item_category")) or None
+    if _category and _category not in item_categories_enum.enums:
+        raise ValueError("Unknown category: " + _category)
+    if _status and _status not in ITEM_STATUSES:
+        raise ValueError("Unknown status: " + _status)
+    _sku = _clean_str(fields.get("brand_sku"))
+    if _sku and not db.query(ItemPartNumber.id).filter(ItemPartNumber.brand_sku == _sku).first():
+        raise ValueError("SKU " + _sku + " is not in the part numbers list")
+    _location = _safe_int(fields.get("location_id"))
+    if _location is not None and db.get(Site, _location) is None:
+        raise ValueError("That location does not exist")
+
     new_item = Item(
         item_name=_clean_str(fields.get("item_name")),
         item_manufacturer=_clean_str(fields.get("item_manufacturer")),
         item_model=_clean_str(fields.get("item_model")),
         item_sn=_clean_str(fields.get("item_sn")),
-        item_category=_clean_str(fields.get("item_category")) or None,
+        item_category=_category,
         item_status=_status,
-        location_id=_safe_int(fields.get("location_id")),
+        location_id=_location,
         department_or_owner=_clean_str(fields.get("department_or_owner")),
         item_mac_address_1=mac1,
         item_mac_address_2=mac2,
         item_storage_size_gb=_safe_float(fields.get("item_storage_size_gb")),
         appliance_uuid=_clean_str(fields.get("appliance_uuid")),
-        brand_sku=_clean_str(fields.get("brand_sku")),
+        brand_sku=_sku,
         brand_pn=_clean_str(fields.get("brand_pn")),
         item_associated_brand_pn=_clean_str(fields.get("item_associated_brand_pn")),
         vendor_id=_safe_int(fields.get("vendor_id")),

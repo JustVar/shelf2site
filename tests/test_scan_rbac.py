@@ -61,7 +61,6 @@ def test_bare_viewer_cannot_scan_or_enumerate(viewer_client):
                               json={"barcode": "CONTRACT-TEST-X"}).status_code == 403
     assert viewer_client.get(
         "/api/receive/check-duplicate?serial=CONTRACT-TEST-X").status_code == 403
-    assert viewer_client.get("/api/receive/photo/1").status_code == 403
 
 
 # ── receiving-flag users get a working page (F10) ───────────────────────────

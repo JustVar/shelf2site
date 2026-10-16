@@ -7,7 +7,7 @@ current_containment view (app/containment.py). Editor-gated.
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..audit import log_event

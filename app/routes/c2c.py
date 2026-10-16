@@ -20,7 +20,6 @@ See docs/specs/c2c-camera-certification.md and
 docs/specs/c2c-c1-discovery-handoff.md.
 """
 
-import io
 import uuid
 from datetime import date, datetime
 from pathlib import Path

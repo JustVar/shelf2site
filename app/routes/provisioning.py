@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 
 from ..audit import log_event
-from ..auth import require_sites_manager, require_provisioning_manager, require_provisioning_viewer, get_current_user, User
+from ..auth import require_provisioning_manager, require_provisioning_viewer, get_current_user, User
 from ..config import settings
 from ..localtime import fmt_local, local_now, local_today, parse_utc, register
 from ..database import get_db
@@ -353,7 +353,6 @@ def get_provisioning_by_bucket(
     buckets = {bucket_key: [] for bucket_key in DeviceProvisioning.DEPLOYMENT_BUCKETS.keys()}
     buckets["no_bucket"] = []  # For items without a bucket assigned
 
-    now = datetime.utcnow()
     for rec in active_records:
         device_name = _resolve_device_name(db, rec)
         deployment_type = _resolve_deployment_type(db, rec)

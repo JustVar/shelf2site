@@ -649,7 +649,45 @@
 
   <!-- Maintenance Log -->
   <div class="dtl-section">
-    <div class="dtl-section-title">Maintenance Log</div>
+    <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Maintenance Log</span>
+      {% if user.is_editor_or_above %}
+      <button type="button" class="fl-obtn" onclick="toggleAddMaintenance()">+ Add Entry</button>
+      {% endif %}
+    </div>
+
+    {% if user.is_editor_or_above %}
+    <form method="post" action="{{ base_path }}/items/{{ item.id }}/maintenance" id="add-maintenance-form" style="display:none;margin-bottom:1rem">
+      <div class="itk-grid" style="margin-bottom:0.5rem">
+        <div class="itk-field">
+          <label class="itk-label" for="entry_type">Type</label>
+          <select name="entry_type" id="entry_type" class="itk-input" required>
+            {% for t in maintenance_types %}
+            <option value="{{ t }}">{{ t | replace('_', ' ') | title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="itk-field">
+          <label class="itk-label" for="maintenance_date">Date</label>
+          <input type="date" name="maintenance_date" id="maintenance_date" class="itk-input">
+          <div class="itk-hint">Blank means today</div>
+        </div>
+        <div class="itk-field">
+          <label class="itk-label" for="performed_by">Performed By</label>
+          <input type="text" name="performed_by" id="performed_by" class="itk-input" placeholder="Blank means you">
+        </div>
+      </div>
+      <div class="itk-field" style="margin-bottom:0.75rem">
+        <label class="itk-label" for="maint_description">Description</label>
+        <textarea name="description" id="maint_description" class="itk-input itk-textarea" rows="2" required placeholder="What was done and why"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="fl-obtn" onclick="toggleAddMaintenance()">Cancel</button>
+        <button type="submit" class="fl-obtn">Save Entry</button>
+      </div>
+    </form>
+    {% endif %}
+
     {% if maintenance %}
     <div class="dtl-table-wrap">
       <table class="dtl-table fl-table">
@@ -805,6 +843,11 @@ async function uploadItemPhoto(input) {
         note.textContent = 'Photo NOT saved: ' + e.message;
         input.value = '';
     }
+}
+
+function toggleAddMaintenance() {
+  var form = document.getElementById("add-maintenance-form");
+  form.style.display = form.style.display === "none" ? "block" : "none";
 }
 
 function toggleAddReceipt() {

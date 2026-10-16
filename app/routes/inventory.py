@@ -10,10 +10,9 @@ from ..config import settings
 from ..localtime import local_now, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
-from ..models import Item, ItemLocation, Site, ITEM_STATUSES
-from .dashboard import CATEGORY_COLORS, FL_CATEGORY_COLORS, ALL_CATEGORIES, PRODUCT_CATEGORIES, category_display
-from .intake import _get_locations as _get_locations_active, _get_all_places, _get_categories, _normalize_mac, _clean_str, _safe_float, _safe_int, STATUSES
-from .dashboard import category_display as _cat_display
+from ..models import Item, Site, ITEM_STATUSES
+from .dashboard import FL_CATEGORY_COLORS, ALL_CATEGORIES, category_display
+from .intake import _get_all_places, _clean_str, _safe_int, STATUSES
 from .checkout import _active_users
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])

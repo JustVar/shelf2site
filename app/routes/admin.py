@@ -1,7 +1,7 @@
 """Admin routes: OUI Reference, user management, audit log viewer."""
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from sqlalchemy import String, cast, desc, func, or_
@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from ..audit import log_event
 from ..auth import (
-    create_user, get_current_user, hash_password, require_admin,
-    require_editor, require_user_manager, require_system_admin, require_audit_viewer,
-    VALID_ROLES, ROLE_DISPLAY, SUB_ADMIN_ROLES,
-    ROLE_TIER, get_assignable_roles, can_manage_user, User, validate_password_strength,
+    create_user, get_current_user, hash_password, require_editor,
+    require_user_manager, require_system_admin, require_audit_viewer, VALID_ROLES,
+    ROLE_DISPLAY, SUB_ADMIN_ROLES, get_assignable_roles,
+    can_manage_user, User, validate_password_strength,
 )
 from ..config import settings
 from ..localtime import register
@@ -1743,7 +1743,7 @@ def storage_monitor_page(
     import shutil
     import os
     from datetime import datetime
-    from ..models import IntakePhoto
+    from ..models import UnitPhoto
 
     photo_dir = Path(settings.PHOTO_UPLOAD_DIR)
 
@@ -1794,7 +1794,7 @@ def storage_monitor_page(
     photo_size_gb = photo_size_bytes / (1024**3)
 
     # Database photo records
-    db_photo_count = db.query(IntakePhoto).count()
+    db_photo_count = db.query(UnitPhoto).count()
 
     # Calculate growth rate (photos per day)
     growth_rate = 0

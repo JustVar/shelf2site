@@ -5,7 +5,7 @@ announcements are only meaningful before a restart). The admin broadcasts via
 SSE; a polling fallback serves clients that reconnect after the SSE drops.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 

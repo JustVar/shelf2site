@@ -11,7 +11,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 from ..localtime import register
 from ..database import get_db
-from ..models import Item, ItemLocation, Site
+from ..models import Item, Site
 from .dashboard import FL_CATEGORY_COLORS, category_display
 _COLOR_FALLBACK = "#888888"
 

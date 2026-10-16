@@ -8,8 +8,8 @@ per-category public tables and their models (docs/specs/retire-legacy-inventory.
 from sqlalchemy import (
     Enum as SAEnum,
     Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, LargeBinary,
-    MetaData, Numeric, String, Table, Text, UniqueConstraint, func,
-    literal_column, text,
+    MetaData, String, Table, Text, UniqueConstraint, func, literal_column,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
@@ -98,8 +98,8 @@ class ReceivedDevice(Base):
 
 
 class UnitPhoto(Base):
-    """Shipment/unit photos (migration 069) — supersedes IntakePhoto's dead
-    device linkage. One photo, nullable context FKs; serial tying is N:M via
+    """Shipment/unit photos (migration 069) — superseded the retired
+    intake_photos table and its dead device linkage. One photo, nullable context FKs; serial tying is N:M via
     unit_photo_items (one arrival photo can show three boxes' labels).
     Deletion is soft (is_hidden + audit); hard delete is admin-only."""
     __tablename__ = "unit_photos"
@@ -134,27 +134,6 @@ class UnitPhotoItem(Base):
 
     photo = relationship("UnitPhoto", back_populates="items")
     item = relationship("Item")
-
-
-# ---------------------------------------------------------------------------
-# Intake Photos (label photos for receiving events / devices)
-# DEPRECATED by unit_photos (migration 069) — kept for legacy row serving;
-# adopt-or-archive handled by the migration. Do not add new writers.
-# ---------------------------------------------------------------------------
-class IntakePhoto(Base):
-    __tablename__ = "intake_photos"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    receiving_event_id = Column(Integer, ForeignKey("receiving_events.id"), nullable=True)
-    device_table = Column(String(64), nullable=True)
-    device_id = Column(Integer, nullable=True)
-    filename = Column(String(255), nullable=False)
-    original_filename = Column(String(255), nullable=True)
-    content_type = Column(String(64), nullable=True)
-    file_size = Column(Integer, nullable=True)
-    caption = Column(String(255), nullable=True)
-    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
 
 
 # ---------------------------------------------------------------------------
@@ -1203,6 +1182,12 @@ class ReceiptItem(Base):
 class ItemMaintenanceLog(Base):
     __tablename__ = 'maintenance_log'
     __table_args__ = {'schema': 'item_schema'}
+
+    # The entry types the item page offers. entry_type is a plain varchar, so
+    # this list is the only vocabulary; the page renders 'firmware_update' as
+    # 'Firmware Update'.
+    ENTRY_TYPES = ("inspection", "repair", "cleaning", "firmware_update",
+                   "part_replacement", "calibration", "other")
 
     id               = Column(Integer, primary_key=True, autoincrement=True)
     item_id          = Column(Integer, ForeignKey('item_schema.items.id'), nullable=False)

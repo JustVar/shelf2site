@@ -1,22 +1,21 @@
 """Receiving & Intake routes: mobile scanning page, receiving events, photo upload."""
 
 import logging
-import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor, require_receiving_access, require_scan_access
+from ..auth import require_receiving_access, require_scan_access
 from ..config import settings
 from ..localtime import register
 from ..database import get_db
 from ..models import (
-    CustomerOrder, IntakePhoto, Item, ItemPartNumber, OUIAllowlist,
+    CustomerOrder, Item, ItemPartNumber, OUIAllowlist,
     PendingDevice, ReceivedDevice, ReceivingEvent, ReceivingEventLine, Site,
     UnitPhoto, User, user_can_approve_category,
 )
@@ -24,7 +23,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..po_matching import match_oem_lines, norm_sku, oem_line_summary, sync_oem_receipt
 from ..scan_routing import classify, mac_from_bare_hex, preprocess
-from ..validation import normalize_mac, validate_mac_address, validate_serial_number, validate_required_fields, get_category_required_fields
+from ..validation import normalize_mac, validate_mac_address, validate_serial_number
 from ..vendor_defaults import lookup_by_serial_prefix
 from .intake import STATUSES as ITEM_INTAKE_STATUSES, _get_locations, create_item
 from ..models import HAND_EDITABLE_ITEM_STATUSES
@@ -859,6 +858,10 @@ async def submit_device(
                 sync_oem_receipt(db, event.purchase_order, unit_sku)
                 _maybe_autocomplete(event)
             db.commit()
+        except ValueError as e:
+            # create_item's own checks (unknown location, category, status, SKU).
+            db.rollback()
+            return JSONResponse(status_code=400, content={"error": str(e)})
         except IntegrityError:
             db.rollback()
             return JSONResponse(status_code=409, content={
@@ -960,113 +963,3 @@ async def submit_device(
     })
 
 
-# ---------------------------------------------------------------------------
-# Photo upload and serving
-# ---------------------------------------------------------------------------
-
-@router.post("/api/receive/photo")
-async def upload_photo(
-    request: Request,
-    file: UploadFile = File(...),
-    receiving_event_id: int | None = Form(None),
-    device_table: str | None = Form(None),
-    device_id: int | None = Form(None),
-    caption: str = Form(""),
-    run_ocr: bool = Form(True),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_receiving_access),
-):
-    """Upload a label photo for a receiving event or device, with optional OCR."""
-    allowed_types = {"image/jpeg", "image/png", "image/webp"}
-    if file.content_type not in allowed_types:
-        return JSONResponse(status_code=400, content={"error": "Only JPEG, PNG, WEBP allowed"})
-
-    # Build storage path
-    upload_root = Path(settings.PHOTO_UPLOAD_DIR)
-    if receiving_event_id:
-        upload_dir = upload_root / f"event_{receiving_event_id}"
-    else:
-        upload_dir = upload_root / "unlinked"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    # Unique filename
-    ext = Path(file.filename).suffix if file.filename else ".jpg"
-    stored_name = f"{uuid.uuid4().hex}{ext}"
-    file_path = upload_dir / stored_name
-
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    # Run OCR if requested
-    ocr_data = {}
-    if run_ocr:
-        try:
-            from scanner.ocr_processor import process_photo_for_intake
-            ocr_data = process_photo_for_intake(file_path)
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.warning(f"OCR processing failed: {e}")
-            ocr_data = {"_ocr_error": str(e)}
-
-    # Database record
-    rel_path = str(file_path.relative_to(upload_root))
-    photo = IntakePhoto(
-        receiving_event_id=receiving_event_id,
-        device_table=device_table,
-        device_id=device_id,
-        filename=rel_path,
-        original_filename=file.filename,
-        content_type=file.content_type,
-        file_size=len(content),
-        caption=caption.strip() or None,
-        uploaded_by=user.id,
-    )
-    db.add(photo)
-    db.commit()
-    db.refresh(photo)
-
-    log_event(
-        db, "photo_uploaded",
-        request=request,
-        user_id=user.id,
-        target_table="intake_photos",
-        target_id=photo.id,
-        action="create",
-        details=f"Photo: {file.filename} ({len(content)} bytes), OCR: {bool(ocr_data)}",
-    )
-
-    response_data = {
-        "status": "uploaded",
-        "photo_id": photo.id,
-    }
-
-    # Include OCR results if any
-    if ocr_data:
-        response_data["ocr"] = ocr_data
-
-    return JSONResponse(content=response_data)
-
-
-@router.get("/api/receive/photo/{photo_id}")
-def serve_photo(
-    photo_id: int,
-    db: Session = Depends(get_db),
-    # H14/F15: intake photos were served to ANY authenticated session by
-    # sequential id — now receiving users only.
-    user: User = Depends(require_receiving_access),
-):
-    """Serve an intake photo by ID."""
-    photo = db.query(IntakePhoto).filter(IntakePhoto.id == photo_id).first()
-    if not photo:
-        return JSONResponse(status_code=404, content={"error": "Photo not found"})
-
-    file_path = Path(settings.PHOTO_UPLOAD_DIR) / photo.filename
-    if not file_path.exists():
-        return JSONResponse(status_code=404, content={"error": "File missing"})
-
-    return FileResponse(
-        path=str(file_path),
-        media_type=photo.content_type or "image/jpeg",
-        filename=photo.original_filename,
-    )

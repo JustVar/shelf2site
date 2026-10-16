@@ -1,16 +1,14 @@
 """JSON API routes. The legacy device, stats and vendor reads retired in item 30 S3;
 the global audit log remains."""
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from ..audit import log_event, model_to_dict
-from ..auth import get_current_user, require_editor, User
+from ..auth import get_current_user, User
 from ..database import get_db
-from ..models import AuditLog, ADMIN_LEVEL_ROLES
+from ..models import AuditLog
 from ..table_labels import LEGACY_TABLE_LABELS
-from ..validation import validate_mac_address, validate_serial_number
 
 router = APIRouter()
 

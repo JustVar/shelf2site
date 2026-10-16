@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
-from ..auth import get_current_user, require_editor, require_provisioning_viewer, require_provisioning_manager
+from ..auth import require_provisioning_viewer, require_provisioning_manager
 from ..config import settings
 from ..localtime import register
 from ..database import get_db
@@ -258,6 +258,12 @@ async def create_order(
             except ValueError:
                 return JSONResponse(status_code=400, content={"error": "Invalid loan due date, use YYYY-MM-DD"})
 
+    # Only the known pipeline statuses are stored; an unknown string would
+    # silently fall into the board's New column.
+    _create_status = (body.get("status") or "").strip()
+    if _create_status and _create_status not in CustomerOrder.ORDER_STATUSES:
+        return JSONResponse(status_code=400, content={"error": "Unknown order status: " + _create_status})
+
     order = CustomerOrder(
         order_number=_next_order_number(db),
         salesforce_order_id=(body.get("salesforce_order_id") or "").strip() or None,
@@ -272,8 +278,8 @@ async def create_order(
         due_date=body.get("due_date") or None,
         # Code-mediated: cancelled is reachable only through the cancel
         # route (docs/specs/customer-order-cancel.md), never on create.
-        status=("new" if body.get("status") == "cancelled"
-                else (body.get("status") or "new")),
+        status=("new" if _create_status == "cancelled"
+                else (_create_status or "new")),  # vocabulary checked above
         sku_requirements=body.get("sku_requirements") or [],
         notes=(body.get("notes") or "").strip() or None,
         is_sensitive=bool(body.get("is_sensitive", False)),
@@ -325,6 +331,12 @@ async def update_order(
     # edit can neither set it nor clear it.
     if "status" in body:
         _new_status = (body["status"] or "").strip()
+        # A blank status would store NULL and drop the order off every board;
+        # an unknown one would land in the New column. Neither is a status.
+        if _new_status not in CustomerOrder.ORDER_STATUSES:
+            return JSONResponse(status_code=400, content={
+                "error": "Unknown order status: " + (_new_status or "(blank)"),
+            })
         if _new_status == "cancelled":
             return JSONResponse(status_code=400, content={
                 "error": "Use the Cancel action to cancel an order; it requires a reason",

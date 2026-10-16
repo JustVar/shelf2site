@@ -9,7 +9,6 @@ vendor analytics.
 """
 
 from pathlib import Path
-from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -17,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from ..audit import log_event
-from ..auth import get_current_user, require_admin, require_viewer, require_receipts
+from ..auth import require_admin, require_viewer, require_receipts
 from ..config import settings
 from ..localtime import local_today, register
 from ..database import get_db

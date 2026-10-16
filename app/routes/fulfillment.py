@@ -10,12 +10,12 @@ import io
 import uuid
 
 import fitz
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -2015,7 +2015,6 @@ def _build_cert_report_pdf(db, cert, eb):
     page = doc.new_page()
     margin = 56
     y = margin
-    W = page.rect.width
 
     def line(text, size=11, dy=18, bold=False, color=(0, 0, 0)):
         nonlocal y, page
