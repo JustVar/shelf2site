@@ -14,24 +14,24 @@
 ## Why
 
 The ratified direction: consumer and C2C orders route through a third-party
-hardware vendor that builds, certifies and ships; Company coordinates. Pilots
-and one-off builds remain Company work. The pipeline direction names build
+hardware vendor that builds, certifies and ships; the company coordinates. Pilots
+and one-off builds remain in-house work. The pipeline direction names build
 ownership as the routing discriminator and sequences it first, because
 routing depends on it (`fulfillment-pipeline-direction.md:39-41`, `:186`).
 
 Today no owner concept exists anywhere in the models (READ, whole-file grep,
-clean no-match). Every order renders on the Building board as if Company
+clean no-match). Every order renders on the Building board as if the in-house team
 builds it.
 
 ## Decisions (Jus, 2026-09-17)
 
-1. **Every order gets an owner: `brand` or `oem`.** Default `brand`.
+1. **Every order gets an owner: `in_house` or `oem`.** Default `in_house` (named `brand` until migration 086).
 2. **`oem_partners` is built now, minimal.** Real FK from day one, so the
    partner name can never drift, at the cost of one small table. Columns
    are only what routing needs; contacts, terms and certification defaults
    wait for the handoff process to firm up.
-3. **Existing orders stay `brand`.** Current app orders are mock; when
-   live data arrives, existing orders remain fulfilled-through-Company and
+3. **Existing orders stay `in_house`.** Current app orders are mock; when
+   live data arrives, existing orders remain fulfilled in-house and
    OEM history starts empty at handoff. So the migration backfills nothing:
    the column default is the correct value for every existing row.
 4. **OEM certification records are out of scope**, parked until the vendor
@@ -70,17 +70,17 @@ New table `oem_partners`:
 
 Two columns on `customer_orders` (model at `models.py:1192`):
 
-    owner           varchar(16) not null server_default 'brand'
+    owner           varchar(16) not null server_default 'in_house'
     oem_partner_id  integer null references oem_partners(id)
 
 One CHECK constraint: `(owner = 'oem') = (oem_partner_id IS NOT NULL)`, so a
 partner is set exactly when the OEM owns the order, enforced by the database
 rather than trusted. `owner` is a plain varchar with an app-level vocabulary
-(`OWNERS = {"brand": "Company", "oem": "OEM"}` on the model), matching how
+(`OWNERS = {"in_house": "In-house", "oem": "OEM"}` on the model), matching how
 `order_type` is done (`models.py:1276-1281`).
 
 `owner` is orthogonal to `order_type` (sale/pilot/try_and_buy/demo,
-migration 058). A pilot is simply an order whose owner is `brand`; no new
+migration 058). A pilot is simply an order whose owner is `in_house`; no new
 typing, and pilots-due-back keeps working unchanged.
 
 Migration runs BEFORE the app restart, because the new code reads the new
@@ -88,7 +88,7 @@ columns (skill, Migrations rule).
 
 ## Routing
 
-- **Building board shows only company-owned orders.** `fulfillment_page`
+- **Building board shows only in-house orders.** `fulfillment_page`
   fetches all orders at `fulfillment.py:377-381`; the owner filter lands
   there, before `build_fulfillment_groups` (`:201`) and the card builders,
   so groups, counts and stage cards all follow without further edits.
@@ -108,7 +108,7 @@ columns (skill, Migrations rule).
 
 ## Create and edit
 
-- The order create modal gains an owner toggle, default Company, and a
+- The order create modal gains an owner toggle, default In-house, and a
   partner `<select>` (active partners) that appears when OEM is chosen.
   The create handler (`orders.py:268-294`) passes both through with the
   same validation shape as its other fields; the CHECK backstops it.
@@ -132,7 +132,7 @@ columns (skill, Migrations rule).
 
 1. Baseline suite before editing.
 2. Migration on apphost, row counts before and after (`oem_partners`
-   created empty; `customer_orders` gains columns, every row `brand`).
+   created empty; `customer_orders` gains columns, every row `in_house`).
 3. Jinja parse, `py_compile`, restart, in-container import.
 4. Suite at the predicted new total.
 5. Chrome MCP: In-House board shows no OEM-owned order and all existing
@@ -170,7 +170,7 @@ the sections above. Anchors in this section are at the N20 commit 2.
   order type select.
 - The create route gate is `require_provisioning_manager`, and the new partner
   route `POST /api/oem-partners/` carries the same gate.
-- The three In-House counters are Company-only by structure: the card list is
+- The three In-House counters are in-house only by structure: the card list is
   built after the owner split, and the columns and counters read it. The OEM
   board carries its own OEM Orders count tile.
 - The SE coverage panel is not owner-filtered and stays as it is.

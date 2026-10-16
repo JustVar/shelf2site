@@ -1,4 +1,4 @@
-# LAN Certificate — Installation Guide
+# Shelf2Site LAN Certificate — Installation Guide
 
 > **Status:** HTTPS is live on apphost at
 > **https://192.0.2.10:8443/assettracker/**. The old HTTP address
@@ -10,19 +10,19 @@
 
 ---
 
-**Subject: One-time setup required — Asset Tracker**
+**Subject: One-time setup required — Shelf2Site**
 
 Hi team,
 
-To access the Hardware Asset Tracker and install it as an app on your device, you need to install a security certificate. This is a one-time 2-minute step.
+To open Shelf2Site and install it as an app on your device, you need to install a security certificate. This is a one-time 2-minute step.
 
-**What it is:** A private certificate that tells your browser "this internal Company server is trusted." Without it, your browser will show a security warning when you visit the site. It only applies to the company's internal server — it has no effect on any other website you visit.
+**What it is:** A private certificate that tells your browser "this internal server is trusted." Without it, your browser will show a security warning when you visit the site. It only applies to the company's internal server — it has no effect on any other website you visit.
 
 **Why it's needed:** The app runs on HTTPS, which your phone and computer require before they'll allow the camera and let the app install to your home screen / desktop. The connection is encrypted either way — installing this certificate is what removes the browser's "not secure" warning so you get a clean lock icon instead of a warning page.
 
 **The URL after setup:** `https://192.0.2.10:8443/assettracker/`
 
-**One thing to know:** the file is named `LAN-CA.crt`, but once installed your device lists the certificate under the name **mkcert root@apphost** — that's the same certificate, don't be thrown by the name.
+**One thing to know:** the file is named `Shelf2Site-LAN-CA.crt`, but once installed your device lists the certificate under the name **mkcert root@apphost** — that's the same certificate, don't be thrown by the name.
 
 ---
 
@@ -30,7 +30,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 
 ### Windows — Chrome
 
-1. Download the certificate file: **LAN-CA.crt** *(shared via Teams/email)*
+1. Download the certificate file: **Shelf2Site-LAN-CA.crt** *(shared via Teams/email)*
 2. Double-click the file — the Certificate Import Wizard opens
 
    **Screen: "Welcome to the Certificate Import Wizard"**
@@ -64,7 +64,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 
 ### macOS — Chrome
 
-1. Double-click the **LAN-CA.crt** file — Keychain Access opens
+1. Double-click the **Shelf2Site-LAN-CA.crt** file — Keychain Access opens
 2. Find **mkcert root@apphost** in the list and double-click it
 3. Expand **Trust** → set **"When using this certificate"** to **Always Trust**
 4. Close the window and enter your Mac password when prompted
@@ -77,7 +77,7 @@ To access the Hardware Asset Tracker and install it as an app on your device, yo
 
 Both Safari and Chrome on iOS use the same system certificate store, so one install covers both browsers.
 
-1. Open the **LAN-CA.crt** file from your email or Files app
+1. Open the **Shelf2Site-LAN-CA.crt** file from your email or Files app
 2. A prompt appears: *"This website is trying to download a configuration profile"* — tap **Allow**
 3. Go to **Settings → General → VPN & Device Management**
 4. Tap the **mkcert root@apphost** profile → tap **Install** → enter your passcode → **Install** again

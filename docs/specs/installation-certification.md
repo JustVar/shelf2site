@@ -6,7 +6,7 @@ the certify path, and `GET /fulfillment/install-cert/{cert_id}/pdf` serves the
 document inline. This is the reference the
 I-slices are built against. Source artifacts:
 `docs/mockups/superdesign/installation_completion.html` (UI intent) and the
-Appliance Post-Install Checklist PDF (the real verification document).
+Post-Install Checklist PDF (the real verification document).
 
 ## What this feature is
 
@@ -16,7 +16,7 @@ Appliance Post-Install Checklist PDF (the real verification document).
 
 
 When a device is installed at a customer site, the installer (internal SE or a
-partner such as NTX Integrators) produces a **Appliance Post-Install Checklist PDF** —
+partner such as NTX Integrators) produces a **Post-Install Checklist PDF** —
 customer info, system info, network speed test, notes, and installation photos in
 one document. The tracker does not re-capture any of that. It:
 

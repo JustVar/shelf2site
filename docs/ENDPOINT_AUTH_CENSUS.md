@@ -14,7 +14,7 @@ its row here** and make sure it fits one of the gate classes below.
 
 ```bash
 # scripts/route_census.py dumps every route + resolved auth deps as JSON lines
-ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python - < scripts/route_census.py"
+ssh deploy@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python - < scripts/route_census.py"
 
 # JSON lines go to stdout; the script also writes a ready to paste header block
 # to stderr with live counts. Redirect stdout to keep the JSON clean.

@@ -15,14 +15,14 @@ locked out anyone whose stored hash was of a truncated password. See `app/auth.p
 | 2 | at most 72 **bytes** (bcrypt truncates silently past this) | `app/auth.py` | "Password is too long — use at most 72 characters." |
 | 3 | not in the offline breached-password blocklist | `app/password_blocklist.py` | "This password has appeared in known breaches…" |
 | 4 | does not contain the account's **username** as a word | `app/password_rules.py` | "Password must not contain your username." |
-| 5 | does not contain a configured **context word** | `app/password_rules.py` | "Password must not contain the word 'brand'." |
+| 5 | does not contain a configured **context word** | `app/password_rules.py` | "Password must not contain the word 'shelf2site'." |
 | 6 | not a **repeated pattern** | `app/password_rules.py` | "Password is a repeated pattern…" |
 | 7 | not a pure **sequence** | `app/password_rules.py` | "Password is a simple sequence…" |
 | 8 | not a **keyboard walk** | `app/password_rules.py` | "Password is a keyboard pattern…" |
 
 Rules 1–3 are NIST SP 800-63B Rev 4. There are no character-class rules ("must contain a
 digit") — NIST advises against them. Rules 4–8 exist because a 15-character *minimum* invites
-a 15-character *pattern*: `aaaaaaaaaaaaaaa`, `qwertyuiopasdfgh`, `brand-brand`. The breach
+a 15-character *pattern*: `aaaaaaaaaaaaaaa`, `qwertyuiopasdfgh`, `shelf2site-shelf2site`. The breach
 list cannot help there, because only its long entries are ever consulted (see below).
 
 ## The blocklist is filtered by length at load
@@ -124,7 +124,7 @@ detector: a larger change, and the weakest of the three in expected value.
 |---|---|---|
 | `PASSWORD_MIN_LENGTH` | `15` | also selects which blocklist entries load |
 | `PASSWORD_BLOCKLIST_PATH` | `data/security/password-blocklist.txt` | bind-mounted on apphost, not in git |
-| `PASSWORD_CONTEXT_WORDS` | `brand,assettracker,asset-tracker,apphost,password` | comma-separated; grow it freely |
+| `PASSWORD_CONTEXT_WORDS` | `shelf2site,assettracker,asset-tracker,password` | comma-separated; grow it freely |
 | `PASSWORD_CONTEXT_WORD_MIN_LEN` | `5` | words shorter than this are never enforced |
 
 A context word below the minimum length is silently ignored — a 3-letter word would reject a
@@ -140,7 +140,7 @@ is flagged `must_change_password`, so the user's real password does go through e
 ## Running the tests
 
 ```bash
-ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/test_password_rules.py -q"
+ssh deploy@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/test_password_rules.py -q"
 ```
 
 Every "must pass" case in that file is a password some plausible implementation of this spec

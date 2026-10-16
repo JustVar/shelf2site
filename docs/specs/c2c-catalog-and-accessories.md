@@ -32,7 +32,7 @@ spec does not invalidate C1 (see section 8) but decides the grain C2 builds on.
 - Category distribution: `edge_box` 73, `storage_drive` 7, `gpu` 2, `camera` 1,
   `camera_c2c` 1, `cloud_box` 1.
 - The canonical C2C camera SKU is **`C2C-GEN1-4MP`** -> `item_category =
-  camera_c2c`, "Company C2C Gen1 4MP Camera", not legacy.
+  camera_c2c`, "C2C Gen1 4MP Camera", not legacy.
 - `E2C-25-2TB` is `item_category = edge_box` (legacy, SimplyNUC) — NOT a camera.
 - `item_schema.items` FKs to `part_numbers.item_sku`
   (`items.item_sku` -> `part_numbers.item_sku`).
@@ -112,8 +112,8 @@ created that way. See section 7, option D.)
 
 ## 4. Order and acquisition flow (grounded — OEM sourcing is manual)
 
-Customer orders cameras -> Company obtains them (from stock, or from OEM with a
-delivery lead time) -> Company sends to customer (via engineer, integrator, or
+Customer orders cameras -> the company obtains them (from stock, or from OEM with a
+delivery lead time) -> the company sends to customer (via engineer, integrator, or
 ship).
 
 **OEM sourcing is manual today; `source` drives nothing (grounded this session):**

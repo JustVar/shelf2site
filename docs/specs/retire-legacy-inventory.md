@@ -126,7 +126,7 @@ mapping (READ and ratified 2026-09-28): computers take `device_name`,
 GB, `drive_type`; edge box 41 takes SKU `PVA-16-30NR`, `uuid`, form
 factor; NUCs are named `NUC` with MAC and purpose. Location resolves to
 a non-customer site by name, else stays in notes. Status: computers,
-`In Use` and `Customer Lab` to Deployed; `Company Inventory` and `In
+`In Use` and `Customer Lab` to Deployed; `In-house Inventory` and `In
 Packaging` to Unassigned; the Dell drives to Installed through R4.
 
 **R3. Drop.** Deleted, by statements handed to Jus, never run by Chat or
@@ -215,7 +215,7 @@ Three code paths still CREATE legacy rows (READ):
 | Writer | Anchor | Decision |
 |---|---|---|
 | Pending approve | `pending.py:88`, `POST /pending/{device_id}/approve` | **retarget**: approval creates an item |
-| Intune sync | `intune_routes.py:194`, `POST /api/intune/sync` | **retire**: not used at Company |
+| Intune sync | `intune_routes.py:194`, `POST /api/intune/sync` | **retire**: not used here |
 | Spreadsheet sync | `spreadsheet_sync.py:275`, `:303`, admin page | **retire** |
 
 **Gap recorded, not solved here.** No code in the repo bulk-loads rows into

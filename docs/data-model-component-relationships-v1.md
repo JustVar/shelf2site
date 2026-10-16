@@ -1,6 +1,6 @@
 # Data Model Design: Component-to-Device Relationships
 
-**the company — Hardware Asset Tracker**
+**Shelf2Site**
 Version 1.0 | Internal Reference
 
 ---
@@ -116,7 +116,7 @@ Based on the current approach, an edge box is considered customer-facing if it i
 - **Edge Boxes in Lab** = `COUNT of edge_boxes WHERE site_id IS NULL AND status != 'retired'`
 - These two metrics replace "Assigned to Sites %" on the dashboard — they are specific to Edge Boxes, not all 265 devices
 
-> **Note:** Do not use the status field alone to classify lab vs deployed — a box with status `brand lab` that also has a `site_id` is an edge case that would be misclassified. Site assignment is the authoritative signal.
+> **Note:** Do not use the status field alone to classify lab vs deployed — a box with status `in-house lab` that also has a `site_id` is an edge case that would be misclassified. Site assignment is the authoritative signal.
 
 ---
 

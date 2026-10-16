@@ -15,10 +15,10 @@ Implement the **PO gate**: an order must have a `po_number` (Customer PO) before
 - New or restructured UI must follow the **new design mockups** (emerald/slate, Fulfillment-scoped; AssetFlow Pro Build-Cert / Install-Panel). Ask the user to paste the relevant mockup at the start of any UI work. (The gate itself is route logic; its only UI surface is an error message.)
 
 ## Environment
-- App: FastAPI + Jinja2 + HTMX + Postgres, Docker Compose, on **apphost (192.0.2.10)** at `/opt/asset_tracker/`, served `http://192.0.2.10:8100/assettracker/`. SSH: `ssh -i ~/.ssh/id_ed25519 admin@192.0.2.10`.
+- App: FastAPI + Jinja2 + HTMX + Postgres, Docker Compose, on **apphost (192.0.2.10)** at `/opt/asset_tracker/`, served `http://192.0.2.10:8100/assettracker/`. SSH: `ssh -i ~/.ssh/id_ed25519 deploy@192.0.2.10`.
 - `app/` changes need `docker compose restart app`; templates re-read per request. Run scripts in-container: `docker compose exec -T app python < /tmp/x.py`.
 - Migrations are numbered self-executing scripts (048 pattern), not Alembic. Type/status columns are `VARCHAR(32)` + app validation, not Postgres ENUM.
-- Git: two remotes, `origin` (JustVar) + `company` (employer-org). The **workstation is the only push node**; apphost has no push creds (hence the bundle flow). After every commit, confirm all four HEADs (local / apphost / origin / company) match **before** cleanup.
+- Git: two remotes, `origin` (JustVar) + `company` (the company org). The **workstation is the only push node**; apphost has no push creds (hence the bundle flow). After every commit, confirm all four HEADs (local / apphost / origin / company) match **before** cleanup.
 - Do not persist any secrets the user shares; they are operational only.
 
 ## Current state (HEAD `dc8dbef`)

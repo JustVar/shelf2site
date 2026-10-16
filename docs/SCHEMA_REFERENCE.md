@@ -726,7 +726,7 @@ Same structure as network_equipment (device, model_name, model_number, serial, l
 | renewal_cost | numeric | YES | |
 | registration_status | varchar(32) | YES | |
 | warranty_scope | varchar(16) | NO | 'external' |
-| warranty_holder | varchar(32) | YES | 'brand' |
+| warranty_holder | varchar(32) | YES | 'in_house' |
 | loaner_from_team | varchar(128) | YES | |
 | loaner_to_team | varchar(128) | YES | |
 | loaner_contact | varchar(128) | YES | |

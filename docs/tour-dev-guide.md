@@ -1,6 +1,6 @@
 # Tour System — Development Guide & Lessons Learned
 
-**the company — Asset Tracker Internal Reference**
+**Shelf2Site internal reference**
 Version 1.0 | March 2026
 
 ---

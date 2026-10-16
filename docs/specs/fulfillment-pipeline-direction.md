@@ -9,18 +9,18 @@ Owner note: this is product direction, not repo fact. When any of it is built,
 
 ## The model
 
-Two axes, each with a Company path and an external path.
+Two axes, each with an in-house path and an external path.
 
 **Build and certification**
 
-- Company builds and certifies, using the current process: QA and hardware dual
+- The in-house team builds and certifies, using the current process: QA and hardware dual
   signoff, all pass gate, composite PDF, board close.
 - OEM vendor builds and certifies. They hand over certification results and
-  documents. Company receives and files rather than performs.
+  documents. The in-house team receives and files rather than performs.
 
 **Installation**
 
-- A Company engineer installs at the customer site, and a post install
+- An in-house engineer installs at the customer site, and a post install
   certification IS collected.
 - A third party installer installs, and a post install certification is most
   likely NOT collected and will NOT be required.
@@ -37,7 +37,7 @@ process machinery an OEM certification would not use. Reusing the table would
 mean filling those with placeholder values.
 
 **Build ownership is the routing discriminator.** A build is owned by either
-Company personnel or the OEM. Setting the owner to OEM routes that order and its
+in-house personnel or the OEM. Setting the owner to OEM routes that order and its
 cards to the OEM tab.
 
 **The OEM artifact is files only, no parsing.** PDFs, documents, images, whatever
@@ -51,13 +51,13 @@ That closes an open question early. No extraction of serial, PO, SKU or results
 into columns, so no validation layer and no conflict resolution when a vendor
 document disagrees with what the system believes about a serial.
 
-**`certified_by` on an OEM certification is the OEM**, not the Company person who
+**`certified_by` on an OEM certification is the OEM**, not the in-house person who
 filed it.
 
 ## Cardinality, the hard part
 
 OEMs handle bulk orders, and the certification granularity they provide is not
-under Company control:
+under in-house control:
 
 - **Preferred: one certification per unit.** Full traceability, matches both
   existing models.

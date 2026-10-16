@@ -248,7 +248,7 @@ after HTTPS (H13), reconciliation as its own slice (H16 → H17).
 
 ## 8. Manual bench protocol (finalized against shipped Phase 2)
 
-Run once on webcam, once on phone (needs `LAN-CA.crt` installed — see
+Run once on webcam, once on phone (needs `Shelf2Site-LAN-CA.crt` installed — see
 `docs/CA_CERT_DISTRIBUTION.md`), plus the USB wedge on the receive bench.
 Guidance strings below are verbatim from `app/routes/receiving.py`; classes
 from `app/scan_routing.py`. **Core pass** = the eight rows marked ★ (~15 min);

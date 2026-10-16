@@ -188,7 +188,7 @@ carries a migration.
 ## Open reads
 
 - **An inbound time: no data at risk.** `provisioning.py:1095-1116`
-  stores the `timestamp` from an uploaded validate.py report
+  stores the `timestamp` from a report uploaded by the validate script
   straight into the naive UTC column `validation_date`. No report has ever
   been uploaded (READ 2026-09-24: `/data/validation-reports` does not
   exist in the app container; 0 `device_provisioning` rows have a

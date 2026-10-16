@@ -7,7 +7,7 @@
 
 ## Overview
 
-Company edge box SKUs evolved from legacy PVA-* format to new 2026 EDGE* format. The asset tracker supports both via the **SKU version tracking system** (Migration 007).
+Edge box SKUs evolved from legacy PVA-* format to new 2026 EDGE* format. The asset tracker supports both via the **SKU version tracking system** (Migration 007).
 
 ---
 

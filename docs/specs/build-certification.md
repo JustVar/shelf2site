@@ -53,7 +53,7 @@ From app/models.py:1881. These already exist; the migration does not touch them.
 | hardware_validation | JSONB null | component inventory + SMART (shape below) |
 | qa_checklist | JSONB null | the 5 QA checks (shape below) |
 | license_counts | JSONB null | assigned / ordered (shape below) |
-| software_version | varchar(64) null | Appliance version string |
+| software_version | varchar(64) null | platform version string |
 | certified_by | varchar(128) null | QA half signer |
 | co_certified_by | varchar(128) null | Hardware/SMART half signer |
 | certified_at | datetime null | when the QA half landed |

@@ -1,11 +1,11 @@
 ---
 name: "asset-tracker-workflow"
-description: "Discovery-first patching, verification gates, and four-location sync for the Asset Tracker repo. Use when editing, patching, migrating, deploying, committing, pushing, or syncing anything in asset_tracker."
+description: "Discovery-first patching, verification gates, and four-location sync for the Shelf2Site repo. Use when editing, patching, migrating, deploying, committing, pushing, or syncing anything in asset_tracker."
 ---
 
 # Asset Tracker Workflow
 
-The discipline for changing the Asset Tracker safely. The through-line:
+The discipline for changing Shelf2Site safely. The through-line:
 **ground every claim in a read before acting on it, patch behind guards, and
 prove a change reached all four git locations before calling it done.** A wrong
 call costs more than a slow one.

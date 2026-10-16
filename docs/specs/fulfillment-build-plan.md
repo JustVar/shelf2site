@@ -2,7 +2,7 @@
 
 > Status: F1a shipped. F1b (cert tables) is the next code step. F2 board design locked.
 > Revised: 2026-06-18. Supersedes Revision 2.
-> Scope: the Fulfillment buildout track for the Hardware Asset Tracker.
+> Scope: the Fulfillment buildout track for Shelf2Site.
 
 This revision folds in the F1a result (migration 049 landed) and the locked F2
 board design (tabs + large grouped cards, Fulfillment-scoped mockup palette).
@@ -16,7 +16,7 @@ two independent properties:
 
 - `fulfillment_type` shapes the In-House (build) side: how much building a unit
   needs before it ships.
-- `deployment_type` shapes the Deployment (post-ship) side: whether Company
+- `deployment_type` shapes the Deployment (post-ship) side: whether the in-house team
   installs it (full granular tracking) or a partner does (confirmation only).
 
 Both are independent of category.
@@ -33,7 +33,7 @@ Both are independent of category.
 
 | Deployment | Who installs | Deployment depth |
 |------------|--------------|------------------|
-| direct | Company internal SE | full granular tracking |
+| direct | in-house SE | full granular tracking |
 | via_integrator / via_distributor | partner | collapsed: ship-out + single "install confirmed" |
 
 Build the full build-path + direct-deploy path first; it exercises everything.
@@ -107,7 +107,7 @@ match.
 - Fulfillment stage-color map: emerald = done, blue = current, slate = future.
 - Assignee initials, no avatars: AR = blue, SC = purple, MJ = orange,
   LM = emerald, MA = rose, JS = amber.
-- Branding: swap the AssetFlow Pro placeholder for Company in the real templates.
+- Branding: swap the AssetFlow Pro placeholder for the company brand in the real templates.
 
 ---
 
@@ -206,7 +206,7 @@ portal. Grouped cards (order x SKU x stage, `×qty`, expand to units), inline st
 tracker, Fulfillment-scoped palette, assignee-initials filter. Compute
 `CustomerOrder.status` as a rollup. Read-only first, verify live.
 
-F3 - Build Certification modal: UUID, hardware validation, Appliance version, license
+F3 - Build Certification modal: UUID, hardware validation, platform version, license
 counts, signers, QA checklist, file upload. "Mark Complete" -> build_certification
 -> advance to Sign-off. Verify live.
 
@@ -265,7 +265,7 @@ uniqueness (UNIQUE nullable); file storage (filesystem); stage reconciliation
 
 Still open:
 - Full build-cert field list: the Build Cert mockup is a stub (UUID / Customer /
-  PO# only). Pin the full fields (hardware validation, Appliance version, license
+  PO# only). Pin the full fields (hardware validation, platform version, license
   counts, signers, QA checklist) from this plan or a fuller mockup before F1b/F3.
 - C2C mockup: needed for F5 only.
 - CustomerOrder.status rollup rule: define the exact rollup (least-advanced device
@@ -302,5 +302,5 @@ Still open:
 - F2 board design locked (this revision).
 - Next code: F1b cert tables (migration 050), pending the full build-cert field
   list.
-- Roadmap (separate brand-internal-dashboards repo, QA project): F1a row
+- Roadmap (separate internal dashboards repo, QA project): F1a row
   deferred, to be batched when F1b lands.

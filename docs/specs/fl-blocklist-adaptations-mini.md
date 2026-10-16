@@ -7,7 +7,7 @@ Two approved changes to the shipped password screening; HIBP k-anonymity explici
 2. Composition rules for the long-password regime, applied where passwords are set (same seam as the 72-byte cap):
    - Reject all-repeat and near-repeat strings (single char or short block repeated to length).
    - Reject pure ascending/descending sequences (digits or alphabet) and long keyboard walks (qwerty rows, extended beyond what the list carries).
-   - Reject passwords CONTAINING context-specific words (case-insensitive): the username, "brand", "assettracker", "apphost", "password", the app hostname. Word list as a small config constant so it can grow.
+   - Reject passwords CONTAINING context-specific words (case-insensitive): the username, "shelf2site", "assettracker", "password", the app hostname. Word list as a small config constant so it can grow.
    - Friendly specific messages ("contains your username", "is a repeated pattern") — not a generic rejection.
    - Tests: each rule positive + negative; ensure a strong passphrase with an incidental substring like "sot" does NOT trip the contains rule (match whole configured words only, minimum 5 chars per word).
 

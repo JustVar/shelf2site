@@ -32,9 +32,9 @@ Everything TLS lives under **`/etc/ssl/asset-tracker/`** on apphost (root-owned)
 | `rootCA-key.pem` | the CA **private key** | **secret** — `chmod 600`, never leaves the box |
 | `asset-tracker.crt` | the leaf cert nginx serves | public |
 | `asset-tracker.key` | the leaf **private key** | secret — `chmod 600` |
-| `LAN-CA.crt` | a copy of `rootCA.pem` renamed for distribution | public — this is the file end users install |
+| `Shelf2Site-LAN-CA.crt` | a copy of `rootCA.pem` renamed for distribution | public — this is the file end users install |
 
-The CA is also copied to `/usr/local/share/ca-certificates/brand-lan-ca.crt` and
+The CA is also copied to `/usr/local/share/ca-certificates/shelf2site-lan-ca.crt` and
 registered with `update-ca-certificates` so the server itself trusts it (server-side
 `curl` health checks work without `-k`).
 
@@ -42,9 +42,9 @@ registered with `update-ca-certificates` so the server itself trusts it (server-
 (`CAROOT=/etc/ssl/asset-tracker mkcert ...`) so a fresh cert is signed by the same CA.
 
 > **Not the same as the registry CA.** The Docker registry on :443 terminates its
-> own TLS with a *different*, unrelated self-signed CA (`lanCA` in docker
+> own TLS with a *different*, unrelated self-signed CA (`legacyCA` in docker
 > volume `repo-docker_certs`). Two separate trust concerns — don't cross them.
-> There is also a stale **old-NUC** mkcert CA (`mkcert admin@brand-dashboard`)
+> There is also a stale **old-NUC** mkcert CA (`mkcert` CA from the old NUC)
 > that may still be trusted on some laptops; it is unrelated to this box.
 
 ## How it's wired (nginx — config is server-side, not in the repo)
@@ -107,13 +107,13 @@ raw-HTTP path.
   ```
   Signed by the same CA, so **end users do not reinstall anything**.
 - **CA** expires **2036-07-12**. Only when the CA itself is regenerated must end
-  users reinstall `LAN-CA.crt` (a new leaf alone does not require it).
+  users reinstall `Shelf2Site-LAN-CA.crt` (a new leaf alone does not require it).
 - After any regen, verify: `openssl x509 -in asset-tracker.crt -noout -dates -ext subjectAltName`
   and `curl -sI https://192.0.2.10:8443/assettracker/login` (200, no `-k` needed on the box).
 
 ## Trust install (per device — the manual step)
 
-Until a device trusts `LAN-CA.crt` it shows a warning; the origin is
+Until a device trusts `Shelf2Site-LAN-CA.crt` it shows a warning; the origin is
 **still a secure context after clicking through**, so the camera works either
 way — the trust install just removes the warning and lets the PWA/service worker
 register cleanly. Per-platform steps are in

@@ -1,70 +1,50 @@
-> **STATUS 2026-09-29: apphost is retired. The app is not hosted anywhere until a new host is set up.**
-> Everything below that names apphost, `/opt/asset_tracker`, 192.0.2.10 or `at-sync-commit.sh` describes the last host and is kept as the rebuild reference.
-> To stand the app up again:
-> 1. Code: this repo at HEAD (origin JustVar, company employer-org, and the workstation clone).
-> 2. Data: the last dump is `Backups\asset-tracker\daily\asset_tracker_2026-09-29_0215.dump` on the workstation, with `files_2026-09-29_0215.tar.gz` (photos, receipts, cert reports, security, `.env`) and `globals\globals_2026-09-27.sql` (roles). Restore per `docs/BACKUPS.md`.
-> 3. Host config: `wrap_offhost.tgz` on the workstation holds `.env`, the nginx site file and `/etc/ssl/asset-tracker/` (TLS leaf, key and the LAN root CA key; keep it private). `deploy/nginx/asset-tracker.conf` mirrors the nginx file.
-> 4. Schema: the dump is at migration 082. Run `migrations/083_drop_legacy_inventory.py` (dry run, then `--apply`) BEFORE starting the app; HEAD does not run against the pre-083 schema.
-> 5. Sync is three locations now (workstation, origin, company) until the new host exists.
->
-> **Note:** This file describes the rebuilt app as it ran at `/opt/asset_tracker/` on apphost (Docker Compose, `asset_tracker` DB). Earlier NUC/`hardware_inventory` deployment notes have been removed; the legacy `hardware_inventory` DB still exists on the host as a read-only backup reference (see the Database port section).
+# Shelf2Site: working notes for Claude
 
-## Deployment
+Shelf2Site tracks hardware from the shelf to the customer site: inventory,
+intake, triage, and a fulfillment board with two tracks (vendor orders and
+pilots or demos lent from stock). It began as an internal tool, was built
+with Claude as the pair, and is published as a portfolio project. These notes
+are the standing instructions Claude works from in this repo. The rules below
+were mostly learned by getting something wrong once.
 
-- **Host:** `apphost` (Ubuntu 24.04, 466 GB root LV)
-- **LAN IP:** `192.0.2.10` (current, post network migration on 2026-05-01)
-- **Prior IP:** `192.0.2.5` (pre 2026-05-01 — historical references in commits and notes)
-- **App URL:** `https://192.0.2.10:8443/assettracker/` (HTTPS front door). `http://192.0.2.10:8100/assettracker/` still works — it 301-redirects to HTTPS. See `docs/HTTPS.md`.
-- **HTTPS:** host nginx terminates TLS on `:8443` (443 is held by the docker registry). mkcert CA + leaf under `/etc/ssl/asset-tracker/` (off-repo); leaf SANs `192.0.2.10`/`apphost`, expires 2028-10-12, CA 2036-07-12. Secure cookie is set per-request from scheme (`SecureSessionCookieMiddleware`) — keep `HTTPS_ONLY=false` or the in-container contract suite breaks. Devices install `LAN-CA.crt` (see `docs/CA_CERT_DISTRIBUTION.md`).
-- **Stack:** Docker Compose at `/opt/asset_tracker/`
-- **Containers:** `asset_tracker_db` (postgres:16) + `asset_tracker_app` (gunicorn / 6 uvicorn workers)
-- **Gunicorn config:** 6 workers (`uvicorn.workers.UvicornWorker`), bound to `127.0.0.1:8081`, fronted by host nginx (`:8443` HTTPS, `:8100` HTTP→HTTPS redirect).
-- **App network:** docker bridge `asset_tracker_asset_tracker_net` (containers resolve each other as `db` and `app`)
+## Running it
 
-### Storage layout (apphost)
+- **Docker:** `cp .env.template .env`, fill in the GENERATE values, then
+  `docker compose up -d --build`. The app builds the schema on first start and
+  listens on `127.0.0.1:8081`. `docker compose exec app python -m scripts.seed_demo`
+  loads the demo data (sign in as `demo`; the password is printed by the seed).
+- **Without Docker:** Python 3.11 or newer and PostgreSQL 16. `pip install -r requirements.txt`,
+  set `DATABASE_URL` and the secrets from `.env.template`, run
+  `python -m scripts.seed_demo` (or `python -m scripts.create_admin_user`), then
+  `gunicorn app.main:app -k uvicorn.workers.UvicornWorker -b 127.0.0.1:8081`.
+- **Tests:** `python -m pytest tests/ -q` against a running app on `127.0.0.1:8081`.
+  See "The suite writes to the live database" below before running it anywhere
+  that matters.
+- **Schema:** `app/schema.py` builds a fresh database from the models. The
+  numbered `migrations/` bring an existing database forward; each one is a dry
+  run by default, applies with `--apply`, and prints ALREADY APPLIED on a rerun.
+  Old migrations name columns and tables that later migrations renamed or
+  dropped; they are history, not something a fresh install runs.
 
-- **Root filesystem:** `/dev/mapper/ubuntu--vg-ubuntu--lv` mounted at `/`, 466 GB total, ~22% used (2026-05-04)
-- **`/data` is NOT a separate mount** — just a directory on root.
-- **Bind mounts (host → container):**
-  - `/data/asset-tracker/postgres` → `/var/lib/postgresql/data` (pg cluster — survives `docker compose down`)
-  - `/data/asset-tracker/photos` → `/app/data/photos`
-  - `/data/asset-tracker/receipts` → `/app/data/receipts`
-  - `/opt/asset_tracker/static` → `/app/static`
-  - `/opt/asset_tracker/app` → `/app/app` (whole `app/` since 2026-04-23, see below)
+## How it ran in production
 
-### Database port — host 5433, container 5432
+One Ubuntu host (called `apphost` in these notes) ran Docker Compose: the app
+under gunicorn with six uvicorn workers bound to `127.0.0.1:8081`, Postgres 16,
+and host nginx in front terminating TLS on `:8443` with a private mkcert CA
+(`docs/HTTPS.md`), the app mounted under `ROOT_PATH=/assettracker`. Nightly
+backups ran on the host and were pulled to a workstation (`docs/BACKUPS.md`,
+`scripts/at-backup*.sh`). `deploy/nginx/asset-tracker.conf` is a reference
+copy of the nginx site file, not a deploy source: nothing deploys it.
 
-- **Inside the docker network:** app talks to `db:5432` — unchanged, never edit this.
-- **From the host:** `psql -h localhost -p 5433 -U asset_tracker_user asset_tracker`
-- **Reason for the remap (2026-05-04):** apphost's host postgres is `active + enabled` and grabs `5432` on every boot. It holds one non-default database (a second, `asset_tracker`, was dropped 2026-06-16 - see below):
-  - `asset_tracker` (host pg) — DROPPED 2026-06-16. Was NOT an empty stub as previously noted: a frozen pre-Docker snapshot, ~16K rows (mostly 13,773 audit_log rows, last write 2026-03-27). Disposable because the tool is being pushed out fresh; archived before drop to `/data/asset-tracker/backups/host_asset_tracker_2026-06-16.sql.gz`. NOTE: this is the HOST pg `asset_tracker` only - the live app uses the separate CONTAINER pg cluster, untouched.
-  - `hardware_inventory` — legacy DB from the old NUC, 52 tables in `public`. Left untouched, useful as backup reference.
-- **Pre-remap compose backup:** `/opt/asset_tracker/docker-compose.yml.bak.<timestamp>` if rollback ever needed.
+Two things from that setup still shape the code:
 
-### Recovery
+- `docker compose restart app` does not pick up a changed volume mount; the
+  mount spec is fixed at container creation, so it needs `docker compose up -d app`.
+- Keep `HTTPS_ONLY=false` behind a TLS proxy. The secure cookie flag is set per
+  request from the scheme (`SecureSessionCookieMiddleware`), and forcing it on
+  breaks the in-container contract suite, which talks plain HTTP.
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| Stack down, both containers stopped | Host reboot, daemon restart, or clean compose down | `cd /opt/asset_tracker && docker compose up -d` |
-| App container `Restarting`, logs show `could not translate host name "db"` | Containers exist but their network attachment is broken (network removed or container restart raced the network) | `docker compose down && docker compose up -d` (recreates containers AND project network; bind-mounted data survives — `down` does not touch `/data/asset-tracker/postgres/`) |
-| db container won't start, port conflict on 5432 | Host postgres reclaimed the port — should not happen post-remap | Verify with `sudo systemctl status postgresql` and `sudo lsof -i :5432`. The remap to host port 5433 should make this self-healing — if you hit a 5432 conflict despite that, something has changed the compose port mapping back. Inspect `/opt/asset_tracker/docker-compose.yml` and restore from `.bak.<timestamp>` if needed. |
-
-`docker compose down` only removes containers and the project network. It does NOT touch host bind mounts. Postgres data at `/data/asset-tracker/postgres/` is safe.
-
-### Volume mounts — what's live-editable, what needs a rebuild
-
-**Live-editable** (host edits visible immediately; restart workers via `docker compose restart app`):
-- `/opt/asset_tracker/app/` (whole directory mounted as `/app/app/` since 2026-04-23 — main.py, models.py, sidebar_cache.py, routes/, templates/)
-- `/opt/asset_tracker/static/` (mounted as `/app/static/`)
-
-**Requires image rebuild** (`docker compose up -d --build app`):
-- `requirements.txt`
-- `Dockerfile`
-- Anything outside the two mounted paths above (config files in repo root, etc.)
-
-### Volume mount changes need recreate, not restart
-
-`docker compose restart app` is NOT sufficient when adding/removing volume mounts in `docker-compose.yml` — the mount spec is part of the container's creation-time config and only re-evaluates on `docker compose up -d` (which recreates the container). Use `up -d app` after any compose volume change. If a new mount doesn't appear inside the container, this is the most likely cause.
+## Architecture notes
 
 ### Permissions schema (post U2d.1, 2026-05-07)
 
@@ -79,27 +59,11 @@ Permission columns on `users` and `departments` use Postgres ENUM types instead 
 
 Application code should never read raw `can_*` columns directly — always go through the property layer. Reading raw columns gives you a string ('grant'/'block'/'inherit'), not a bool.
 
-### nginx config is a mirror, not a deploy source
-`deploy/nginx/asset-tracker.conf` is a REFERENCE COPY of the live file at
-`/etc/nginx/sites-available/asset-tracker`, which is root-owned and NOT deployed
-from this repo. Editing the repo copy changes nothing — wsync does not touch it.
-It exists so the config survives a host rebuild: if apphost is lost, restore
-nginx from this file. That only works if it stays current.
-To change nginx: edit the live file with sudo, `sudo cp` a timestamped backup to
-/tmp first, `sudo nginx -t` (STOP if it fails — never reload a failing config),
-then `sudo systemctl reload nginx` (reload, never restart). Then mirror the same
-edit into the repo copy and commit, so the two do not drift.
-Verify they match after any nginx change:
-`sudo diff /etc/nginx/sites-available/asset-tracker /opt/asset_tracker/deploy/nginx/asset-tracker.conf`
-(empty output = in sync)
-
----
-
 ## Stack & Conventions
 
 - **Backend:** FastAPI + Jinja2 + HTMX (no JS frameworks). PostgreSQL (DB `asset_tracker`, user `asset_tracker_user`).
 - **Auth:** Starlette SessionMiddleware (signed cookie); session stores user_id, username, role, must_change_password. Roles are a 3-tier hierarchy (9 roles) — see "RBAC / Admin pages" below for the full model.
-- **Deployment:** Docker Compose on apphost — `app` (gunicorn, 6 uvicorn workers, bind :8081) + `db` (postgres:16). Host nginx fronts `:8443` (HTTPS) and `:8100` (redirect) → container :8081. `ROOT_PATH=/assettracker` (URL prefix). No systemd; no in-container nginx.
+- **Deployment:** Docker Compose, `app` (gunicorn with uvicorn workers, bind :8081) + `db` (postgres:16). A reverse proxy in front serves TLS; set `ROOT_PATH` when it mounts the app under a sub-path.
 
 ### Adding Features
 1. Add route file in `app/routes/`
@@ -111,13 +75,14 @@ Verify they match after any nginx change:
 - Run inside the container: `docker compose exec app python migrations/NNN_*.py`
 - Always add a migration for schema changes — never modify the DB directly.
 
-### Deploy / sync (four locations)
-- apphost has **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `~/bin/wsync PREV NEW` (the live copy; `scripts/wsync` is its repo mirror, see the mirroring rule below) → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (employer-org).
+### Deploy / sync on the production host (four locations)
+This is how commits moved while the app ran on `apphost`. The scripts are kept
+in `scripts/` as a record of the flow.
+- apphost had **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `~/bin/wsync PREV NEW` (the live copy; `scripts/wsync` is its repo mirror, see the mirroring rule below) → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (the employer org).
 - wsync aborts if the workstation tree is dirty; run multi-commit hops sequentially.
-- apphost has ZERO git remotes as of 2026-07-27. A remote pointing at the
-  employer-org repo through an unresolvable github-asset-tracker SSH alias
-  was removed; it never resolved and nothing referenced it, so the one way
-  relay is structural. The workstation remote names are LOAD BEARING: wsync
+- apphost had ZERO git remotes from 2026-07-27. A remote pointing at the
+  company repo through an unresolvable SSH alias was removed; it never
+  resolved and nothing referenced it, so the one way relay is structural. The workstation remote names are LOAD BEARING: wsync
   hardcodes origin and company in both push commands and in the two ls-remote
   calls that build the four HEAD line. Do not rename them.
 
@@ -142,7 +107,7 @@ blob, not the working file — `git show HEAD:scripts/wsync | diff - ~/bin/wsync
 since a CRLF-smudged checkout reads as false drift.
 
 ### Static Files
-- Located at repo root `static/` (bind-mounted to `/app/static` in the container) — NOT `app/static/`.
+- Located at repo root `static/` (copied to `/app/static` in the image) — NOT `app/static/`.
 - CSS variables for dark/light theme in `static/css/main.css`.
 - Page-level `<link>` and `<script>` tags for files under `static/` carry `?v={{ request.state.js_v('css/NAME.css') or '0' }}` (shape: `login.html:8`, `base.html:65-87`). `js_v` is an mtime-keyed sha1 of the file (`_asset_version` in `main.py`), so an edited file is fetched fresh with no restart. An untagged link is served stale by any browser that has it cached, for days: `receive.css` (fixed 726439c) and `scanner.css` (fixed b0f2223) both shipped that way.
 
@@ -182,7 +147,7 @@ so they cannot terminate the attribute early. Either filter alone is not
 sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
 
 ### Tours (app/tours.py)
-- 31 tour definitions, 26 currently enabled (see app/tours.py; lint via lint_tour_selectors).
+- 26 enabled tours (see app/tours.py). `tests/test_tour_selectors.py` checks every step's selector against the page it runs on.
 - Each tour: id, name, page_pattern, steps (target selector + title + description). Engine in `static/js/guide.js`.
 - See `docs/tour-dev-guide.md` for patterns and gotchas.
 
@@ -219,28 +184,26 @@ sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
 - Bulk save endpoints (`/triage/bulk`, `/inventory/bulk`) skip locked items and return `skipped_ids` in the JSON response — clients show "N skipped (locked by other users)".
 - Open TODO: multi-viewer awareness (single-holder for now).
 
-## Known TODOs / hygiene
-- **Contract test suite (rebuilt, replaces the retired NUC-era harness):** `tests/` holds the `test_*.py` files plus `conftest.py`. The last full-host run was 1022 passed / 38 skipped at aac395b (2026-09-29); item 30 S5 removed 5 model-accessor tests, so a full host should read 1017 / 38. A run without `data/security/password-blocklist.txt` skips 4 more (1013 / 42, the S5 local runs). Run in-container with `docker compose exec -T app python -m pytest tests/ -q` in about 6 seconds. They drive httpx against `http://127.0.0.1:8081` and write to the LIVE `asset_tracker` database (no separate test cluster); fixtures prefix their rows `contract-test` and remove them afterwards, so a crashed run leaves obvious debris. There is no runner config file. **Coverage gap worth knowing: the audit page is untested.** No test references `has_audit_access`, `require_audit_viewer`, `can_view_audit_log` or `/admin/audit`, which is why a permanently-false boolean branch in the audit gate survived until 0c0ac31. A green suite says nothing about that surface.
-- Vendors table + dropdown — currently free-text input on intake + triage
-- **item_sku managed vocabulary (B1 shipped; B2/B3 DEFERRED to Fulfillment):** Part Numbers admin CRUD (5414fe1), intake datalist (Phase 1), triage strict select (Phase 2) all shipped. The strict-select sweep across intake/item_detail/quick_view + shared macro (B2/B3) is DEFERRED: managed SKUs apply only to sellable categories (Edge Box, Camera 2 Cloud, Cloud Box); internal hardware uses serial number, not SKU. Per-category SKU filtering and the full cross-category SKU list are pending the Fulfillment phase. quick_view was prototyped as a flat select then reverted (would contradict the category model). Resume with the real catalog once Fulfillment defines the rules.
-- Multi-viewer lock awareness, when Users page is built
-- Mobile barcode-scan flow at `/scan` — explicitly deferred from main app, not yet started
-- U2/U3 (Users + Departments UI rebuild) — sweep deferred renames per [docs/U2_U3_RENAME_FOLLOWUPS.md](docs/U2_U3_RENAME_FOLLOWUPS.md). U1 (2026-05-04) renamed the DB table only; cosmetic file/route/identifier renames are listed there.
-- **Route migration `public.* -> item_schema` (inventory-display arc complete):** Inventory listing, the unified `/items/{id}` detail page (incl. component-history / maintenance / attributes panels), intake, triage, and the receipts panel all read item_schema. Per-category detail routes+templates were retired (commit 151da9b). Search migrated to a single item_schema.items query in 4136b36 (was iterating 22 per-category public.* tables via TABLE_MODELS), so Casey's imported items are now findable in global search. Item 30 is complete (S1 to S5, 2026-09-28/29): every reader and writer is on items, the legacy models are gone, and migration 083 drops the 22 legacy tables (`docs/specs/retire-legacy-inventory.md`).
-- **Warranty is basic item tracking (item 30 S4, 2026-09-28):** a warranty hangs off an item through `device_warranties.item_id` and records vendor, start, end and notes (`app/routes/warranty.py`, Warranties link in the sidenav, read-only list on item detail). Scope cut by Jus: internal inventory items only; customer warranties on shipped hardware are tracked by the OEM, not here. RMA claims and internal loaners were retired in the same change (0 rows in every table involved), which supersedes the 2026-06-15 note that loaners kept warranty alive. Migration 083 dropped the unused warranty columns, `warranty_claims` and the legacy pair (item 30 S5). Cardinality is 1:many item to warranty.
-- **Sites list placed items (item 30 S4, 2026-09-28):** a site page lists the items whose `location_id` is that site; the sidenav has a Sites link. Device-to-site assignments (ownership type, return-by date) were retired by Jus, with their three routes, the provisioning completion hook that wrote one, and the dead `bulk.py`; `device_assignments` never held a row and dropped in migration 083. Custody is checkouts; customer pilots coming back are the Fulfillment Pilots Due Back board.
-- **Vendor profiles list linked items (item 30 S4, 2026-09-28):** a profile shows the items whose `vendor_id` is that profile and the warranties naming it. The legacy device list, unlinked-vendor strings, auto-create, quality score and RMA/trial stats were retired; N2 owns richer vendor analytics. The OUI reference counts items by `item_mac_address_1`/`_2`.
-- **Review queue works on item categories (item 30 S4, 2026-09-28):** `/review` and the sidebar pending count filter `pending_devices.suggested_category` through `get_approvable_categories` (edge_box needs sites admin); approve takes `item_category` (a legacy `target_table` is still mapped). Scan lookups (serial, MAC, UUID, SKU, duplicate check) read items only since item 30 S4; the Lab_Network.xlsx reconcile was skipped by decision and the data is re-imported later (N22).
+## Open items
 
-- **Fulfillment buildout (NOT YET STARTED as a focused track; foundation exists):** fulfillment.py (6 routes: page, ship, deployments, status, export, technician-update) + fulfillment.html already exist as a Kanban command-center over the order subsystem. Built on a mature foundation: CustomerOrder model (order_number, Salesforce sync ids, 8-stage status pipeline new->...->installed plus a terminal cancelled, deployment_type, sku_requirements JSONB, shipping fields per migration 021, OEM PO cascade). Stock, the order panel, build certification and orders read items since item 30 S4. Scope-later outline for the full buildout:
-  - Flesh out the Kanban command-center UX over the order + provisioning pipeline (replaces the old separate /orders/ and /provisioning/ list pages).
-- **Item.data_completeness gap:** the unified Item model (item_schema.items) does NOT have data_completeness - that field lived on InventoryMixin, which item 30 S5 removed with the legacy models. Surfaced during the search migration (4136b36) when the search dot-indicator was dropped. If a completeness/quality signal is ever wanted on the unified item, it needs modeling (or wire it to the existing triage-gap logic).
-- **Legacy per-category models + public.* tables: RETIRED (item 30, 2026-09-29).** `docs/specs/retire-legacy-inventory.md` records all five slices. The old table names survive only as labels in `app/table_labels.py`. Kept on purpose: `public.intake_photos` (the receive photo routes still write it; they have no caller and are a retirement follow-up), `legacy_item_map` and `component_migration_map`.
-- **Components data migration (routes retired in f3c379e; data moves in item 30):** the components.py routes (/install, /remove/{id}, /move/{id}, /available/{table}) were retired in f3c379e once the per-category detail templates that called them were deleted (151da9b). The public.device_components rows became item_schema.component_history events under item 30 rule R4, and the table dropped in migration 083.
-- **scanner.js is live (do NOT delete):** static/js/scanner.js defines the BarcodeScanner class, loaded by receive.html, provisioning_detail.html, and fulfillment.html for the receiving/provisioning/fulfillment scan workflows. A prior bullet wrongly flagged it as orphaned from the scanner-architecture removal; that removal was a different surface. Verified loaded 2026-06-15.
-- **Casey DB access (done 2026-06-10):** `casey` role created on live cluster, `item_schema`-scoped (DML + CREATE), isolated from `public.*`. External login pending Casey's own verification.
+- **Contract suite:** `tests/` drives httpx against `http://127.0.0.1:8081` and
+  writes to the live database (see below). A run without
+  `data/security/password-blocklist.txt` skips the blocklist cases; fetch it
+  with `scripts/fetch_password_blocklist.sh`. The skipped cases in a full run
+  are documented census exemptions.
+- **Multi-viewer lock awareness:** edit locks are single-holder; a second
+  viewer is not told who holds the lock.
+- **Item attributes are read-only in the UI.** The detail page shows the
+  per-category `attributes`; they arrive through import. Form editing is not
+  built.
+- **No completeness score on items.** The unified `Item` model has no
+  `data_completeness`; Asset Triage gaps are the quality signal.
+- **Cosmetic renames left from the Users rebuild** are listed in
+  `docs/U2_U3_RENAME_FOLLOWUPS.md`.
+- **Dead CSS:** a few `.eb-*` rules in `static/css/main.css` have no template.
+- **Old migrations import retired models** and name renamed columns. They are
+  history; a fresh install builds from `app/schema.py`.
 
-- **Attribute + checkout editing via forms:** the unified detail page shows per-category `attributes` read-only; check-out recipient/notes are set only on the checkout form. Form-based editing of `items.attributes` is deferred (data enters via Casey's import); revisit with the intake-form work.
 ## The item category vocabulary is hand-maintained
 
 The app does not read `item_categories` from the database. `ALL_CATEGORIES`

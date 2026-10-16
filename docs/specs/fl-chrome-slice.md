@@ -5,8 +5,8 @@ The finale. Chrome spans EVERY page, so this slice interacts with scaffolding th
 ## Logo directives (approved)
 
 - Sidebar: KEEP the current logo exactly as it is today. Do not swap or restyle it.
-- Login page: use the actual full Company logo lockup (circular mark + COMPANY SYSTEMS wordmark) instead of any text rendering.
-  - ASSET SOURCE: the file is in the workstation Downloads folder, named `Logo-Company-Full` (check extension). Copy it into the repo static images directory (e.g. `static/img/logo-brand-full.png`), commit it with this slice, and reference it with the cache-busted static path convention.
+- Login page: use the actual full logo lockup (mark + wordmark) instead of any text rendering.
+  - ASSET SOURCE: the file is in the workstation Downloads folder, named `Logo-Full` (check extension). Copy it into the repo static images directory (e.g. `static/img/logo-full.png`), commit it with this slice, and reference it with the cache-busted static path convention.
   - CONTRAST CHECK at build time: if the file has a solid white background or the wordmark reads poorly on the charcoal card, place the logo inside a white rounded inset panel on the card rather than editing the asset. Verify visually in both themes.
 
 ## Sidebar

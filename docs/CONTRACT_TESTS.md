@@ -7,13 +7,13 @@ MAC handling, password rules, map visibility, or deal-type derivation.**
 ## Run it
 
 ```bash
-ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/ -q"
+ssh deploy@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/ -q"
 ```
 
 Verbose, or a single file:
 
 ```bash
-ssh admin@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/test_auth_census.py -v"
+ssh deploy@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/test_auth_census.py -v"
 ```
 
 The suite runs **inside the app container** because it imports `app.*` and talks
