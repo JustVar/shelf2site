@@ -60,7 +60,7 @@ def _c2c_board_data(db: Session) -> dict:
 
     - needed: sum of qty on an order sku_requirements line whose model is a
       camera_c2c catalog SKU (join to part_numbers.item_category).
-    - acquired: device_provisioning rows with item_id set (the option-D link),
+    - acquired: device_provisioning rows linked to a camera_c2c item (the option-D link),
       split certified vs pending by the linked c2c_certification.status.
     - available: item_schema.items camera_c2c not linked to ANY provisioning row
       (net on has-a-provisioning per the section-9 decision, NOT is_complete).
@@ -104,7 +104,9 @@ def _c2c_board_data(db: Session) -> dict:
         .outerjoin(CustomerOrder, CustomerOrder.id == DeviceProvisioning.customer_order_id)
         .outerjoin(latest_cert, latest_cert.c.dpid == DeviceProvisioning.id)
         .outerjoin(C2CCertification, C2CCertification.id == latest_cert.c.cert_id)
-        .filter(DeviceProvisioning.item_id.isnot(None))
+        # Cameras only. Edge boxes link through item_id too (migration 056),
+        # so item_id alone also matched every edge box on an order.
+        .filter(DeviceProvisioning.item_id.isnot(None), Item.item_category == "camera_c2c")
         .order_by(DeviceProvisioning.id)
         .all()
     )
@@ -413,10 +415,12 @@ async def c2c_acquire(
         }
         needed = sum(int(line.get("qty") or 0) for line in (order.sku_requirements or [])
                      if line.get("model") in c2c_skus)
+        # Count cameras only: an order's edge boxes are item-linked rows too.
         acquired = (
             db.query(DeviceProvisioning)
+            .join(Item, Item.id == DeviceProvisioning.item_id)
             .filter(DeviceProvisioning.customer_order_id == order.id,
-                    DeviceProvisioning.item_id.isnot(None))
+                    Item.item_category == "camera_c2c")
             .count()
         )
         if acquired >= needed:
@@ -526,6 +530,9 @@ async def c2c_certify(
     item = db.query(Item).filter(Item.id == prov.item_id).first()
     if not item:
         return JSONResponse(status_code=404, content={"error": "Linked camera item not found"})
+    if item.item_category != "camera_c2c":
+        # Edge boxes are item-linked too; theirs is the build certification.
+        return JSONResponse(status_code=400, content={"error": "C2C certification applies to cameras only"})
 
     body = await request.json()
     raw = body.get("checklist") or {}
