@@ -12,7 +12,7 @@ a viewer must not say more than the pages they can open.
 """
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 
 from .config import settings
 from .localtime import fmt_local, local_now

@@ -24,7 +24,7 @@ import uuid
 from datetime import date, datetime
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse

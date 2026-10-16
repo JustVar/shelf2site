@@ -9,7 +9,7 @@ Detail pages (/orders/{id}, /provisioning/{id}) remain unchanged.
 import io
 import uuid
 
-import fitz
+import pymupdf as fitz
 from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
