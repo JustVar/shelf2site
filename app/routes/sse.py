@@ -210,7 +210,7 @@ def get_sse_client_count() -> int:
 
 async def start_sse_pubsub() -> None:
     """Open the LISTEN and NOTIFY connections. Call from FastAPI lifespan startup."""
-    global _listen_conn, _publish_conn, _publish_lock, _main_loop
+    global _publish_conn, _publish_lock, _main_loop
     global _listen_supervisor_task, _shutdown_event
 
     _main_loop = asyncio.get_running_loop()

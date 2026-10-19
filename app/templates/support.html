@@ -20,6 +20,8 @@
 .rvq-card.rvq-approved .number { color: var(--success, #27ae60); }
 .rvq-card.rvq-dismissed .number { color: var(--text-muted); }
 .rvq-tabs .badge { margin-left: 6px; }
+/* Fourteen columns: keep the actions in view while the rest scrolls. */
+.rvq-table th:last-child, .rvq-table td:last-child { position: sticky; right: 0; background: var(--card-bg); box-shadow: -8px 0 8px -8px rgba(0,0,0,0.35); }
 </style>
 <div class="cards rvq-cards">
     <div class="card pending rvq-card rvq-pending">
@@ -55,7 +57,7 @@
 <!-- Device Queue Table -->
 <div class="table-section" id="review-table">
     <div style="overflow-x: auto;">
-        <table>
+        <table class="rvq-table">
             <thead>
                 <tr>
                     <th>MAC Address</th>

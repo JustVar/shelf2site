@@ -141,7 +141,7 @@ VENDORS = [  # name, display, categories, is_oem
     ("keystone-storage", "Keystone Storage", "Hard drives, NAS", False),
     ("lumen-optics", "Lumen Optics", "Cameras", True),
     ("summit-power", "Summit Power Co", "UPS, Power", False),
-    ("office-depot-demo", "Corner Office Supply", "Printers, Phones, Webcams", False),
+    ("corner-office", "Corner Office Supply", "Printers, Phones, Webcams", False),
 ]
 
 OEM_PARTNERS = ["Ridgeline Systems Integration", "Copperleaf Manufacturing"]
@@ -361,11 +361,11 @@ def seed(s: Seeder):
     it("cpu", "CPU i7-13700", "Intel", "Core i7-13700", "cpu", "CPU-I7-13700", "CPU", "Hardware",
        "granite-compute", "Unassigned", lab, 2, 60)
     it("phone", "Desk Phone", "Polycom", "VVX 450", "phone", "IT-PHONE-STD", "PH", "Operations",
-       "office-depot-demo", "Deployed", hq, 4, 400)
+       "corner-office", "Deployed", hq, 4, 400)
     it("printer", "Office Printer", "Brother", "MFC-L8900", "printer", "IT-PRINTER-MFP", "PR", "Operations",
-       "office-depot-demo", "Deployed", hq, 1, 600)
+       "corner-office", "Deployed", hq, 1, 600)
     it("webcam", "Webcam 1080p", "Logitech", "C920", "webcam", "IT-WEBCAM-HD", "WC", "Operations",
-       "office-depot-demo", "Unassigned", hq, 5, 150)
+       "corner-office", "Unassigned", hq, 5, 150)
     it("nas", "Lab NAS", "Synology", "DS1823xs+", "nas", "NAS-8BAY", "NAS", "Hardware",
        "keystone-storage", "Deployed", lab, 1, 365, extra={"mac": True})
 
@@ -402,7 +402,7 @@ def seed(s: Seeder):
          "vendor_id": V["northstar-it"]},                      # several fields missing
         {"item_name": "Conference Room Webcam", "item_manufacturer": "Logitech", "item_model": "Rally",
          "item_category": "webcam", "item_sn": "WC-CONF-01", "item_status": "Deployed", "location_id": hq,
-         "vendor_id": V["office-depot-demo"], "item_sku": "IT-WEBCAM-HD", "item_pn": "PN-WC-CONF-01"},  # no owner
+         "vendor_id": V["corner-office"], "item_sku": "IT-WEBCAM-HD", "item_pn": "PN-WC-CONF-01"},  # no owner
     ]
     for f in gaps:
         intake(f)

@@ -36,9 +36,13 @@
 </div>
 
 <!-- Audit Entries -->
+<style>
+.adt-details { min-width: 240px; max-width: 420px; }
+</style>
+<p style="color: var(--text-muted); font-size: 0.85rem; margin: -0.75rem 0 0.75rem;">The newest {{ entries|length }} entries{% if entries|length >= 500 %} (the most this page shows; filter to narrow){% endif %}.</p>
 <div class="table-section">
     <div style="overflow-x: auto;" tabindex="0" role="region" aria-label="Audit log table">
-        <table>
+        <table class="adt-table">
             <thead>
                 <tr>
                     <th>Timestamp</th>
@@ -55,7 +59,7 @@
                 {% for e in entries %}
                 <tr>
                     <td style="white-space: nowrap;">{{ e.timestamp|localtime('%Y-%m-%d %H:%M:%S %Z') if e.timestamp else '-' }}</td>
-                    <td>{{ users_map.get(e.user_id, 'System') if e.user_id else 'System' }}</td>
+                    <td style="white-space: nowrap;">{{ users_map.get(e.user_id, 'System') if e.user_id else 'System' }}</td>
                     <td><span class="badge badge-count{% if 'failed' in e.event_type or 'deleted' in e.event_type %} badge--danger{% endif %}">{{ e.event_type }}</span></td>
                     <td>{{ e.action or '-' }}</td>
                     <td>
@@ -66,7 +70,7 @@
                         {% endif %}
                     </td>
                     <td style="font-family: monospace; font-size: 0.8rem;">{{ e.ip_address or '-' }}</td>
-                    <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis;" title="{{ e.details or '' }}">
+                    <td class="adt-details">
                         {{ e.details or '-' }}
                     </td>
                 </tr>

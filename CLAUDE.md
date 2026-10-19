@@ -200,7 +200,6 @@ sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
   `data_completeness`; Asset Triage gaps are the quality signal.
 - **Cosmetic renames left from the Users rebuild** are listed in
   `docs/U2_U3_RENAME_FOLLOWUPS.md`.
-- **Dead CSS:** a few `.eb-*` rules in `static/css/main.css` have no template.
 - **Old migrations import retired models** and name renamed columns. They are
   history; a fresh install builds from `app/schema.py`.
 
