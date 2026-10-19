@@ -19,13 +19,17 @@ RUN bash scripts/fetch_password_blocklist.sh
 
 COPY . .
 
+# Proxies whose X-Forwarded-For is believed: localhost and the Docker bridge
+# networks, where a reverse proxy on the host or in Compose connects from.
+# Never "*": then any client could claim any address. Override in .env.
+ENV FORWARDED_ALLOW_IPS="127.0.0.1,172.16.0.0/12"
+
 # The schema builds itself on first start (app/schema.py), under an advisory
 # lock, so the workers starting together build it once.
 CMD ["gunicorn", "app.main:app", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
      "--workers", "4", \
      "--bind", "0.0.0.0:8081", \
-     "--forwarded-allow-ips=*", \
      "--graceful-timeout", "30", \
      "--timeout", "120", \
      "--keep-alive", "5"]

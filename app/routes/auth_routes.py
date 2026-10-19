@@ -11,9 +11,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 # ---------------------------------------------------------------------------
-# Login rate limiting — 5 failed attempts per 60 seconds per IP.
-# Uses CF-Connecting-IP (Cloudflare) or X-Forwarded-For (other proxies)
-# so the real client IP is tracked, not the tunnel's localhost address.
+# Login rate limiting: 5 failed attempts per 60 seconds per client address.
+# Kept per worker process, so a server with N workers allows up to 5 x N.
 # ---------------------------------------------------------------------------
 _failed_logins: dict[str, list[float]] = defaultdict(list)
 _RATE_WINDOW = 60   # seconds
@@ -21,15 +20,13 @@ _MAX_ATTEMPTS = 5   # failed attempts before lockout
 
 
 def _client_ip(request: Request) -> str:
-    """Return the real client IP, honoring Cloudflare and proxy headers."""
-    # Cloudflare sets CF-Connecting-IP to the original client IP
-    cf = request.headers.get("CF-Connecting-IP")
-    if cf:
-        return cf.strip()
-    # Generic forwarded header (set by uvicorn --proxy-headers)
-    fwd = request.headers.get("X-Forwarded-For")
-    if fwd:
-        return fwd.split(",")[0].strip()
+    """The connecting client's address.
+
+    The server resolves X-Forwarded-For before the app sees the request,
+    trusting only the proxies in FORWARDED_ALLOW_IPS, and takes the address
+    the nearest trusted proxy saw. Reading the header here instead would let
+    any client pick its own address and reset the limiter on every attempt.
+    """
     return request.client.host if request.client else "unknown"
 
 
