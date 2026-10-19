@@ -169,7 +169,7 @@ def fulfillment_page(
             "needs_units": track == STOCK and nxt == "shipped" and linked == 0,
         })
 
-    return templates.TemplateResponse("fulfillment.html", {
+    return templates.TemplateResponse(request, "fulfillment.html", {
         "request": request,
         "user": user,
         "lanes": lanes,
@@ -877,7 +877,7 @@ def certifications_index(
             }
         sorted_groups[date_key] = sorted_customers
 
-    return templates.TemplateResponse("certifications.html", {
+    return templates.TemplateResponse(request, "certifications.html", {
         "request": request,
         "user": user,
         "groups": sorted_groups,
@@ -1189,7 +1189,7 @@ def certification_detail(
     ]
     comp_types = ["cpu", "ram", "gpu", "hdd", "ssd"]
 
-    return templates.TemplateResponse("certification_detail.html", {
+    return templates.TemplateResponse(request, "certification_detail.html", {
         "request": request,
         "user": user,
         "device": device,
@@ -1945,7 +1945,7 @@ def cert_history(
             "sources": [{"id": f.id, "name": f.original_name} for f in sources],
         })
     back_prov_id = attempts[0].device_provisioning_id if attempts else None
-    return templates.TemplateResponse("build_cert_history.html", {
+    return templates.TemplateResponse(request, "build_cert_history.html", {
         "request": request,
         "user": user,
         "serial": serial,

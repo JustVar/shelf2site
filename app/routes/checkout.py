@@ -59,7 +59,7 @@ def checkout_page(
         .all()
     )
     return templates.TemplateResponse(
-        "checkout.html",
+        request, "checkout.html",
         {
             "request": request,
             "user": user,
@@ -152,7 +152,7 @@ def checkin_page(
         rows.append({"checkout": co, "item": item, "recipient": recipient or "—"})
 
     return templates.TemplateResponse(
-        "checkin.html",
+        request, "checkin.html",
         {"request": request, "user": user, "open_checkouts": rows},
     )
 

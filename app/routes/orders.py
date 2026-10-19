@@ -253,7 +253,7 @@ def order_detail(
         if _ev and isinstance(_ev[0], dict):
             cancel_reason = _ev[0].get("reason")
 
-    return templates.TemplateResponse("order_detail.html", {
+    return templates.TemplateResponse(request, "order_detail.html", {
         "request": request,
         "user": user,
         "order": order,

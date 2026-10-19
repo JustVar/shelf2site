@@ -251,7 +251,7 @@ def _needs_location(db, by_item, hidden, can_sensitive):
 @router.get("/", response_class=HTMLResponse)
 def map_page(request: Request, db: Session = Depends(get_db),
              user: User = Depends(require_map_access)):
-    return templates.TemplateResponse("map.html", {
+    return templates.TemplateResponse(request, "map.html", {
         "request": request,
         "user": user,
         "can_edit": user.is_editor_or_above,

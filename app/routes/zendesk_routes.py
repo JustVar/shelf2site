@@ -30,7 +30,7 @@ async def zendesk_settings_page(
         and settings.ZENDESK_EMAIL
         and settings.ZENDESK_API_TOKEN
     )
-    return templates.TemplateResponse("admin_zendesk.html", {
+    return templates.TemplateResponse(request, "admin_zendesk.html", {
         "request": request,
         "user": user,
         "is_configured": is_configured,

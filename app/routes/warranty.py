@@ -154,7 +154,7 @@ def warranty_page(
         badge, days_left = warranty_status(w, today)
         rows.append({"warranty": w, "item": items.get(w.item_id), "badge": badge, "days_left": days_left})
 
-    return templates.TemplateResponse("warranty.html", {
+    return templates.TemplateResponse(request, "warranty.html", {
         "request": request,
         "user": user,
         "rows": rows,

@@ -115,7 +115,7 @@ def maintenance_page(
     user: User = Depends(require_system_admin),
 ):
     """Service maintenance announcement admin page."""
-    return templates.TemplateResponse("admin_maintenance.html", {
+    return templates.TemplateResponse(request, "admin_maintenance.html", {
         "request": request,
         "user": user,
         "announcement": get_announcement().to_dict(),

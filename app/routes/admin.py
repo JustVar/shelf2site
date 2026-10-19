@@ -106,7 +106,7 @@ def oui_reference(
     total_devices = sum(s["device_count"] for s in oui_stats)
     unique_manufacturers = len(mfr_map)
 
-    return templates.TemplateResponse("admin_oui.html", {
+    return templates.TemplateResponse(request, "admin_oui.html", {
         "request": request,
         "vendor_groups": vendor_groups,
         "total_ouis": total_ouis,
@@ -290,7 +290,7 @@ def part_numbers_page(
         usage[sku] = cnt
     pn_rows = [{"pn": r, "usage": usage.get(r.item_sku, 0)} for r in rows]
     categories = [{"value": c, "display": category_display(c)} for c in ALL_CATEGORIES]
-    return templates.TemplateResponse("admin_part_numbers.html", {
+    return templates.TemplateResponse(request, "admin_part_numbers.html", {
         "request": request,
         "user": user,
         "pn_rows": pn_rows,
@@ -480,7 +480,7 @@ def user_management_page(
         for d in departments
     ]
 
-    return templates.TemplateResponse("admin_users.html", {
+    return templates.TemplateResponse(request, "admin_users.html", {
         "request": request,
         "users": users,
         "users_json": users_json,
@@ -1470,7 +1470,7 @@ def department_management_page(
 
     departments_payload = [_department_to_payload(d) for d in departments]
 
-    return templates.TemplateResponse("admin_departments.html", {
+    return templates.TemplateResponse(request, "admin_departments.html", {
         "request": request,
         "user": user,
         "departments": departments,                   # kept for legacy fallback
@@ -1716,7 +1716,7 @@ def audit_log_page(
     if loners:
         event_groups.append(("Other", sorted(loners)))
 
-    return templates.TemplateResponse("admin_audit.html", {
+    return templates.TemplateResponse(request, "admin_audit.html", {
         "request": request,
         "entries": entries,
         "users_map": users_map,
@@ -1809,7 +1809,7 @@ def storage_monitor_page(
         photos_until_full = (disk_free_gb * 1024) / avg_photo_size_mb
         days_until_full = int(photos_until_full / growth_rate)
 
-    return templates.TemplateResponse("admin_storage.html", {
+    return templates.TemplateResponse(request, "admin_storage.html", {
         "request": request,
         "user": user,
         "disk_total_gb": round(disk_total_gb, 1),

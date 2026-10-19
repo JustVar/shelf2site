@@ -120,7 +120,7 @@ def receipts_list(
         "record_type_options": record_type_options,
         "f": {"date_from": date_from, "date_to": date_to, "vendor": vendor, "record_type": record_type},
     }
-    return templates.TemplateResponse("receipts_list.html", ctx)
+    return templates.TemplateResponse(request, "receipts_list.html", ctx)
 
 
 @router.get("/receipts/{receipt_id}", response_class=HTMLResponse)
@@ -167,7 +167,7 @@ def receipt_detail(
         "file_is_image": fp.endswith((".png", ".jpg", ".jpeg")),
     }
     return templates.TemplateResponse(
-        "receipt_detail.html", {"request": request, "user": user, "r": header, "lines": lines}
+        request, "receipt_detail.html", {"request": request, "user": user, "r": header, "lines": lines}
     )
 
 

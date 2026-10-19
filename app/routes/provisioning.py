@@ -203,7 +203,7 @@ def provisioning_page(
         .all()
     )
 
-    return templates.TemplateResponse("provisioning.html", {
+    return templates.TemplateResponse(request, "provisioning.html", {
         "request": request,
         "user": user,
         "can_manage": user.has_provisioning_manage,
@@ -303,7 +303,7 @@ def provisioning_detail_page(
         )
     users_list = users_q.order_by(UserModel.display_name).all()
 
-    return templates.TemplateResponse("provisioning_detail.html", {
+    return templates.TemplateResponse(request, "provisioning_detail.html", {
         "request": request,
         "user": user,
         "can_manage": user.has_provisioning_manage,

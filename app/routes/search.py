@@ -30,7 +30,7 @@ def search_page(
     user: User = Depends(get_current_user),
 ):
     """Render the global search page."""
-    return templates.TemplateResponse("search.html", {
+    return templates.TemplateResponse(request, "search.html", {
         "request": request,
         "user": user,
     })
@@ -47,7 +47,7 @@ def search_results_partial(
 ):
     """HTMX partial: render search results as HTML rows grouped by category."""
     if len(q.strip()) < 2:
-        return templates.TemplateResponse("partials/search_results.html", {
+        return templates.TemplateResponse(request, "partials/search_results.html", {
             "request": request,
             "results": [],
             "total": 0,
@@ -115,7 +115,7 @@ def search_results_partial(
     total = len(all_results)
     all_results = all_results[:limit]
 
-    return templates.TemplateResponse("partials/search_results.html", {
+    return templates.TemplateResponse(request, "partials/search_results.html", {
         "request": request,
         "results": all_results,
         "total": total,

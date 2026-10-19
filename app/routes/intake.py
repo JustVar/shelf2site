@@ -256,7 +256,7 @@ def intake_page(
     categories = _get_categories()
     part_numbers = _get_part_numbers(db)
 
-    return templates.TemplateResponse("intake.html", {
+    return templates.TemplateResponse(request, "intake.html", {
         "request": request,
         "user": user,
         "locations": locations,
@@ -384,7 +384,7 @@ async def intake_submit(
     except ValueError as e:
         locations = _get_locations(db)
         categories = _get_categories()
-        return templates.TemplateResponse("intake.html", {
+        return templates.TemplateResponse(request, "intake.html", {
             "request": request,
             "user": user,
             "locations": locations,
@@ -402,7 +402,7 @@ async def intake_submit(
         _log.error(f"Intake submit failed: {e}", exc_info=True)
         locations = _get_locations(db)
         categories = _get_categories()
-        return templates.TemplateResponse("intake.html", {
+        return templates.TemplateResponse(request, "intake.html", {
             "request": request,
             "user": user,
             "locations": locations,

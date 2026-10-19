@@ -56,7 +56,7 @@ def sites_page(
 
     site_list = [{"site": s, "item_count": site_counts.get(s.id, 0)} for s in sites]
 
-    return templates.TemplateResponse("sites.html", {
+    return templates.TemplateResponse(request, "sites.html", {
         "request": request,
         "user": user,
         "sites": site_list,
@@ -94,7 +94,7 @@ def site_detail_page(
         for i in items
     ]
 
-    return templates.TemplateResponse("site_detail.html", {
+    return templates.TemplateResponse(request, "site_detail.html", {
         "request": request,
         "user": user,
         "site": site,

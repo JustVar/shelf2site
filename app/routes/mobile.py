@@ -89,7 +89,7 @@ def path_is_mobile_exempt(rel: str) -> bool:
 @router.get("/mobile", response_class=HTMLResponse)
 def mobile_launcher(request: Request, user: User = Depends(get_current_user)):
     """Field-action launcher for phones."""
-    return templates.TemplateResponse("mobile_launcher.html", {
+    return templates.TemplateResponse(request, "mobile_launcher.html", {
         "request": request,
         "user": user,
     })

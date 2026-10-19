@@ -194,7 +194,7 @@ def dashboard(
 
     pilots = _pilots_due_back(db)
 
-    return templates.TemplateResponse("dashboard.html", {
+    return templates.TemplateResponse(request, "dashboard.html", {
         "request":          request,
         "user":             user,
         "total_items":      total_items,

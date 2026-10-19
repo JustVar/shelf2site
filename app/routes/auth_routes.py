@@ -68,7 +68,7 @@ def login_page(request: Request):
     """Render the login page. Redirect if already logged in."""
     if get_session_user_id(request) is not None:
         return RedirectResponse(f"{BP}/dashboard", status_code=302)
-    return templates.TemplateResponse("login.html", {
+    return templates.TemplateResponse(request, "login.html", {
         "request": request,
         "error": None,
     })
@@ -81,7 +81,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
     if _is_rate_limited(ip):
         log_event(db, "user_login_failed", request=request,
                   details=f"Rate-limited login from {ip}")
-        return templates.TemplateResponse("login.html", {
+        return templates.TemplateResponse(request, "login.html", {
             "request": request,
             "error": "Too many failed attempts. Please wait a minute and try again.",
         }, status_code=429)
@@ -98,7 +98,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
             request=request,
             details=f"Failed login attempt for username: {username}",
         )
-        return templates.TemplateResponse("login.html", {
+        return templates.TemplateResponse(request, "login.html", {
             "request": request,
             "error": "Invalid username or password.",
         }, status_code=401)
@@ -154,7 +154,7 @@ def change_password_page(
         and (datetime.utcnow() - user.password_changed_at).days >= settings.PASSWORD_MAX_AGE_DAYS
         else "temporary"
     )
-    return templates.TemplateResponse("change_password.html", {
+    return templates.TemplateResponse(request, "change_password.html", {
         "request": request,
         "user": user,
         "forced": user.must_change_password,
@@ -185,7 +185,7 @@ async def change_password_submit(
 
     # Validate current password
     if not verify_password(current_password, user.password_hash):
-        return templates.TemplateResponse("change_password.html", {
+        return templates.TemplateResponse(request, "change_password.html", {
             "request": request,
             "user": user,
             "forced": user.must_change_password,
@@ -197,7 +197,7 @@ async def change_password_submit(
     # Validate new password strength
     strength_error = validate_password_strength(new_password, username=user.username)
     if strength_error:
-        return templates.TemplateResponse("change_password.html", {
+        return templates.TemplateResponse(request, "change_password.html", {
             "request": request,
             "user": user,
             "forced": user.must_change_password,
@@ -207,7 +207,7 @@ async def change_password_submit(
         }, status_code=400)
 
     if new_password != confirm_password:
-        return templates.TemplateResponse("change_password.html", {
+        return templates.TemplateResponse(request, "change_password.html", {
             "request": request,
             "user": user,
             "forced": user.must_change_password,
@@ -217,7 +217,7 @@ async def change_password_submit(
         }, status_code=400)
 
     if verify_password(new_password, user.password_hash):
-        return templates.TemplateResponse("change_password.html", {
+        return templates.TemplateResponse(request, "change_password.html", {
             "request": request,
             "user": user,
             "forced": user.must_change_password,
@@ -246,7 +246,7 @@ async def change_password_submit(
         details=f"{user.display_name} changed their password",
     )
 
-    return templates.TemplateResponse("change_password.html", {
+    return templates.TemplateResponse(request, "change_password.html", {
         "request": request,
         "user": user,
         "forced": False,

@@ -270,7 +270,7 @@ def error_log_page(
                 "last_seen": r[4],
             })
 
-        return templates.TemplateResponse("admin_errors.html", {
+        return templates.TemplateResponse(request, "admin_errors.html", {
             "request": request,
             "user": user,
             "total": total,

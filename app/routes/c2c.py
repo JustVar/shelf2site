@@ -319,7 +319,7 @@ def pilots_due_back_page(
     ctx["request"] = request
     ctx["user"] = user
     ctx["order_types"] = CustomerOrder.ORDER_TYPES
-    return templates.TemplateResponse("pilots_due_back.html", ctx)
+    return templates.TemplateResponse(request, "pilots_due_back.html", ctx)
 
 
 @router.get("/fulfillment/c2c", response_class=HTMLResponse)
@@ -333,7 +333,7 @@ def c2c_page(
     ctx["request"] = request
     ctx["user"] = user
     ctx["order_types"] = CustomerOrder.ORDER_TYPES
-    return templates.TemplateResponse("c2c.html", ctx)
+    return templates.TemplateResponse(request, "c2c.html", ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -1178,4 +1178,4 @@ def c2c_history(
                  "item_sku": item.item_sku},
         "events": events,
     }
-    return templates.TemplateResponse("c2c_history.html", ctx)
+    return templates.TemplateResponse(request, "c2c_history.html", ctx)

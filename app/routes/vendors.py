@@ -71,7 +71,7 @@ def vendors_list(
 ):
     """Vendor list page."""
     profiles = db.query(VendorProfile).order_by(VendorProfile.name).all()
-    return templates.TemplateResponse("vendors.html", {
+    return templates.TemplateResponse(request, "vendors.html", {
         "request": request,
         "user": user,
         "profiles": profiles,
@@ -93,7 +93,7 @@ def vendor_profile_detail(
 
     linked = _vendor_items(db, profile)
 
-    return templates.TemplateResponse("vendor_detail_profile.html", {
+    return templates.TemplateResponse(request, "vendor_detail_profile.html", {
         "request": request,
         "user": user,
         "profile": profile,

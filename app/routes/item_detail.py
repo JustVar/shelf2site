@@ -240,7 +240,7 @@ def item_detail_page(
         badge, days_left = warranty_status(w, today)
         warranties.append({"warranty": w, "badge": badge, "days_left": days_left})
 
-    return templates.TemplateResponse("item_detail.html", {
+    return templates.TemplateResponse(request, "item_detail.html", {
         "request": request,
         "user": user,
         "item": item,
@@ -350,7 +350,7 @@ async def item_update(
         containment = _get_containment(db, item)
         _parent_item = containment["parent"]["parent"] if containment["parent"] else None
         effective_location_id = _parent_item.location_id if _parent_item else item.location_id
-        return templates.TemplateResponse("item_detail.html", {
+        return templates.TemplateResponse(request, "item_detail.html", {
             "request": request,
             "user": user,
             "item": item,

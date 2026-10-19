@@ -155,7 +155,7 @@ def inventory_page(
             "color":        FL_CATEGORY_COLORS.get(str(item.item_category), "#888888"),
         })
 
-    return templates.TemplateResponse("inventory.html", {
+    return templates.TemplateResponse(request, "inventory.html", {
         "request":      request,
         "user":         user,
         "tiles":        tiles,
@@ -194,7 +194,7 @@ def quick_view(
     from ..containment import effective_location_overrides
     _eff = effective_location_overrides(db, [item.id])
 
-    return templates.TemplateResponse("partials/item_quick_view.html", {
+    return templates.TemplateResponse(request, "partials/item_quick_view.html", {
         "request":  request,
         "user":     user,
         "item":     item,
@@ -266,7 +266,7 @@ def quick_view_save(
     from ..containment import effective_location_overrides
     _eff = effective_location_overrides(db, [item.id])
 
-    return templates.TemplateResponse("partials/item_quick_view.html", {
+    return templates.TemplateResponse(request, "partials/item_quick_view.html", {
         "request":  request,
         "user":     user,
         "item":     item,
@@ -482,7 +482,7 @@ def decommissioned_page(
             "date": item.decommission_date.isoformat() if item.decommission_date else "-",
             "who": item.decommissioned_by or "-",
         })
-    return templates.TemplateResponse("decommissioned.html", {
+    return templates.TemplateResponse(request, "decommissioned.html", {
         "request": request,
         "user": user,
         "rows": rows,

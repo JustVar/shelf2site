@@ -461,7 +461,7 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 
         user = await _session_user(request)
         return templates.TemplateResponse(
-            "permission_denied.html",
+            request, "permission_denied.html",
             {
                 "request": request,
                 "user": user,
@@ -522,7 +522,7 @@ async def _not_found_or_default(request: Request, exc):
     if user is None:
         return RedirectResponse(url=f"{BP}/login", status_code=303)
     return templates.TemplateResponse(
-        "not_found.html", {"request": request, "user": user}, status_code=404)
+        request, "not_found.html", {"request": request, "user": user}, status_code=404)
 
 
 @app.exception_handler(StarletteHTTPException)

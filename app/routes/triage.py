@@ -312,7 +312,7 @@ def triage_page(
     offset = (page - 1) * per_page
     items = enriched[offset:offset + per_page]
 
-    return templates.TemplateResponse("triage.html", {
+    return templates.TemplateResponse(request, "triage.html", {
         "request": request,
         "user": user,
         "items": items,
@@ -388,7 +388,7 @@ def triage_fix_panel(
             db.query(ItemPartNumber).order_by(ItemPartNumber.item_sku).all()
         )
 
-    return templates.TemplateResponse("partials/triage_fix_panel.html", ctx)
+    return templates.TemplateResponse(request, "partials/triage_fix_panel.html", ctx)
 
 
 @router.post("/fix/{item_id}/{field_name}")

@@ -2,7 +2,7 @@
 # SQLAlchemy stays on 2.0: 2.1 changes the default Postgres driver for
 # postgresql:// URLs from psycopg2 to psycopg 3.
 fastapi==0.143.1
-starlette==0.52.1          # 1.0.0 has a Jinja2 template cache bug (unhashable dict globals)
+starlette==1.9.0
 uvicorn[standard]==0.53.0
 gunicorn==26.2.0
 sqlalchemy==2.0.54

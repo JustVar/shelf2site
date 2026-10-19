@@ -61,7 +61,7 @@ def review_queue(
         db.query(PendingDevice).filter(PendingDevice.status == "dismissed")
     ).count()
 
-    return templates.TemplateResponse("support.html", {
+    return templates.TemplateResponse(request, "support.html", {
         "request": request,
         "devices": devices,
         "pending_count": pending_count,

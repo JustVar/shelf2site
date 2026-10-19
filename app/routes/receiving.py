@@ -195,7 +195,7 @@ def receive_page(
         .order_by(desc(ReceivingEvent.created_at))
         .all()
     )
-    return templates.TemplateResponse("receive.html", {
+    return templates.TemplateResponse(request, "receive.html", {
         "request": request,
         "user": user,
         "events": events,

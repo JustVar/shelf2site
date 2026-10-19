@@ -249,7 +249,7 @@ def delete_requests_page(
                .order_by(DeleteRequest.decided_at.desc().nullslast(), DeleteRequest.id.desc())
                .limit(50)
                .all())
-    return templates.TemplateResponse("admin_delete_requests.html", {
+    return templates.TemplateResponse(request, "admin_delete_requests.html", {
         "request": request,
         "user": user,
         "pending": [_row(db, r) for r in pending],

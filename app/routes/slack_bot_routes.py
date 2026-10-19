@@ -42,7 +42,7 @@ def notifications_admin_page(
     smtp_configured = bool(settings.SMTP_HOST)
     smtp_auth_configured = bool(settings.SMTP_USER and settings.SMTP_PASSWORD)
 
-    return templates.TemplateResponse("admin_notifications.html", {
+    return templates.TemplateResponse(request, "admin_notifications.html", {
         "request": request,
         "user": user,
         "bot_configured": bot_configured,
