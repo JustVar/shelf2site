@@ -25,7 +25,7 @@ builds it.
 
 ## Decisions (Jus, 2026-09-17)
 
-1. **Every order gets an owner: `in_house` or `oem`.** Default `in_house` (named `brand` until migration 086).
+1. **Every order gets an owner: `in_house` or `oem`.** Default `in_house` (the value was renamed by migration 086).
 2. **`oem_partners` is built now, minimal.** Real FK from day one, so the
    partner name can never drift, at the cost of one small table. Columns
    are only what routing needs; contacts, terms and certification defaults
