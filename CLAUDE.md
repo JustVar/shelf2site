@@ -203,6 +203,27 @@ sufficient. Live uses: admin_part_numbers.html and fulfillment.html.
 - **Old migrations import retired models** and name renamed columns. They are
   history; a fresh install builds from `app/schema.py`.
 
+## Security rules (2026-10 audit)
+
+Each of these was a live hole found by probing the running app.
+
+- **Sensitive orders go through `app/sensitive.py`.** Any route that loads an
+  order, or a row hanging off one (provisioning, certification, deployment,
+  document, PO), checks it with `visible_order`, `visible_provisioning` or
+  `provisioning_hidden`, and any list leaves hidden orders out
+  (`hidden_order_ids`, `without_hidden_provisioning`). A route that looks up
+  an order by id with a plain query and no such check is the bug shape. Site
+  records are not hidden.
+- **A folder named from user data goes through `app/upload_paths.serial_dir`.**
+  Never `Path(root) / serial`.
+- **HTML built in JavaScript escapes every value with `sxEsc`, and every link
+  from data with `sxSafeUrl`** (both defined in `base.html`).
+- **The client address is `request.client.host`.** The server resolves
+  X-Forwarded-For from the proxies in `FORWARDED_ALLOW_IPS`; reading the header
+  in the app lets a client choose its own address.
+- **Cross-site writes are refused in `request_hygiene_middleware`** (`main.py`).
+  A route needs no CSRF token of its own.
+
 ## The item category vocabulary is hand-maintained
 
 The app does not read `item_categories` from the database. `ALL_CATEGORIES`
