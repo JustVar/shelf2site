@@ -38,8 +38,41 @@ def provisioning_viewer(db):
     db.commit()
 
 
+@pytest.fixture
+def work_to_act_on(db):
+    """The pilots page and the check-in form show their controls only when
+    there is something to act on, so give them one loaned unit still out and
+    one open checkout. Without this the suite would lean on the demo data."""
+    ids = {}
+    ids["order"] = db.execute(sqltext(
+        "INSERT INTO customer_orders (order_number, customer_name, order_type, status, is_sensitive) "
+        "VALUES ('AT-999932', 'CONTRACT-TEST Loan Co', 'pilot', 'new', false) RETURNING id")).scalar()
+    ids["cam"] = db.execute(sqltext(
+        "INSERT INTO item_schema.items (item_name, item_sn, item_category, item_status) "
+        "VALUES ('CONTRACT-TEST Loan Cam', 'CONTRACT-TEST-LOAN-CAM', 'camera_c2c', 'Ready to Deploy') "
+        "RETURNING id")).scalar()
+    ids["prov"] = db.execute(sqltext(
+        "INSERT INTO device_provisioning (item_id, customer_order_id, current_stage, stages, is_complete) "
+        "VALUES (:i, :o, 'acquired', '[]'::jsonb, false) RETURNING id"),
+        {"i": ids["cam"], "o": ids["order"]}).scalar()
+    ids["box"] = db.execute(sqltext(
+        "INSERT INTO item_schema.items (item_name, item_sn, item_category, item_status) "
+        "VALUES ('CONTRACT-TEST Lent Computer', 'CONTRACT-TEST-LENT-1', 'computer', 'Checked Out') RETURNING id")).scalar()
+    ids["checkout"] = db.execute(sqltext(
+        "INSERT INTO item_schema.checkouts (item_id, checked_out_to_name) "
+        "VALUES (:i, 'CONTRACT-TEST borrower') RETURNING id"), {"i": ids["box"]}).scalar()
+    db.commit()
+    yield ids
+    db.rollback()
+    db.execute(sqltext("DELETE FROM item_schema.checkouts WHERE id = :i"), {"i": ids["checkout"]})
+    db.execute(sqltext("DELETE FROM device_provisioning WHERE id = :i"), {"i": ids["prov"]})
+    db.execute(sqltext("DELETE FROM item_schema.items WHERE id IN (:a, :b)"), {"a": ids["cam"], "b": ids["box"]})
+    db.execute(sqltext("DELETE FROM customer_orders WHERE id = :i"), {"i": ids["order"]})
+    db.commit()
+
+
 @pytest.mark.parametrize("path,control", BOARD_CONTROLS)
-def test_provisioning_viewer_gets_no_board_writes(provisioning_viewer, admin_client, path, control):
+def test_provisioning_viewer_gets_no_board_writes(provisioning_viewer, admin_client, work_to_act_on, path, control):
     r = provisioning_viewer.get(path)
     assert r.status_code == 200, r.status_code
     assert control not in r.text
@@ -47,7 +80,7 @@ def test_provisioning_viewer_gets_no_board_writes(provisioning_viewer, admin_cli
 
 
 @pytest.mark.parametrize("path,control", CUSTODY_CONTROLS)
-def test_viewer_gets_no_custody_submit(viewer_client, admin_client, path, control):
+def test_viewer_gets_no_custody_submit(viewer_client, admin_client, work_to_act_on, path, control):
     r = viewer_client.get(path)
     assert r.status_code == 200, r.status_code
     assert control not in r.text
