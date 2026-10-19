@@ -77,6 +77,20 @@
     <meta name="apple-mobile-web-app-title" content="Shelf2Site">
     <meta name="base-path" content="{{ base_path | default('') }}">
     <script>window.BP = "{{ base_path }}";</script>
+    <script>
+    // Escape text for HTML built in JavaScript (innerHTML, template strings).
+    // Every value from the server or a user goes through it.
+    window.sxEsc = function (s) {
+        return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+            return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;';
+        });
+    };
+    // A link target from data: only http(s) and same-app paths, escaped.
+    window.sxSafeUrl = function (u) {
+        u = String(u || '');
+        return /^(https?:\/\/|\/(?!\/))/i.test(u) ? window.sxEsc(u) : '#';
+    };
+    </script>
     <script src="{{ base_path }}/static/js/theme.js?v={{ request.state.js_v('js/theme.js') or '0' }}"></script>
     {% if not _kiosk %}<script src="{{ base_path }}/static/js/realtime.js?v={{ request.state.js_v('js/realtime.js') or '0' }}"></script>{% endif %}
     <script src="{{ base_path }}/static/js/locks.js?v={{ request.state.js_v('js/locks.js') or '0' }}"></script>

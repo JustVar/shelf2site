@@ -26,7 +26,7 @@ async function addOUI(e) {
             msg.innerHTML = '<span style="color: var(--success);">Added successfully.</span>';
             setTimeout(() => location.reload(), 500);
         } else {
-            msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+            msg.innerHTML = `<span style="color: var(--danger);">${sxEsc(data.error)}</span>`;
         }
     } catch (err) {
         msg.innerHTML = `<span style="color: var(--danger);">Error: ${/** @type {Error} */ (err).message}</span>`;
@@ -73,7 +73,7 @@ async function saveEdit() {
             if (msg) msg.innerHTML = '<span style="color: var(--success);">Updated.</span>';
             setTimeout(() => location.reload(), 500);
         } else {
-            if (msg) msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+            if (msg) msg.innerHTML = `<span style="color: var(--danger);">${sxEsc(data.error)}</span>`;
         }
     } catch (err) {
         if (msg) msg.innerHTML = `<span style="color: var(--danger);">Error: ${/** @type {Error} */ (err).message}</span>`;

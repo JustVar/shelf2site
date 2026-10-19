@@ -971,9 +971,9 @@ function ctmSearch(q) {
             box.innerHTML = data.results.map(r =>
                 `<div class="ctm-row" data-id="${r.id}" onclick="ctmSelect(${r.id}, this)"
                       style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer;">
-                    <strong>${r.name}</strong>
-                    <span style="color:var(--text-muted);font-size:11px;font-family:monospace;"> ${r.serial || ''}</span>
-                    <span style="color:var(--text-muted);font-size:11px;"> · ${r.category || ''}</span>
+                    <strong>${sxEsc(r.name)}</strong>
+                    <span style="color:var(--text-muted);font-size:11px;font-family:monospace;"> ${sxEsc(r.serial || '')}</span>
+                    <span style="color:var(--text-muted);font-size:11px;"> · ${sxEsc(r.category || '')}</span>
                  </div>`).join('');
         })
         .catch(() => { document.getElementById('ctm-error').textContent = 'Search failed.'; });

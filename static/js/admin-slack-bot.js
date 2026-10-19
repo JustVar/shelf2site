@@ -10,9 +10,9 @@ async function testConnection() {
         const resp = await fetch(`${BP}/api/slack-bot/test`, {method: 'POST'});
         const data = await resp.json();
         if (resp.ok) {
-            el.innerHTML = `<span style="color: var(--success, #27ae60);">✓ Connected — Bot: <strong>${data.bot_name}</strong>, Team: <strong>${data.team}</strong></span>`;
+            el.innerHTML = `<span style="color: var(--success, #27ae60);">✓ Connected — Bot: <strong>${sxEsc(data.bot_name)}</strong>, Team: <strong>${sxEsc(data.team)}</strong></span>`;
         } else {
-            el.innerHTML = `<span style="color: var(--danger, #e74c3c);">✗ ${data.error}</span>`;
+            el.innerHTML = `<span style="color: var(--danger, #e74c3c);">✗ ${sxEsc(data.error)}</span>`;
         }
     } catch (err) {
         el.innerHTML = `<span style="color: var(--danger, #e74c3c);">Error: ${/** @type {Error} */ (err).message}</span>`;
@@ -28,9 +28,9 @@ async function testDm() {
         const resp = await fetch(`${BP}/api/slack-bot/test-dm`, {method: 'POST'});
         const data = await resp.json();
         if (resp.ok) {
-            el.innerHTML = `<span style="color: var(--success, #27ae60);">✓ DM sent to ${data.slack_user_id}</span>`;
+            el.innerHTML = `<span style="color: var(--success, #27ae60);">✓ DM sent to ${sxEsc(data.slack_user_id)}</span>`;
         } else {
-            el.innerHTML = `<span style="color: var(--danger, #e74c3c);">✗ ${data.error}</span>`;
+            el.innerHTML = `<span style="color: var(--danger, #e74c3c);">✗ ${sxEsc(data.error)}</span>`;
         }
     } catch (err) {
         el.innerHTML = `<span style="color: var(--danger, #e74c3c);">Error: ${/** @type {Error} */ (err).message}</span>`;

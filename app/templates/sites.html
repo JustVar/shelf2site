@@ -256,10 +256,10 @@ async function saveSite() {
                 setTimeout(() => location.reload(), 700);
             }
         } else {
-            msg.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+            msg.innerHTML = `<span style="color: var(--danger);">${sxEsc(data.error)}</span>`;
         }
     } catch (err) {
-        msg.innerHTML = `<span style="color: var(--danger);">Error: ${err.message}</span>`;
+        msg.innerHTML = `<span style="color: var(--danger);">Error: ${sxEsc(err.message)}</span>`;
     }
 }
 
