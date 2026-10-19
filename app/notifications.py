@@ -207,9 +207,9 @@ async def notify(
     # Build the full URL for links (used in both Slack channel and DMs)
     full_url = f"{settings.APP_BASE_URL}{link}" if link else ""
 
-    # During E2E test runs, route to the private test channel instead of the general channel.
-    # The flag file is created by the test script before any tests run (and SSH'd to the host).
-    is_test_mode = os.path.exists("/tmp/.asset_tracker_test_mode")
+    # During end-to-end test runs, route to the private test channel instead of
+    # the general channel. Set NOTIFY_TEST_MODE=true in the environment.
+    is_test_mode = os.getenv("NOTIFY_TEST_MODE", "").lower() == "true"
 
     # --- General Slack channel notification ---
     if slack:

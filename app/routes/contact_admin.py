@@ -1,5 +1,7 @@
 """Contact Admin — posts user message to #shelf2site-admin Slack channel."""
+import logging
 import os
+
 import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -9,6 +11,7 @@ from ..auth import get_current_user, User
 from ..config import settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/api/contact-admin")
@@ -19,13 +22,13 @@ async def contact_admin(
 ):
     if not settings.SLACK_ADMIN_WEBHOOK_URL:
         return JSONResponse(
-            {"status": "error", "message": "Admin notifications not configured."},
-            status_code=500,
+            {"status": "error", "message": "Admin notifications are not set up on this server."},
+            status_code=503,
         )
 
     body = await request.json()
-    message = (body.get("message") or "").strip()
-    page = (body.get("page") or "Unknown page").strip()
+    message = str(body.get("message") or "").strip()[:4000]
+    page = str(body.get("page") or "Unknown page").strip()[:500]
 
     if not message:
         return JSONResponse(
@@ -61,8 +64,8 @@ async def contact_admin(
         ]
     }
 
-    # During E2E tests, suppress Slack delivery to avoid spamming the admin channel.
-    if os.path.exists("/tmp/.asset_tracker_test_mode"):
+    # During end-to-end test runs, do not post to the real admin channel.
+    if os.getenv("NOTIFY_TEST_MODE", "").lower() == "true":
         return JSONResponse({"status": "ok"})
 
     try:
@@ -72,10 +75,11 @@ async def contact_admin(
                 return JSONResponse({"status": "ok"})
             return JSONResponse(
                 {"status": "error", "message": "Slack delivery failed."},
-                status_code=500,
+                status_code=502,
             )
-    except Exception as e:
+    except Exception:
+        logger.exception("Admin contact delivery to Slack failed")
         return JSONResponse(
-            {"status": "error", "message": str(e)},
-            status_code=500,
+            {"status": "error", "message": "Slack delivery failed."},
+            status_code=502,
         )
