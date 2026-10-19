@@ -21,7 +21,7 @@
         <span class="pilots-card__cust">{{ o.customer_name }}</span>
         <span class="pilots-status pilots-status--{{ o.status }}">{{ o.status.replace('-', ' ') | title }}</span>
         <span class="pilots-card__meta">Due {{ o.expected_return or '—' }} &middot; {{ o.returned }} of {{ o.acquired }} returned</span>
-        {% if o.still_out %}
+        {% if o.still_out and user.has_provisioning_manage %}
         <button type="button" class="pilots-btn pilots-btn--all" onclick="pilotsMarkAll({{ o.order_id }}, {{ (o.order_number or '')|tojson|forceescape }})">Mark all returned</button>
         {% endif %}
       </div>
@@ -34,7 +34,7 @@
           <span class="pilots-cam__returned">Returned {{ cam.returned_date }}</span>
           {% else %}
           <span class="pilots-cam__out">Still out</span>
-          <button type="button" class="pilots-btn" onclick="pilotsMarkReturned({{ cam.provisioning_id }})">Mark returned</button>
+          {% if user.has_provisioning_manage %}<button type="button" class="pilots-btn" onclick="pilotsMarkReturned({{ cam.provisioning_id }})">Mark returned</button>{% endif %}
           {% endif %}
         </div>
         {% endfor %}

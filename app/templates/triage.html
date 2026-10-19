@@ -190,7 +190,7 @@
 </div>
 {% endif %}
 
-<div id="trg-qv-panel" class="trg-qv-panel" aria-hidden="true">
+<div id="trg-qv-panel" class="trg-qv-panel" aria-hidden="true" inert>
   <div class="trg-qv-body" id="trg-qv-body">
     <div class="trg-qv-loading">Loading…</div>
   </div>
@@ -477,6 +477,7 @@ function trgQvOpen(itemId, fieldName) {
   body.innerHTML = '<div class="trg-qv-loading">Loading…</div>';
   panel.classList.add('trg-qv-panel--open');
   panel.setAttribute('aria-hidden', 'false');
+  panel.removeAttribute('inert');
   fetch(BP + '/triage/fix/' + itemId + '/' + fieldName)
     .then(function(r) { return r.text(); })
     .then(function(html) { body.innerHTML = html; })
@@ -487,6 +488,7 @@ function trgQvClose() {
   var panel = document.getElementById('trg-qv-panel');
   panel.classList.remove('trg-qv-panel--open');
   panel.setAttribute('aria-hidden', 'true');
+  panel.setAttribute('inert', '');
   trgQvCurrentItemId = null;
   trgQvCurrentField = null;
 }

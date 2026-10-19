@@ -527,8 +527,10 @@
       showDrawerError('Username, display name, and password are required.');
       return;
     }
-    if (password.length < 12 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      showDrawerError('Password must be ≥12 characters and include upper, lower, and digit.');
+    // Length is the only rule worth checking here; the server applies the
+    // full policy (breach list, context words, patterns) and says what failed.
+    if (password.length < 15) {
+      showDrawerError('Password must be at least 15 characters.');
       return;
     }
 

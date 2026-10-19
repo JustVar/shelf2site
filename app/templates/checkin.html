@@ -39,7 +39,7 @@
 
   <div class="itk-actions">
     <a href="{{ base_path }}/dashboard" class="fl-obtn">Cancel</a>
-    <button type="submit" class="fl-cta">Check In</button>
+    {% if user.is_editor_or_above %}<button type="submit" class="fl-cta">Check In</button>{% else %}<span class="itk-hint" style="color:var(--text-muted);font-size:0.85rem;">Checking items in and out needs editor access.</span>{% endif %}
   </div>
 </form>
 {% endif %}

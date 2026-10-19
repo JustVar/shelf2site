@@ -181,7 +181,7 @@
 
 <!-- Quick View Overlay -->
 <div class="qv-overlay" id="qv-overlay" onclick="closeQuickView()"></div>
-<div class="qv-panel" id="qv-panel">
+<div class="qv-panel" id="qv-panel" inert>
   <div class="qv-header">
     <span class="qv-title" id="qv-title">Item Details</span>
     <button class="qv-close" onclick="closeQuickView()">✕</button>
@@ -215,6 +215,7 @@ function openQuickView(id) {
   var overlay = document.getElementById('qv-overlay');
   overlay.classList.add('qv-overlay--visible');
   panel.style.transform = 'translateX(0)';
+  panel.removeAttribute('inert');
   document.getElementById('qv-content').innerHTML = '<div class="qv-loading">Loading...</div>';
   fetch(BP + '/inventory/quick-view/' + id)
     .then(function(r) { return r.text(); })
@@ -224,6 +225,7 @@ function openQuickView(id) {
 function closeQuickView() {
   document.getElementById('qv-overlay').classList.remove('qv-overlay--visible');
   document.getElementById('qv-panel').style.transform = 'translateX(100%)';
+  document.getElementById('qv-panel').setAttribute('inert', '');
 }
 
 function openQvEdit() {

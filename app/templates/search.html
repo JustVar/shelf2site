@@ -9,18 +9,18 @@
 <div class="page-header fl-lift">
 <h1>Global Search</h1>
 <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
-    Search across all 16 device categories simultaneously.
+    Search every item at once, in every category.
 </p>
 </div>
 
 <!-- Search Input -->
 <div class="search-bar-container fl-lift" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; align-items: center; gap: 0.5rem; max-width: 600px;">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; max-width: 600px;">
         <input type="search"
                id="global-search-input"
                placeholder="Search by name, serial, MAC, IP, vendor, location, notes..."
                autofocus
-               style="flex: 1; padding: 0.7rem 1rem; font-size: 1rem;">
+               style="flex: 1 1 240px; min-width: 0; padding: 0.7rem 1rem; font-size: 1rem;">
         <button type="button" id="search-clear-btn" class="fl-btn" style="display:none;">
             Clear
         </button>
@@ -81,6 +81,15 @@
         _searchCount.style.display = 'none';
         _clearBtn.style.display = 'none';
     });
+
+    // A link or the keyboard shortcut can land here with ?q=; run that search.
+    (function () {
+        const initial = (new URLSearchParams(window.location.search).get('q') || '').trim();
+        if (initial) {
+            _searchInput.value = initial;
+            _searchInput.dispatchEvent(new Event('input'));
+        }
+    })();
 
     document.getElementById('search-include-dec').addEventListener('change', function() {
         const q2 = _searchInput.value.trim();

@@ -21,7 +21,7 @@
       <h1>C2C Camera Certification</h1>
       <p>Assign cloud cameras from stock for an order, then certify each one.</p>
     </div>
-    <button type="button" class="fl-cta" onclick="openC2cAcquire(null, null)">+ Assign Camera</button>
+    {% if user.has_provisioning_manage %}<button type="button" class="fl-cta" onclick="openC2cAcquire(null, null)">+ Assign Camera</button>{% endif %}
   </div>
 
   {# ── metric cards ── #}
@@ -67,7 +67,7 @@
       {% if o.order_complete %}<span class="fl-badge ok">Complete</span>{% endif %}
       {% if o.shortfall %}<span class="fl-badge urg">{{ o.shortfall }} Short</span>{% endif %}
       {% if o.over_acquired %}<span class="fl-badge warn">{{ o.over_acquired }} Over-Assigned</span>{% endif %}
-      {% if o.shortfall %}<button type="button" class="fl-btn" onclick="openC2cAcquire({{ o.order_id }}, {{ (o.order_number or '')|tojson|forceescape }})">Assign</button>{% endif %}
+      {% if o.shortfall and user.has_provisioning_manage %}<button type="button" class="fl-btn" onclick="openC2cAcquire({{ o.order_id }}, {{ (o.order_number or '')|tojson|forceescape }})">Assign</button>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -90,7 +90,7 @@
         <div class="c2c-cam__meta">{{ cam.order_number or 'No Order' }}{% if cam.customer_name %} &middot; {{ cam.customer_name }}{% endif %}</div>
         <div class="fl-ofoot">
           <a class="c2c-cam__history" href="{{ base_path }}/fulfillment/c2c/history/{{ cam.item_id }}">View History &rarr;</a>
-          <button type="button" class="fl-obtn ready" onclick="openC2cCertify({{ cam.provisioning_id|string|tojson|forceescape }})">{% if cam.cert_status == 'cancelled' %}Re-Certify{% else %}Certify{% endif %}</button>
+          {% if user.has_provisioning_manage %}<button type="button" class="fl-obtn ready" onclick="openC2cCertify({{ cam.provisioning_id|string|tojson|forceescape }})">{% if cam.cert_status == 'cancelled' %}Re-Certify{% else %}Certify{% endif %}</button>{% else %}<button type="button" class="fl-obtn" onclick="openC2cCertify({{ cam.provisioning_id|string|tojson|forceescape }})">View</button>{% endif %}
         </div>
       </div>
       {% else %}
@@ -197,6 +197,8 @@
 <script>
 var C2C_CERT = {{ cam_cert_map | tojson }};
 var C2C_ITEMS = ["powered_on", "firmware_verified", "qr_site_connected", "registered"];
+// Viewers can open a camera's certification read-only; the server refuses their writes too.
+var C2C_CAN_MANAGE = {{ 'true' if user.has_provisioning_manage else 'false' }};
 var c2cCurrentProv = null;
 
 function c2cSetChecklist(cl) {
@@ -311,7 +313,7 @@ function c2cRenderCertFiles(data) {
     a.textContent = (f.kind === "composite" ? "[composite] " : "") + f.original_name;
     a.style.color = "var(--fl-green, #22c55e)";
     li.appendChild(a);
-    if (f.deletable) {
+    if (f.deletable && C2C_CAN_MANAGE) {
       var del = document.createElement("button");
       del.type = "button"; del.textContent = "Remove"; del.style.marginLeft = "auto";
       del.className = "c2c-modal__btn c2c-modal__btn--sec";
@@ -357,12 +359,12 @@ function c2cDeleteCertFile(fileId) {
 
 function c2cApplyCertState(data) {
   var status = (data && data.cert_status) || null;
-  var isPending = (status === "pending" || status === null);
+  var isPending = (status === "pending" || status === null) && C2C_CAN_MANAGE;
   var isCertified = (status === "certified");
   var isCancelled = (status === "cancelled");
   document.getElementById("c2c-save-btn").style.display = isPending ? "" : "none";
-  document.getElementById("c2c-cancelcert-btn").style.display = isCertified ? "" : "none";
-  document.getElementById("c2c-recert-btn").style.display = isCancelled ? "" : "none";
+  document.getElementById("c2c-cancelcert-btn").style.display = (isCertified && C2C_CAN_MANAGE) ? "" : "none";
+  document.getElementById("c2c-recert-btn").style.display = (isCancelled && C2C_CAN_MANAGE) ? "" : "none";
   var up = document.getElementById("c2c-file-upload-row");
   if (up) { up.style.display = isPending ? "flex" : "none"; }
   for (var i = 0; i < C2C_ITEMS.length; i++) {
@@ -419,7 +421,7 @@ function c2cRecertify() {
 
 {# ── acquire camera panel (slide-out) ── #}
 <div class="c2c-panel-overlay" id="c2c-acq-overlay" onclick="closeC2cAcquire()"></div>
-<aside class="c2c-panel" id="c2c-acq-panel" role="dialog" aria-modal="true" aria-label="Assign camera">
+<aside class="c2c-panel" id="c2c-acq-panel" role="dialog" aria-modal="true" aria-label="Assign camera" inert>
   <div class="c2c-panel__head">
     <div>
       <div class="c2c-panel__title">Assign camera</div>
@@ -525,11 +527,13 @@ function openC2cAcquire(orderId, orderNumber) {
   }
   document.getElementById("c2c-acq-overlay").style.display = "block";
   document.getElementById("c2c-acq-panel").classList.add("is-open");
+  document.getElementById("c2c-acq-panel").removeAttribute("inert");
 }
 
 function closeC2cAcquire() {
   document.getElementById("c2c-acq-overlay").style.display = "none";
   document.getElementById("c2c-acq-panel").classList.remove("is-open");
+  document.getElementById("c2c-acq-panel").setAttribute("inert", "");
   c2cAcqLockedOrder = null;  // clear locked order so a later dropdown open is never stranded on it
 }
 
