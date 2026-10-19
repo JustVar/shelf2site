@@ -1,6 +1,7 @@
 """FastAPI application for Shelf2Site."""
 
 import asyncio
+import json
 import concurrent.futures
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from sqlalchemy.exc import DataError
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
@@ -122,7 +124,7 @@ def _asset_version(rel):
         cached = _asset_hash_cache.get(rel)
         if cached is None or cached[0] != mtime:
             import hashlib
-            digest = hashlib.sha1(p.read_bytes()).hexdigest()[:10]
+            digest = hashlib.sha1(p.read_bytes(), usedforsecurity=False).hexdigest()[:10]
             _asset_hash_cache[rel] = (mtime, digest)
             return digest
         return cached[1]
@@ -163,6 +165,61 @@ async def error_logging_middleware(request: Request, call_next):
         except Exception:
             pass  # Never let error logging break the request
         raise
+
+
+# Request hygiene: refuse cross-site writes and NUL bytes before any route runs.
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _cross_site_write(request: Request) -> bool:
+    """True when a browser says this write came from another site.
+
+    The session cookie is SameSite=Lax, which already keeps it off most
+    cross-site writes; this is the second wall. Sec-Fetch-Site is sent by
+    current browsers; Origin covers the rest. A request with neither (curl,
+    the test client, server-to-server) is not a browser forgery and passes.
+    """
+    if request.method not in _UNSAFE_METHODS:
+        return False
+    if request.headers.get("sec-fetch-site") in ("cross-site", "same-site"):
+        return True
+    origin = request.headers.get("origin")
+    if origin is None:
+        return False
+    if origin == "null":
+        return True
+    allowed = {request.headers.get("host", "")}
+    fwd_host = request.headers.get("x-forwarded-host")
+    if fwd_host:
+        allowed.add(fwd_host.split(",")[0].strip())
+    base = urlsplit(settings.APP_BASE_URL or "").netloc
+    if base:
+        allowed.add(base)
+    return urlsplit(origin).netloc not in allowed
+
+
+@app.middleware("http")
+async def request_hygiene_middleware(request: Request, call_next):
+    if "\x00" in request.url.path or "%00" in request.url.query.lower() or "\x00" in request.url.query:
+        return JSONResponse(status_code=400, content={"detail": "Invalid character in the address"})
+    if _cross_site_write(request):
+        _app_logger.warning("Refused a cross-site %s to %s from %s", request.method, request.url.path,
+                            request.headers.get("origin") or request.headers.get("sec-fetch-site"))
+        return JSONResponse(status_code=403, content={"detail": "Cross-site request refused"})
+    # Every JSON write route takes an object. Refuse anything else here, once,
+    # instead of each route failing on body.get() with a server error.
+    if (request.method in _UNSAFE_METHODS
+            and request.headers.get("content-type", "").split(";")[0].strip() == "application/json"):
+        raw = await request.body()
+        if raw.strip():
+            try:
+                parsed = json.loads(raw)
+            except ValueError:
+                parsed = None
+            if not isinstance(parsed, dict):
+                message = "The request body must be a JSON object"
+                return JSONResponse(status_code=400, content={"detail": message, "error": message})
+    return await call_next(request)
 
 
 # Security headers middleware — outermost layer, runs on every response
@@ -530,6 +587,31 @@ async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPE
     """Unknown paths and wrong methods are raised by the router as Starlette's
     HTTPException, which the handler above does not see."""
     return await _not_found_or_default(request, exc)
+
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    """psycopg2 raises ValueError for a NUL byte in a string it is about to
+    send. That is bad input, not a server fault. Any other ValueError is a
+    real bug: re-raised, so the error log middleware records it as a 500."""
+    if isinstance(exc, json.JSONDecodeError):
+        message = "The request body must be JSON"
+        return JSONResponse(status_code=400, content={"detail": message, "error": message})
+    if "NUL (0x00)" in str(exc):
+        return JSONResponse(status_code=400, content={"detail": "Invalid character in the input",
+                                                      "error": "Invalid character in the input"})
+    raise exc
+
+
+@app.exception_handler(DataError)
+async def data_error_handler(request: Request, exc: DataError):
+    """A value the database refuses for its column (too long, out of range, not
+    a valid date or number) is the caller's mistake, so answer 400 instead of
+    a server error. The request's session is rolled back when it closes."""
+    _app_logger.warning("Refused a value the database rejected on %s %s: %s",
+                        request.method, request.url.path, str(exc.orig).splitlines()[0] if exc.orig else exc)
+    message = "A value is too long or not valid for its field."
+    return JSONResponse(status_code=400, content={"detail": message, "error": message})
 
 
 # Routes

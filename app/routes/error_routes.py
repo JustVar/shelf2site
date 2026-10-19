@@ -34,7 +34,7 @@ register(templates.env)
 def _fingerprint(message: str, url: str = "", source: str = "frontend") -> str:
     """Generate a short hash to group identical errors."""
     raw = f"{source}:{message}:{url}"
-    return hashlib.md5(raw.encode()).hexdigest()[:12]
+    return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:12]
 
 
 def log_error(
@@ -119,6 +119,7 @@ def list_errors(
 ):
     """Return paginated error log entries, newest first."""
     per_page = 50
+    page = max(page, 1)
     offset = (page - 1) * per_page
 
     db = SessionLocal()

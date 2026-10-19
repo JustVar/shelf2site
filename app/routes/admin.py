@@ -1683,7 +1683,8 @@ def audit_log_page(
     if event_type:
         query = query.filter(AuditLog.event_type == event_type)
     if user_filter:
-        query = query.filter(AuditLog.user_id == int(user_filter))
+        # A hand-edited URL can carry anything; an unknown filter matches nothing.
+        query = query.filter(AuditLog.user_id == int(user_filter)) if user_filter.isdigit() else query.filter(False)
 
     total_entries = query.count()
     entries = query.limit(500).all()
