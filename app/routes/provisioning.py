@@ -29,6 +29,7 @@ from ..models import (
     Item, Site,
 )
 from ..notifications import notify
+from ..sensitive import hidden_order_ids, provisioning_hidden, visible_order, without_hidden_provisioning
 from ..sku_conversion import convert_legacy_sku, is_legacy_sku
 from ..zendesk import get_zendesk_client
 
@@ -64,7 +65,7 @@ def provisioning_page(
     """Render the provisioning queue page (legacy — accessible directly)."""
     # Active (incomplete) provisioning records
     active_records = (
-        db.query(DeviceProvisioning)
+        without_hidden_provisioning(db.query(DeviceProvisioning), db, user)
         .filter(DeviceProvisioning.is_complete.is_(False))
         .order_by(DeviceProvisioning.created_at.desc())
         .all()
@@ -73,7 +74,7 @@ def provisioning_page(
     # Completed in last 30 days
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
     completed_records = (
-        db.query(DeviceProvisioning)
+        without_hidden_provisioning(db.query(DeviceProvisioning), db, user)
         .filter(
             DeviceProvisioning.is_complete.is_(True),
             DeviceProvisioning.completed_at >= thirty_days_ago,
@@ -196,12 +197,13 @@ def provisioning_page(
     # cancelled joins the terminal set: a cancelled order is ended and must
     # not offer itself as provisionable (docs/specs/customer-order-cancel.md).
     _terminal = ("shipped", "delivered", "installed", "cancelled")
-    open_orders = (
+    hidden = hidden_order_ids(db, user)
+    open_orders = [o for o in (
         db.query(CustomerOrder)
         .filter(~CustomerOrder.status.in_(_terminal))
         .order_by(CustomerOrder.created_at.desc())
         .all()
-    )
+    ) if o.id not in hidden]
 
     return templates.TemplateResponse(request, "provisioning.html", {
         "request": request,
@@ -238,7 +240,7 @@ def provisioning_detail_page(
     from sqlalchemy import desc
 
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec:
+    if not rec or provisioning_hidden(db, user, rec):
         return RedirectResponse(url=f"{BP}/provisioning/", status_code=302)
 
     # Resolve device info
@@ -343,7 +345,7 @@ def get_provisioning_by_bucket(
 ):
     """Return active provisioning items grouped by deployment_bucket."""
     active_records = (
-        db.query(DeviceProvisioning)
+        without_hidden_provisioning(db.query(DeviceProvisioning), db, user)
         .filter(DeviceProvisioning.is_complete.is_(False))
         .order_by(DeviceProvisioning.created_at.desc())
         .all()
@@ -426,10 +428,10 @@ async def create_provisioning(
     # Customer order linkage
     customer_order_id = body.get("customer_order_id") or None
     if customer_order_id:
-        customer_order_id = int(customer_order_id)
-        order = db.query(CustomerOrder).filter(CustomerOrder.id == customer_order_id).first()
+        order = visible_order(db, user, customer_order_id)
         if not order:
             return JSONResponse(status_code=404, content={"error": "Customer order not found"})
+        customer_order_id = order.id
         if not order.po_number:
             return JSONResponse(status_code=400, content={"error": f"Order {order.order_number} has no Customer PO - add one before assigning devices"})
 
@@ -709,7 +711,7 @@ async def advance_provisioning(
 ):
     """Complete the current stage and advance to the next."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec:
+    if not rec or provisioning_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
 
     if rec.is_complete:
@@ -865,7 +867,7 @@ async def revert_provisioning(
 ):
     """Revert the last completed stage."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec:
+    if not rec or provisioning_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
 
     stages = copy.deepcopy(rec.stages)
@@ -930,7 +932,7 @@ async def update_provisioning(
 ):
     """Update provisioning record metadata (site, assignee, priority, notes)."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec:
+    if not rec or provisioning_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
 
     body = await request.json()
@@ -939,6 +941,8 @@ async def update_provisioning(
     if "site_id" in body:
         site_id = body["site_id"]
         if site_id:
+            if not str(site_id).isdigit():
+                return JSONResponse(status_code=400, content={"error": "site_id must be a number"})
             site = db.query(Site).filter(Site.id == int(site_id)).first()
             if not site:
                 return JSONResponse(status_code=404, content={"error": "Site not found"})
@@ -1023,7 +1027,7 @@ def delete_provisioning(
 ):
     """Delete a provisioning record."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec:
+    if not rec or provisioning_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
 
     log_event(
@@ -1053,7 +1057,7 @@ async def upload_validation_report(
 ):
     """Upload a validation tool JSON report for this provisioning record."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec:
+    if not rec or provisioning_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
 
     # Validate file type (JSON only)
@@ -1125,7 +1129,7 @@ def download_validation_report(
 ):
     """Download the validation report for a provisioning record."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec or not rec.validation_report_path:
+    if not rec or not rec.validation_report_path or provisioning_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"error": "Validation report not found"})
 
     file_path = Path(rec.validation_report_path)
@@ -1144,7 +1148,7 @@ def delete_validation_report(
 ):
     """Remove the validation report from a provisioning record."""
     rec = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not rec:
+    if not rec or provisioning_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
 
     if rec.validation_report_path:
@@ -1235,7 +1239,7 @@ def export_provisioning(
 ):
     """Export all provisioning records to CSV or Excel."""
     records = (
-        db.query(DeviceProvisioning)
+        without_hidden_provisioning(db.query(DeviceProvisioning), db, user)
         .order_by(DeviceProvisioning.created_at.desc())
         .all()
     )
@@ -1340,14 +1344,17 @@ async def bulk_assign_order(
     # Validate order if linking
     order = None
     if order_id is not None:
-        order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+        order = visible_order(db, user, order_id)
         if not order:
             return JSONResponse(status_code=404, content={"error": "Order not found"})
+        order_id = order.id
         if not order.po_number:
             return JSONResponse(status_code=400, content={"error": f"Order {order.order_number} has no Customer PO - add one before assigning devices"})
 
+    if not isinstance(prov_ids, list) or not all(isinstance(i, int) for i in prov_ids):
+        return JSONResponse(status_code=400, content={"error": "prov_ids must be a list of ids"})
     records = (
-        db.query(DeviceProvisioning)
+        without_hidden_provisioning(db.query(DeviceProvisioning), db, user)
         .filter(DeviceProvisioning.id.in_(prov_ids))
         .all()
     )

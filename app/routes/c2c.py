@@ -35,6 +35,8 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
+from ..upload_paths import serial_dir as upload_serial_dir
+from ..sensitive import hidden_order_ids, provisioning_hidden, visible_order
 from ..localtime import fmt_local, local_today, register
 from ..database import get_db
 from ..delete_requests import LOCK_MESSAGE, locked_ids
@@ -221,6 +223,27 @@ def _c2c_board_data(db: Session) -> dict:
     }
 
 
+def _without_hidden_orders(ctx: dict, hidden: set) -> dict:
+    """The board minus sensitive orders the viewer may not see
+    (app/sensitive.py). Totals are recomputed from what is left."""
+    if not hidden:
+        return ctx
+    keep = lambda rows: [r for r in rows if r.get("order_id") not in hidden]  # noqa: E731
+    ctx["pending_cams"] = keep(ctx["pending_cams"])
+    ctx["certified_cams"] = keep(ctx["certified_cams"])
+    ctx["orders"] = keep(ctx["orders"])
+    ctx["acquirable_orders"] = keep(ctx["acquirable_orders"])
+    shown = {str(c["provisioning_id"]) for c in ctx["pending_cams"] + ctx["certified_cams"]}
+    ctx["cam_cert_map"] = {k: v for k, v in ctx["cam_cert_map"].items() if k in shown}
+    ctx["metrics"].update({
+        "needed": sum(o["needed"] for o in ctx["orders"]),
+        "acquired": len(ctx["pending_cams"]) + len(ctx["certified_cams"]),
+        "certified": len(ctx["certified_cams"]),
+        "pending": len(ctx["pending_cams"]),
+    })
+    return ctx
+
+
 _LOAN_TYPES = ("pilot", "try_and_buy", "demo")
 
 
@@ -316,6 +339,10 @@ def pilots_due_back_page(
 ):
     """Loaner units still out, grouped by order (read-only)."""
     ctx = _pilots_due_back(db)
+    hidden = hidden_order_ids(db, user)
+    if hidden:
+        ctx["orders"] = [o for o in ctx["orders"] if o["order_id"] not in hidden]
+        ctx["total_due_back"] = len(ctx["orders"])
     ctx["request"] = request
     ctx["user"] = user
     ctx["order_types"] = CustomerOrder.ORDER_TYPES
@@ -329,7 +356,7 @@ def c2c_page(
     user: User = Depends(require_provisioning_viewer),
 ):
     """C2C camera fulfillment/cert overview (read-only)."""
-    ctx = _c2c_board_data(db)
+    ctx = _without_hidden_orders(_c2c_board_data(db), hidden_order_ids(db, user))
     ctx["request"] = request
     ctx["user"] = user
     ctx["order_types"] = CustomerOrder.ORDER_TYPES
@@ -400,7 +427,7 @@ async def c2c_acquire(
     # Order is required — C2C acquisition provisions cams *to an order*.
     if not customer_order_id:
         return JSONResponse(status_code=400, content={"error": "customer_order_id is required"})
-    order = db.query(CustomerOrder).filter(CustomerOrder.id == int(customer_order_id)).first()
+    order = visible_order(db, user, customer_order_id)
     if not order:
         return JSONResponse(status_code=404, content={"error": "Customer order not found"})
     # PO required only for SALE orders (Migration 058: order_type is the classification
@@ -529,7 +556,7 @@ async def c2c_certify(
 ):
     """Submit the C2C checklist + firmware evidence for an acquired cam; gate to certified."""
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
     # Must be an option-D C2C cam (linked to item_schema.items via item_id).
     if prov.item_id is None:
@@ -623,7 +650,7 @@ async def c2c_mark_returned(
     returned_date (default today, editable via body). Unit stays linked;
     is_complete is NOT touched."""
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
     if prov.item_id is None:
         # Legacy edge-box rows have no returned_date semantics — their pipeline
@@ -662,7 +689,7 @@ async def c2c_mark_all_returned(
 ):
     """Mark all STILL-OUT loaner units of one order returned (today). Already-returned
     units keep their date. is_complete is NOT touched."""
-    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    order = visible_order(db, user, order_id)
     if not order:
         return JSONResponse(status_code=404, content={"error": "Customer order not found"})
     if order.order_type not in _LOAN_TYPES:
@@ -717,9 +744,18 @@ def _get_or_create_pending_c2c_draft(db, provisioning_id, created_by):
     return cert, created
 
 
+def _file_hidden(db, user, rec) -> bool:
+    """True when the file's certification belongs to an order hidden from the user."""
+    cert = db.query(C2CCertification).filter(C2CCertification.id == rec.c2c_certification_id).first()
+    if cert is None:
+        return False
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == cert.device_provisioning_id).first()
+    return provisioning_hidden(db, user, prov)
+
+
 def _c2c_file_path(rec):
     """On-disk path for a cert-file row from its camera_serial + stored_name."""
-    return Path(settings.C2C_CERT_UPLOAD_DIR) / (rec.camera_serial or "unknown") / rec.stored_name
+    return upload_serial_dir(settings.C2C_CERT_UPLOAD_DIR, rec.camera_serial) / rec.stored_name
 
 
 @router.get("/fulfillment/c2c/{provisioning_id}/cert-files")
@@ -730,6 +766,9 @@ def c2c_cert_files(
 ):
     """Files (source + composite) on the LATEST cert event of a provisioning row. 'deletable'
     marks source files on a still-pending (mutable) draft."""
+    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
+    if prov is not None and provisioning_hidden(db, user, prov):
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     latest = (
         db.query(C2CCertification)
         .filter(C2CCertification.device_provisioning_id == provisioning_id)
@@ -765,7 +804,7 @@ async def c2c_upload_cert_file(
 ):
     """Upload a source file (PDF/PNG/JPG) onto the current PENDING cert draft. Bytes on disk."""
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     if prov.item_id is None:
         return JSONResponse(status_code=400, content={"detail": "Not a C2C camera provisioning (no item_id link)"})
@@ -789,7 +828,7 @@ async def c2c_upload_cert_file(
     db.flush()  # assign cert.id for the child FK
 
     serial = cert.camera_serial_snapshot or item.item_sn or "unknown"
-    serial_dir = Path(settings.C2C_CERT_UPLOAD_DIR) / serial
+    serial_dir = upload_serial_dir(settings.C2C_CERT_UPLOAD_DIR, serial)
     serial_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}{_C2C_FILE_TYPES[ctype]}"
     with open(serial_dir / stored_name, "wb") as fh:
@@ -818,7 +857,7 @@ def c2c_serve_cert_file(
 ):
     """Stream a cert file (source or composite) from disk."""
     rec = db.query(C2CCertificationFile).filter(C2CCertificationFile.id == file_id).first()
-    if not rec:
+    if not rec or _file_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"detail": "File not found"})
     path = _c2c_file_path(rec)
     if not path.exists():
@@ -840,7 +879,7 @@ def c2c_delete_cert_file(
     """Delete a SOURCE file on a still-pending (mutable) draft. Composite files, and any file on
     a frozen certified/cancelled event, cannot be deleted (append-only)."""
     rec = db.query(C2CCertificationFile).filter(C2CCertificationFile.id == file_id).first()
-    if not rec:
+    if not rec or _file_hidden(db, user, rec):
         return JSONResponse(status_code=404, content={"detail": "File not found"})
     parent = db.query(C2CCertification).filter(C2CCertification.id == rec.c2c_certification_id).first()
     if rec.kind != "source" or (parent is not None and parent.status != "pending"):
@@ -925,7 +964,7 @@ def _build_c2c_composite_pdf(db, cert, item, prov):
         .all()
     )
     for f in files:
-        fpath = Path(settings.C2C_CERT_UPLOAD_DIR) / (f.camera_serial or "unknown") / f.stored_name
+        fpath = upload_serial_dir(settings.C2C_CERT_UPLOAD_DIR, f.camera_serial) / f.stored_name
         try:
             ctype = (f.content_type or "").lower()
             if "pdf" in ctype and fpath.exists():
@@ -966,7 +1005,7 @@ def _generate_c2c_composite(db, cert, item, prov):
         db.delete(old)
     pdf_bytes = _build_c2c_composite_pdf(db, cert, item, prov)
     serial = cert.camera_serial_snapshot or (item.item_sn if item else None) or "unknown"
-    serial_dir = Path(settings.C2C_CERT_UPLOAD_DIR) / serial
+    serial_dir = upload_serial_dir(settings.C2C_CERT_UPLOAD_DIR, serial)
     serial_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}.pdf"
     with open(serial_dir / stored_name, "wb") as fh:
@@ -999,7 +1038,7 @@ def _copy_forward_c2c_sources(db, new_cert, prior_cert):
         .all()
     )
     serial = new_cert.camera_serial_snapshot or prior_cert.camera_serial_snapshot or "unknown"
-    serial_dir = Path(settings.C2C_CERT_UPLOAD_DIR) / serial
+    serial_dir = upload_serial_dir(settings.C2C_CERT_UPLOAD_DIR, serial)
     for f in sources:
         src_path = _c2c_file_path(f)
         if not src_path.exists():
@@ -1024,6 +1063,9 @@ async def c2c_cancel_cert(
 ):
     """Cancel a CERTIFIED cam: append a new 'cancelled' event (reason + who + when). The prior
     certified event + its files/composite are frozen and untouched."""
+    _prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
+    if _prov is None or provisioning_hidden(db, user, _prov):
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     latest = (
         db.query(C2CCertification)
         .filter(C2CCertification.device_provisioning_id == provisioning_id)
@@ -1065,6 +1107,9 @@ async def c2c_recertify(
 ):
     """Start a re-certification after a cancel: append a fresh PENDING draft inheriting the prior
     certified event's checklist/evidence + source files (removable/replaceable before certify)."""
+    _prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == provisioning_id).first()
+    if _prov is None or provisioning_hidden(db, user, _prov):
+        return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     latest = (
         db.query(C2CCertification)
         .filter(C2CCertification.device_provisioning_id == provisioning_id)
@@ -1122,8 +1167,11 @@ def c2c_history(
         for o in db.query(CustomerOrder).filter(CustomerOrder.id.in_(order_ids)).all():
             order_map[o.id] = o
     prov_ctx = {}
+    hidden = hidden_order_ids(db, user)
     for p in provs:
         o = order_map.get(p.customer_order_id)
+        if o is not None and o.id in hidden:
+            o = None  # a sensitive customer's order: shown without its number or name
         prov_ctx[p.id] = {
             "order_number": (o.order_number if o else None),
             "customer_name": (o.customer_name if o else None),

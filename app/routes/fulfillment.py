@@ -25,6 +25,8 @@ from sqlalchemy.orm import Session
 from ..audit import log_event
 from ..auth import require_provisioning_manager, require_provisioning_viewer
 from ..config import settings
+from ..upload_paths import serial_dir as upload_serial_dir
+from ..sensitive import provisioning_hidden, visible_order
 from ..localtime import fmt_local, local_today, register
 from ..database import get_db
 from ..models import (
@@ -356,9 +358,7 @@ async def create_deployment(
     user: User = Depends(require_provisioning_manager),
 ):
     """Create a new deployment record linked to a customer order."""
-    order = db.query(CustomerOrder).filter(
-        CustomerOrder.id == payload.customer_order_id
-    ).first()
+    order = visible_order(db, user, payload.customer_order_id)
     if not order:
         return JSONResponse(status_code=404, content={"detail": "Customer order not found"})
 
@@ -417,11 +417,11 @@ async def update_deployment_status(
 ):
     """Move a deployment record to a new status."""
     dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
-    if not dr:
+    if not dr or visible_order(db, user, dr.customer_order_id) is None:
         return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
 
     body = await request.json()
-    new_status = (body.get("status") or "").strip()
+    new_status = str(body.get("status") or "").strip()
     valid = [s for s in DeploymentRecord.DEPLOYMENT_STATUSES if s != "cancelled"]
     if new_status not in valid:
         return JSONResponse(status_code=400, content={"detail": f"Invalid status: {new_status}"})
@@ -480,7 +480,7 @@ async def assign_units_to_deployment(
     docs/specs/link-units-to-deployments.md.
     """
     dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
-    if not dr:
+    if not dr or visible_order(db, user, dr.customer_order_id) is None:
         return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
 
     ids = list(dict.fromkeys(payload.provisioning_ids or []))
@@ -605,7 +605,7 @@ def list_deployment_units(
     three lists. They are not assignable and they are not on this visit.
     """
     dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
-    if not dr:
+    if not dr or visible_order(db, user, dr.customer_order_id) is None:
         return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
 
     rows = (
@@ -748,7 +748,7 @@ async def assign_technician(
 ):
     """Assign or change the technician on a provisioning record."""
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
 
     body = await request.json()
@@ -809,6 +809,7 @@ def certifications_index(
         .join(Item, DeviceProvisioning.item_id == Item.id)
         .join(CustomerOrder, DeviceProvisioning.customer_order_id == CustomerOrder.id)
         .filter(Item.item_category == "edge_box")
+        .filter(True if user.has_sensitive_customers_access else CustomerOrder.is_sensitive.is_(False))
         .all()
     )
 
@@ -1038,7 +1039,7 @@ async def submit_cert_qa(
     cert_status once both halves are complete (S6c).
     """
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     eb = _cert_edge_box(db, prov)
     if eb is None:
@@ -1108,7 +1109,7 @@ def certification_detail(
     history is shown by oem_serial (display lens, append-only trail).
     """
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    eb = _cert_edge_box(db, prov)
+    eb = None if provisioning_hidden(db, user, prov) else _cert_edge_box(db, prov)
     if eb is None:
         return RedirectResponse(url=f"{BP}/fulfillment/certifications", status_code=302)
 
@@ -1235,7 +1236,7 @@ async def submit_cert_hw(
     the all-pass gate computes terminal cert_status.
     """
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     eb = _cert_edge_box(db, prov)
     if eb is None:
@@ -1294,7 +1295,7 @@ async def upload_cert_file(
     with a uuid name; dual type-check (content-type + extension); 5 MB cap.
     """
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     eb = _cert_edge_box(db, prov)
     if eb is None:
@@ -1329,7 +1330,7 @@ async def upload_cert_file(
 
     # save under CERT_UPLOAD_DIR/<serial>/<uuid><ext>
     safe_ext = _CERT_FILE_TYPES[ctype]  # canonical ext from content-type
-    serial_dir = Path(settings.CERT_UPLOAD_DIR) / (eb.serial or "unknown")
+    serial_dir = upload_serial_dir(settings.CERT_UPLOAD_DIR, eb.serial)
     serial_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}{safe_ext}"
     stored_path = serial_dir / stored_name
@@ -1361,9 +1362,11 @@ def download_cert_file(
 ):
     """Serve a cert report file by id (viewer-gated)."""
     rec = db.query(BuildCertificationFile).filter(BuildCertificationFile.id == file_id).first()
-    if not rec:
+    parent = rec and db.query(BuildCertification).filter(BuildCertification.id == rec.build_certification_id).first()
+    owner = parent and db.query(DeviceProvisioning).filter(DeviceProvisioning.id == parent.device_provisioning_id).first()
+    if not rec or provisioning_hidden(db, user, owner):
         return JSONResponse(status_code=404, content={"detail": "File not found"})
-    path = Path(settings.CERT_UPLOAD_DIR) / (rec.oem_serial or "unknown") / rec.stored_name
+    path = upload_serial_dir(settings.CERT_UPLOAD_DIR, rec.oem_serial) / rec.stored_name
     if not path.exists():
         return JSONResponse(status_code=404, content={"detail": "File missing on disk"})
     return FileResponse(
@@ -1401,7 +1404,7 @@ async def certify_installation(
     complete. PDF only, 20 MB cap. Nothing commits unless all steps succeed.
     """
     dr = db.query(DeploymentRecord).filter(DeploymentRecord.id == dep_id).first()
-    if not dr:
+    if not dr or visible_order(db, user, dr.customer_order_id) is None:
         return JSONResponse(status_code=404, content={"detail": "Deployment not found"})
 
     existing = (
@@ -1484,7 +1487,8 @@ def serve_install_pdf(
     rec = db.query(InstallationCertification).filter(
         InstallationCertification.id == cert_id
     ).first()
-    if not rec or not rec.pdf_stored_name:
+    dep = rec and db.query(DeploymentRecord).filter(DeploymentRecord.id == rec.deployment_record_id).first()
+    if not rec or not rec.pdf_stored_name or not dep or visible_order(db, user, dep.customer_order_id) is None:
         return JSONResponse(status_code=404, content={"detail": "PDF not found"})
     path = Path(settings.INSTALL_CERT_UPLOAD_DIR) / str(rec.deployment_record_id) / rec.pdf_stored_name
     if not path.exists():
@@ -1599,7 +1603,7 @@ def _build_cert_report_pdf(db, cert, eb):
         .all()
     )
     for f in files:
-        fpath = Path(settings.CERT_UPLOAD_DIR) / (f.oem_serial or "unknown") / f.stored_name
+        fpath = upload_serial_dir(settings.CERT_UPLOAD_DIR, f.oem_serial) / f.stored_name
         try:
             ctype = (f.content_type or "").lower()
             if "pdf" in ctype and fpath.exists():
@@ -1632,7 +1636,7 @@ def _generate_build_composite(db, cert, eb):
                 .filter(BuildCertificationFile.build_certification_id == cert.id,
                         BuildCertificationFile.kind == "composite").all()):
         try:
-            (Path(settings.CERT_UPLOAD_DIR) / (old.oem_serial or "unknown") / old.stored_name).unlink(missing_ok=True)
+            (upload_serial_dir(settings.CERT_UPLOAD_DIR, old.oem_serial) / old.stored_name).unlink(missing_ok=True)
         except Exception:
             pass
         db.delete(old)
@@ -1646,7 +1650,7 @@ def _generate_build_composite(db, cert, eb):
         p.get_text()
     check.close()
     serial = (eb.serial if eb else None) or cert.oem_serial or "unknown"
-    serial_dir = Path(settings.CERT_UPLOAD_DIR) / serial
+    serial_dir = upload_serial_dir(settings.CERT_UPLOAD_DIR, serial)
     serial_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}.pdf"
     with open(serial_dir / stored_name, "wb") as fh:
@@ -1673,9 +1677,9 @@ def cert_report(
 ):
     """Generate + serve a composite cert report PDF for one cert attempt."""
     cert = db.query(BuildCertification).filter(BuildCertification.id == cert_id).first()
-    if not cert:
+    prov = cert and db.query(DeviceProvisioning).filter(DeviceProvisioning.id == cert.device_provisioning_id).first()
+    if not cert or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Certification not found"})
-    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == cert.device_provisioning_id).first()
     eb = _cert_edge_box(db, prov)
     if eb is None:
         # fall back to a minimal eb-less render using the cert snapshot
@@ -1714,7 +1718,7 @@ async def close_cert_device(
     already-complete device is a no-op.
     """
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     eb = _cert_edge_box(db, prov)
     if eb is None:
@@ -1760,7 +1764,7 @@ async def cancel_cert_device(
     certified) then blocks re-closing until a re-certification opens a fresh attempt.
     """
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     eb = _cert_edge_box(db, prov)
     if eb is None:
@@ -1818,7 +1822,7 @@ async def recertify_device(
     reason='recert'. Applies after a failed or cancelled latest attempt. The QA/HW forms then let
     the user re-submit (which overwrites the inherited checklist); files carry forward visibly."""
     prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
-    if not prov:
+    if not prov or provisioning_hidden(db, user, prov):
         return JSONResponse(status_code=404, content={"detail": "Provisioning record not found"})
     eb = _cert_edge_box(db, prov)
     if eb is None:
@@ -1870,7 +1874,7 @@ async def recertify_device(
             .order_by(BuildCertificationFile.uploaded_at.asc(), BuildCertificationFile.id.asc())
             .all()
         )
-        serial_dir = Path(settings.CERT_UPLOAD_DIR) / (eb.serial or "unknown")
+        serial_dir = upload_serial_dir(settings.CERT_UPLOAD_DIR, eb.serial)
         for f in srcs:
             src_path = serial_dir / f.stored_name
             if not src_path.exists():
@@ -1922,7 +1926,12 @@ def cert_history(
         ):
             files_by_cert.setdefault(f.build_certification_id, []).append(f)
     events = []
+    hidden_provs = {a.device_provisioning_id for a in attempts
+                    if provisioning_hidden(db, user, db.query(DeviceProvisioning).filter(
+                        DeviceProvisioning.id == a.device_provisioning_id).first())}
     for a in attempts:
+        if a.device_provisioning_id in hidden_provs:
+            continue  # an attempt on a sensitive customer's order
         afiles = files_by_cert.get(a.id, [])
         composite = next((f for f in afiles if f.kind == "composite"), None)
         sources = [f for f in afiles if f.kind == "source"]
@@ -1944,7 +1953,8 @@ def cert_history(
             "composite": ({"id": composite.id, "name": composite.original_name} if composite else None),
             "sources": [{"id": f.id, "name": f.original_name} for f in sources],
         })
-    back_prov_id = attempts[0].device_provisioning_id if attempts else None
+    shown = [a for a in attempts if a.device_provisioning_id not in hidden_provs]
+    back_prov_id = shown[0].device_provisioning_id if shown else None
     return templates.TemplateResponse(request, "build_cert_history.html", {
         "request": request,
         "user": user,

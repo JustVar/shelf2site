@@ -28,6 +28,7 @@ from ..models import (
     AuditLog,
 )
 from ..order_matching import candidate_items, linked_count, requirement_lines
+from ..sensitive import hidden_order_ids, visible_order, visible_provisioning
 from ..order_tracks import (
     COLUMNS, STEP_LABELS, NEXT_STEP, STATUS_COLUMN, TRACKS,
     cert_doc_orders, column_of, flags, track_of, unit_counts,
@@ -404,7 +405,7 @@ async def update_order(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    order = visible_order(db, user, order_id)
     if not order:
         return JSONResponse(status_code=404, content={"error": "Order not found"})
 
@@ -421,7 +422,7 @@ async def update_order(
     # the units and writes the audit event. It is also terminal, so a status
     # edit can neither set it nor clear it.
     if "status" in body:
-        _new_status = (body["status"] or "").strip()
+        _new_status = str(body["status"] or "").strip()
         # A blank status would store NULL and drop the order off every board;
         # an unknown one would land in the New column. Neither is a status.
         if _new_status not in CustomerOrder.ORDER_STATUSES:
@@ -553,7 +554,7 @@ def delete_order(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    order = visible_order(db, user, order_id)
     if not order:
         return JSONResponse(status_code=404, content={"error": "Order not found"})
 
@@ -609,7 +610,7 @@ async def assign_items_to_order(
     if not isinstance(item_ids, list) or not item_ids:
         return JSONResponse(status_code=400, content={"error": "item_ids is required"})
 
-    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    order = visible_order(db, user, order_id)
     if not order:
         return JSONResponse(status_code=404, content={"error": "Order not found"})
     if order.order_type == "sale" and not order.po_number:
@@ -697,7 +698,7 @@ def _oem_po_problem(body: dict, require_status: bool):
     """A message for a PO body the database would reject, else None. The
     status CHECK (db/10_extras.sql) allows only OEM_STATUSES; quantities
     must be whole numbers."""
-    status = (body.get("status") or "").strip()
+    status = str(body.get("status") or "").strip()
     if (status or require_status) and status not in OEMPurchaseOrder.OEM_STATUSES:
         return "Unknown PO status: " + (status or "(blank)")
     for field in ("qty_ordered", "qty_received"):
@@ -717,7 +718,7 @@ async def create_oem_po(
     db: Session = Depends(get_db),
     user: User = Depends(require_provisioning_manager),
 ):
-    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    order = visible_order(db, user, order_id)
     if not order:
         return JSONResponse(status_code=404, content={"error": "Order not found"})
 
@@ -765,7 +766,7 @@ async def update_oem_po(
         OEMPurchaseOrder.id == po_id,
         OEMPurchaseOrder.customer_order_id == order_id,
     ).first()
-    if not po:
+    if not po or visible_order(db, user, order_id) is None:
         return JSONResponse(status_code=404, content={"error": "PO not found"})
 
     body = await request.json()
@@ -802,7 +803,7 @@ def delete_oem_po(
         OEMPurchaseOrder.id == po_id,
         OEMPurchaseOrder.customer_order_id == order_id,
     ).first()
-    if not po:
+    if not po or visible_order(db, user, order_id) is None:
         return JSONResponse(status_code=404, content={"error": "PO not found"})
 
     db.delete(po)
@@ -829,7 +830,7 @@ async def link_order(
 
     Body: { order_id: int|null }  — null to unlink
     """
-    prov = db.query(DeviceProvisioning).filter(DeviceProvisioning.id == prov_id).first()
+    prov = visible_provisioning(db, user, prov_id)
     if not prov:
         return JSONResponse(status_code=404, content={"error": "Provisioning record not found"})
 
@@ -837,7 +838,7 @@ async def link_order(
     order_id = body.get("order_id")
 
     if order_id:
-        order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+        order = visible_order(db, user, order_id)
         if not order:
             return JSONResponse(status_code=404, content={"error": "Order not found"})
         if not order.po_number:
@@ -867,12 +868,13 @@ def open_orders_list(
     Returns only the fields needed for the picker UI.
     """
     excluded = {"installed", "cancelled"}
-    orders = (
+    hidden = hidden_order_ids(db, user)
+    orders = [o for o in (
         db.query(CustomerOrder)
         .filter(CustomerOrder.status.notin_(excluded))
         .order_by(CustomerOrder.created_at.desc())
         .all()
-    )
+    ) if o.id not in hidden]
     return JSONResponse(content=[
         {
             "id": o.id,
@@ -900,7 +902,7 @@ async def cancel_order(
     event BEFORE unlinking, because afterwards the DB cannot reconstruct
     the tie.
     """
-    order = db.query(CustomerOrder).filter(CustomerOrder.id == order_id).first()
+    order = visible_order(db, user, order_id)
     if not order:
         return JSONResponse(status_code=404, content={"error": "Order not found"})
     if order.status == "cancelled":
