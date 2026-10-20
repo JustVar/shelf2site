@@ -60,7 +60,8 @@ def _scan(client, barcode):
     ("00123456789012345678", "tracking"),               # 4 SSCC
     ("9400111899560001234567", "tracking"),             # 4 USPS 22-digit
     ("AT-9009", "order_number"),                        # 5
-    ("SO-9009", "order_number"),                        # 5 current prefix
+    ("SO-9009", "order_number"),                        # 5 older prefix
+    ("ORD-9009", "order_number"),                       # 5 current prefix
     ("PVA-25-30NR-099999", "unit_pn"),                  # 6
     ("edge100nr-000003", "unit_pn"),                    # 6 lowercase PN
     ("PVA-100-30NR", "sku"),                            # 7

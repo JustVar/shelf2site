@@ -48,17 +48,17 @@ register(templates.env)
 # ---------------------------------------------------------------------------
 
 def _next_order_number(db: Session) -> str:
-    """Generate the next SO-XXXX order number (AT- on orders made before Shelf2Site)."""
+    """Generate the next ORD-XXXX order number (older databases may hold SO- or AT- numbers)."""
     last = (
         db.query(CustomerOrder)
         .order_by(CustomerOrder.id.desc())
         .first()
     )
     if not last or not last.order_number:
-        return "SO-1001"
+        return "ORD-1001"
     m = re.search(r"(\d+)$", last.order_number)
     n = int(m.group(1)) + 1 if m else 1001
-    return f"SO-{n}"
+    return f"ORD-{n}"
 
 
 # ---------------------------------------------------------------------------

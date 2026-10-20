@@ -173,6 +173,8 @@ docker compose exec app python -m scripts.seed_demo
 
 Open http://localhost:8081 and sign in as `demo` with the password
 `harbor-lantern-quilt-42`. These are demo credentials for a local copy.
+Load the demo data only on a copy for yourself, never on a server other
+people can reach, since anyone who reads this page knows the password.
 To start empty instead, skip the seed and run
 `docker compose exec app python -m scripts.create_admin_user admin "Your Name"`.
 
