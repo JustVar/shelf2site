@@ -28,9 +28,9 @@
     --modal-backdrop: rgba(0, 0, 0, 0.7);
     --shadow: 0 1px 3px rgba(0,0,0,0.3);
     --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
-    --accent-blue: #127CA3;
+    --accent-blue: #137AA0;
     --accent-blue-l: #1a9fd4;
-    --accent-blue-dim: rgba(18,124,163,.15);
+    --accent-blue-dim: rgba(19,122,160,.15);
     --surface-raised: #151b28;
     --border-subtle: #1e2d45;
     --text-faint: rgba(149,165,166,.55);
@@ -40,10 +40,11 @@
     --sx-surface-alt:  #1E1D26;
     --sx-border:       #33323E;
     --sx-border-soft:  #2A2933;
-    --sx-blue:         #127CA3;
-    --sx-blue-light:   #46A1B1;
-    --sx-blue-dim:     rgba(18,124,163,0.15);
-    --sx-gray:         #BCBEC0;
+    --sx-blue:         #137AA0;
+    --sx-blue-light:   #189AC9;
+    --sx-blue-dim:     rgba(19,122,160,0.15);
+    --brand-accent:    #4FC3EA;  /* the logo's route on dark backgrounds */
+    --sx-gray:         #B6BFC3;
     --sx-gray-dim:     #A3A5AB;  /* 4.5:1 on the sidebar (WCAG AA) */
     --sx-white:        #F0EFF5;
     --sx-green:        #3DD68C;
@@ -84,9 +85,9 @@
     --modal-backdrop: rgba(0, 0, 0, 0.4);
     --shadow: 0 1px 3px rgba(0,0,0,0.08);
     --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
-    --accent-blue: #0e6a8e;
-    --accent-blue-l: #127CA3;
-    --accent-blue-dim: rgba(14,106,142,.12);
+    --accent-blue: #0f6584;
+    --accent-blue-l: #137AA0;
+    --accent-blue-dim: rgba(15,101,132,.12);
     --surface-raised: #e8ecf2;
     --border-subtle: #d0d9e6;
     --text-faint: rgba(100,116,139,.55);
@@ -96,9 +97,10 @@
     --sx-surface-alt:  #F5F4F8;
     --sx-border:       #E0DFE8;
     --sx-border-soft:  #ECEAF2;
-    --sx-blue:         #0E6A8E;
-    --sx-blue-light:   #127CA3;
-    --sx-blue-dim:     rgba(14,106,142,0.10);
+    --sx-blue:         #0F6584;
+    --sx-blue-light:   #137AA0;
+    --sx-blue-dim:     rgba(15,101,132,0.10);
+    --brand-accent:    #1690BC;  /* the logo blue; 3.6:1 on white, for the mark and the large 2 */
     --sx-gray:         #5A5C5E;
     --sx-gray-dim:     #9A9C9E;
     --sx-white:        #1A1920;
@@ -130,11 +132,11 @@
     color: #111827;
 }
 [data-theme="light"] .sx-nav__link--active {
-    background: rgba(18, 124, 163, 0.1);
-    color: #0e5c7a;
+    background: rgba(19, 122, 160, 0.1);
+    color: #0e5b77;
 }
 [data-theme="light"] .sx-nav__link--active svg {
-    stroke: #127CA3;
+    stroke: #137AA0;
 }
 [data-theme="light"] .sx-nav__section-label {
     color: #5c6675;
@@ -182,11 +184,11 @@
 }
 [data-theme="light"] .tile:hover {
     background: #f8fafc;
-    border-color: #127CA3;
+    border-color: #137AA0;
 }
 [data-theme="light"] .tile.active {
-    background: rgba(18, 124, 163, 0.08);
-    border-color: #127CA3;
+    background: rgba(19, 122, 160, 0.08);
+    border-color: #137AA0;
 }
 [data-theme="light"] .tile .count {
     color: #111827;
@@ -366,7 +368,7 @@ body:has(#nav-sidebar[data-nav-mode="icon"]) .sidebar-edge-btn {
 
 /* ── Active state for mode buttons ── */
 .sidebar-btn.mode-active {
-    color: var(--sidebar-accent, #157ca4);
+    color: var(--sidebar-accent, #137aa0);
 }
 
 /* Notification panel — shift right when sidebar is pinned open */
@@ -922,7 +924,7 @@ h3 {
 
 .filter-group input[type="range"] {
     width: 100%;
-    accent-color: var(--primary-bright, #157ca4);
+    accent-color: var(--primary-bright, #137aa0);
 }
 
 .range-labels {
@@ -1347,8 +1349,8 @@ thead th {
 .modal .form-group select:focus,
 .modal .form-group textarea:focus {
     outline: none;
-    border-color: var(--primary, #157ca4);
-    box-shadow: 0 0 0 2px rgba(21, 124, 164, 0.2);
+    border-color: var(--primary, #137aa0);
+    box-shadow: 0 0 0 2px rgba(19, 122, 160, 0.2);
 }
 
 .modal .form-row {
@@ -1739,7 +1741,7 @@ thead th {
 .category-bar-row.cat-hidden { display: none; }
 .category-bar-label {
     font-size: 12px;
-    color: var(--text-secondary, #BCBEC0);
+    color: var(--text-secondary, #B6BFC3);
     text-align: right;
     white-space: nowrap;
     overflow: hidden;
@@ -1757,18 +1759,18 @@ thead th {
     transition: width 0.4s ease, background 0.15s ease;
     min-width: 2px;
 }
-.category-bar-fill:hover { background: #46A1B1 !important; }
+.category-bar-fill:hover { background: #189AC9 !important; }
 .category-bar-count {
     font-size: 12px;
     font-weight: 500;
-    color: var(--text-secondary, #BCBEC0);
+    color: var(--text-secondary, #B6BFC3);
     text-align: right;
     font-family: monospace;
 }
 .dash-show-more {
     background: none;
     border: none;
-    color: #46A1B1;
+    color: #189AC9;
     font-size: 11px;
     cursor: pointer;
     padding: 6px 0 0;
@@ -1777,7 +1779,7 @@ thead th {
 /* ── Inventory Health ── */
 .health-label {
     font-size: 11px;
-    color: var(--text-secondary, #BCBEC0);
+    color: var(--text-secondary, #B6BFC3);
 }
 .health-value {
     font-size: 11px;
@@ -1815,7 +1817,7 @@ thead th {
     align-items: center;
     gap: 9px;
     font-size: 12px;
-    color: var(--text-secondary, #BCBEC0);
+    color: var(--text-secondary, #B6BFC3);
 }
 .quick-action-right {
     display: flex;
@@ -2400,7 +2402,7 @@ thead th {
 
 /* Row flash after save */
 @keyframes row-flash {
-    0%   { background: rgba(21, 124, 164, 0.25); }
+    0%   { background: rgba(19, 122, 160, 0.25); }
     100% { background: transparent; }
 }
 .row-saved {
@@ -2716,7 +2718,7 @@ thead th {
 ═══════════════════════════════════════════════ */
 .sx-nav {
   width: 232px; min-width: 232px;
-  background: var(--dark, #2F2E37);
+  background: var(--dark, #223239);
   border-right: 1px solid var(--sx-border, #33323E);
   display: flex; flex-direction: column;
   height: var(--viewport-h); position: sticky; top: 0;
@@ -3305,7 +3307,7 @@ html.sx-nav-pre-collapsed .sx-nav__footer-actions { display: none; }
 .inv-table tr:last-child td{border-bottom:none}
 .inv-table tbody tr{cursor:pointer;transition:background .12s}
 .inv-table tbody tr:hover{background:var(--sx-surface-alt)}
-.inv-table tbody tr.selected{background:rgba(18,124,163,.08)}
+.inv-table tbody tr.selected{background:rgba(19,122,160,.08)}
 .inv-cb{width:15px;height:15px;cursor:pointer;accent-color:var(--sx-blue)}
 .inv-cat-pill{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap}
 .inv-status{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap}
@@ -3313,8 +3315,8 @@ html.sx-nav-pre-collapsed .sx-nav__footer-actions { display: none; }
 .inv-status--ready{background:rgba(55,138,221,.12);color:#378ADD}
 .inv-status--pending{background:rgba(240,165,0,.12);color:#F0A500}
 .inv-status--undeployable{background:rgba(239,68,68,.12);color:#ef4444}
-.inv-status--decommissioned{background:rgba(188,190,192,.12);color:#BCBEC0}
-.inv-status--unassigned{background:rgba(188,190,192,.08);color:#BCBEC0}
+.inv-status--decommissioned{background:rgba(182,191,195,.12);color:#B6BFC3}
+.inv-status--unassigned{background:rgba(182,191,195,.08);color:#B6BFC3}
 .inv-status--checkedout{background:rgba(240,165,0,.12);color:#F0A500}
 .inv-status--installed{background:rgba(164,146,214,.12);color:#A492D6}
 .dtl-containment-line{font-size:12px;color:var(--text-muted);margin-top:4px}
@@ -3509,7 +3511,7 @@ select.itk-input{cursor:pointer}
 }
 .inv-table tbody tr.selected .sx-stick-left,
 .inv-table tbody tr.selected .sx-stick-right {
-  background: rgba(18,124,163,.08);
+  background: rgba(19,122,160,.08);
 }
 
 /* Right-pinned actions column — same across tables. Shadow on the LEFT edge

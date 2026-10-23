@@ -675,7 +675,7 @@ def export_fulfillment(
     ]
 
     header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill("solid", fgColor="127CA3")
+    header_fill = PatternFill("solid", fgColor="137AA0")
     for col_idx, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font = header_font

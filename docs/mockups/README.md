@@ -21,7 +21,7 @@ A token's value depends on **which scope the element is in**. Inside `.fulfillme
 
    | scope | dark | light | reads as |
    |---|---|---|---|
-   | global (`[data-theme]`, main.css) | `#127CA3` | `#0e6a8e` | teal-blue |
+   | global (`[data-theme]`, main.css) | `#137AA0` | `#0f6584` | teal-blue |
    | `.fulfillment-page` (override) | `#10b981` | `#059669` | emerald |
 
 2. **`--bg` is referenced but undefined.** `.o-sku` sets `background: var(--bg)` but no token block defines `--bg`, so it resolves transparent. Either define it or give the `var()` a fallback if the SKU chip needs a fill.
@@ -38,9 +38,9 @@ A token's value depends on **which scope the element is in**. Inside `.fulfillme
 | `--text-muted` | `#95a5a6` | `#64748b` |
 | `--card-bg` | `#1e2a3a` | `#ffffff` |
 | `--border` | `#2c3e50` | `#e2e8f0` |
-| `--accent-blue` (teal) | `#127CA3` | `#0e6a8e` |
-| `--accent-blue-l` | `#1a9fd4` | `#127CA3` |
-| `--accent-blue-dim` | `rgba(18,124,163,.15)` | `rgba(14,106,142,.12)` |
+| `--accent-blue` (teal) | `#137AA0` | `#0f6584` |
+| `--accent-blue-l` | `#1a9fd4` | `#137AA0` |
+| `--accent-blue-dim` | `rgba(19,122,160,.15)` | `rgba(15,101,132,.12)` |
 
 ## Fulfillment-page tokens (`.fulfillment-page`)
 

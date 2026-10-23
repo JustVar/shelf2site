@@ -53,8 +53,8 @@
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    border-color: var(--primary, #157ca4);
-    box-shadow: 0 0 0 2px rgba(21, 124, 164, 0.2);
+    border-color: var(--primary, #137aa0);
+    box-shadow: 0 0 0 2px rgba(19, 122, 160, 0.2);
 }
 
 .readonly-field {
@@ -129,8 +129,8 @@
 }
 
 .alert-info {
-    background: rgba(21, 124, 164, 0.12);
-    border: 1px solid rgba(21, 124, 164, 0.3);
+    background: rgba(19, 122, 160, 0.12);
+    border: 1px solid rgba(19, 122, 160, 0.3);
     color: var(--text);
 }
 
@@ -162,8 +162,8 @@
 }
 
 .badge-info {
-    background: rgba(21, 124, 164, 0.15);
-    color: var(--primary, #157ca4);
+    background: rgba(19, 122, 160, 0.15);
+    color: var(--primary, #137aa0);
 }
 
 .badge-success {
@@ -186,7 +186,7 @@
 }
 
 .photo-upload-label:hover {
-    border-color: var(--primary, #157ca4);
+    border-color: var(--primary, #137aa0);
 }
 
 .photo-upload-label svg {
@@ -217,7 +217,7 @@
 .checkbox-label input[type="checkbox"] {
     width: 1.1rem;
     height: 1.1rem;
-    accent-color: var(--primary, #157ca4);
+    accent-color: var(--primary, #137aa0);
 }
 
 /* Success */

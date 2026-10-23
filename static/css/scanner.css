@@ -188,7 +188,7 @@
 .scanner-toast--success { background: rgba(34, 197, 94, 0.92); }
 .scanner-toast--error   { background: rgba(239, 68, 68, 0.92); }
 .scanner-toast--warning { background: rgba(245, 158, 11, 0.92); }
-.scanner-toast--info    { background: rgba(21, 124, 164, 0.92); }
+.scanner-toast--info    { background: rgba(19, 122, 160, 0.92); }
 
 .scanner-toast-text {
   flex: 1;
@@ -318,7 +318,7 @@
 .scanner-trail-entry--success { background: rgba(34, 197, 94, 0.78); }
 .scanner-trail-entry--error   { background: rgba(239, 68, 68, 0.78); }
 .scanner-trail-entry--warning { background: rgba(245, 158, 11, 0.78); }
-.scanner-trail-entry--info    { background: rgba(21, 124, 164, 0.78); }
+.scanner-trail-entry--info    { background: rgba(19, 122, 160, 0.78); }
 .scanner-trail-entry--fading  { opacity: 0; transition: opacity 0.4s; }
 @keyframes scanner-trail-in {
     from { transform: translateX(-8px); opacity: 0; }

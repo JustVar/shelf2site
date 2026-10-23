@@ -804,7 +804,7 @@ html.sx-nav-pre-collapsed .sx-nav__section:has(.sx-nav__link--active) .sx-nav__s
 html.sx-nav-pre-collapsed .sx-nav__badge {
   display: block; position: absolute; top: 4px; right: 14px;
   width: 7px; height: 7px; padding: 0; border: none; border-radius: 50%;
-  background: var(--flc-amber); box-shadow: 0 0 0 2px var(--dark, #2F2E37);
+  background: var(--flc-amber); box-shadow: 0 0 0 2px var(--dark, #223239);
   font-size: 0; line-height: 0; color: transparent; overflow: hidden; min-width: 0;
 }
 
