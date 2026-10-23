@@ -43,8 +43,8 @@
     edge: 'var(--flc-card-edge, rgba(255,255,255,0.10))',
     text: 'var(--flc-text, #EDF0F6)',
     muted: 'var(--flc-text-muted, #97A3B6)',
-    accent: 'var(--flc-accent, #C29E9B)',
-    accentBorder: 'var(--flc-accent-border, rgba(194,158,155,0.45))',
+    accent: 'var(--flc-accent, #4FC3EA)',
+    accentBorder: 'var(--flc-accent-border, rgba(79,195,234,0.45))',
     onAccent: 'var(--flc-on-accent, #17222E)',
     red: 'var(--flc-red, #FF6B6B)'
   };

@@ -56,9 +56,9 @@
 .mobile-launcher .ml-hero {
   min-height: 76px;
   background: var(--accent-primary-dim);
-  border-color: rgba(194, 158, 155, 0.55);
+  border-color: rgba(79, 195, 234, 0.55);
 }
-[data-theme="light"] .mobile-launcher .ml-hero { border-color: rgba(133, 96, 94, 0.45); }
+[data-theme="light"] .mobile-launcher .ml-hero { border-color: rgba(15, 101, 132, 0.45); }
 .mobile-launcher .ml-card { min-height: 60px; }
 .mobile-launcher .ml-hero:hover,
 .mobile-launcher .ml-card:hover {
@@ -351,7 +351,7 @@
   }
   #mobile-offer-bar span { flex: 1; }
   #mobile-offer-bar a {
-    color: var(--accent-primary-l, #C29E9B);
+    color: var(--accent-primary-l, #4FC3EA);
     font-weight: 600;
     text-decoration: none;
     padding: 12px;
@@ -359,7 +359,7 @@
     display: inline-flex;
     align-items: center;
   }
-  [data-theme="light"] #mobile-offer-bar a { color: var(--accent-primary, #85605E); }
+  [data-theme="light"] #mobile-offer-bar a { color: var(--accent-primary, #0F6584); }
   #mobile-offer-bar button {
     background: none;
     border: none;

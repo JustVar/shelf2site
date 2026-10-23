@@ -21,10 +21,10 @@ literals). This is why the tour engine and launcher use `var(--flc-accent, …)`
 
 | Token | Dark | Light | Meaning |
 |---|---|---|---|
-| `--accent-primary` / `--flc-accent` | `#C29E9B` | `#85605E` | the mauve-blush accent; solid CTAs, active states |
-| `--accent-primary-l` / `--flc-accent-l` | `#E3CBC7` | `#C29E9B` | lighter accent for text-on-dark, active labels |
-| `--accent-primary-dim` / `--flc-accent-dim` | blush @ 12% | blush @ 8–10% | tint fills (hover, active nav, tint buttons) |
-| `--accent-border` / `--flc-accent-border` | blush @ 45% | blush @ 40% | borders on tint buttons/chips |
+| `--accent-primary` / `--flc-accent` | `#4FC3EA` | `#0F6584` | the logo blue accent; solid CTAs, active states |
+| `--accent-primary-l` / `--flc-accent-l` | `#7BD1F0` | `#1690BC` | lighter accent for text-on-dark, active labels |
+| `--accent-primary-dim` / `--flc-accent-dim` | accent @ 12% | accent @ 8–10% | tint fills (hover, active nav, tint buttons) |
+| `--accent-border` / `--flc-accent-border` | accent @ 45% | accent @ 40% | borders on tint buttons/chips |
 | `--on-accent` / `--flc-on-accent` | `#17222E` | `#FFFFFF` | text on solid accent |
 | `--fl-green` / `--flc-green` | `#01B574` | `#1E8E63` | success / ready / complete |
 | `--fl-amber` | `#FFB547` | `#C07220` | warning / due-soon / pending |
@@ -64,10 +64,10 @@ lives in the named templates.
 | **Filter tiles** | `.fl-filter-tiles` (fl) · `.inv-tiles`/`.inv-tile` (inventory) | small clickable tiles with a static category hue; act as filters, not just stats |
 | **Banner** | `.fl-banner` + `.warn`/`.urg` | page-level notices (maintenance staleness, backup health) — status recipe at banner scale |
 | **Composition bar** | `.fl-comp-bar` (fl) · `.db-comp-bar` (dashboard) | segmented clickable proportion bar + legend; segments filter on click (see also the map's `#mp-deal-bars` chart-as-filter) |
-| **Tour card / launcher** | `.tour-tooltip`, `.tour-ring`, `.tour-dim` · `.tour-launcher`, `.tlr-*` | body-mounted → `--flc-*` tokens only; blush solid Next, tint Back, quiet Skip, blush dots, 2px blush ring + glow |
+| **Tour card / launcher** | `.tour-tooltip`, `.tour-ring`, `.tour-dim` · `.tour-launcher`, `.tlr-*` | body-mounted → `--flc-*` tokens only; accent solid Next, tint Back, quiet Skip, accent dots, 2px accent ring + glow |
 | **Pipeline pills** | `.pfb-*` (pipeline filter bar), `#bld-tabs`/`.bld-tabs` | click-to-filter stage rollups; active pill gets accent tint |
 | **Stage dots** | `.fl-stage`, `.fl-sdot`/`.fl-sline` (+`.done`/`.half`) | five-dot build tracker on device-linked cards |
-| **Nav chrome** | `.sx-nav__*` (link, section, badge, toggle) | styled via `--flc-*`; active link = blush tint + 2px left bar; flyout `.fl-nav-flyout` is JS-built |
+| **Nav chrome** | `.sx-nav__*` (link, section, badge, toggle) | styled via `--flc-*`; active link = accent tint + 2px left bar; flyout `.fl-nav-flyout` is JS-built |
 | **Scanner overlay** | `.scanner-*` (frame, toast, trail, torch, flash) | theme-independent (fixed dark rgba) by design — it covers the camera feed |
 | **Toast** | `SxToast` (`static/js/toast.js`, loaded on every page from `base.html`) | body-mounted, fixed top-right, z 100000. `SxToast.success/error/warning/info(msg, duration)`; duration 0 is sticky, default 6000ms for error and 4000 otherwise. Styled inline on `--flc-card`, `--flc-text`, `--flc-text-muted`, with the status colour on border and icon via `--flc-green`/`--flc-red`/`--flc-amber`/`--flc-info`. The same file owns the global error-capture pipeline (window error, unhandledrejection, HTMX handlers, rate-limited beacon to `/api/errors/report`), so touching toast.js touches that too. A page reached by redirect can carry a toast in the `toast` and `toast_type` query parameters, rendered by a handler in `base.html` and specified in `docs/specs/toast-redirect-kind.md` |
 | **Dialog** | `SxDialog` (`static/js/dialog.js`, loaded on every page from `base.html`, the line after toast.js) | body-mounted, centred, z 90000: above every page modal and the legacy coming-soon toast, below SxToast. `SxDialog.confirm({title, message, okLabel, cancelLabel, danger})` resolves `true` or `false`; `SxDialog.prompt({title, message, label, value, placeholder, required, okLabel, danger})` resolves the entered string (as typed) or `null`; `SxDialog.reveal({title, message, value, okLabel, copyLabel})` is a readout rather than a question: it shows `value` in a selectable monospace block with a Copy button and no Cancel, and resolves `true` however it is dismissed. confirm and prompt accept a plain string as the message. Esc, Cancel and the backdrop cancel; Enter confirms unless Cancel or Copy has focus; focus returns to the opener; a call made while one is open waits its turn. Styled inline on `--flc-card`, `--flc-card-edge`, `--flc-text`, `--flc-text-muted`, with the OK button on `--flc-accent` and `--flc-on-accent` (`--flc-red` when `danger`). Replaces native `confirm` and `prompt`; the confirm and prompt conversions are `docs/specs/native-dialogs-track-2-dialogs.md`, and the credential readout is Track 4 in `docs/specs/native-dialogs-track-1-alerts.md` |
@@ -78,7 +78,7 @@ lives in the named templates.
    it's body-mounted, add the `[data-theme="light"]` override on `--flc-*` use
    sites (see launcher CSS).
 2. **Status colors mean status.** Green/amber/red/purple are semantic — don't
-   use them decoratively. The accent (blush) carries "interactive/active";
+   use them decoratively. The accent (logo blue) carries "interactive/active";
    info blue stays in small doses.
 3. **Tint + border together.** A `-dim` background without its solid-color text
    and border reads as dirt, not status.

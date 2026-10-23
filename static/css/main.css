@@ -1223,8 +1223,8 @@ thead th {
 }
 #tour-help-modal .tlr-title { font-weight: 700; font-size: 1rem; }
 #tour-help-modal .tlr-close {
-    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.12));
-    color: var(--flc-accent-l, #E3CBC7);
+    background: var(--flc-accent-dim, rgba(79, 195, 234, 0.12));
+    color: var(--flc-accent-l, #7BD1F0);
     border: none; border-radius: 8px; width: 26px; height: 26px;
     font-size: 1.05rem; line-height: 1; cursor: pointer;
 }
@@ -1238,7 +1238,7 @@ thead th {
     display: flex; align-items: center; gap: 0.6rem;
     padding: 0.45rem 0.3rem; border-radius: 8px;
 }
-#tour-help-modal .tlr-row:hover { background: var(--flc-accent-dim, rgba(194, 158, 155, 0.08)); }
+#tour-help-modal .tlr-row:hover { background: var(--flc-accent-dim, rgba(79, 195, 234, 0.08)); }
 #tour-help-modal .tlr-tick {
     width: 16px; height: 16px; border-radius: 50%; flex: none;
     border: 1.5px solid var(--sx-border, rgba(148, 163, 184, 0.35));
@@ -1253,13 +1253,13 @@ thead th {
 #tour-help-modal .tlr-name { font-weight: 600; font-size: 0.86rem; }
 #tour-help-modal .tlr-sub { font-size: 0.73rem; color: var(--text-muted, #97A3B6); }
 #tour-help-modal .tlr-btn {
-    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.12));
-    border: 1px solid var(--flc-accent-border, rgba(194, 158, 155, 0.45));
-    color: var(--flc-accent-l, #E3CBC7);
+    background: var(--flc-accent-dim, rgba(79, 195, 234, 0.12));
+    border: 1px solid var(--flc-accent-border, rgba(79, 195, 234, 0.45));
+    color: var(--flc-accent-l, #7BD1F0);
     border-radius: 8px; padding: 4px 12px; font-size: 0.78rem;
     font-weight: 600; cursor: pointer; flex: none;
 }
-#tour-help-modal .tlr-btn:hover { background: var(--flc-accent-border, rgba(194, 158, 155, 0.3)); }
+#tour-help-modal .tlr-btn:hover { background: var(--flc-accent-border, rgba(79, 195, 234, 0.3)); }
 #tour-help-modal .tlr-hint {
     font-size: 0.72rem; color: var(--text-muted, #97A3B6);
     font-style: italic; flex: none; max-width: 130px; text-align: right;
@@ -1274,7 +1274,7 @@ thead th {
     text-decoration: underline; text-underline-offset: 2px;
 }
 [data-theme="light"] #tour-help-modal .tlr-close,
-[data-theme="light"] #tour-help-modal .tlr-btn { color: var(--flc-accent, #85605E); }
+[data-theme="light"] #tour-help-modal .tlr-btn { color: var(--flc-accent, #0F6584); }
 
 .modal {
     background: var(--card-bg);
@@ -1980,10 +1980,10 @@ thead th {
 
 .tour-overlay .tour-ring {
     position: absolute;
-    border: 2px solid var(--flc-accent, #C29E9B);
+    border: 2px solid var(--flc-accent, #4FC3EA);
     border-radius: 10px;
-    box-shadow: 0 0 0 4px var(--flc-accent-dim, rgba(194,158,155,0.12)),
-                0 0 18px rgba(194, 158, 155, 0.35);
+    box-shadow: 0 0 0 4px var(--flc-accent-dim, rgba(79,195,234,0.12)),
+                0 0 18px rgba(79, 195, 234, 0.35);
     pointer-events: none;
     opacity: 0;
     transition: top 0.28s ease, left 0.28s ease, width 0.28s ease,
@@ -2089,14 +2089,14 @@ thead th {
 }
 
 .tour-dot.active {
-    background: var(--flc-accent, #C29E9B);
+    background: var(--flc-accent, #4FC3EA);
     width: 9px;
     height: 9px;
 }
 
 .tour-dot.completed {
-    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.4));
-    border: 1px solid var(--flc-accent-border, rgba(194, 158, 155, 0.45));
+    background: var(--flc-accent-dim, rgba(79, 195, 234, 0.4));
+    border: 1px solid var(--flc-accent-border, rgba(79, 195, 234, 0.45));
 }
 
 .tour-nav {
@@ -2121,8 +2121,8 @@ thead th {
 }
 
 .tour-tooltip .tour-btn-next {
-    background: var(--flc-accent, #C29E9B);
-    border: 1px solid var(--flc-accent, #C29E9B);
+    background: var(--flc-accent, #4FC3EA);
+    border: 1px solid var(--flc-accent, #4FC3EA);
     color: var(--flc-on-accent, #17222E);
     border-radius: 8px;
     font-weight: 600;
@@ -2130,13 +2130,13 @@ thead th {
 
 .tour-tooltip .tour-btn-next:hover {
     filter: brightness(1.06);
-    background: var(--flc-accent, #C29E9B);
+    background: var(--flc-accent, #4FC3EA);
 }
 
 .tour-tooltip .tour-btn-back {
-    background: var(--flc-accent-dim, rgba(194, 158, 155, 0.12));
-    border: 1px solid var(--flc-accent-border, rgba(194, 158, 155, 0.45));
-    color: var(--flc-accent-l, #E3CBC7);
+    background: var(--flc-accent-dim, rgba(79, 195, 234, 0.12));
+    border: 1px solid var(--flc-accent-border, rgba(79, 195, 234, 0.45));
+    color: var(--flc-accent-l, #7BD1F0);
     border-radius: 8px;
 }
 
@@ -2148,12 +2148,12 @@ thead th {
 }
 
 .tour-tooltip .tour-btn-skip:hover {
-    color: var(--flc-accent-l, #E3CBC7);
+    color: var(--flc-accent-l, #7BD1F0);
 }
 
 [data-theme="light"] .tour-tooltip .tour-btn-back,
 [data-theme="light"] .tour-tooltip .tour-btn-skip:hover {
-    color: var(--flc-accent, #85605E);
+    color: var(--flc-accent, #0F6584);
 }
 
 /* Retired: the ring div on the cutout replaced the old element-level

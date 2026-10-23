@@ -40,7 +40,7 @@ def _get_tile_stats(db: Session, include_decommissioned: bool = False) -> list[d
     raw = tile_q.group_by(Item.item_category).all()
     counts = {str(cat): cnt for cat, cnt in raw if cat}
     total = sum(counts.values())
-    tiles = [{"name": "all", "display": "All Items", "count": total, "color": "#C29E9B"}]
+    tiles = [{"name": "all", "display": "All Items", "count": total, "color": "#4FC3EA"}]
     for cat in ALL_CATEGORIES:
         if counts.get(cat, 0) > 0:
             tiles.append({

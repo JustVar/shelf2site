@@ -1,6 +1,6 @@
 /* ============================================================================
    fl-restyle: shared design language for the asset tracker restyle
-   (charcoal surfaces + mauve blush accent). Pilot page: Fulfillment.
+   (charcoal surfaces + logo blue accent). Pilot page: Fulfillment.
 
    HOW A PAGE OPTS IN
    1. Add the class `fl-restyle` to the page's root container div
@@ -41,11 +41,11 @@
   /* text */
   --text: #EDF0F6;
   --text-muted: #97A3B6;
-  /* accent (mauve blush) */
-  --accent-primary: #C29E9B;
-  --accent-primary-l: #E3CBC7;
-  --accent-primary-dim: rgba(194,158,155,0.12);
-  --accent-border: rgba(194,158,155,0.45);
+  /* accent (the logo blue) */
+  --accent-primary: #4FC3EA;
+  --accent-primary-l: #7BD1F0;
+  --accent-primary-dim: rgba(79,195,234,0.12);
+  --accent-border: rgba(79,195,234,0.45);
   --on-accent: #17222E;
   /* info blue, small doses only (column dots, info icons) */
   --info: #0075FF;
@@ -62,9 +62,9 @@
   --purple-dim: rgba(164,146,214,0.12);
   /* animated background */
   --grid-dot: rgba(148,163,184,0.10);
-  --aurora-1: rgba(194,158,155,0.10);
+  --aurora-1: rgba(79,195,234,0.10);
   --aurora-2: rgba(70,105,143,0.13);
-  --spot: rgba(194,158,155,0.07);
+  --spot: rgba(79,195,234,0.07);
   /* legacy aliases: keep pre-restyle var names consistent inside restyled
      containers (OEM board, card tints, cert marks on the pilot page) */
   --accent-blue: var(--info);
@@ -96,10 +96,10 @@
   --border-hover: #C6CCD6;
   --text: #1B2028;
   --text-muted: #5C6675;
-  --accent-primary: #734F4D;  /* light-theme text tokens darkened to 4.5:1 (WCAG AA) */
-  --accent-primary-l: #C29E9B;
-  --accent-primary-dim: rgba(115,79,77,0.08);
-  --accent-border: rgba(115,79,77,0.40);
+  --accent-primary: #0F6584;  /* light-theme text tokens darkened to 4.5:1 (WCAG AA) */
+  --accent-primary-l: #1690BC;
+  --accent-primary-dim: rgba(15,101,132,0.08);
+  --accent-border: rgba(15,101,132,0.40);
   --on-accent: #FFFFFF;
   --fl-green: #17734F;
   --fl-amber: #8F5410;
@@ -111,9 +111,9 @@
   --red-dim: rgba(196,61,69,0.10);
   --purple-dim: rgba(116,88,184,0.10);
   --grid-dot: rgba(27,32,40,0.13);
-  --aurora-1: rgba(133,96,94,0.20);
+  --aurora-1: rgba(15,101,132,0.20);
   --aurora-2: rgba(70,105,143,0.18);
-  --spot: rgba(133,96,94,0.11);
+  --spot: rgba(15,101,132,0.11);
   --accent-blue-l: var(--info);
   --accent-blue-dim: rgba(0,117,255,.08);
   --fl-orange: #ea580c;
@@ -210,7 +210,7 @@
 .fl-restyle .fl-sdot svg { width: 10px; height: 10px; }
 .fl-restyle .fl-sdot.done { background: var(--fl-green); }
 .fl-restyle .fl-sdot.cur { background: var(--accent-primary); animation: fl-spulse 2s infinite; }
-@keyframes fl-spulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(194,158,155,0.5); } 50% { box-shadow: 0 0 0 5px rgba(194,158,155,0); } }
+@keyframes fl-spulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(79,195,234,0.5); } 50% { box-shadow: 0 0 0 5px rgba(79,195,234,0); } }
 .fl-restyle .fl-sline { flex: 1; height: 2px; background: var(--border); }
 .fl-restyle .fl-sline.done { background: var(--fl-green); }
 .fl-restyle .fl-sline.half { background: linear-gradient(90deg, var(--fl-green), var(--accent-primary)); }
@@ -233,7 +233,7 @@
 
 /* ── Header controls: one loud CTA, quiet blush tints for the rest ─────── */
 .fl-restyle .fl-cta { background: var(--accent-primary); color: var(--on-accent); border: none; border-radius: 10px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: transform .15s, box-shadow .2s; }
-.fl-restyle .fl-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(194,158,155,0.30); }
+.fl-restyle .fl-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(79,195,234,0.30); }
 .fl-restyle .fl-cta:active { transform: translateY(0); }
 .fl-restyle .fl-btn { display: inline-flex; align-items: center; gap: 5px; background: var(--accent-primary-dim); border: 1px solid var(--accent-border); color: var(--accent-primary-l); font-family: inherit; font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
 [data-theme="light"] .fl-restyle .fl-btn { color: var(--accent-primary); }
@@ -251,7 +251,7 @@
 /* ── Search: hover border, blush focus ring, keycap highlight ──────────── */
 .fl-restyle .cb-search-wrap { transition: border-color .25s, box-shadow .25s; }
 .fl-restyle .cb-search-wrap:hover { border-color: var(--accent-border); }
-.fl-restyle .cb-search-wrap:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
+.fl-restyle .cb-search-wrap:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(79,195,234,0.25); }
 .fl-restyle .fl-key { font-family: var(--sx-font-mono); font-size: 11px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; flex-shrink: 0; transition: border-color .2s, color .2s; }
 .fl-restyle .cb-search-wrap:focus-within .fl-key { border-color: var(--accent-primary); color: var(--accent-primary-l); }
 [data-theme="light"] .fl-restyle .cb-search-wrap:focus-within .fl-key { color: var(--accent-primary); }
@@ -330,7 +330,7 @@
 /* ── Dashboard polish over the legacy db-* kit (scoped, kit untouched) ── */
 .fl-restyle .db-search { transition: border-color .25s, box-shadow .25s; }
 .fl-restyle .db-search:hover { border-color: var(--accent-border); }
-.fl-restyle .db-search:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
+.fl-restyle .db-search:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(79,195,234,0.25); }
 .fl-restyle .db-search-hint { transition: border-color .2s, color .2s; }
 .fl-restyle .db-search:focus-within .db-search-hint { border-color: var(--accent-primary); color: var(--accent-primary-l); }
 [data-theme="light"] .fl-restyle .db-search:focus-within .db-search-hint { color: var(--accent-primary); }
@@ -388,7 +388,7 @@
 .fl-restyle .fl-table tbody tr:hover .sx-stick-left,
 .fl-restyle .fl-table tbody tr:hover .sx-stick-right { background: var(--card-bg-hover); }
 .fl-restyle .fl-table .sx-stick-left, .fl-restyle .fl-table .sx-stick-right { background: var(--card-bg); }
-.fl-restyle .fl-table tbody tr:has(.row-cb:checked) { background: rgba(194,158,155,0.07); }
+.fl-restyle .fl-table tbody tr:has(.row-cb:checked) { background: rgba(79,195,234,0.07); }
 .fl-restyle .fl-table tbody tr:has(.row-cb:checked) .sx-stick-left,
 .fl-restyle .fl-table tbody tr:has(.row-cb:checked) .sx-stick-right { background: color-mix(in srgb, var(--card-bg), var(--accent-primary) 7%); }
 .fl-restyle .fl-cell-name { font-weight: 500; color: var(--text); }
@@ -415,7 +415,7 @@
 /* search + selects + inputs + buttons on the filter row */
 .fl-restyle .inv-search { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; transition: border-color .25s, box-shadow .25s; }
 .fl-restyle .inv-search:hover { border-color: var(--accent-border); }
-.fl-restyle .inv-search:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
+.fl-restyle .inv-search:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(79,195,234,0.25); }
 .fl-restyle .inv-search input { color: var(--text); }
 .fl-restyle .inv-select, .fl-restyle .inv-input { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
 .fl-restyle .inv-select:focus, .fl-restyle .inv-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim); outline: none; }
@@ -455,7 +455,7 @@
 /* ── Search page polish (archetype reuse; page-specific ids) ────────── */
 .fl-restyle #global-search-input { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); outline: none; transition: border-color .25s, box-shadow .25s; }
 .fl-restyle #global-search-input:hover { border-color: var(--accent-border); }
-.fl-restyle #global-search-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(194,158,155,0.25); }
+.fl-restyle #global-search-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-dim), 0 0 18px rgba(79,195,234,0.25); }
 .fl-restyle #search-result-count strong { font-weight: 500; color: var(--text); }
 .fl-restyle .table-section { background: var(--card-bg); border: 1px solid var(--border); border-top-color: var(--card-edge); border-radius: 12px; padding: 0.4rem 1rem; }
 .fl-restyle .btn-edit { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--accent-primary-dim); border: 1px solid var(--accent-border); border-radius: 8px; color: var(--accent-primary-l); }
@@ -702,10 +702,10 @@
    toast.js styles inline on --flc-* tokens with dark fallbacks; its
    per-type border and icon carry the status colour. ────────────────── */
 :root {
-  --flc-accent: #C29E9B;
-  --flc-accent-l: #E3CBC7;
-  --flc-accent-dim: rgba(194,158,155,0.12);
-  --flc-accent-border: rgba(194,158,155,0.45);
+  --flc-accent: #4FC3EA;
+  --flc-accent-l: #7BD1F0;
+  --flc-accent-dim: rgba(79,195,234,0.12);
+  --flc-accent-border: rgba(79,195,234,0.45);
   --flc-on-accent: #17222E;
   --flc-amber: #FFB547;
   --flc-amber-dim: rgba(255,181,71,0.12);
@@ -718,10 +718,10 @@
   --flc-card-edge: rgba(255,255,255,0.10);
 }
 [data-theme="light"] {
-  --flc-accent: #734F4D;
-  --flc-accent-l: #C29E9B;
-  --flc-accent-dim: rgba(115,79,77,0.10);
-  --flc-accent-border: rgba(115,79,77,0.40);
+  --flc-accent: #0F6584;
+  --flc-accent-l: #1690BC;
+  --flc-accent-dim: rgba(15,101,132,0.10);
+  --flc-accent-border: rgba(15,101,132,0.40);
   --flc-on-accent: #FFFFFF;
   --flc-amber: #8F5410;
   --flc-amber-dim: rgba(192,114,32,0.12);
