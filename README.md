@@ -10,7 +10,7 @@
 Justin Varughese. [LinkedIn](https://www.linkedin.com/in/justin-var/)
 
 I built this hardware asset tracker for internal use at a hardware startup,
-where it tracked every edge server, camera and laptop from the day it arrived
+where it tracked every edge server, camera and other hardware from the day it arrived
 to the day it was installed at a customer site or came back from a pilot. The
 company has since closed. The app is published here under a new name,
 Shelf2Site, and runs on its own with demo data. I built it with Claude as the coding partner, under rules and checks I
