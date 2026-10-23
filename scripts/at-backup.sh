@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# at-backup.sh — nightly Asset Tracker backup (runs on apphost as root via systemd).
+# at-backup.sh — nightly Asset Tracker backup (runs on the app host as root via systemd).
 #
 # What it does, in order:
 #   1. pg_dump (custom format) of the asset_tracker DB as the read-only
@@ -7,7 +7,7 @@
 #   2. Sundays (or --with-globals): pg_dumpall --globals-only (roles) -> globals/
 #   3. tar.gz of upload dirs + /opt/asset_tracker/.env -> daily/
 #   4. Prune: keep newest 14 daily dumps + 14 files tars, 12 globals.
-#      (GFS weekly/monthly tiers live on the workstation — at-backup-pull.sh.)
+#      Longer weekly/monthly tiers belong off the host (docs/BACKUPS.md).
 #   5. Write status.json (read by the /admin/maintenance page) and append
 #      a line to history.jsonl (feeds the dump-size anomaly check).
 #
@@ -20,7 +20,7 @@ set -uo pipefail
 
 # Overridable for sandboxed testing (e.g. AT_BACKUP_ROOT=/tmp/at_prune_test).
 BACKUP_ROOT="${AT_BACKUP_ROOT:-/data/asset-tracker/backups}"
-# The user that pulls backups off this host owns the artifacts.
+# The user that copies backups off this host owns the artifacts.
 FILE_OWNER="${AT_FILE_OWNER:-deploy}"
 DAILY_DIR="$BACKUP_ROOT/daily"
 GLOBALS_DIR="$BACKUP_ROOT/globals"
@@ -119,7 +119,7 @@ rc=$?
 mv "${FILES_TAR}.part" "$FILES_TAR"
 FILES_BYTES=$(stat -c%s "$FILES_TAR")
 
-# ── 4. prune (apphost keeps dailies only; GFS tiers are off-box) ───────────
+# ── 4. prune (the host keeps dailies only; longer tiers live off the host) ─
 prune() {  # $1 = glob pattern, $2 = keep count
   local victims
   victims=$(ls -1 $1 2>/dev/null | sort | head -n -"$2")
@@ -134,7 +134,7 @@ prune "$DAILY_DIR/asset_tracker_*.dump" "$KEEP_DAILY"
 prune "$DAILY_DIR/files_*.tar.gz"       "$KEEP_DAILY"
 prune "$GLOBALS_DIR/globals_*.sql"      "$KEEP_GLOBALS"
 
-# ── 5. ownership + status (artifacts stay fetchable by the backup pull user) ────
+# ── 5. ownership + status (artifacts stay readable by the off-host copy user) ─
 chown -R "$FILE_OWNER:$FILE_OWNER" "$DAILY_DIR" "$GLOBALS_DIR" 2>/dev/null || true
 json_status true ""
 echo "OK: dump=${DUMP_BYTES}B files=${FILES_BYTES}B globals=${GLOBALS_DONE} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"

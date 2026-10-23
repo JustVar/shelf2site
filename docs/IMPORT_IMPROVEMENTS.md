@@ -266,7 +266,7 @@ docker compose exec app python scripts/import_spreadsheet_v2.py --dry-run
 docker compose exec app python scripts/import_spreadsheet_v2.py
 
 # 4. Verify changes in dashboard
-open https://localhost:8443/assettracker/
+open http://127.0.0.1:8081/
 ```
 
 ## Roadmap
@@ -315,5 +315,5 @@ open https://localhost:8443/assettracker/
 **Next Steps:**
 1. Complete remaining 13 table migrations
 2. Test with full spreadsheet on dev environment
-3. Deploy to apphost for production use
+3. Deploy to production
 4. Consider automated scheduled imports

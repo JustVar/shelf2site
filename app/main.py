@@ -419,10 +419,10 @@ class SecureSessionCookieMiddleware:
     static ``https_only`` flag on SessionMiddleware. The in-container contract
     suite drives the app over plain http://127.0.0.1:8081, and httpx refuses to
     send a Secure cookie back over an http origin — a static Secure flag would
-    silently log every fixture out. In production nginx terminates TLS on :8443
-    and forwards ``X-Forwarded-Proto: https``; uvicorn runs with
-    ``--forwarded-allow-ips=*`` so ``scope['scheme']`` reads 'https' and we add
-    the flag. Over plain http the cookie stays non-Secure and the suite passes.
+    silently log every fixture out. In production a reverse proxy terminates
+    TLS and forwards ``X-Forwarded-Proto: https``; uvicorn trusts that header
+    from the proxies in FORWARDED_ALLOW_IPS, so ``scope['scheme']`` reads
+    'https' and we add the flag. Over plain http the cookie stays non-Secure and the suite passes.
 
     Registered AFTER SessionMiddleware so it is the outermost middleware and its
     send hook runs last — after SessionMiddleware has appended Set-Cookie.

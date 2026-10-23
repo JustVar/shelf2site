@@ -1,6 +1,6 @@
 # Endpoint Auth Census
 
-**Reconciled 2026-09-28** against live route introspection on apphost: 256 route entries
+**Reconciled 2026-09-28** against live route introspection on the running app: 256 route entries
 (255 HTTP routes plus 1 static mount) across 230 unique paths, after item 30 S3 retired
 Intune sync, spreadsheet sync, the lifecycle page, three legacy JSON APIs and the NAS drive
 API, and item 30 S4 retired the two RMA claim routes, added the warranty item search, and
@@ -14,7 +14,7 @@ its row here** and make sure it fits one of the gate classes below.
 
 ```bash
 # scripts/route_census.py dumps every route + resolved auth deps as JSON lines
-ssh deploy@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python - < scripts/route_census.py"
+docker compose exec -T app python - < scripts/route_census.py
 
 # JSON lines go to stdout; the script also writes a ready to paste header block
 # to stderr with live counts. Redirect stdout to keep the JSON clean.

@@ -12,21 +12,22 @@ files that are not in git. Written to be followable at 3am.
 | Uploads: photos, receipts, cert-reports, c2c-cert-reports, install-cert-reports, security | tar.gz snapshot | `scripts/at-backup.sh` |
 | `/opt/asset_tracker/.env` (incl. `CREDENTIAL_ENCRYPTION_KEY` — without it, encrypted credentials in the DB are unrecoverable) | included in the same tar.gz | `scripts/at-backup.sh` |
 
-NOT backed up (regenerable): app code and static assets (git, four-way synced),
+NOT backed up (regenerable): app code and static assets (git),
 the password blocklist file, Docker images (rebuildable from Dockerfile).
 
 ## Schedule & locations
 
 | Where | When | What | Retention |
 |---|---|---|---|
-| apphost `/data/asset-tracker/backups/daily/` | 02:15 UTC nightly (`at-backup.timer`, systemd, `Persistent=true`) | dump + files tar | newest 14 of each |
-| apphost `/data/asset-tracker/backups/globals/` | Sundays (or `--with-globals`) | globals SQL | newest 12 |
-| Workstation `C:\Users\you\Backups\asset-tracker\` | 09:30 local daily (Task Scheduler: "AssetTracker Backup Pull", runs late if machine was asleep) | pull of everything above + GFS | daily 14 / weekly 8 / monthly 12 / globals 12 |
+| Host `/data/asset-tracker/backups/daily/` | 02:15 UTC nightly (`at-backup.timer`, systemd, `Persistent=true`) | dump + files tar | newest 14 of each |
+| Host `/data/asset-tracker/backups/globals/` | Sundays (or `--with-globals`) | globals SQL | newest 12 |
 
-GFS = grandfather-father-son: the workstation pull promotes the first backup of
-each ISO week into `weekly/` and the first of each month into `monthly/`.
-The pull is SSH pull-only (workstation → apphost); apphost has no credentials
-toward the workstation.
+**Copy the backups off the host.** A backup on the same disk as the database
+does not survive losing that disk. Pull `/data/asset-tracker/backups/` to
+another machine or bucket once a day with whatever you already use (rsync,
+rclone, restic), and pull rather than push, so the app host holds no
+credentials toward the copy. Keep longer tiers there, for example 14 daily,
+8 weekly and 12 monthly.
 
 ## Health visibility
 
@@ -37,7 +38,7 @@ toward the workstation.
 - **amber** — stale > 36 h, dump size > 2× the 7-day median, or no status file
 - **red** — stale > 72 h, or the last run failed
 
-Manual check on apphost:
+Manual check on the host:
 
 ```bash
 cat /data/asset-tracker/backups/status.json
@@ -47,7 +48,7 @@ journalctl -u at-backup.service -n 20
 
 ## Restore procedure — full DB (DESTRUCTIVE, real data loss only)
 
-On apphost:
+On the host:
 
 ```bash
 cd /opt/asset_tracker
@@ -68,11 +69,11 @@ docker compose start app
 # verify, then drop asset_tracker_broken_* when confident
 ```
 
-If apphost itself is gone: copy the newest dump + files tar from the
-workstation (`Backups\asset-tracker\daily\`) to the new box, bring up
-the compose stack (fresh cluster auto-creates `asset_tracker_user` from
-compose env), then `psql -f globals_<date>.sql` first (recreates
-`backup_reader`/`casey` roles), then pg_restore as above, then untar files.
+If the host itself is gone: copy the newest dump + files tar from the
+off-host copy to the new box, bring up the compose stack (fresh cluster
+auto-creates `asset_tracker_user` from compose env), then
+`psql -f globals_<date>.sql` first (recreates `backup_reader` and any other
+roles), then pg_restore as above, then untar files.
 
 ## Restore procedure — files
 
@@ -94,17 +95,16 @@ pending_devices), round-trips one sampled file out of the files tar, drops the
 scratch DB. Never touches the live DB. Result lands in
 `/data/asset-tracker/backups/last_restore_test.txt`.
 
-Run it monthly and after any Postgres/compose change. Last full pass:
-2026-07-10 (all 6 tables exact match, file round-trip PASS).
+Run it monthly and after any Postgres/compose change.
 
 ## Least privilege
 
 Dumps run as `backup_reader` (LOGIN + `pg_read_all_data` only — cannot write).
-Created 2026-07-10 directly on the cluster (cluster-level, like the `casey`
-role; captured by the weekly globals dump). Only the weekly globals dump uses
-the superuser, because `pg_authid` (password hashes) needs it.
+Create it once on the cluster; the weekly globals dump captures it. Only the
+weekly globals dump uses the superuser, because `pg_authid` (password hashes)
+needs it.
 
-## Sizing actuals (measured 2026-07-10)
+## Example sizing (one small deployment)
 
 | Metric | Value |
 |---|---|
@@ -113,8 +113,8 @@ the superuser, because `pg_authid` (password hashes) needs it.
 | Files tar (≈30 MB of uploads + .env) | 11.5 MB |
 | Globals SQL | 1.2 KB |
 | Nightly set | ≈ 12 MB |
-| apphost at full retention (14 days) | ≈ 170 MB |
-| Workstation at full GFS (34 sets) | ≈ 420 MB |
+| Host at full retention (14 days) | ≈ 170 MB |
+| Off-host copy, 14 daily + 8 weekly + 12 monthly | ≈ 420 MB |
 
 The nightly status line records dump size; the maintenance row goes amber if a
 dump doubles vs the 7-day median (runaway growth or a dump bug — either is
@@ -124,26 +124,23 @@ worth a look).
 
 | File | Runs on | Purpose |
 |---|---|---|
-| `scripts/at-backup.sh` | apphost (root, systemd) | nightly dump + globals + files tar + prune + status |
-| `scripts/at-restore-test.sh` | apphost (sudo, manual) | scratch-DB restore verification |
-| `scripts/at-backup-pull.sh` | workstation (Git Bash) | off-box pull + GFS retention |
-| `deploy/at-backup.service` + `deploy/at-backup.timer` | apphost | schedule; install: `sudo cp deploy/at-backup.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now at-backup.timer` |
+| `scripts/at-backup.sh` | host (root, systemd) | nightly dump + globals + files tar + prune + status |
+| `scripts/at-restore-test.sh` | host (sudo, manual) | scratch-DB restore verification |
+| `deploy/at-backup.service` + `deploy/at-backup.timer` | host | schedule; install: `sudo cp deploy/at-backup.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now at-backup.timer` |
 
-Prune dry-run on either script: `DRY_RUN=1 <script>` (reports victims, deletes
-nothing). Sandbox a whole run: `AT_BACKUP_ROOT=/tmp/x at-backup.sh` /
-`AT_BACKUP_LOCAL=/tmp/y at-backup-pull.sh`.
+Prune dry-run: `DRY_RUN=1 scripts/at-backup.sh` (reports victims, deletes
+nothing). Sandbox a whole run: `AT_BACKUP_ROOT=/tmp/x scripts/at-backup.sh`.
 
 ## Trouble at 3am
 
 | Symptom | Do |
 |---|---|
-| Maintenance row red "Last backup FAILED" | `journalctl -u at-backup.service -n 50` on apphost; the `error` field in `status.json` has the first failing step |
+| Maintenance row red "Last backup FAILED" | `journalctl -u at-backup.service -n 50` on the host; the `error` field in `status.json` has the first failing step |
 | Row amber/red "Backups stale" | `systemctl list-timers at-backup.timer` — timer gone? reinstall per Components table. Host was off? `Persistent=true` should catch up on boot |
 | Row amber "size anomaly" | compare `dump_bytes` vs `median7_bytes` in `status.json`; if growth is real (bulk import), it self-clears as the median catches up |
-| Pull not running | Task Scheduler → "AssetTracker Backup Pull" → Last Run Result; log at `Backups\asset-tracker\pull.log` |
 | Need a backup NOW before something risky | `sudo /opt/asset_tracker/scripts/at-backup.sh --with-globals` |
 
-## Container-path rule (learned 2026-07-11)
+## Container-path rule
 
 Every `*_UPLOAD_DIR` (in `app/config.py` or `.env`) MUST resolve to a
 bind-mounted path, or files land in the container's writable layer —

@@ -3,7 +3,7 @@
 Date: 2026-07-10 · Status: read-only audit + live probes, no code changes.
 Purpose (owner): scan barcodes to intake items from shipping orders.
 Method: full-source trace of every scan surface, plus live endpoint probes on
-apphost using throwaway `CONTRACT-TEST-AUD*` data (created and deleted in the
+the running app using throwaway `CONTRACT-TEST-AUD*` data (created and deleted in the
 same run). Probe transcript summarized inline as **[PROBED]**.
 
 This document is the Phase 1 deliverable. Nothing below is fixed yet —
@@ -248,8 +248,8 @@ after HTTPS (H13), reconciliation as its own slice (H16 → H17).
 
 ## 8. Manual bench protocol (finalized against shipped Phase 2)
 
-Run once on webcam, once on phone (needs `Shelf2Site-LAN-CA.crt` installed — see
-`docs/CA_CERT_DISTRIBUTION.md`), plus the USB wedge on the receive bench.
+Run once on webcam, once on phone (needs HTTPS the phone trusts — see
+`docs/HTTPS.md`), plus the USB wedge on the receive bench.
 Guidance strings below are verbatim from `app/routes/receiving.py`; classes
 from `app/scan_routing.py`. **Core pass** = the eight rows marked ★ (~15 min);
 the rest is the full sweep.

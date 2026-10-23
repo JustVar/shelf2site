@@ -11,23 +11,22 @@ guidance below.
 
 | Credential | Cadence | Trigger |
 |---|---|---|
-| Postgres `asset_tracker_user` (apphost DB) | Pre-go-live, then ~quarterly | Before LAN-wide go-live; routine hygiene afterward |
+| Postgres `asset_tracker_user` | Before go-live, then ~quarterly | Routine hygiene |
 | Application user accounts (admin-triggered) | ~6 months | Routine hygiene, or on suspected compromise |
 
 ## What is NOT in this runbook
 
-- Camera / access-control device passwords. Devices live on a segregated VLAN
-  behind a firewall; not rotated as part of routine hygiene.
-- Other secrets in `.env` (SESSION_SECRET_KEY, SCANNER_API_KEY, NOCODB_API_TOKEN,
-  CREDENTIAL_ENCRYPTION_KEY, ZENDESK_API_TOKEN, SLACK_WEBHOOK_URL,
-  SLACK_ADMIN_WEBHOOK_URL). Each has its own rotation considerations and is not
-  covered here.
+- Other secrets in `.env` (SESSION_SECRET_KEY, CREDENTIAL_ENCRYPTION_KEY,
+  ZENDESK_API_TOKEN, SLACK_WEBHOOK_URL, SMTP_PASSWORD). Each has its own rotation
+  considerations and is not covered here. Note that changing
+  CREDENTIAL_ENCRYPTION_KEY makes the device credentials already stored in the
+  database unreadable.
 
 ---
 
 ## 1. Postgres `asset_tracker_user`
 
-The asset_tracker DB's superuser. Lives in the `db` container on apphost.
+The asset_tracker DB's superuser. Lives in the `db` container.
 Stored in `.env` at two keys: `POSTGRES_PASSWORD` and embedded in
 `DATABASE_URL`.
 
@@ -80,7 +79,7 @@ container re-init use the matching value.
        docker compose logs --tail=30 app 2>&1 | grep -iE "error|database|connection" | tail -10
 
    No connection errors expected. Visit the app at
-   https://192.0.2.10:8443/assettracker/ — login flow and a data-loaded page (e.g.
+   your app's address — login flow and a data-loaded page (e.g.
    /inventory) should both work.
 
 ### Expected downtime
@@ -186,7 +185,7 @@ flag. Adjust tone for the relationship.
 >
 > As part of our routine security cycle [or: due to <specific reason>], your
 > asset_tracker password needs to be reset. The next time you log in to
-> https://192.0.2.10:8443/assettracker/, you'll be prompted to choose a new
+> <app address>, you'll be prompted to choose a new
 > password.
 >
 > Your existing password will work one more time — it'll just take you

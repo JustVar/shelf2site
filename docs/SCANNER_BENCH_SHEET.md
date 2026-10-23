@@ -4,9 +4,8 @@ Operator view derived from SCANNER_AUDIT.md section 8 (the exhaustive spec). Thi
 
 ## Before you start
 
-- Phone CA installed and trusted (Shelf2Site-LAN-CA.crt, see docs/CA_CERT_DISTRIBUTION.md). Hard prerequisite: the phone camera will not open without HTTPS trust.
+- The app served over HTTPS, and on a private network the phone trusting its certificate (docs/HTTPS.md, step 4). Hard prerequisite: the phone camera will not open without HTTPS.
 - Leave scan-routing-pilot logging ON until every check below is done. It captures routing misses with their raw payloads.
-- App at https://192.0.2.10:8443/assettracker/
 
 ## Covered by machine (do NOT hand-scan these)
 

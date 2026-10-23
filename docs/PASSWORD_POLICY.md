@@ -108,8 +108,8 @@ Also rejected: two or fewer distinct characters (`aaaaaaaaaaaaaab`).
 
 **False positives** — strong passwords the rules reject:
 
-- `go-green-apphosts-basketball-99` and `i-hate-remembering-passwords-42`. Both contain a
-  configured word as a plain substring (`apphost` inside `apphosts`, `password` inside
+- `go-green-shelf2sites-basketball-99` and `i-hate-remembering-passwords-42`. Both contain a
+  configured word as a plain substring (`shelf2site` inside `shelf2sites`, `password` inside
   `passwords`). This is inherent to "reject passwords *containing* a context word". The
   rejection names the offending word, so the user can fix it in one try.
 
@@ -123,7 +123,7 @@ detector: a larger change, and the weakest of the three in expected value.
 | Setting | Default | Notes |
 |---|---|---|
 | `PASSWORD_MIN_LENGTH` | `15` | also selects which blocklist entries load |
-| `PASSWORD_BLOCKLIST_PATH` | `data/security/password-blocklist.txt` | bind-mounted on apphost, not in git |
+| `PASSWORD_BLOCKLIST_PATH` | `data/security/password-blocklist.txt` | bind-mounted from the host, not in git |
 | `PASSWORD_CONTEXT_WORDS` | `shelf2site,assettracker,asset-tracker,password` | comma-separated; grow it freely |
 | `PASSWORD_CONTEXT_WORD_MIN_LEN` | `5` | words shorter than this are never enforced |
 
@@ -140,7 +140,7 @@ is flagged `must_change_password`, so the user's real password does go through e
 ## Running the tests
 
 ```bash
-ssh deploy@192.0.2.10 "cd /opt/asset_tracker && docker compose exec -T app python -m pytest tests/test_password_rules.py -q"
+docker compose exec -T app python -m pytest tests/test_password_rules.py -q
 ```
 
 Every "must pass" case in that file is a password some plausible implementation of this spec

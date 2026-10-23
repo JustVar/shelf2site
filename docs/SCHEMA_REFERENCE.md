@@ -1,6 +1,6 @@
 > ⚠️ **Legacy NUC schema reference.** This document describes the schema of the
 > `hardware_inventory` database on the legacy NUC (192.0.2.174), NOT the
-> apphost `asset_tracker` database that powers the current application. Kept
+> `asset_tracker` database that powers the current application. Kept
 > for historical reference and migration cross-checks. Do not edit the active
 > app against this schema.
 
