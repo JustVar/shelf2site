@@ -68,9 +68,11 @@
     <link rel="stylesheet" href="{{ base_path }}/static/css/fl-restyle.css?v={{ request.state.js_v('css/fl-restyle.css') or '0' }}">
     <link rel="stylesheet" href="{{ base_path }}/static/css/mobile.css?v={{ request.state.js_v('css/mobile.css') or '0' }}">
     <link rel="manifest" href="{{ base_path }}/static/manifest.json">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ base_path }}/static/icons/icon-16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ base_path }}/static/icons/icon-32.png">
     <link rel="icon" type="image/png" sizes="96x96" href="{{ base_path }}/static/icons/icon-96.png">
     <link rel="apple-touch-icon" sizes="192x192" href="{{ base_path }}/static/icons/icon-192.png">
-    <meta name="theme-color" content="#157ca4">
+    <meta name="theme-color" content="#0F2530">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -119,13 +121,13 @@
       <!-- Header -->
       <div class="sx-nav__header">
         <div class="sx-nav__header-expanded">
-          <a href="{{ base_path }}/dashboard" hx-boost="false" class="sx-nav__logo-horiz">{{ brand_logo(30, 's2s-nav') }}</a>
+          <a href="{{ base_path }}/dashboard" hx-boost="false" class="sx-nav__logo-horiz">{{ brand_logo(30) }}</a>
           <button class="sx-nav__toggle-btn" onclick="sxNavCollapse()" title="Collapse sidebar">
             {{ fl_icon('chevrLeft', 'mute', 13) }}
           </button>
         </div>
         <div class="sx-nav__header-collapsed">
-          <a href="{{ base_path }}/dashboard" hx-boost="false" class="sx-nav__logo-icon">{{ brand_mark(34, 's2s-nav-mark') }}</a>
+          <a href="{{ base_path }}/dashboard" hx-boost="false" class="sx-nav__logo-icon">{{ brand_mark(34) }}</a>
           <button class="sx-nav__toggle-btn" onclick="sxNavExpand()" title="Expand sidebar">
             {{ fl_icon('chevrRight', 'mute', 13) }}
           </button>

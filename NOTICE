@@ -12,6 +12,9 @@ Third-party material keeps its own licence, in the file beside it:
                                        IBM Plex Mono and Space Grotesk, all
                                        SIL Open Font License 1.1
                                        (static/fonts/licenses/)
+  scripts/brand/fonts/                 Quicksand 500 and 700, SIL Open Font
+                                       License 1.1 (quicksand-OFL.txt); used
+                                       only to build the logo, not served
 
 Downloaded or loaded at run time, not stored in this repository:
 

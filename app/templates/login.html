@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Shelf2Site</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ base_path }}/static/icons/icon-16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ base_path }}/static/icons/icon-32.png">
     <link rel="icon" type="image/png" sizes="96x96" href="{{ base_path }}/static/icons/icon-96.png">
     <link rel="stylesheet" href="{{ base_path }}/static/css/fonts.css?v={{ request.state.js_v('css/fonts.css') or '0' }}">
     <script>
@@ -222,7 +224,7 @@
 
     <div class="login-card">
         <div style="text-align: center; margin-bottom: 1.25rem;">
-            {{ brand_mark(76, 's2s-login') }}
+            {{ brand_mark(76) }}
         </div>
         <h1>Shelf2Site</h1>
         <p class="subtitle">From shelf to site. Sign in to continue.</p>
