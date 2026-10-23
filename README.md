@@ -34,7 +34,7 @@ visit is scheduled and certified, and a vendor order gets its certificate.
 | Size | 258 routes (106 pages and reads, 152 writes), 49 templates, 85 migrations, 26 guided tours |
 | Tests | 1,096 contract tests that drive the running app over HTTP against a real Postgres database, including a census that checks every route for an auth gate |
 | History | Over 450 commits between May and October 2026, with 52 written specs in `docs/specs/` |
-| Stack | Python, FastAPI, Jinja2, HTMX, PostgreSQL 16, SQLAlchemy, server-sent events over Postgres LISTEN/NOTIFY, MapLibre, Docker Compose, GitHub Actions. Built with Claude (chat for design and browser checks, Claude Code for the build) |
+| Stack | Python, FastAPI, Jinja2, HTMX, PostgreSQL 16, SQLAlchemy, server-sent events over Postgres LISTEN/NOTIFY, MapLibre, Docker Compose, GitHub Actions. Built with Claude as the pair. |
 
 ## Where to start
 
@@ -46,8 +46,7 @@ visit is scheduled and certified, and a vendor order gets its certificate.
 3. The auth census: [tests/test_auth_census.py](tests/test_auth_census.py)
    reads the live route table, so a new route without a permission check fails
    the suite even when nobody wrote a test for it.
-4. How Claude was kept honest: [CLAUDE.md](CLAUDE.md) and the workflow skill
-   in [.claude/skills/asset-tracker-workflow/SKILL.md](.claude/skills/asset-tracker-workflow/SKILL.md).
+4. How Claude was kept honest: [CLAUDE.md](CLAUDE.md).
 5. One spec from idea to code:
    [docs/specs/one-board-two-tracks.md](docs/specs/one-board-two-tracks.md).
 
@@ -132,12 +131,10 @@ any change.
 
 ## How I work with Claude
 
-I designed, decided and checked; Claude wrote most of the code. The work ran
-on two surfaces: Claude in chat to design, decide and test in the browser,
-and Claude Code to build. I set the scope and gave the final approval on
-every change. The practices that kept the output honest are written down in
-[CLAUDE.md](CLAUDE.md) and the
-[workflow skill](.claude/skills/asset-tracker-workflow/SKILL.md):
+I designed, decided and checked; Claude wrote most of the code. I set the
+scope and gave the final approval on every change. The rules learned along
+the way are written down in [CLAUDE.md](CLAUDE.md). The practices that kept
+the output honest:
 
 - **Read before you write.** Discovery commands run before any edit, and a
   line number is re-read right before it is used, because they drift.
@@ -224,7 +221,6 @@ point it at a demo or scratch database, never a real one. In Docker:
 | Triage | The list of items missing a required field or failing a data check. |
 | Census | A test generated from the live route table or sidebar rather than written by hand. |
 | hx-boost | HTMX swapping in the next page without a full reload, which re-runs that page's scripts. |
-| Four-location sync | How a commit moved on the production host: host, workstation and two GitHub remotes, all checked to agree. |
 
 ## Licence
 

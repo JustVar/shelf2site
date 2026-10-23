@@ -35,4 +35,4 @@ Minimal pytest suite, run manually (documented command) since no CI exists: auth
 
 ## Gates
 
-Standard gates per commit; the census table + tests committed; error log shows zero recurrences of the fixed fingerprints after a re-exercise pass; blocklist enforcement demonstrated; justin_editor login rejected; four-location sync.
+Standard gates per commit; the census table + tests committed; error log shows zero recurrences of the fixed fingerprints after a re-exercise pass; blocklist enforcement demonstrated; justin_editor login rejected.

@@ -26,4 +26,4 @@ Source of truth: `Casey_Postgresdb_data-1783692249371.csv` (544 rows, exported 2
 
 ## Gates
 
-Dry-run report reviewed in Chat -> apply -> post-import checks above -> contract suite -> both-theme spot render of inventory -> four-location sync of the tool + any fixes. All probe data conventions as usual.
+Dry-run report reviewed in Chat -> apply -> post-import checks above -> contract suite -> both-theme spot render of inventory -> commit the tool and any fixes. All probe data conventions as usual.

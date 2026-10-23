@@ -35,7 +35,7 @@ One click from Item Detail: "Export Dossier" — a PDF (reuse the install-cert P
 
 ## Gates
 
-Upload from desktop on receive + ship points; tag/untag by serial; item detail section renders both directions; dossier PDF generates with photos and opens; sensitive-order photo hidden from viewer; kiosk 403; mobile capture verified after HTTPS lands (same constraint as scanner camera); backup tar picks up the new files (check the next nightly status size delta); both themes; consoles; four-location sync.
+Upload from desktop on receive + ship points; tag/untag by serial; item detail section renders both directions; dossier PDF generates with photos and opens; sensitive-order photo hidden from viewer; kiosk 403; mobile capture verified after HTTPS lands (same constraint as scanner camera); backup tar picks up the new files (check the next nightly status size delta); both themes; consoles.
 
 ## Sequencing
 

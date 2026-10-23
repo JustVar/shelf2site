@@ -27,6 +27,6 @@ Mitigation, in order of preference:
 
 ## Verification gates
 
-Jinja parse -> restart -> hard-reload with cache bypass (content-hash must change; stale worker gotcha) -> Chrome smoke on fulfillment BOTH themes (heroes + lap, cards, search ring, hotkeys, background) -> adjacent pages (dashboard, C2C, receipts) unchanged -> console clean -> git diff review -> commit -> four-location sync.
+Jinja parse -> restart -> hard-reload with cache bypass (content-hash must change; stale worker gotcha) -> Chrome smoke on fulfillment BOTH themes (heroes + lap, cards, search ring, hotkeys, background) -> adjacent pages (dashboard, C2C, receipts) unchanged -> console clean -> git diff review -> commit.
 
 Suggested commit: `Extract fulfillment restyle css into shared stylesheet and bg partial`

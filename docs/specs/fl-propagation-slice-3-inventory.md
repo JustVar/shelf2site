@@ -27,6 +27,6 @@ Discovery-first on the template — this page is table-heavy and likely has stat
 
 ## Gates
 
-jinja parse -> restart -> Chrome smoke BOTH themes: tiles (active + inactive, click to filter), table (hover, select one + select-all, bulk bar + Actions menu, View), search + selects filter, empty-filter state, reduced-motion spot check -> dashboard/fulfillment/C2C unaffected -> non-opted page (Search or Triage) unchanged with legacy hues intact -> console clean -> diff review -> commit -> four-location sync.
+jinja parse -> restart -> Chrome smoke BOTH themes: tiles (active + inactive, click to filter), table (hover, select one + select-all, bulk bar + Actions menu, View), search + selects filter, empty-filter state, reduced-motion spot check -> dashboard/fulfillment/C2C unaffected -> non-opted page (Search or Triage) unchanged with legacy hues intact -> console clean -> diff review -> commit.
 
 Suggested commit: `Opt inventory into the fl restyle language with filter tile and table components`

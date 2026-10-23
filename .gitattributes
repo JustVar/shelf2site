@@ -2,10 +2,8 @@
 
 # Shell scripts must stay LF even on Windows checkouts (autocrlf=true), or
 # `bash scripts/<name>` runs the CRLF copy and dies on the carriage return
-# inside a variable. Bit us on scripts/wsync; wsync has no extension so *.sh
-# alone misses it.
+# inside a variable.
 *.sh            text eol=lf
-scripts/wsync   text eol=lf
 
 # Never let text normalization touch these, even if force-added later.
 *.xlsx          binary

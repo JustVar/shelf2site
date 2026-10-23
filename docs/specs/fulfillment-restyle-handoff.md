@@ -141,11 +141,11 @@ Short status/label texts in Title Case: "Needs Triage", "2 Reserved", "+4 This W
 
 ## Build discipline (inherit, non-negotiable)
 
-- Follow CLAUDE.md and the asset-tracker-workflow skill: read-only discovery first; guarded Python patch scripts (exact-count anchors, idempotency guard, post-check) transported to apphost /tmp by base64 over stdin, with sha256sum verified at both ends and a remote ast.parse before running; re-read anchors immediately before editing; .bak deleted before commit; show git diff before committing.
+- Follow CLAUDE.md: read-only discovery first; guarded Python patch scripts (exact-count anchors, idempotency guard, post-check); re-read anchors immediately before editing; .bak deleted before commit; show git diff before committing.
 - Page-level JS uses `var` (hx-boost re-executes scripts); all init hooks idempotent and re-run on `htmx:load`.
 - Jinja onclick args: `|tojson|forceescape`.
 - Anchor strings are pure ASCII: build every non-ASCII character and every escape character with chr() and assert its count at import.
-- Verification gates per change: jinja parse -> browser console JS check (node is not on apphost) -> restart app -> Chrome MCP smoke (render, interaction incl. hover lap + hotkeys + light/dark toggle, console clean, no regression to adjacent boards) -> git diff review -> commit -> four-location sync (at-sync-commit.sh on apphost, wsync on workstation; done only when all four HEADs match).
+- Verification gates per change: jinja parse -> browser console JS check (node is not on apphost) -> restart app -> Chrome MCP smoke (render, interaction incl. hover lap + hotkeys + light/dark toggle, console clean, no regression to adjacent boards) -> git diff review -> commit.
 - Commit messages: plain imperative, no apostrophes, no em dashes, no AI attribution.
 - 192.0.2.174 is defunct; the app is 192.0.2.10:8100.
 
@@ -158,4 +158,4 @@ Short status/label texts in Title Case: "Needs Triage", "2 Reserved", "+4 This W
 5. Tabs, header controls, search + quick-action hotkeys/animations.
 6. Light mode pass + full browser verification, both themes.
 
-Each slice: verify + commit + four-location sync before the next.
+Each slice: verify + commit before the next.

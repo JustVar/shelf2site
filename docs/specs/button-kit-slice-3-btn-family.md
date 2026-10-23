@@ -403,8 +403,7 @@ Same shape as slice 2, plus the observables named in R4 to R9.
    (36px both times is the pass).
 9. Suite: 919 passed / 39 skipped predicted for every sub-slice; no route
    is added.
-10. Diff review, commit, four-location sync, four HEADs read
-    independently.
+10. Diff review, commit, push.
 
 ## Sizing
 

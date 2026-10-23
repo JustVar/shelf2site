@@ -43,4 +43,4 @@ Completion tracking keys, auto-start-on-first-visit behavior (e.g. vendors), tou
 4. New tours (post Chat copy review) — final commit(s).
 
 ## Gates
-Run EVERY tour end-to-end on its own page: cutout lands on the named element (zoom 1.15 verified), targetless steps show no cutout, card never covers its target, dim uniform, copy true of the current UI, both themes, collapsed + expanded nav variants for nav-anchored steps, launcher opens fully on-screen, consoles clean -> four-location sync.
+Run EVERY tour end-to-end on its own page: cutout lands on the named element (zoom 1.15 verified), targetless steps show no cutout, card never covers its target, dim uniform, copy true of the current UI, both themes, collapsed + expanded nav variants for nav-anchored steps, launcher opens fully on-screen, consoles clean.

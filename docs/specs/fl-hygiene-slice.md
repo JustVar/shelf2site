@@ -44,4 +44,4 @@ Suggested commit: `Restyle pfb banner under fl restyle scope`
 
 ## Gates
 
-Per commit: jinja parse (where templates change) -> restart -> Chrome smoke both themes on fulfillment/OEM/C2C -> non-opted page unchanged (dashboard or inventory) -> console clean -> diff review -> commit -> four-location sync (all four HEADs).
+Per commit: jinja parse (where templates change) -> restart -> Chrome smoke both themes on fulfillment/OEM/C2C -> non-opted page unchanged (dashboard or inventory) -> console clean -> diff review -> commit.

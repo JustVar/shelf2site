@@ -28,6 +28,6 @@ Discovery-first on the real template before trusting this table. New CSS only un
 
 ## Gates
 
-jinja parse -> restart -> Chrome smoke BOTH themes: heroes + lap, banner variants (if data allows, otherwise force via a dev toggle and revert), comp-bar hover/filter, quick-action hotkeys + flash, activity list, reduced-motion spot check -> fulfillment/OEM/C2C unaffected -> non-opted page (Inventory) unchanged -> console clean -> diff review -> commit -> four-location sync.
+jinja parse -> restart -> Chrome smoke BOTH themes: heroes + lap, banner variants (if data allows, otherwise force via a dev toggle and revert), comp-bar hover/filter, quick-action hotkeys + flash, activity list, reduced-motion spot check -> fulfillment/OEM/C2C unaffected -> non-opted page (Inventory) unchanged -> console clean -> diff review -> commit.
 
 Suggested commit: `Opt dashboard into the fl restyle language with comp bar and banner components`

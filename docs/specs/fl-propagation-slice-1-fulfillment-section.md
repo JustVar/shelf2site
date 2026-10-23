@@ -32,7 +32,7 @@ Same as always: discovery-first on the real templates (do not trust this doc's e
 
 Contracts to preserve: certify/assign endpoints and their HTMX targets, view-history links, tour selectors if any target C2C, coverage/search on fulfillment unchanged by the holds work.
 
-Gates per part (A commits separately from B): jinja parse -> restart -> Chrome smoke both themes (C2C: heroes + lap, rows, cards, Certify flow renders; fulfillment: OEM board, one modal open, quick actions + hotkeys) -> adjacent pages unaffected (dashboard, receipts) -> console clean -> diff review -> commit -> four-location sync.
+Gates per part (A commits separately from B): jinja parse -> restart -> Chrome smoke both themes (C2C: heroes + lap, rows, cards, Certify flow renders; fulfillment: OEM board, one modal open, quick actions + hotkeys) -> adjacent pages unaffected (dashboard, receipts) -> console clean -> diff review -> commit.
 
 Suggested commits:
 - `Opt C2C camera certification page into the fl restyle language`

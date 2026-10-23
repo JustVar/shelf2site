@@ -69,9 +69,8 @@ one small fix-first commit landed.
 - The whole existing fulfillment/cert flow is hardcoded
   `device_table == "edge_boxes"` in ~10 guards. C2C needs its own minimal path,
   not a reuse of those routes.
-- SSH-heredoc patch discipline (not Write+scp), guarded scripts with count
-  asserts, `.bak` deleted pre-commit, diff review before commit, four-location
-  sync per commit, separate `origin` / `company` pushes.
+- Guarded patch scripts with count asserts, `.bak` deleted pre-commit, diff
+  review before commit.
 
 ## State at handoff
 

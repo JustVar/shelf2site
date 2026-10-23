@@ -55,4 +55,4 @@ Deliverable of the investigation: findings + feasibility notes back to Chat; the
 
 ## Discipline and gates
 
-Standard: discovery-first, `.fl-restyle` scope (chrome-level rules under fl-nav-*), guarded patches, `var` + idempotent `htmx:load`, `|tojson|forceescape`, no shared legacy edits. Gates per commit: jinja parse -> restart -> Chrome smoke both themes -> adjacent pages -> consoles -> diff -> commit -> four-location sync.
+Standard: discovery-first, `.fl-restyle` scope (chrome-level rules under fl-nav-*), guarded patches, `var` + idempotent `htmx:load`, `|tojson|forceescape`, no shared legacy edits. Gates per commit: jinja parse -> restart -> Chrome smoke both themes -> adjacent pages -> consoles -> diff -> commit.

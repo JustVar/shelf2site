@@ -10,8 +10,7 @@ times by reads, twice for scope and once for the wrong defect boundary. It
 should be stable now, because the scope is enumerated by a TEST rather than by a
 list somebody has to keep reading.
 
-Owner note: WHAT and WHY only. The HOW is the `asset-tracker-workflow` skill.
-Repo facts live in `CLAUDE.md`.
+Owner note: WHAT and WHY only. Repo facts live in `CLAUDE.md`.
 
 ## The rule
 
@@ -209,7 +208,7 @@ delta, not just the behaviour. This bit once already, on defect B's filter check
    is the real check
 4. restart app, confirm worker up
 5. Browser gates below
-6. `git diff` review, then commit, then four location sync
+6. `git diff` review, then commit
 
 **Defect B gate.**
 

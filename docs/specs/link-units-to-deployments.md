@@ -4,8 +4,7 @@ Status: built. Commit 1 shipped the migration, the model column and the assign
 endpoint; commit 2 shipped the picker feed, the modal and the tests. Amended
 after the build; see the amendment log at the end of this file.
 
-Owner note: WHAT and WHY only. The HOW is the `asset-tracker-workflow` skill.
-Repo facts live in `CLAUDE.md`. Background on the fulfillment model is in
+Owner note: WHAT and WHY only. Repo facts live in `CLAUDE.md`. Background on the fulfillment model is in
 `fulfillment-pipeline-direction.md`.
 
 ## Why
@@ -224,7 +223,7 @@ was true at the time each ran, not current state.
 6. `pytest tests/ -q`. Pre-track baseline was 858 passed, 39 skipped. After
    commit 2 the figure is 871 passed, 39 skipped.
 7. Browser gate, below
-8. `git diff` review, then commit, then four location sync
+8. `git diff` review, then commit
 
 **Browser gate:**
 

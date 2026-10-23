@@ -26,6 +26,6 @@ Collapsed strip shows TOP-LEVEL items only (~9): Dashboard, Inventory, Asset Tri
 
 ## Gates
 
-Restart -> Chrome smoke BOTH themes: collapse/expand round trip, persistence across reload, flyout open/close all four dismiss paths, active-state tracking into and out of admin pages, boosted-nav accordion opening in expanded mode, below-1200px auto-collapse, tooltips on top-level icons, tours still anchor -> consoles clean -> diff -> commit -> four-location sync.
+Restart -> Chrome smoke BOTH themes: collapse/expand round trip, persistence across reload, flyout open/close all four dismiss paths, active-state tracking into and out of admin pages, boosted-nav accordion opening in expanded mode, below-1200px auto-collapse, tooltips on top-level icons, tours still anchor -> consoles clean -> diff -> commit.
 
 Suggested commit: `Redesign collapsed sidebar with top level icons dividers and admin flyout`

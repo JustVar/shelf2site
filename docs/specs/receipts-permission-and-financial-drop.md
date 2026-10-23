@@ -136,7 +136,7 @@ its line 52 is already stale and stays as history).
   `/vendors/` 0 Add, 0 Edit, 0 Delete; nav has no Receipts link.
 - Suite: 919 passed / 39 skipped. No route added or removed; the toggle
   route is renamed, so the census total holds.
-- Diff pasted and matched hunk for hunk. Four HEADs.
+- Diff pasted and matched hunk for hunk.
 
 ### Slice B: drop `contract_value` and `hardware_cost`, remove the vendor cost display
 
@@ -184,7 +184,7 @@ docstring minus `costs`.
   Spend, device table has no Cost column; `/fulfillment/` loads; the
   fulfillment export downloads and its header row has 9 columns.
 - Suite: 919 passed / 39 skipped. No route change.
-- Diff, four HEADs, `/tmp` dump removed.
+- Diff reviewed, `/tmp` dump removed.
 
 ## Out of scope, recorded for the board
 

@@ -137,7 +137,7 @@ Every slice: a brief written by Chat from anchors read in Git Bash, a
 guarded Python patch script written by Code and rebuilt from its cat -A in
 Chat under a matching sha256, a synthetic harness run against targets built
 from the script's own SPEC, then transport, dry run, write, gates, diff,
-commit and four-location sync. No slice added a route, so the suite
+commit. No slice added a route, so the suite
 prediction was 919 / 39 every time and matched every time.
 
     2d1b481  slice 1  nine confirm sites in seven static/js admin files,
@@ -241,8 +241,7 @@ applied, since node is not on apphost and the browser console is the real
 JS check. On apphost each slice: transport hash matched at both ends, dry
 run, write with post-check from disk, jinja parse of every touched template
 in the container, restart, suite 919 / 39, backups compared against HEAD and
-deleted by name, diff reviewed, guarded commit, wsync and an independent
-four-HEAD check.
+deleted by name, diff reviewed, guarded commit.
 
 Browser gates, Chrome MCP, behind a fetch guard answering every non-GET with
 a failed fake response and a sendBeacon stub. Every one of the 36 converted
@@ -274,9 +273,6 @@ network log and performance.getEntriesByType('resource').
 - showBanner on the Intune admin page has no target element when the
   integration is unconfigured. Found during the slice 1 gate.
 - events/stream returns 503 on the first page loads after a restart.
-- wsync aborted on a missing bundle once with all four HEADs already at the
-  new commit, the second occurrence of the double-run signature. Settled
-  each time by the independent four-HEAD check.
 - Chrome MCP: the first real key press immediately after a javascript_tool
   call is sometimes dropped; a screenshot or click first makes it land. The
   click coordinate frame is the screenshot frame, not CSS pixels, so a

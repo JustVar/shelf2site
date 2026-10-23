@@ -141,7 +141,7 @@ columns (skill, Migrations rule).
    toggle shows and requires the partner select; console clean after a
    tracked reload. Every non-GET fetch blocked during gates, database
    fingerprints before and after.
-6. Diff review, commit, four-location sync.
+6. Diff review, commit.
 
 ## Out of scope, recorded
 

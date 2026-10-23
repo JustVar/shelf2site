@@ -3,7 +3,7 @@
 Status: RATIFIED 2026-09-25 by Jus. Draft v2 folded in his answers to the
 v1 open questions (section 10). Written at
 HEAD 9cdef41. Every code anchor below was read on an LF copy of the
-workstation clone at that HEAD (tree clean, four locations confirmed). Every
+workstation clone at that HEAD (tree clean). Every
 live count was read on apphost the same day through psql, output returned
 as files (i30_cols, i30_deps, i30_links, i30_residue, i30_cams, i30_cam2).
 Line numbers age from the commit that lands this file; re-read with grep -n

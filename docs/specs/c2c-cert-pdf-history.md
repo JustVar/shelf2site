@@ -2,7 +2,7 @@
 
 Status: DECIDED (Chat), building. Baseline `b9defe5`.
 Scope: C2C surface only. Build in sub-slices 5a-5e; browser-verify at two seams;
-commit + full four-location sync at two consolidation points only.
+commit and push at two consolidation points only.
 
 ## Problem
 
@@ -135,5 +135,4 @@ show inherited files with remove/replace controls.
 - Store PDF/file bytes in the DB (bytes on disk + metadata).
 - Claim the composite PDF works from py_compile/import alone - live render only.
 - Rename cert code identifiers or routes gratuitously.
-- Chain the two remote pushes (separate commands in wsync).
-- Commit + sync after every sub-slice - only at the two consolidation points.
+- Commit after every sub-slice - only at the two consolidation points.

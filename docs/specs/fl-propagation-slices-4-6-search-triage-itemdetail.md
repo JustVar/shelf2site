@@ -1,6 +1,6 @@
 # Propagation slices 4-6: Search, Asset Triage, Item Detail
 
-Three slices, one page each, in this order (smallest first). Each: own commit + gates + four-location sync before the next. All three flip to `FL_CATEGORY_COLORS` on opt-in and reuse existing archetypes — no new archetypes expected; anything genuinely new comes back to Chat for a mock before building.
+Three slices, one page each, in this order (smallest first). Each: own commit + gates before the next. All three flip to `FL_CATEGORY_COLORS` on opt-in and reuse existing archetypes — no new archetypes expected; anything genuinely new comes back to Chat for a mock before building.
 
 Shared opt-in recipe as before. After slice 6 ships, legacy `CATEGORY_COLORS` may have zero remaining consumers — check and note it for a cleanup commit if so.
 
@@ -57,4 +57,4 @@ Suggested commit: `Opt item detail into the fl restyle language`
 
 Discovery-first per page — my session saw empty receipts/history and no bulk ops on triage; the templates know better. All new CSS under `.fl-restyle`; guarded patches; `var` + idempotent `htmx:load`; `|tojson|forceescape`; no shared legacy class edits; wrapper kit reuse.
 
-Gates per slice: jinja parse -> restart -> Chrome smoke BOTH themes (page-specific interactions listed above) -> adjacent opted pages unaffected -> remaining non-opted pages (Intake, Pilots Due Back, Admin) unchanged with legacy hues -> console clean -> diff review -> commit -> four-location sync.
+Gates per slice: jinja parse -> restart -> Chrome smoke BOTH themes (page-specific interactions listed above) -> adjacent opted pages unaffected -> remaining non-opted pages (Intake, Pilots Due Back, Admin) unchanged with legacy hues -> console clean -> diff review -> commit.

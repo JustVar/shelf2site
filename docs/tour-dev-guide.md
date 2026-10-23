@@ -232,7 +232,7 @@ These are the bugs that were hit, what caused them, and how they were fixed. Rea
 
 6. **Keep `closeQuickView` guard in mind.** If a future tour step targets a different modal that also needs to be open for positioning, add a similar guard. The pattern is: `if (typeof closeSomething === 'function' && step.target !== '.modal-selector') closeSomething();`
 
-7. **Specify tour name and line number when modifying steps in Claude Code.** Both tours that share a selector is a real risk.
+7. **Specify tour name and line number when modifying steps.** Both tours that share a selector is a real risk.
 
 8. **Set all 26 existing tours to `enabled: False` unless actively ready for users.** New tours start disabled and are enabled when tested and approved.
 

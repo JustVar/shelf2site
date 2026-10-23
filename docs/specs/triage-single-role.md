@@ -132,4 +132,3 @@ Anchor on exact strings, never line numbers; re-read every anchor right
 before editing. Two files plus a template: validate every anchor across
 all three, then write. Guarded patch scripts with count asserts and a
 post-check that asserts on deltas. Show the git diff before the commit.
-Four-location sync.

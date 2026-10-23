@@ -65,6 +65,6 @@ Suggested commit: `Opt admin integrations and system pages into the fl restyle l
 
 ## Discipline and gates
 
-As established: discovery-first per page, `.fl-restyle` scope, guarded patches, `var` + idempotent `htmx:load`, `|tojson|forceescape`, no shared legacy edits. Gates per commit: jinja parse -> restart -> Chrome smoke both themes -> adjacent pages unaffected -> console clean -> diff -> commit -> four-location sync.
+As established: discovery-first per page, `.fl-restyle` scope, guarded patches, `var` + idempotent `htmx:load`, `|tojson|forceescape`, no shared legacy edits. Gates per commit: jinja parse -> restart -> Chrome smoke both themes -> adjacent pages unaffected -> console clean -> diff -> commit.
 
 After slice 9 ships: the chrome slice (sidebar, topbar, footer, login page if any) is the finale — it needs its own spec since chrome spans every page and the z-lift/body:has scaffolding interacts with it. Flag readiness and we will spec it in Chat.

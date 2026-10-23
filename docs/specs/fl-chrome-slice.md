@@ -43,7 +43,7 @@ Outside base.html — needs its own opt-in handling (it cannot rely on the base 
 
 ## Gates
 
-The widest verification of the project: jinja parse -> restart -> Chrome smoke on one page from every family (dashboard, fulfillment, C2C, pilots, inventory, search, triage, item detail, intake, admin people, admin logs, admin system) in BOTH themes, checking sidebar render + active state + boosted nav + no z-fighting with modals/drawers -> login page load + failed-login error state + successful login round trip -> toasts fire correctly (trigger one) -> consoles clean -> diff review -> commit -> four-location sync.
+The widest verification of the project: jinja parse -> restart -> Chrome smoke on one page from every family (dashboard, fulfillment, C2C, pilots, inventory, search, triage, item detail, intake, admin people, admin logs, admin system) in BOTH themes, checking sidebar render + active state + boosted nav + no z-fighting with modals/drawers -> login page load + failed-login error state + successful login round trip -> toasts fire correctly (trigger one) -> consoles clean -> diff review -> commit.
 
 Suggested commits (two):
 - `Restyle app chrome sidebar banners footer and toasts`

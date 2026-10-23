@@ -27,4 +27,4 @@ Item Detail existing sections, triage roles/checks, map + inventory place displa
 
 ## Gates
 
-Invariant tests (each guard positive + negative); e2e round trip: receive component -> assign into unit -> verify Installed status + inherited place on item detail, inventory, search, and map -> move to second unit -> verify history shows both residencies with counterparts -> uninstall -> standalone again. Backfill row counts. H7 removal smoke (Receive shows single mode, no console errors, tour updated). Both themes. Contract suite green. Four-location sync.
+Invariant tests (each guard positive + negative); e2e round trip: receive component -> assign into unit -> verify Installed status + inherited place on item detail, inventory, search, and map -> move to second unit -> verify history shows both residencies with counterparts -> uninstall -> standalone again. Backfill row counts. H7 removal smoke (Receive shows single mode, no console errors, tour updated). Both themes. Contract suite green.

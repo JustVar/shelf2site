@@ -26,17 +26,16 @@ were mostly learned by getting something wrong once.
   Old migrations name columns and tables that later migrations renamed or
   dropped; they are history, not something a fresh install runs.
 
-## How it ran in production
+## Deploying it
 
-One Ubuntu host (called `apphost` in these notes) ran Docker Compose: the app
-under gunicorn with six uvicorn workers bound to `127.0.0.1:8081`, Postgres 16,
-and host nginx in front terminating TLS on `:8443` with a private mkcert CA
-(`docs/HTTPS.md`), the app mounted under `ROOT_PATH=/assettracker`. Nightly
-backups ran on the host and were pulled to a workstation (`docs/BACKUPS.md`,
-`scripts/at-backup*.sh`). `deploy/nginx/asset-tracker.conf` is a reference
-copy of the nginx site file, not a deploy source: nothing deploys it.
+The reference setup is one Linux host running Docker Compose: the app under
+gunicorn with uvicorn workers bound to `127.0.0.1:8081`, Postgres 16, and a
+reverse proxy in front terminating TLS (`docs/HTTPS.md`;
+`deploy/nginx/asset-tracker.conf` is an example nginx site file). Set
+`ROOT_PATH` when the proxy mounts the app under a sub-path. Nightly backups
+run on the host (`docs/BACKUPS.md`, `scripts/at-backup.sh`).
 
-Two things from that setup still shape the code:
+Two things about that setup shape the code:
 
 - `docker compose restart app` does not pick up a changed volume mount; the
   mount spec is fixed at container creation, so it needs `docker compose up -d app`.
@@ -74,37 +73,6 @@ Application code should never read raw `can_*` columns directly — always go th
 - Sequential numbering: `001_`, `002_`, ... — **the `migrations/` directory is the truth for the next number** (a hardcoded "next" here goes stale immediately; check `ls migrations/ | sort | tail`).
 - Run inside the container: `docker compose exec app python migrations/NNN_*.py`
 - Always add a migration for schema changes — never modify the DB directly.
-
-### Deploy / sync on the production host (four locations)
-This is how commits moved while the app ran on `apphost`. The scripts are kept
-in `scripts/` as a record of the flow.
-- apphost had **no GitHub deploy key** — never `git pull` on the server. The flow is: edit + verify on apphost → `~/bin/at-sync-commit.sh <paths>` (commit message via stdin; prints PREV/NEW) → on the workstation `git checkout -- <files>` (drop local copies) then `~/bin/wsync PREV NEW` (the live copy; `scripts/wsync` is its repo mirror, see the mirroring rule below) → wsync moves a git bundle, fast-forwards the workstation, and pushes `origin` (JustVar) + `company` (the employer org).
-- wsync aborts if the workstation tree is dirty; run multi-commit hops sequentially.
-- apphost had ZERO git remotes from 2026-07-27. A remote pointing at the
-  company repo through an unresolvable SSH alias was removed; it never
-  resolved and nothing referenced it, so the one way relay is structural. The workstation remote names are LOAD BEARING: wsync
-  hardcodes origin and company in both push commands and in the two ls-remote
-  calls that build the four HEAD line. Do not rename them.
-
-### git rm + at-sync-commit.sh (fixed 2026-07-24)
-at-sync-commit.sh used to fail when passed a path already staged for deletion by
-`git rm` — `git add -- "$@"` errored with "pathspec did not match" (bit us on
-sw.js and the procurement removal). The script now filters staged-deletion paths
-out of the add automatically, so passing a `git rm`'d path alongside modified
-files is safe. Kept as history so the symptom is recognizable if it ever recurs.
-
-### Sync scripts are mirrored — keep live and repo copies in lockstep
-Each sync script exists twice: the live copy that's actually run, and a repo
-mirror under `scripts/` (so it survives a host rebuild). The live copies sit on
-DIFFERENT hosts:
-- `at-sync-commit.sh` — live `~/bin/at-sync-commit.sh` on **apphost**, mirror `scripts/at-sync-commit.sh`.
-- `wsync` — live `~/bin/wsync` on the **workstation**, mirror `scripts/wsync`.
-Editing either side means updating the other in the SAME change; a working live
-copy is not done until its mirror agrees (a stale mirror rots silently — this bit
-us when at-sync-commit.sh was fixed in `~/bin` but not `scripts/`). Verify with
-`diff`, run ON THE HOST WHERE THE LIVE COPY LIVES. Compare against the committed
-blob, not the working file — `git show HEAD:scripts/wsync | diff - ~/bin/wsync` —
-since a CRLF-smudged checkout reads as false drift.
 
 ### Static Files
 - Located at repo root `static/` (copied to `/app/static` in the image) — NOT `app/static/`.
@@ -389,7 +357,7 @@ are defensive resets of an aborted session, not cleanup. Three consequences:
 
 ## A spec can be stale on arrival
 
-A spec written on the workstation and committed later can describe a codebase
+A spec written ahead of the work and committed later can describe a codebase
 that has since moved. Re-verify a spec against HEAD before committing it.
 docs/audit-log-scope.md described three defects that had been fixed the day
 before it landed.

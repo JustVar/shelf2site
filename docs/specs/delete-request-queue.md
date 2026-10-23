@@ -191,7 +191,7 @@ requests to count.
 ## Gates
 
 Per slice: the migration proven on a local Postgres, the script harness,
-the suite with a predicted total, the diff matched by sha, four HEADs. In
+the suite with a predicted total, the diff matched by sha. In
 the browser, as an editor and as an admin:
 
 - A: file a request with a blank reason (refused), file one on an unclean

@@ -30,4 +30,4 @@ Complete the exact flow the E2E test could not, on AT-9009: add a SKU requiremen
 
 ## Gates
 
-Standard: contract tests for the new routes + validation, both themes, adjacent boards unaffected, consoles clean, diff review, four-location sync. The acceptance run recorded step-by-step in the report.
+Standard: contract tests for the new routes + validation, both themes, adjacent boards unaffected, consoles clean, diff review. The acceptance run recorded step-by-step in the report.

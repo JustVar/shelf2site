@@ -1,8 +1,7 @@
 # Fulfillment vendor direction
 
 Status: direction ratified 2026-09-01 by Jus. This file records the WHAT and
-WHY of two decisions made together; the HOW of any build that follows is the
-`asset-tracker-workflow` skill. Repo facts live in `CLAUDE.md`.
+WHY of two decisions made together. Repo facts live in `CLAUDE.md`.
 
 ## Direction change: consumer orders route through a hardware vendor
 

@@ -27,6 +27,6 @@ Existing item location assignments and their history, deploy wizard round trip, 
 
 ## Gates
 
-Migration dry-run with row-count assertions both vocabularies -> unified table; geocode round trip on a real address (verify pin lands where expected); graceful-failure path exercised (bad address, geocoder unreachable); map shows only customer sites; office units absent; intake and deploy selects correctly split; triage inconsistency check fires on a seeded bad record and clears; both themes; consoles; four-location sync.
+Migration dry-run with row-count assertions both vocabularies -> unified table; geocode round trip on a real address (verify pin lands where expected); graceful-failure path exercised (bad address, geocoder unreachable); map shows only customer sites; office units absent; intake and deploy selects correctly split; triage inconsistency check fires on a seeded bad record and clears; both themes; consoles.
 
 Backlog note recorded: office map for in-stock items — someday, explicitly not now.

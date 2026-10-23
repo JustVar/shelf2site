@@ -51,4 +51,4 @@ After Phase 2, a 15-minute physical script, run once on webcam and once on phone
 
 ## Gates
 
-Phase 1 is read-only + probe gates (no commits beyond test notes unless a bug is found — bugs get flagged fix commits like 4368920). Phase 2: standard gates, scanner exercised with synthetic decode events (the library can be fed test frames or the decode handler called directly), both themes, four-location sync. Camera-permission UI verified to the prompt in Chrome; full camera verification is the manual protocol.
+Phase 1 is read-only + probe gates (no commits beyond test notes unless a bug is found — bugs get flagged fix commits like 4368920). Phase 2: standard gates, scanner exercised with synthetic decode events (the library can be fed test frames or the decode handler called directly), both themes. Camera-permission UI verified to the prompt in Chrome; full camera verification is the manual protocol.

@@ -23,7 +23,7 @@ Decision (Jus, 2026-07-09): mobile support is scoped to FIELD PAGES ONLY — Rec
 
 ## Verification
 
-Chrome device emulation (or window resize) at ~390x844: the five field pages exercised end-to-end — hamburger open/close, receive scan UI renders (camera permission flow at least reaches the prompt), checkout/checkin form submit reachable with sticky action, search -> stacked results -> item detail round trip — BOTH themes. Desktop layouts pixel-unchanged at >=1200px (the responsive work must live entirely behind media queries). Consoles clean. Standard gates + four-location sync.
+Chrome device emulation (or window resize) at ~390x844: the five field pages exercised end-to-end — hamburger open/close, receive scan UI renders (camera permission flow at least reaches the prompt), checkout/checkin form submit reachable with sticky action, search -> stacked results -> item detail round trip — BOTH themes. Desktop layouts pixel-unchanged at >=1200px (the responsive work must live entirely behind media queries). Consoles clean. Standard gates.
 
 Suggested commits:
 - `Fix mobile sidebar toggle targeting removed element`
