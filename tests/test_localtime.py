@@ -115,7 +115,7 @@ TEMPLATE_MODULES = _template_modules()
 
 
 def test_template_modules_are_all_found():
-    # 29 at slice A; 27 since item 30 S3 retired intune_routes and lifecycle.
+    # 29 at slice A; 27 since legacy slice S3 retired intune_routes and lifecycle.
     # More is fine; fewer means one was lost or renamed.
     assert len(TEMPLATE_MODULES) >= 27, sorted(TEMPLATE_MODULES)
 
@@ -261,7 +261,7 @@ def test_model_date_defaults_use_central():
     found = _model_date_defaults()
     utc = sorted("%s = %s" % (k, v) for k, v in found.items() if "America/Chicago" not in v)
     assert not utc, "%d model date defaults use the UTC date: %s" % (len(utc), utc)
-    # 12 since item 30 S5 retired DeviceAssignment (assigned_date).
+    # 12 since legacy slice S5 retired DeviceAssignment (assigned_date).
     assert len(found) == 12, sorted(found)
 
 
@@ -283,7 +283,7 @@ def test_live_date_defaults_use_central():
         rows = conn.execute(text(LIVE_DATE_DEFAULTS)).fetchall()
     utc = sorted("%s.%s.%s = %s" % tuple(r) for r in rows if "America/Chicago" not in r[3])
     assert not utc, "%d live date defaults use the UTC date: %s" % (len(utc), utc)
-    # 14 since migration 083 (item 30 S5) dropped public.device_assignments
+    # 14 since migration 083 (legacy slice S5) dropped public.device_assignments
     # and public.maintenance_log, one Central date default each.
     assert len(rows) == 14, [tuple(r) for r in rows]
 

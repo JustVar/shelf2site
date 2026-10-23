@@ -29,7 +29,7 @@ def dep_units(admin_client, db):
     """One order with a deployment visit and two units, plus a second order.
 
     Unit A resolves through its item (item_id set). Unit B has no item
-    (item_id NULL); since item 30 S4 retired the legacy per-table path it
+    (item_id NULL); since legacy slice S4 retired the legacy per-table path it
     resolves to its provisioning-id fallback.
     """
     order_id = _mk_order(admin_client, "CONTRACT-TEST Deploy Corp")

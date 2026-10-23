@@ -291,7 +291,7 @@ reused as-is.
 - **OEM procurement wiring for cams** (section 4 open read) — how a `source=oem`
   cam line becomes an `OEMPurchaseOrder`. Ground before building acquisition.
 - **Cameras -> `item_schema.items` migration trajectory:** settled 2026-09-25.
-  Every legacy table, cameras included, retires into items (board item 30,
+  Every legacy table, cameras included, retires into items (the legacy inventory retirement,
   `docs/specs/retire-legacy-inventory.md`). Option D stands; provisioning
   already links by `item_id`.
 - **Accessory fulfillment surface** — brackets/cards as order lines is decided,

@@ -1,4 +1,4 @@
-"""Contract tests for edge box provisioning on items (item 30 S4).
+"""Contract tests for edge box provisioning on items (legacy slice S4).
 
 Provisioning creates, lists, shows and advances edge box ITEMS; the legacy
 edge_boxes table is no longer read. All rows are CONTRACT-TEST-prefixed and

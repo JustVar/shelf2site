@@ -1,4 +1,4 @@
-"""Display labels for the retired legacy table names (item 30 S5).
+"""Display labels for the retired legacy table names (legacy slice S5).
 
 The 22 per-category public tables are gone, but their names live on as a
 vocabulary in two places: audit history (audit_log.target_table keeps the

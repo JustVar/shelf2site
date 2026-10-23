@@ -32,7 +32,7 @@ def cancel_order(admin_client, db):
 
     Unit A links an item, unit B has none (item_id NULL), so the captured
     unit list exercises both shapes. The legacy device_table/device_id pair
-    dropped in migration 083 (item 30 S5).
+    dropped in migration 083 (legacy slice S5).
     """
     order_id = _mk_order(admin_client, "CONTRACT-TEST Cancel Corp")
 
@@ -263,7 +263,7 @@ def test_cancelled_order_is_not_offered_for_provisioning(admin_client, cancel_or
     assert "CONTRACT-TEST Cancel Corp" not in after
 
 
-# -- Terminal-order controls (N4 follow-up) ---------------------------------
+# -- Terminal-order controls ------------------------------------------------
 
 def test_delete_refuses_a_cancelled_order(admin_client, db, cancel_order):
     """Cancelled orders are retained as the historical record.

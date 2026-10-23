@@ -1,4 +1,4 @@
-"""Migration 084: drop public.intake_photos (board item N23).
+"""Migration 084: drop public.intake_photos.
 
 The receive photo routes (POST /api/receive/photo and its serve route) had no
 caller once label OCR moved to the unit photos upload (migration 069), and

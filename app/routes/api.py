@@ -1,4 +1,4 @@
-"""JSON API routes. The legacy device, stats and vendor reads retired in item 30 S3;
+"""JSON API routes. The legacy device, stats and vendor reads retired in legacy slice S3;
 the global audit log remains."""
 
 from fastapi import APIRouter, Depends, Query

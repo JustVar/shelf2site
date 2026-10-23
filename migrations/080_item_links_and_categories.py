@@ -1,4 +1,4 @@
-"""Migration 080: item links and four new item categories (item 30 S1).
+"""Migration 080: item links and four new item categories (legacy slice S1).
 
 Schema only, additive. See docs/specs/retire-legacy-inventory.md sections 6,
 6a and 9 (slice S1).
@@ -7,11 +7,11 @@ Schema only, additive. See docs/specs/retire-legacy-inventory.md sections 6,
 - device_credentials, device_warranties and device_assignments gain a
   nullable item_id FK to item_schema.items(id), ON DELETE SET NULL (the
   migration 056 pattern), each with an index. The legacy device_table and
-  device_id columns stay until item 30 S5.
+  device_id columns stay until legacy slice S5.
 - pending_devices gains suggested_category (public.item_categories,
-  nullable). suggested_table stays until item 30 S5.
+  nullable). suggested_table stays until legacy slice S5.
 
-No row is written. The new columns stay NULL until item 30 S2.
+No row is written. The new columns stay NULL until legacy slice S2.
 
 Postgres note: ALTER TYPE ... ADD VALUE gets its own transaction block, and
 nothing here uses the new values (SQLSTATE 55P04), as in migration 065.

@@ -1,4 +1,4 @@
-"""Migration 081: move every live legacy link onto items (item 30 S2).
+"""Migration 081: move every live legacy link onto items (legacy slice S2).
 
 Data only. See docs/specs/retire-legacy-inventory.md sections 4 to 6a and
 slice S2. Runs as ONE transaction. Without --apply it does all the work,
@@ -44,7 +44,7 @@ from sqlalchemy import text
 from app.database import engine
 
 APPLY = "--apply" in sys.argv
-PROVENANCE = "item 30 S2, migration 081"
+PROVENANCE = "legacy slice S2, migration 081"
 
 LEGACY_TABLES = [
     "edge_boxes", "gpus", "monitors", "computers", "phones", "mobile_devices",
@@ -88,7 +88,7 @@ RECATEGORISE = (
 # Same vocabulary as app/containment.py UNIT_CATEGORIES after migration 080.
 UNIT_CATEGORIES = {"edge_box", "cloud_box", "camera_c2c", "computer", "nas"}
 
-# suggested_table -> item category (receiving's map plus item 30 6a).
+# suggested_table -> item category (receiving's map plus legacy slice 6a).
 SUGGESTED = {
     "edge_boxes": "edge_box", "gpus": "gpu", "monitors": "monitor",
     "computers": "computer", "nucs": "computer", "mobile_devices": "mobile_device",

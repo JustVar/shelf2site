@@ -4,8 +4,8 @@ Item 30 S4 (docs/specs/retire-legacy-inventory.md): the legacy per-category
 device lists, the unlinked-vendor strings and the auto-create seeding read
 the legacy tables and are retired. A profile now lists the items whose
 vendor_id points at it. The quality score, RMA and trial stats went with
-them (RMA claims and trials are retired features); N2 owns any richer
-vendor analytics.
+them (RMA claims and trials are retired features). Richer vendor analytics
+would be a feature of its own.
 """
 
 from pathlib import Path

@@ -373,7 +373,7 @@ def c2c_page(
 # (migration 056); the per-cam cert (C2) still keys on the provisioning row.
 #
 # item_id is the only link (the legacy device_table/device_id pair dropped in
-# migration 083, item 30 S5).
+# migration 083, legacy slice S5).
 #
 # Cams do not ride the edge-box stage pipeline, so:
 #   * stages=[]           — nullable=False; [] is guarded-falsy in every stages

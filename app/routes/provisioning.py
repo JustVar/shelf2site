@@ -249,7 +249,7 @@ def provisioning_detail_page(
     deployment_type = _unit_deployment_type(unit)
     display_table = _unit_category_label(unit)
 
-    # Edge box details for the device section (item 30 S4: read off the item)
+    # Edge box details for the device section (legacy slice S4: read off the item)
     edge_box = _edge_box_view(unit)
 
     # Stage progress
@@ -441,7 +441,7 @@ async def create_provisioning(
     except (TypeError, ValueError):
         return JSONResponse(status_code=400, content={"error": "item_id is required"})
 
-    # Validate the edge box item exists (item 30 S4: provisioning runs on items)
+    # Validate the edge box item exists (legacy slice S4: provisioning runs on items)
     device = db.query(Item).filter(Item.id == item_id).first()
     if not device:
         return JSONResponse(status_code=404, content={"error": "Edge box not found"})
@@ -717,7 +717,7 @@ async def advance_provisioning(
     if rec.is_complete:
         return JSONResponse(status_code=400, content={"error": "Provisioning already complete"})
 
-    # Every row links an item (item 30 S4). Two shapes: edge box rows created
+    # Every row links an item (legacy slice S4). Two shapes: edge box rows created
     # here carry the stage machine; C2C cameras (c2c.py) and stock units
     # assigned to orders (orders.py) carry stages=[] and current_stage
     # "acquired" as a label only. The label rows never complete through this
@@ -770,7 +770,7 @@ async def advance_provisioning(
         rec.is_complete = True
         rec.completed_at = datetime.utcnow()
 
-        # Device-to-site assignments were retired in item 30 S4 (sites area);
+        # Device-to-site assignments were retired in legacy slice S4 (sites area);
         # completion no longer writes one. The item's place is its location_id.
 
         # Auto-update the edge box item to Deployed

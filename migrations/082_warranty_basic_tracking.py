@@ -1,10 +1,10 @@
-"""Migration 082: item-only warranties and assignments (item 30 S4, warranty).
+"""Migration 082: item-only warranties and assignments (legacy slice S4, warranty).
 
 Schema only. See docs/specs/retire-legacy-inventory.md section 9 (S4).
 
 - device_warranties and device_assignments: device_table and device_id stop
   being NOT NULL. New rows link through item_id (migration 080); the legacy
-  pair has nothing to hold and drops in item 30 S5.
+  pair has nothing to hold and drops in legacy slice S5.
 - device_warranties gains notes (text, nullable). Warranty tracking is basic
   now (item, vendor, start, end, notes); coverage_details and the other
   unused columns drop in S5.

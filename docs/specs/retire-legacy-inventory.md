@@ -1,4 +1,4 @@
-# Retire the legacy inventory model (board item 30)
+# Retire the legacy inventory model
 
 Status: RATIFIED 2026-09-25 by Jus. Draft v2 folded in his answers to the
 v1 open questions (section 10). Written at
@@ -29,7 +29,7 @@ Two inventory models live side by side.
 Registering `Item` in `TABLE_MODELS` was probed and rejected
 (`c2c-catalog-and-accessories.md:252`, option B1: it pollutes about 15
 legacy consumers). `CLAUDE.md` recorded retirement as the end state,
-blocked on warranty and components; since item 30 S1 it points here.
+blocked on warranty and components; since legacy slice S1 it points here.
 
 ## 2. Decision (Jus, 2026-09-25)
 
@@ -224,7 +224,7 @@ four import scripts in `scripts/` write legacy tables). The 548 items came
 from Casey's CSV through a one-time migration (067, REPORTED). The planned
 spreadsheet re-upload therefore needs a new items importer, matching by
 serial and keeping ids stable so re-pointed links survive. **New board
-item, spec-first, not part of item 30.**
+item, spec-first, not part of the legacy retirement.**
 
 ## 8. Code census (READ, name-based, at 9cdef41)
 
@@ -267,7 +267,7 @@ list in the appendix. By area:
   is already items-first; legacy edge boxes load only to hide their items
   twins and pass on order linkage (`map.py:193-228`).
 - **Vendors:** `_vendor_analytics`, `vendors_list`, `auto_create_vendors`.
-  **Decision: item 30 removes the legacy half only; N2 owns the items
+  **Decision: the legacy retirement removes the legacy half only; N2 owns the items
   rebuild of vendor analytics.**
 - **Admin:** `admin.py` `oui_reference` (MACs from six legacy classes)
   switches to the item MAC columns.
@@ -510,7 +510,7 @@ data, data before readers, readers before drops.
 3. **Legacy JSON APIs:** retire all three (section 8). Credentials get an
    item detail section instead of the dead modal.
 4. **Phones, webcams, printers:** their own categories (section 6a).
-5. **Vendor analytics:** item 30 removes the legacy half; N2 rebuilds.
+5. **Vendor analytics:** the legacy retirement removes the legacy half; N2 rebuilds.
 6. **Map:** S4's map commit opens with a read counting legacy edge boxes
    that show on the map from their own coordinates while their items twin
    has no customer site with coordinates. Those units would drop off the

@@ -29,7 +29,7 @@ ADMIN_LEVEL_ROLES = ("super_admin", "system_admin", "admin", "ceo")
 # item_categories ENUM (public schema). Defined here, ahead of the models,
 # because PendingDevice (suggested_category, migration 080) uses it as well
 # as Item and ItemPartNumber. DDL is owned by the migrations; 080 added the
-# last four values (board item 30). The app category lists are hand-kept:
+# last four values (legacy inventory retirement). The app category lists are hand-kept:
 # see CLAUDE.md, "The item category vocabulary is hand-maintained".
 item_categories_enum = SAEnum(
     'access_control', 'camera', 'computer', 'cpu', 'motherboard',
@@ -143,7 +143,7 @@ class DeviceCredential(Base):
     __tablename__ = "device_credentials"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (the legacy retirement)
     credential_type = Column(String(32), nullable=False)  # "login", "pin", "api_key"
     username = Column(LargeBinary, nullable=True)  # Fernet-encrypted
     password = Column(LargeBinary, nullable=True)  # Fernet-encrypted
@@ -441,7 +441,7 @@ class PendingDevice(Base):
     ip_address = Column(String(45), nullable=True)
     hostname = Column(String(128), nullable=True)
     manufacturer = Column(String(128), nullable=True)
-    suggested_category = Column(item_categories_enum, nullable=True)  # migration 080 (item 30)
+    suggested_category = Column(item_categories_enum, nullable=True)  # migration 080 (the legacy retirement)
     scanner_id = Column(String(64), nullable=True)
     network_segment = Column(String(32), nullable=True)
     first_seen = Column(DateTime, server_default=func.now())
@@ -463,7 +463,7 @@ class PendingDevice(Base):
 
 
 # ---------------------------------------------------------------------------
-# Device Warranties (basic tracking on items, item 30 S4)
+# Device Warranties (basic tracking on items, legacy slice S4)
 # ---------------------------------------------------------------------------
 class DeviceWarranty(Base):
     __tablename__ = "device_warranties"
@@ -471,11 +471,11 @@ class DeviceWarranty(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (item 30)
+    item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)  # migration 080 (the legacy retirement)
     vendor = Column(String(128))
     warranty_start = Column(Date)
     warranty_end = Column(Date)
-    notes = Column(Text, nullable=True)  # migration 082 (item 30 S4)
+    notes = Column(Text, nullable=True)  # migration 082 (legacy slice S4)
 
     REQUIRED_FIELDS = ["item_id", "warranty_start", "warranty_end"]
 
@@ -641,7 +641,7 @@ class DeviceProvisioning(Base):
     # Customer Order link (Migration 018)
     customer_order_id = Column(Integer, ForeignKey("customer_orders.id", ondelete="SET NULL"), nullable=True)
 
-    # The unit (Migration 056). Every row links an item since item 30; the
+    # The unit (Migration 056). Every row links an item since the legacy retirement; the
     # legacy device_table/device_id pair dropped in migration 083.
     item_id = Column(Integer, ForeignKey("item_schema.items.id", ondelete="SET NULL"), nullable=True)
 

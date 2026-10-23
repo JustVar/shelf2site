@@ -153,7 +153,7 @@
           <span class="sx-nav__label">Inventory</span>
         </a>
 
-        {# Warranty page (item 30 S4). hx-boost="false" because its scripts
+        {# Warranty page (legacy slice S4). hx-boost="false" because its scripts
            render outside main, so a boosted swap would leave it inert. #}
         <a href="{{ base_path }}/warranty/" hx-boost="false"
            class="sx-nav__link {% if '/warranty' in request.url.path %}sx-nav__link--active{% endif %}"
@@ -162,7 +162,7 @@
           <span class="sx-nav__label">Warranties</span>
         </a>
 
-        {# Sites (item 30 S4). hx-boost="false" for the same reason as
+        {# Sites (legacy slice S4). hx-boost="false" for the same reason as
            Warranties: the page scripts render outside main. #}
         <a href="{{ base_path }}/sites/" hx-boost="false"
            class="sx-nav__link {% if '/sites' in request.url.path %}sx-nav__link--active{% endif %}"

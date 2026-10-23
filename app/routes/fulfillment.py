@@ -212,7 +212,7 @@ def fulfillment_panel_state(
     site_names = {s.id: s.name for s in db.query(Site).all()}
 
     # Units already on the order get their identity from item_schema
-    # (item 30 S4: the legacy edge-box branch is gone).
+    # (legacy slice S4: the legacy edge-box branch is gone).
     devices = []
     prov_rows = (
         db.query(DeviceProvisioning)
@@ -794,7 +794,7 @@ def certifications_index(
     No writes occur here.
     """
     # All edge-box items with an order link, joined to their order
-    # (item 30 S4: the legacy edge_boxes join is gone).
+    # (legacy slice S4: the legacy edge_boxes join is gone).
     rows = (
         db.query(
             DeviceProvisioning.id.label("prov_id"),

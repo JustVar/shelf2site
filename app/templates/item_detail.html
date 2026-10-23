@@ -409,7 +409,7 @@
   </div>
   {% endif %}
 
-  <!-- Credentials (item 30 S4): only for users with credentials access -->
+  <!-- Credentials (legacy slice S4): only for users with credentials access -->
   {% if credential_count %}
   <div class="dtl-section" id="creds-section">
     <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -421,7 +421,7 @@
   </div>
   {% endif %}
 
-  <!-- Warranties (item 30 S4): read-only here; added and edited on the Warranty page -->
+  <!-- Warranties (legacy slice S4): read-only here; added and edited on the Warranty page -->
   <div class="dtl-section" id="warranty-section">
     <div class="dtl-section-title" style="display:flex;align-items:center;justify-content:space-between">
       <span>Warranties ({{ warranties|length }})</span>
@@ -762,7 +762,7 @@
 {% endif %}
 
 <script>
-// Credentials section (item 30 S4). Values are written with textContent only;
+// Credentials section (legacy slice S4). Values are written with textContent only;
 // they are user-entered secrets and must never be parsed as HTML.
 function itemCredsShow(itemId) {
     var btn = document.getElementById('creds-show-btn');

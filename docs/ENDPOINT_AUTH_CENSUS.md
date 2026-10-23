@@ -1,9 +1,9 @@
 # Endpoint Auth Census
 
 **Reconciled 2026-09-28** against live route introspection on the running app: 256 route entries
-(255 HTTP routes plus 1 static mount) across 230 unique paths, after item 30 S3 retired
+(255 HTTP routes plus 1 static mount) across 230 unique paths, after legacy slice S3 retired
 Intune sync, spreadsheet sync, the lifecycle page, three legacy JSON APIs and the NAS drive
-API, and item 30 S4 retired the two RMA claim routes, added the warranty item search, and
+API, and legacy slice S4 retired the two RMA claim routes, added the warranty item search, and
 retired the three site assignment routes, the three bulk routes and vendor auto-create.
 No commit pin, since any commit that updates this file changes the count it would name.
 Regenerate with the command below.
@@ -195,7 +195,7 @@ docker compose exec -T app python - < scripts/route_census.py
 
 | Route | Methods | Required gate | Verdict / notes |
 |---|---|---|---|
-| `/api/credentials/items/{item_id}` | GET | credentials access | OK (audit-logged; item 30 S4) |
+| `/api/credentials/items/{item_id}` | GET | credentials access | OK (audit-logged; legacy slice S4) |
 
 ### dashboard
 
@@ -498,7 +498,7 @@ docker compose exec -T app python - < scripts/route_census.py
 |---|---|---|---|
 | `/api/warranty` | POST | editor+ (incl. sub-admins) | OK |
 | `/api/warranty/export` | GET | any authenticated | OK |
-| `/api/warranty/item-search` | GET | editor+ (incl. sub-admins) | OK (add-warranty picker; item 30 S4) |
+| `/api/warranty/item-search` | GET | editor+ (incl. sub-admins) | OK (add-warranty picker; legacy slice S4) |
 | `/api/warranty/{warranty_id}` | PUT | editor+ (incl. sub-admins) | OK |
 | `/api/warranty/{warranty_id}` | GET | any authenticated | OK |
 | `/api/warranty/{warranty_id}` | DELETE | warranty manager | OK |

@@ -92,7 +92,7 @@ CATEGORY_ATTRIBUTES = {
     "monitor": [],
     "office_equipment": [],
 
-    # --- added by item 30 (migration 080) ---
+    # --- added by the legacy retirement (migration 080) ---
     "phone": [],
     "webcam": [],
     "printer": [],

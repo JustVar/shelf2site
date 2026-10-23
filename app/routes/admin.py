@@ -68,7 +68,7 @@ def oui_reference(
 
     entries = db.query(OUIAllowlist).order_by(OUIAllowlist.manufacturer, OUIAllowlist.oui_prefix).all()
 
-    # Count items per OUI from either item MAC column (item 30 S4; the six
+    # Count items per OUI from either item MAC column (legacy slice S4; the six
     # legacy MAC tables are retired). macaddr renders as lowercase aa:bb:cc.
     oui_stats = []
     for entry in entries:

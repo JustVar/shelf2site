@@ -154,7 +154,7 @@ def order_detail(
         device_label = f"Provisioning #{p.id}"
         item = db.query(Item).filter(Item.id == p.item_id).first() if p.item_id else None
         if item:
-            # Every unit is item-linked since item 30 S4 — label from items.
+            # Every unit is item-linked since legacy slice S4 — label from items.
             device_label = item.item_name or item.item_model or device_label
         cert_url = None
         if item and item.item_category == "camera_c2c":

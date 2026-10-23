@@ -22,7 +22,7 @@ file; re-read with grep -n before editing.
 6. The order money columns `contract_value` and `hardware_cost` are
    dropped, columns and code. The vendor cost display (`show_financials`,
    Total Spend, Cost column) is removed. `purchase_price` columns stay
-   until item 30 settles the inventory model; nothing reads them after
+   until the legacy retirement settles the inventory model; nothing reads them after
    this. `warranty.renewal_cost` stays; it is warranty data.
 7. No grants are added for the Hardware department. The two `_e2e` test
    accounts there lose receipts, which matches a viewer and an editor with
@@ -192,6 +192,6 @@ docstring minus `costs`.
   permissions endpoint). Deleting them is its own item; it moves the auth
   census total by 15.
 - `has_any_admin` is dead code.
-- `purchase_price` on three models rides with item 30.
+- `purchase_price` on three models rides with the legacy retirement.
 - `docs/U2_U3_RENAME_FOLLOWUPS.md:52` cites a `dashboard.html:172` bug
   that no longer exists at this HEAD.

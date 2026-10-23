@@ -1,4 +1,4 @@
-"""Migration 083: drop the legacy inventory tables and link columns (item 30 S5b).
+"""Migration 083: drop the legacy inventory tables and link columns (legacy slice S5b).
 
 DESTRUCTIVE. See docs/specs/retire-legacy-inventory.md section 9 (S5).
 Take a backup first. Dry run by default; --apply commits.

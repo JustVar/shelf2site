@@ -1,4 +1,4 @@
-"""Contract tests for build certification on edge box items (item 30 S4).
+"""Contract tests for build certification on edge box items (legacy slice S4).
 
 The certification index, detail page and write routes resolve the unit
 through device_provisioning.item_id; the legacy edge_boxes table is no

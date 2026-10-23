@@ -43,7 +43,7 @@ register(templates.env)
 
 def find_serial_anywhere(db: Session, serial: str) -> dict | None:
     """Unified serial lookup (audit H1): case-insensitive over
-    item_schema.items, the only inventory model since item 30 S4.
+    item_schema.items, the only inventory model since legacy slice S4.
 
     Matches on lower() equality, NOT ilike — scanned strings can contain
     % or _ which ilike would treat as wildcards.
@@ -91,7 +91,7 @@ TARGET_TABLE_TO_CATEGORY = {
     "cameras": "camera",
     "webcams": "webcam",
     "network_equipment": "network",
-    # item 30 S3: phones, webcams, printers and NAS have their own categories
+    # legacy slice S3: phones, webcams, printers and NAS have their own categories
     # (migration 080); a NAS is a unit that holds its drives.
     "nas_devices": "nas",
     "access_control": "access_control",
@@ -407,7 +407,7 @@ async def close_receiving_event(
 # Barcode scan processing — §4 routing table (SCANNER_AUDIT, approved)
 # ---------------------------------------------------------------------------
 
-# MAC-bearing columns on items (item 30 S4: the legacy MAC tables are gone
+# MAC-bearing columns on items (legacy slice S4: the legacy MAC tables are gone
 # from lookups). Items' macaddr columns compare against normalize_mac text.
 _ITEM_MAC_COLUMNS = (Item.item_mac_address_1, Item.item_mac_address_2)
 

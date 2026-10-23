@@ -224,13 +224,13 @@ def item_detail_page(
     delete_request = pending_for(db, "items", item_id)
     delete_blockers = (item_blockers(db, item_id)
                        if user.is_editor_or_above and not delete_request else [])
-    # Credentials section (item 30 S4): counted only for users who may open them,
+    # Credentials section (legacy slice S4): counted only for users who may open them,
     # so the page does not reveal that an item has stored logins to anyone else.
     credential_count = (
         db.query(DeviceCredential).filter(DeviceCredential.item_id == item_id).count()
         if user.has_credentials_access else 0
     )
-    # Warranties section (item 30 S4): read-only; the Warranty page edits them.
+    # Warranties section (legacy slice S4): read-only; the Warranty page edits them.
     today = local_today()
     warranties = []
     for w in (db.query(DeviceWarranty)

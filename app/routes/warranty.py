@@ -5,7 +5,7 @@ item_schema.items through device_warranties.item_id and records vendor,
 start, end and notes. Customer warranties on shipped hardware are tracked by
 the OEM, not here. RMA claims and internal loaners were retired in the same
 change; their columns and the warranty_claims table dropped in migration 083
-(item 30 S5).
+(legacy slice S5).
 """
 
 import csv

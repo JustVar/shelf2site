@@ -192,6 +192,14 @@ Each of these was a live hole found by probing the running app.
 - **Cross-site writes are refused in `request_hygiene_middleware`** (`main.py`).
   A route needs no CSRF token of its own.
 
+## Legacy slices
+
+Comments that say "legacy slice S1" to "S5", or "the legacy retirement", refer
+to the five slices that moved every reader and writer from the old
+per-category tables onto `item_schema.items` and then dropped those tables
+(migrations 080 to 083). The plan and the record of each slice are in
+`docs/specs/retire-legacy-inventory.md`.
+
 ## The item category vocabulary is hand-maintained
 
 The app does not read `item_categories` from the database. `ALL_CATEGORIES`
@@ -208,9 +216,9 @@ filtered. A new enum value therefore also needs an entry in:
 - `TARGET_TABLE_TO_CATEGORY` (`app/routes/receiving.py`), if scan intake
   should create it.
 
-Migration 080 added `phone`, `webcam`, `printer` and `nas` (board item 30
-S1); scan intake maps phones, webcams, printers and NAS to them since
-item 30 S3.
+Migration 080 added `phone`, `webcam`, `printer` and `nas` (legacy slice S1);
+scan intake maps phones, webcams, printers and NAS to them since legacy
+slice S3.
 
 ## RBAC / Admin pages (post U4, 2026-05-18)
 
@@ -251,7 +259,7 @@ The Admin section is a collapsible nested menu (`.sx-nav__section[data-section="
 
 - **People** — Users, Departments
 - **Data & logs** — Audit log, Error log, OUI reference, Part Numbers, Receipts
-- **Integrations** — Notifications, Zendesk (Intune and Spreadsheet sync retired in item 30 S3)
+- **Integrations** — Notifications, Zendesk (Intune and Spreadsheet sync retired in legacy slice S3)
 - **System** — Maintenance, Storage
 
 Each subgroup auto-hides if no children inside it are visible to the current user. On page load the JS finds `.sx-nav__link--active` and walks up with `closest()` to expand that link's subgroup and section; it does NOT test the URL. Consequence: `/receipts` expands the Admin section even though its URL is not under `/admin/`.

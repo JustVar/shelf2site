@@ -1,4 +1,4 @@
-"""Contract tests for fulfillment and orders on items (item 30 S4).
+"""Contract tests for fulfillment and orders on items (legacy slice S4).
 
 Assignable stock, the order panel, the order page and SKU availability read
 item_schema.items; the legacy per-category tables are no longer read. All

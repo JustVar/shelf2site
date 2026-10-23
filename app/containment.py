@@ -20,7 +20,7 @@ from .models import Item, current_containment
 # than map PRODUCT_CATEGORIES / triage _DEPLOY_CATEGORIES, which stay
 # (edge_box, cloud_box, camera_c2c) — computers host components but do not
 # pin on the deployment map.
-# nas joined 2026-09-28 (item 30, migration 080): a NAS is a system and its
+# nas joined 2026-09-28 (the legacy retirement, migration 080): a NAS is a system and its
 # drives are contained storage_drive items (retire-legacy-inventory.md 6a).
 # receive.html keeps a JS copy, CTM_UNIT_CATS; change both together.
 UNIT_CATEGORIES = frozenset({"edge_box", "cloud_box", "camera_c2c", "computer", "nas"})

@@ -3,7 +3,7 @@
 Item 30 S4 (docs/specs/retire-legacy-inventory.md): an item's place is
 item_schema.items.location_id, so a site lists the items placed there.
 Device-to-site assignments (ownership type, return-by date) were retired in
-the same change; device_assignments dropped in migration 083 (item 30 S5).
+the same change; device_assignments dropped in migration 083 (legacy slice S5).
 """
 
 from datetime import datetime
