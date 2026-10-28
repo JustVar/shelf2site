@@ -22,9 +22,10 @@ set up so that its work had to prove itself.
 > Every screenshot and video below comes from the demo data that
 > `scripts/seed_demo.py` creates.
 
-**[Watch the 3.5 minute walkthrough](docs/media/proof/shelf2site-walkthrough.mp4)**:
+**[Watch the 4 minute walkthrough](docs/media/proof/shelf2site-walkthrough.mp4)**:
 a new pilot is created, units are assigned from stock and shipped, the site
-visit is scheduled and certified, and a vendor order gets its certificate.
+visit is scheduled and certified, a vendor order gets its certificate, and the
+deployment map is explored end to end.
 
 ![The fulfillment board: tiles for open, late, due back and missing documents, tabs for each track, and one card per order](docs/media/clips/board.gif)
 
@@ -72,6 +73,13 @@ page in both themes.
 |---|---|
 | ![Creating a pilot, assigning units from stock and shipping it](docs/media/clips/pilot.gif) | ![Attaching a vendor certificate to an order that shipped without one](docs/media/clips/docs.gif) |
 | **A pilot, start to ship.** | **A missing certificate, attached.** |
+
+![The deployment map: clusters opening into single units, a unit popup, colouring by deal, unit type and status, the deal filter, a customer and a serial search](docs/media/clips/map.gif)
+
+**The deployment map.** Clusters open into units, each with its customer,
+site, deal and status; colour by deal, unit type or status; filter, jump to a
+customer, or search a serial. The walkthrough also hides and restores a site
+and pins a site that had no location.
 
 MP4 versions are in [docs/media/clips](docs/media/clips). Every image and
 video here is produced by [scripts/capture_media.py](scripts/capture_media.py),

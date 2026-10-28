@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,7 +34,7 @@ VIDEO = {"width": 1600, "height": 1000}
 PHONE = {"width": 390, "height": 844}
 
 # Injected into every page while recording: a caption bar the script writes
-# to, and a visible pointer with a click ring, since recordings carry neither.
+# to. The pointer is drawn afterwards (see Pointer), since a recording carries none.
 OVERLAY_JS = r"""
 (() => {
   function mount() {
@@ -47,11 +48,6 @@ OVERLAY_JS = r"""
         transition: opacity .25s; pointer-events: none; text-align: left; }
       #s2s-cap small { display: block; font-weight: 500; font-size: 14px; opacity: .8; margin-top: 2px; }
       #s2s-cap:empty { opacity: 0; }
-      #s2s-ptr { position: fixed; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
-        border: 2px solid #fff; background: rgba(22,144,188,.55); box-shadow: 0 0 0 2px rgba(0,0,0,.35);
-        z-index: 2147483646; pointer-events: none; transition: transform .12s; left: -50px; top: -50px;
-        will-change: left, top; }
-      #s2s-ptr.down { transform: scale(.7); background: rgba(79,195,234,.95); }
       #s2s-card { position: fixed; inset: 0; z-index: 2147483647; display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 18px; background: #0B1A22; color: #EAF2F5;
         font: 600 22px Inter, system-ui, sans-serif; text-align: center; }
@@ -62,14 +58,6 @@ OVERLAY_JS = r"""
     const cap = document.createElement('div'); cap.id = 's2s-cap';
     cap.innerHTML = sessionStorage.getItem('s2s-cap') || '';
     document.documentElement.appendChild(cap);
-    const ptr = document.createElement('div'); ptr.id = 's2s-ptr';
-    const last = (sessionStorage.getItem('s2s-ptr') || '-50,-50').split(',');
-    ptr.style.left = last[0] + 'px'; ptr.style.top = last[1] + 'px';
-    document.documentElement.appendChild(ptr);
-    addEventListener('mousemove', e => { ptr.style.left = e.clientX + 'px'; ptr.style.top = e.clientY + 'px';
-      sessionStorage.setItem('s2s-ptr', e.clientX + ',' + e.clientY); }, true);
-    addEventListener('mousedown', () => ptr.classList.add('down'), true);
-    addEventListener('mouseup', () => ptr.classList.remove('down'), true);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
   window.__s2sCaption = (html) => { sessionStorage.setItem('s2s-cap', html);
@@ -94,30 +82,106 @@ MAP_HOOK_JS = r"""
 """
 
 
+class Pointer:
+    """The visible pointer, drawn onto the finished video from a timed log.
+
+    A pointer drawn inside the page stutters in the recording: the headless
+    browser paints unevenly and the recorder samples those paints at 25 fps,
+    so a steady glide comes out in uneven steps (measured: 75, 74, 148, 108
+    px per frame where the curve wanted a smooth rise). Drawing it afterwards
+    puts it exactly where the curve says on every frame."""
+
+    SIZE = 30
+    LEAD = 0.06     # the recorder starts a frame or two before the page clock; measured
+
+    def __init__(self):
+        self.t0 = time.monotonic()
+        self.moves = []     # (start, end, x0, y0, x1, y1)
+        self.downs = []     # (start, end)
+        self.x, self.y = 800.0, 520.0
+
+    def now(self):
+        return time.monotonic() - self.t0
+
+    def at(self, t):
+        x, y = self.moves[0][2:4] if self.moves else (self.x, self.y)
+        for a, b, x0, y0, x1, y1 in self.moves:
+            if t < a:
+                break
+            if t >= b:
+                x, y = x1, y1
+                continue
+            u = (t - a) / (b - a)
+            e = 4 * u ** 3 if u < 0.5 else 1 - (-2 * u + 2) ** 3 / 2    # ease in and out
+            return x0 + (x1 - x0) * e, y0 + (y1 - y0) * e
+        return x, y
+
+    def is_down(self, t):
+        return any(a <= t < b for a, b in self.downs)
+
+    def images(self, folder):
+        """The pointer at rest and pressed, drawn large and scaled down so the edges are smooth."""
+        from PIL import Image, ImageDraw
+        paths = []
+        for name, r, fill in (("ptr.png", 11, (22, 144, 188, 150)), ("ptr-down.png", 8, (79, 195, 234, 245))):
+            k, n = 4, self.SIZE
+            im = Image.new("RGBA", (n * k, n * k), (0, 0, 0, 0))
+            dr = ImageDraw.Draw(im)
+            c = n * k / 2
+            dr.ellipse([c - (r + 2) * k, c - (r + 2) * k, c + (r + 2) * k, c + (r + 2) * k], fill=(0, 0, 0, 90))
+            dr.ellipse([c - r * k, c - r * k, c + r * k, c + r * k], fill=(255, 255, 255, 255))
+            dr.ellipse([c - (r - 2) * k, c - (r - 2) * k, c + (r - 2) * k, c + (r - 2) * k], fill=fill)
+            path = folder / name
+            im.resize((n, n), Image.LANCZOS).save(path)
+            paths.append(path)
+        return paths
+
+    def commands(self, duration, fps=25):
+        """An ffmpeg sendcmd script that places the two pointer overlays each frame."""
+        half, off = self.SIZE / 2, -100
+        lines, last = [], None
+        for i in range(int(duration * fps) + 2):
+            t = i / fps
+            x, y = self.at(t + self.LEAD)
+            down = self.is_down(t + self.LEAD)
+            px, py = (off, off) if down else (round(x - half), round(y - half))
+            dx, dy = (round(x - half), round(y - half)) if down else (off, off)
+            state = (px, py, dx, dy)
+            if state != last:
+                lines.append(f"{t:.3f} overlay@p x {px}, overlay@p y {py}, overlay@d x {dx}, overlay@d y {dy};")
+                last = state
+        return "\n".join(lines) + "\n"
+
+
 class Driver:
     """A page plus the small vocabulary the recordings are written in."""
 
-    def __init__(self, page, base):
+    def __init__(self, page, base, pointer=None):
         self.p = page
         self.base = base
-        self.x, self.y = 800.0, 520.0          # where the drawn pointer is now
+        self.ptr = pointer or Pointer()
+
+    @property
+    def x(self):
+        return self.ptr.x
+
+    @property
+    def y(self):
+        return self.ptr.y
 
     def glide(self, x, y):
-        """Move the pointer to (x, y) the way a hand would: eased, one small
-        step per frame. Playwright's own steps all land within a frame or two,
-        which the recording shows as a jump or a stutter."""
+        """Move the pointer to (x, y) the way a hand would, eased in and out.
+        The real mouse arrives at the end; the drawn one follows the log."""
         import math
-        dist = math.hypot(x - self.x, y - self.y)
+        dist = math.hypot(x - self.ptr.x, y - self.ptr.y)
         if dist < 1:
             return
-        frames = max(10, min(42, int(dist / 22)))
-        x0, y0 = self.x, self.y
-        for i in range(1, frames + 1):
-            t = i / frames
-            e = t * t * (3 - 2 * t)
-            self.p.mouse.move(x0 + (x - x0) * e, y0 + (y - y0) * e)
-            self.p.wait_for_timeout(16)
-        self.x, self.y = x, y
+        ms = int(max(300, min(850, dist * 0.9)))
+        start = self.ptr.now()
+        self.ptr.moves.append((start, start + ms / 1000, self.ptr.x, self.ptr.y, x, y))
+        self.p.wait_for_timeout(ms)
+        self.p.mouse.move(x, y)
+        self.ptr.x, self.ptr.y = x, y
 
     def go(self, path, wait=1600):
         self.p.goto(self.base + path)
@@ -153,9 +217,11 @@ class Driver:
 
     def press(self):
         """Click where the pointer already is, so nothing moves it first."""
+        start = self.ptr.now()
         self.p.mouse.down()
-        self.p.wait_for_timeout(90)
+        self.p.wait_for_timeout(110)
         self.p.mouse.up()
+        self.ptr.downs.append((start, max(self.ptr.now(), start + 0.16)))
 
     # The map --------------------------------------------------------------
 
@@ -359,21 +425,33 @@ def record(base, out, name, script, viewport=VIDEO, theme="dark"):
         ctx.add_init_script(OVERLAY_JS)
         ctx.add_init_script(MAP_HOOK_JS)
         page = ctx.new_page()
-        script(Driver(page, base), tmp)
+        pointer = Pointer()     # the video's clock starts with the page
+        script(Driver(page, base, pointer), tmp)
         page.wait_for_timeout(600)
         video = page.video.path()
         ctx.close()
         b.close()
     mp4 = out / f"{name}.mp4"
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video), "-c:v", "libx264", "-preset", "slow",
-                    "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(mp4)], check=True)
+    duration = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                                     str(video)], capture_output=True, text=True, check=True).stdout.strip())
+    cmds = tmp / "pointer.cmd"
+    cmds.write_text(pointer.commands(duration))
+    up, down = pointer.images(tmp)
+    graph = (f"[0:v]fps=25,sendcmd=f='{cmds}'[v0];"
+             "[v0][1:v]overlay@p=x=-100:y=-100:shortest=1[v1];"
+             "[v1][2:v]overlay@d=x=-100:y=-100:shortest=1,format=yuv420p[v]")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video), "-loop", "1", "-i", str(up),
+                    "-loop", "1", "-i", str(down), "-filter_complex", graph, "-map", "[v]", "-t", f"{duration:.3f}",
+                    "-c:v", "libx264", "-preset", "slow", "-crf", "22", "-movflags", "+faststart", str(mp4)],
+                   check=True)
     shutil.rmtree(tmp, ignore_errors=True)
     print("wrote", mp4)
     return mp4
 
 
-def gif(mp4, out_gif, width=800, fps=8):
-    """A small looping GIF for the README, from an MP4."""
+def gif(mp4, out_gif, width=720, fps=12):
+    """A small looping GIF for the README, from an MP4. Below about 12 fps the
+    pointer reads as jumping rather than gliding."""
     palette = out_gif.with_suffix(".palette.png")
     vf = f"fps={fps},scale={width}:-1:flags=lanczos"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp4), "-vf", vf + ",palettegen=max_colors=96:stats_mode=diff",
