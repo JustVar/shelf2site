@@ -212,7 +212,7 @@ def build_mark():
     route = union(two, bar(start1, back1, band), head1, base_bar, head2)
     letters = minus(union(S, S2), grown(route, s_w * CUT_GAP))
     return dict(letters=letters, route=route, box=bounds(union(route, letters)), s_w=s_w,
-                slope=(tip1[0] - start1[0], tip1[1] - start1[1]))
+                two_top=ht, two_base=bb)
 
 
 _MARK = build_mark()
@@ -249,39 +249,23 @@ def tab_tile():
 
 
 
-def arrow_two(font=S_FONT):
-    """The mark's 2 at full letter size, standing on the baseline, with both
-    arrows cut short: the top one leaves at the mark's slope and stops just
-    left of the 2, the base one runs level just past it. Same weight as the
-    name's letters. Returns the path (y-up font units) and its advance."""
-    F = Face(font)
-    (tx0, _, tx1, _), base, top = two_bands(F, 1.0)
-    band = base[1] - base[0]
-    two = F.path("2")
-    hb, ht, bb, bt = top[0], top[1], base[0], base[1]
-    hc, bc = (hb + ht) / 2, (bb + bt) / 2
-    cut_x = tx0 + (tx1 - tx0) * 0.40
-    two = minus(two, rect(-9000, -9000, cut_x, hb - 0.5))
-    join_x = tx0 + (tx1 - tx0) * 0.62
-    two = minus(two, rect(join_x, bb - 50, 9000, bt + 0.5))
-    half = band * 1.25
-    start1 = (cut_x + band * 0.3, hc)
-    dx, dy = _MARK["slope"]
-    t = (tx0 - band * 0.9 - start1[0]) / dx
-    tip1 = (start1[0] + dx * t, start1[1] + dy * t)
-    head1, back1 = arrow_head(tip1, start1, half * 1.75, half)
-    tip2 = (tx1 + band * 1.6, bc)
-    head2, back2 = arrow_head(tip2, (tx1, bc), half * 1.75, half)
-    route = union(two, bar(start1, back1, band), head1, rect(join_x - 2, bb, back2[0] + 2, bt), head2)
-    x0, _, x1, _ = bounds(route)
-    return route, x0, x1, band
+def name_two():
+    """The icon's own 2 and arrows, scaled so the 2 stands one cap height
+    tall on the baseline. Returns the path (y-up font units), its left and
+    right edges and its stroke."""
+    F = Face(S_FONT)
+    k = F.cap / (_MARK["two_top"] - _MARK["two_base"])
+    two = pathops.Path()
+    _MARK["route"].draw(TransformPen(two.getPen(), (k, 0, 0, k, 0, -_MARK["two_base"] * k)))
+    x0, _, x1, _ = bounds(two)
+    return two, x0, x1, _MARK["s_w"] * k
 
 
-WORD_GAP = 0.7           # space either side of the 2 in the name, in strokes
+WORD_GAP = 0.6           # space either side of the 2 in the name, in strokes
 
 
 def wordmark():
-    """The name with the arrow 2 in place of the plain 2. Returns (letters,
+    """The name with the icon's 2 in place of the plain 2. Returns (letters,
     two) path data in font units (y down), the total advance and the cap
     height."""
     F = Face(S_FONT)
@@ -291,7 +275,7 @@ def wordmark():
         p.draw(TransformPen(pen, (1, 0, 0, -1, dx, 0)))
         return pen.getCommands()
 
-    two, tx0, tx1, band = arrow_two()
+    two, tx0, tx1, band = name_two()
     x, shelf = 0, pathops.Path()
     for ch in "Shelf":
         shelf = union(shelf, F.path(ch, dx=x))
