@@ -185,7 +185,27 @@ CUSTOMERS = {  # customer: [(site name, city, state, lat, lng)]
     "Oakmont Hotels": [("Oakmont Hotel - Santa Fe", "Santa Fe", "NM", 35.6870, -105.9378)],
     "Northgate Stadium": [("Northgate Stadium - Lubbock", "Lubbock", "TX", 33.5779, -101.8552)],
     "Gulf Coast Marina": [("Gulf Coast Marina - Corpus Christi", "Corpus Christi", "TX", 27.8006, -97.3964)],
+    # The wider fleet on the map: installed sales and loans across the country.
+    "Lakeshore Logistics": [("Lakeshore - Chicago Hub", "Chicago", "IL", 41.8781, -87.6298),
+                            ("Lakeshore - Milwaukee Yard", "Milwaukee", "WI", 43.0389, -87.9065),
+                            ("Lakeshore - Indianapolis DC", "Indianapolis", "IN", 39.7684, -86.1581),
+                            ("Lakeshore - Detroit Cross-Dock", "Detroit", "MI", 42.3314, -83.0458)],
+    "Cascade Water District": [("Cascade Water - Seattle Plant", "Seattle", "WA", 47.6062, -122.3321),
+                               ("Cascade Water - Portland Pump Station", "Portland", "OR", 45.5152, -122.6784),
+                               ("Cascade Water - Boise Reservoir", "Boise", "ID", 43.6150, -116.2023)],
+    "Liberty Transit Authority": [("Liberty Transit - Philadelphia Depot", "Philadelphia", "PA", 39.9526, -75.1652),
+                                  ("Liberty Transit - Boston Garage", "Boston", "MA", 42.3601, -71.0589),
+                                  ("Liberty Transit - Baltimore Yard", "Baltimore", "MD", 39.2904, -76.6122)],
+    "Sunbelt Parks": [("Sunbelt Parks - Atlanta", "Atlanta", "GA", 33.7490, -84.3880),
+                      ("Sunbelt Parks - Orlando", "Orlando", "FL", 28.5384, -81.3789),
+                      ("Sunbelt Parks - Miami", "Miami", "FL", 25.7617, -80.1918)],
+    "Bayview Medical": [("Bayview Medical - San Diego", "San Diego", "CA", 32.7157, -117.1611),
+                        ("Bayview Medical - Los Angeles", "Los Angeles", "CA", 34.0522, -118.2437)],
 }
+
+# A customer site whose coordinates are left out on purpose, so the map's
+# "units missing location data" card has a unit to pin.
+UNPINNED_SITES = {"Sunbelt Parks - Miami"}
 
 
 def make_demo_user():
@@ -309,7 +329,7 @@ def seed(s: Seeder):
     edge_common = {"item_manufacturer": "Granite Compute", "item_category": "edge_box",
                    "department_or_owner": "Hardware", "vendor_id": V["granite-compute"], "mac": True}
     for key, sku, model, n, status, place, days_ago in [
-        ("edge25", "EDGE25-NR", "GX-25 Edge Server", 6, "Ready to Deploy", wh, 70),
+        ("edge25", "EDGE25-NR", "GX-25 Edge Server", 10, "Ready to Deploy", wh, 70),
         ("edge50", "EDGE50-NR", "GX-50 Edge Server", 8, "Pending", lab, 40),
         ("edge100", "EDGE100-Z2", "GX-100 Edge Server", 6, "Pending", lab, 30),
         ("edge200", "EDGE200-Z2", "GX-200 Edge Server", 3, "Ready to Deploy", wh, 90),
@@ -325,9 +345,9 @@ def seed(s: Seeder):
     cam_common = {"item_manufacturer": "Lumen Optics", "item_category": "camera_c2c",
                   "department_or_owner": "Hardware", "vendor_id": V["lumen-optics"],
                   "location_id": wh, "item_status": "Ready to Deploy", "mac": True}
-    batch("cam4", 24, dict(cam_common, item_name="Dome Camera 4MP", item_model="LD-4 Dome", item_sku="C2C-GEN1-4MP",
+    batch("cam4", 44, dict(cam_common, item_name="Dome Camera 4MP", item_model="LD-4 Dome", item_sku="C2C-GEN1-4MP",
                            item_sn="C2C4", item_pn="PN-C2C4", date_purchased=d(-55)), receipt_po="LO-7781")
-    batch("cam8", 14, dict(cam_common, item_name="Bullet Camera 8MP", item_model="LB-8 Bullet", item_sku="C2C-GEN1-8MP",
+    batch("cam8", 30, dict(cam_common, item_name="Bullet Camera 8MP", item_model="LB-8 Bullet", item_sku="C2C-GEN1-8MP",
                            item_sn="C2C8", item_pn="PN-C2C8", date_purchased=d(-55)), receipt_po="LO-7782")
     batch("cloudbox", 3, {"item_name": "Cloud Gateway", "item_manufacturer": "Granite Compute", "item_model": "CG-1U",
                           "item_category": "cloud_box", "item_status": "Ready to Deploy", "location_id": wh,
@@ -675,6 +695,95 @@ def seed(s: Seeder):
     o_cancel = order("Pinewood Storage", "pilot", expected_return=d(30))
     s.post(f"/api/orders/{o_cancel}/cancel", json={"reason": "Customer postponed the project to next year"})
 
+    # The wider fleet: installed sales and loans spread over many sites, so the
+    # map has clusters, every deal type, a mix of statuses and a unit to pin.
+    def spread(oid, plan):
+        """Place an order's units, in assignment order, across [(site, count)]."""
+        pids = units_of(oid)
+        i = 0
+        for site, n in plan:
+            for pid in pids[i:i + n]:
+                s.put(f"/api/provisioning/{pid}", json={"site_id": ids["site"][site]})
+            i += n
+
+    def set_status(iid, status, note):
+        db = SessionLocal()
+        try:
+            from app.models import Item
+            row = db.get(Item, iid)
+            form = {c: getattr(row, c) for c in (
+                "item_name", "item_manufacturer", "item_model", "item_sn", "item_category",
+                "location_id", "department_or_owner", "item_mac_address_1", "item_mac_address_2",
+                "item_storage_size_gb", "item_sku", "item_pn", "item_associated_pn", "platform_uuid",
+                "vendor_id", "item_vendor", "date_purchased", "intended_purpose", "dispatched_date",
+                "tracking_number")}
+        finally:
+            db.close()
+        form.update(item_status=status, notes=note)
+        s.post(f"/items/{iid}", what="set status", expect=(303,),
+               data={k: ("" if v is None else str(v)) for k, v in form.items()})
+
+    def installed_sale(customer, po, ago, edge_ids, cam_ids, lines, plan):
+        oid = order(customer, "sale", po_number=po, due_date=d(-ago), sales_engineer="Jordan Lee",
+                    sales_engineer_id=se)
+        reqs(oid, lines)
+        advance(oid, "building")
+        if edge_ids:
+            assign(oid, edge_ids)
+        acquire(oid, cam_ids)
+        advance(oid, "shipped")
+        s.post(f"/fulfillment/{oid}/ship", json={
+            "ship_method": "carrier", "carrier": "UPS", "tracking_number": f"DEMO-TRK-{po[-4:]}",
+            "shipped_date": d(-ago - 6), "delivered_date": d(-ago - 3), "recipient_name": "Facilities"})
+        document(oid, f"{po.lower()}-certificate.pdf", "certification", "Certificate of conformance",
+                 [f"Customer order {po}", "Burn-in 48h: pass", "Signed: build lab QA"],
+                 note="Build certificate")
+        spread(oid, plan)
+        advance(oid, "installed")
+        return oid
+
+    lake_cams = [cams4.pop() for _ in range(5)] + [cams8.pop() for _ in range(4)]
+    installed_sale("Lakeshore Logistics", "LSL-PO-4417", 140, [e25.pop(0)], lake_cams,
+                   [("EDGE25-NR", 1, "stock"), ("C2C-GEN1-4MP", 5, "stock"), ("C2C-GEN1-8MP", 4, "stock")],
+                   [("Lakeshore - Chicago Hub", 4), ("Lakeshore - Milwaukee Yard", 2),
+                    ("Lakeshore - Indianapolis DC", 2), ("Lakeshore - Detroit Cross-Dock", 2)])
+    cascade_cams = [cams4.pop() for _ in range(6)]
+    installed_sale("Cascade Water District", "CWD-2026-031", 95, [e25.pop(0)], cascade_cams,
+                   [("EDGE25-NR", 1, "stock"), ("C2C-GEN1-4MP", 6, "stock")],
+                   [("Cascade Water - Seattle Plant", 3), ("Cascade Water - Portland Pump Station", 2),
+                    ("Cascade Water - Boise Reservoir", 2)])
+    liberty_cams = [cams8.pop() for _ in range(8)]
+    installed_sale("Liberty Transit Authority", "LTA-PO-7720", 60, [cboxes.pop(0)], liberty_cams,
+                   [("CLOUDBOX-1U", 1, "stock"), ("C2C-GEN1-8MP", 8, "stock")],
+                   [("Liberty Transit - Philadelphia Depot", 4), ("Liberty Transit - Boston Garage", 3),
+                    ("Liberty Transit - Baltimore Yard", 2)])
+    # Two units at site but not in service: the map and triage both flag them.
+    set_status(lake_cams[-1], "Un-deployable", "Failed at site; replacement requested")
+    set_status(cascade_cams[-1], "Pending", "Pulled for a firmware re-flash")
+
+    o_sunbelt = order("Sunbelt Parks", "pilot", expected_return=d(48), due_date=d(-20),
+                      notes="Three parks, 60 day pilot")
+    reqs(o_sunbelt, [("EDGE25-NR", 1, "stock"), ("C2C-GEN1-4MP", 6, "stock")])
+    assign(o_sunbelt, [e25.pop(0)])
+    acquire(o_sunbelt, [cams4.pop() for _ in range(6)])
+    advance(o_sunbelt, "shipped", "at_site")
+    s.post(f"/fulfillment/{o_sunbelt}/ship", json={
+        "ship_method": "carrier", "carrier": "FedEx", "tracking_number": "DEMO-TRK-47002",
+        "shipped_date": d(-22), "delivered_date": d(-20), "recipient_name": "Parks Operations"})
+    spread(o_sunbelt, [("Sunbelt Parks - Atlanta", 3), ("Sunbelt Parks - Orlando", 2),
+                       ("Sunbelt Parks - Miami", 2)])
+
+    o_bayview = order("Bayview Medical", "try_and_buy", expected_return=d(38), due_date=d(-12))
+    reqs(o_bayview, [("C2C-GEN1-8MP", 4, "stock")])
+    acquire(o_bayview, [cams8.pop() for _ in range(4)])
+    advance(o_bayview, "shipped", "at_site")
+    s.post(f"/fulfillment/{o_bayview}/ship", json={
+        "ship_method": "carrier", "carrier": "UPS", "tracking_number": "DEMO-TRK-47118",
+        "shipped_date": d(-14), "delivered_date": d(-12), "recipient_name": "Clinic Security"})
+    spread(o_bayview, [("Bayview Medical - San Diego", 2), ("Bayview Medical - Los Angeles", 2)])
+
+    place(o_mesa, "Mesa Verde - Phoenix Plant")   # a demo unit on the map
+
     # Map coordinates: one call per customer site that now holds a unit ------------
     db = SessionLocal()
     try:
@@ -685,6 +794,8 @@ def seed(s: Seeder):
     finally:
         db.close()
     for site_name, item_id in rows:
+        if site_name in UNPINNED_SITES:
+            continue
         lat, lng = coords[site_name]
         s.post("/map/set-location", json={"kind": "item", "id": item_id, "lat": lat, "lng": lng})
         s.bump("sites mapped")

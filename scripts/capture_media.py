@@ -49,8 +49,9 @@ OVERLAY_JS = r"""
       #s2s-cap:empty { opacity: 0; }
       #s2s-ptr { position: fixed; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
         border: 2px solid #fff; background: rgba(22,144,188,.55); box-shadow: 0 0 0 2px rgba(0,0,0,.35);
-        z-index: 2147483646; pointer-events: none; transition: transform .12s; left: -50px; top: -50px; }
-      #s2s-ptr.down { transform: scale(.7); background: rgba(242,201,196,.9); }
+        z-index: 2147483646; pointer-events: none; transition: transform .12s; left: -50px; top: -50px;
+        will-change: left, top; }
+      #s2s-ptr.down { transform: scale(.7); background: rgba(79,195,234,.95); }
       #s2s-card { position: fixed; inset: 0; z-index: 2147483647; display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 18px; background: #0B1A22; color: #EAF2F5;
         font: 600 22px Inter, system-ui, sans-serif; text-align: center; }
@@ -76,6 +77,22 @@ OVERLAY_JS = r"""
 })();
 """
 
+# Keeps a handle on the map so a recording can find a cluster or a unit on the
+# canvas: maplibre draws them as pixels, not as elements a selector can reach.
+MAP_HOOK_JS = r"""
+(() => {
+  let lib;
+  Object.defineProperty(window, 'maplibregl', { configurable: true, get() { return lib; }, set(v) {
+    if (v && v.Map && !v.__s2s) {
+      const Base = v.Map;
+      v.Map = class extends Base { constructor(...a) { super(...a); window.__s2sMap = this; } };
+      v.__s2s = true;
+    }
+    lib = v;
+  } });
+})();
+"""
+
 
 class Driver:
     """A page plus the small vocabulary the recordings are written in."""
@@ -83,6 +100,24 @@ class Driver:
     def __init__(self, page, base):
         self.p = page
         self.base = base
+        self.x, self.y = 800.0, 520.0          # where the drawn pointer is now
+
+    def glide(self, x, y):
+        """Move the pointer to (x, y) the way a hand would: eased, one small
+        step per frame. Playwright's own steps all land within a frame or two,
+        which the recording shows as a jump or a stutter."""
+        import math
+        dist = math.hypot(x - self.x, y - self.y)
+        if dist < 1:
+            return
+        frames = max(10, min(42, int(dist / 22)))
+        x0, y0 = self.x, self.y
+        for i in range(1, frames + 1):
+            t = i / frames
+            e = t * t * (3 - 2 * t)
+            self.p.mouse.move(x0 + (x - x0) * e, y0 + (y - y0) * e)
+            self.p.wait_for_timeout(16)
+        self.x, self.y = x, y
 
     def go(self, path, wait=1600):
         self.p.goto(self.base + path)
@@ -100,15 +135,65 @@ class Driver:
 
     def point(self, selector, nth=0):
         loc = self.p.locator(selector).nth(nth)
-        loc.scroll_into_view_if_needed()
+        loc.wait_for(state="visible")
+        in_view = loc.evaluate("e => { const r = e.getBoundingClientRect();"
+                               " return r.top >= 70 && r.bottom <= innerHeight - 110; }")
+        if not in_view:   # scroll smoothly first, so the page never jumps under the pointer
+            loc.evaluate("e => e.scrollIntoView({behavior: 'smooth', block: 'center'})")
+            self.p.wait_for_timeout(750)
         box = loc.bounding_box()
-        self.p.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=18)
+        self.glide(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
         return loc
 
     def click(self, selector, nth=0, pause=500):
-        loc = self.point(selector, nth)
-        self.p.wait_for_timeout(250)
-        loc.click()
+        self.point(selector, nth)
+        self.p.wait_for_timeout(220)
+        self.press()
+        self.p.wait_for_timeout(pause)
+
+    def press(self):
+        """Click where the pointer already is, so nothing moves it first."""
+        self.p.mouse.down()
+        self.p.wait_for_timeout(90)
+        self.p.mouse.up()
+
+    # The map --------------------------------------------------------------
+
+    def map_ready(self):
+        self.p.wait_for_function("() => window.__s2sMap && window.__s2sMap.loaded()"
+                                 " && window.__s2sMap.getSource('units')", timeout=20000)
+        self.map_idle()
+
+    def map_idle(self, extra=500):
+        self.p.wait_for_function("() => !window.__s2sMap.isMoving() && window.__s2sMap.loaded()",
+                                 timeout=20000)
+        self.p.wait_for_timeout(extra)
+
+    def map_spot(self, layer, pick="biggest", match=None):
+        """Page coordinates of a cluster or unit on the canvas."""
+        return self.p.evaluate("""([layer, pick, match]) => {
+            const m = window.__s2sMap, c = m.getCanvas(), r = c.getBoundingClientRect();
+            // The app zooms the body (main.css), so canvas pixels and page
+            // pixels differ by that factor.
+            const k = r.width / c.clientWidth, w = c.clientWidth, h = c.clientHeight;
+            let fs = m.queryRenderedFeatures({layers: [layer]});
+            if (match) fs = fs.filter(f => Object.entries(match).every(([kk, v]) => f.properties[kk] === v));
+            fs = fs.map(f => ({f, pt: m.project(f.geometry.coordinates)}))
+                   .filter(o => o.pt.x > 40 && o.pt.y > 40 && o.pt.x < w - 40 && o.pt.y < h - 40);
+            if (!fs.length) return null;
+            if (pick === 'biggest') fs.sort((a, b) => (b.f.properties.point_count || 0) - (a.f.properties.point_count || 0));
+            return [r.left + fs[0].pt.x * k, r.top + fs[0].pt.y * k];
+        }""", [layer, pick, match])
+
+    def map_click(self, layer, pick="biggest", match=None, pause=900):
+        self.map_idle(0)
+        spot = self.map_spot(layer, pick, match)
+        if not spot:
+            raise SystemExit(f"nothing on the map layer {layer} to click")
+        self.glide(*spot)
+        self.p.wait_for_timeout(260)
+        self.map_idle(0)
+        self.press()
         self.p.wait_for_timeout(pause)
 
     def type(self, selector, text):
@@ -183,8 +268,9 @@ def tall_shot(page, path):
 
 def browser(p):
     exe = shutil.which("chromium") or None
-    for cand in sorted(Path("/opt/pw-browsers").glob("chromium-*/chrome-linux/chrome")):
-        exe = str(cand)
+    for pattern in ("chromium-*/chrome-linux/chrome", "chromium-*/chrome-linux64/chrome"):
+        for cand in sorted(Path("/opt/pw-browsers").glob(pattern)):
+            exe = str(cand)
     kw = {"args": ["--use-gl=swiftshader", "--enable-unsafe-swiftshader"]}
     if exe:
         kw["executable_path"] = exe
@@ -271,6 +357,7 @@ def record(base, out, name, script, viewport=VIDEO, theme="dark"):
                             storage_state=state)
         ctx.add_init_script(f"try {{ localStorage.setItem('theme', '{theme}') }} catch (e) {{}}")
         ctx.add_init_script(OVERLAY_JS)
+        ctx.add_init_script(MAP_HOOK_JS)
         page = ctx.new_page()
         script(Driver(page, base), tmp)
         page.wait_for_timeout(600)
@@ -363,13 +450,82 @@ def clip_docs(d, tmp):
     d.caption("")
 
 
-def clip_map(d, tmp):
-    d.go("/map/", 3200)
-    d.caption("Every deployed unit on a live map", "Colour by deal, unit type or status")
-    d.click("#mp-mode button[data-mode='unit']", pause=1600)
-    d.click("#mp-mode button[data-mode='status']", pause=1600)
-    d.click("#mp-mode button[data-mode='deal']", pause=900)
+US_VIEW = "window.__s2sMap.easeTo({center: [-96.5, 38.2], zoom: 3.35, duration: 1400})"
+
+
+def map_tour(d, full=True):
+    """The deployment map: clusters, a unit's popup, the three colourings,
+    the filters, a customer, a search, and (in full) hiding a site and
+    pinning a unit that has no location yet."""
+    d.go("/map/", 1000)
+    d.map_ready()
+    d.caption("Every deployed unit on a live map", "Units at every customer site, with the totals that matter")
+    d.point("#mp-metrics")
+    d.p.wait_for_timeout(2400)
+
+    d.caption("Clusters open as you zoom in", "Click one to see the units under it")
+    for _ in range(4):        # click into the biggest cluster until single units show
+        if d.map_spot("unit-dots", pick="any") or not d.map_spot("clusters"):
+            break
+        d.map_click("clusters", pause=300)
+        d.map_idle(900)
+    d.caption("Every unit carries its story", "Customer, site, serial, deal and status, and when a loan is due back")
+    d.map_click("unit-dots", pick="any", pause=2800)
+    if full:
+        d.caption("Curate what the map shows", "Hide a unit, a site or a whole customer, and bring it back")
+        d.click(".mp-pop .actions button:has-text('Hide site')", pause=300)
+        d.map_idle(1200)
+        d.click("#mp-hidden-list .mp-fixbtn", pause=300)
+        d.map_idle(1000)
+    else:
+        d.click(".maplibregl-popup-close-button", pause=400)
+
+    d.p.evaluate(US_VIEW)
+    d.map_idle(600)
+    d.caption("Colour it three ways", "By deal type, by unit type, or by status")
+    d.click("#mp-mode button[data-mode='unit']", pause=1700)
+    d.click("#mp-mode button[data-mode='status']", pause=600)
+    d.caption("Status shows what needs a look", "Two units at a site but not in service stand out at once")
+    d.p.wait_for_timeout(2200)
+    d.click("#mp-mode button[data-mode='deal']", pause=700)
+
+    d.caption("Filter by deal type", "Hide purchased units to see only the loans still out")
+    d.click("#mp-deal-bars .mp-bar", nth=0, pause=2200)
+    d.click("#mp-deal-bars .mp-bar", nth=0, pause=600)
+    if full:
+        d.caption("Or by unit type", "Here, only the edge servers")
+        d.click("#mp-unit-chips .mp-chip", nth=2, pause=2000)
+        d.click("#mp-unit-chips .mp-chip", nth=2, pause=600)
+
+    d.caption("Jump to a customer", "Every site of the customer in one view")
+    d.click("#mp-top-customers .mp-rank", nth=0, pause=300)
+    d.map_idle(1900)
+
+    serial = d.p.evaluate("""base => fetch(base + '/map/data').then(r => r.json()).then(j =>
+        (j.features.find(f => f.properties.status === 'Un-deployable') || j.features[0]).properties.serial)""", d.base)
+    d.caption("Find any unit", "Search by serial, name, customer or site")
+    d.type("#mp-search", serial)
+    d.p.wait_for_timeout(700)          # the search waits 300 ms before it flies
+    d.map_idle(1200)
+    d.map_click("unit-dots", pick="any", match={"serial": serial}, pause=2800)
+    d.click(".maplibregl-popup-close-button", pause=300)
+    d.p.locator("#mp-search").fill("")
+    d.p.evaluate(US_VIEW)
+    d.map_idle(500)
+
+    if full:
+        d.caption("Units missing a location", "Pin the site once and every unit there appears on the map")
+        d.click("#mp-nl-fix-list .mp-fixbtn", nth=0, pause=400)
+        d.type("#mp-nl-fix-list .mp-fixform.open input[placeholder='lat']", "25.7617")
+        d.type("#mp-nl-fix-list .mp-fixform.open input[placeholder='lng']", "-80.1918")
+        d.click("#mp-nl-fix-list .mp-fixform.open .mp-fixbtn", pause=900)
+        d.p.evaluate("window.__s2sMap.easeTo({center: [-81.4, 27.2], zoom: 5.6, duration: 1600})")
+        d.map_idle(2000)
     d.caption("")
+
+
+def clip_map(d, tmp):
+    map_tour(d, full=False)
 
 
 def proof(d, tmp):
@@ -480,10 +636,7 @@ def proof(d, tmp):
     d.p.wait_for_timeout(1800)
     d.scroll_to("#lane-stock", 2400)
 
-    d.go("/map/", 3000)
-    d.caption("Every deployed unit on a live map", "Colour by deal, unit type or status")
-    d.click("#mp-mode button[data-mode='unit']", pause=1500)
-    d.click("#mp-mode button[data-mode='deal']", pause=900)
+    map_tour(d, full=True)
 
     d.go("/inventory/", 1200)
     d.caption("Inventory", "Every item with its category, status and place")
