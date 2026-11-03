@@ -3,7 +3,7 @@
   <img src="static/img/logo-horizontal-light.svg" width="300" alt="Shelf2Site">
 </picture>
 
-# Shelf2Site: hardware from the shelf to the customer site
+# Shelf2Site: Hardware from the shelf to the customer site
 
 [![CI](https://github.com/JustVar/shelf2site/actions/workflows/ci.yml/badge.svg)](https://github.com/JustVar/shelf2site/actions/workflows/ci.yml)
 
