@@ -33,8 +33,8 @@ deployment map is explored end to end.
 |---|---|
 | What it does | Inventory with intake and barcode scanning, data-quality triage, warranties, sites and a deployment map, and a fulfillment board with two tracks: vendor-built orders and pilots or demos lent from stock |
 | Size | 258 routes (106 pages and reads, 152 writes), 49 templates, 85 migrations, 26 guided tours |
-| Tests | 1,096 contract tests that drive the running app over HTTP against a real Postgres database, including a census that checks every route for an auth gate |
-| History | Over 450 commits between May and October 2026, with 52 written specs in `docs/specs/` |
+| Tests | 1,169 contract tests that drive the running app over HTTP against a real Postgres database, including a census that checks every route for an auth gate |
+| History | Over 450 commits between May and October 2026, with 51 written specs in `docs/specs/` |
 | Stack | Python, FastAPI, Jinja2, HTMX, PostgreSQL 16, SQLAlchemy, server-sent events over Postgres LISTEN/NOTIFY, MapLibre, Docker Compose, GitHub Actions. Built with Claude as the pair. |
 
 ## Where to start
