@@ -18,7 +18,7 @@ cryptography==50.0.1       # Fernet-encrypted credentials vault
 bcrypt==4.3.0
 openpyxl==3.1.5            # Excel exports
 PyMuPDF==1.28.2            # composite certification report PDFs
-Pillow==12.3.0             # photo handling and OCR preprocessing
+Pillow==13.0.0             # photo handling and OCR preprocessing
 pytesseract==0.3.13        # OCR of label photos at intake
 mac-vendor-lookup==0.1.15  # MAC address manufacturer lookup
 aiosmtplib==5.1.3          # email notifications
